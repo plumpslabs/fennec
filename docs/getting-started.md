@@ -43,7 +43,7 @@ This starts the Fennec MCP server with stdio transport. Your AI agent (Claude De
 
 ### 2. Configure Your MCP Client
 
-For **Claude Desktop**, add to your `claude_desktop_config.json`:
+Add Fennec to any MCP client:
 
 ```json
 {
@@ -56,7 +56,7 @@ For **Claude Desktop**, add to your `claude_desktop_config.json`:
 }
 ```
 
-Run `fennec setup` for guided configuration.
+The config file location depends on your client. Run `fennec setup` for guided configuration.
 
 ### 3. Use Fennec Tools
 

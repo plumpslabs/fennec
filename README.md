@@ -159,9 +159,6 @@ fennec install-browsers
 
 # 3. Generate config file (optional)
 fennec init
-
-# 4. Start the MCP server
-fennec start
 ```
 
 ### Option 2: From Source
@@ -170,24 +167,15 @@ fennec start
 git clone https://github.com/plumpslabs/fennec.git
 cd fennec
 
-# Install dependencies
 pnpm install
-
-# Build both packages (core + cli)
 pnpm build
-
-# Install browser engines
 npx playwright install chromium --with-deps
-
-# Start the server
-node packages/cli/dist/index.js start
 ```
 
 ### Configure Your MCP Client
 
-Add Fennec to your MCP client (Claude Desktop, etc.):
+Fennec runs as an MCP server. Add this block to your MCP client's config file — **the client will start Fennec automatically** when needed:
 
-**Claude Desktop** — add to `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
@@ -199,18 +187,32 @@ Add Fennec to your MCP client (Claude Desktop, etc.):
 }
 ```
 
+No need to manually run `fennec start`. The config file location varies by client:
+
+| Client | Config File |
+|---|---|
+| Claude Desktop | `claude_desktop_config.json` |
+| Claude Code | `~/.claude/settings.json` |
+| Cline (VS Code) | `cline_mcp_settings.json` |
+| Cursor | `.cursor/mcp.json` |
+| Windsurf | `mcp_config.json` |
+| Continue.dev | `config.json` |
+
 Or run the guided setup:
 ```bash
 fennec setup
 ```
 
-### Verify It Works
+### Verify It Works (Optional)
+
+To test Fennec standalone (without an MCP client):
 
 ```bash
-# Start the server
 fennec start
+```
 
-# In another terminal, test with the MCP inspector
+Then in another terminal:
+```bash
 npx @modelcontextprotocol/inspector fennec start
 ```
 
