@@ -5,34 +5,76 @@ on:
     types: [published]
 
 jobs:
-  publish:
-    name: Publish to npm
+  # ─── Publish to npmjs.com ───
+  publish-npm:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     permissions:
       contents: read
       id-token: write
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: pnpm/action-setup@v3
         with:
           version: 9
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           registry-url: "https://registry.npmjs.org"
           cache: pnpm
+
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - name: Publish core package
+
+      - name: Publish @fennec/core
         run: |
           cd packages/core
           pnpm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - name: Publish CLI package
+
+      - name: Publish @fennec/cli
         run: |
           cd packages/cli
           pnpm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # ─── Publish to GitHub Packages ───
+  publish-gpr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: "https://npm.pkg.github.com"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      - name: Publish @fennec/core
+        run: |
+          cd packages/core
+          pnpm publish --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish @fennec/cli
+        run: |
+          cd packages/cli
+          pnpm publish --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -42,22 +42,6 @@ With Fennec, your AI agent can:
 - 🔐 **Persist** authentication sessions across conversations
 - 🧩 **Diagnose** full-stack issues with a single command
 
-## Quick Start
-
-```bash
-# Install globally
-npm install -g @fennec/cli
-
-# Install browser engines
-fennec install-browsers
-
-# Start the MCP server
-fennec start
-
-# Add to your MCP client (Claude Desktop, etc.)
-fennec setup
-```
-
 ## Modes of Operation
 
 Fennec supports three modes, which can be combined:
@@ -141,85 +125,125 @@ Fennec's signature feature — correlate browser errors with server logs and pro
 }
 ```
 
-## Project Structure
-
-```
-fennec/
-├── packages/
-│   ├── core/              # MCP server — the heart of Fennec
-│   │   ├── src/
-│   │   │   ├── server.ts           # MCP server setup
-│   │   │   ├── session/            # Session management
-│   │   │   ├── tools/              # Tool implementations
-│   │   │   │   ├── navigation/     # Browser navigation tools
-│   │   │   │   ├── interaction/    # Click, type, scroll, etc.
-│   │   │   │   ├── dom/            # DOM query tools
-│   │   │   │   ├── devtools/       # Console, network, performance
-│   │   │   │   ├── storage/        # localStorage, cookies, IndexedDB
-│   │   │   │   ├── auth/           # Auth session management
-│   │   │   │   ├── tabs/           # Tab & context management
-│   │   │   │   ├── process/        # Process spawn & management
-│   │   │   │   ├── terminal/       # Log watching
-│   │   │   │   └── diagnostic/     # Full-stack diagnosis
-│   │   │   ├── cdp/                # Chrome DevTools Protocol
-│   │   │   ├── process/            # Process management
-│   │   │   ├── correlation/        # Cross-layer correlation
-│   │   │   ├── response/           # Response formatting
-│   │   │   ├── config/             # Configuration
-│   │   │   └── utils/              # Shared utilities
-│   │   └── tests/
-│   └── cli/               # CLI — pipe, attach, watch commands
-│       ├── src/
-│       │   ├── index.ts            # CLI entry point
-│       │   ├── commands/           # Command implementations
-│       │   └── utils/              # CLI utilities
-│       └── package.json
-├── docs/                  # Documentation
-├── examples/              # Usage examples
-└── .github/               # CI/CD and templates
-```
-
 ## Documentation
 
-- [Getting Started](docs/getting-started.md)
-- [Tool Reference](docs/tools/README.md)
+- [Getting Started Guide](docs/getting-started.md)
+- [Full Tool Reference](docs/tools/README.md) — 90+ MCP tools across 12 groups
 - [Guides](docs/guides/)
-  - [Auth Flows](docs/guides/auth-flows.md)
-  - [Debugging SPAs](docs/guides/debugging-spa.md)
-  - [Full-Stack Debugging](docs/guides/fullstack-debugging.md)
-  - [Multi-Session Testing](docs/guides/multi-session.md)
-- [Security Model](docs/security-model.md)
-- [Configuration Reference](docs/configuration.md)
+  - [Auth Flows](docs/guides/auth-flows.md) — login forms, session persistence, multi-user
+  - [Debugging SPAs](docs/guides/debugging-spa.md) — React, Vue, Next.js debugging
+  - [Full-Stack Debugging](docs/guides/fullstack-debugging.md) — correlate browser ↔ server errors
+  - [Multi-Session Testing](docs/guides/multi-session.md) — parallel isolated sessions
+- [Security Model](docs/security-model.md) — sandbox, allowlists, best practices
+- [Configuration Reference](docs/configuration.md) — all config options + env vars
+- [Usage Examples](examples/) — step-by-step JSON-RPC walkthroughs
 
-## Comparison
+## Installation & Setup
 
-| Feature | **Fennec** | Playwright MCP | Puppeteer MCP | Browser-use |
-|---|---|---|---|---|
-| Browser automation | ✅ | ✅ | ✅ | ✅ |
-| Console logs (deep) | ✅ | ❌ | ❌ | ❌ |
-| Network monitoring | ✅ Full | ❌ | ❌ | Partial |
-| Network mock/intercept | ✅ | ❌ | ❌ | ❌ |
-| localStorage / cookies | ✅ Full | ❌ | ❌ | ❌ |
-| Auth session persist | ✅ Named | ❌ | ❌ | ❌ |
-| Performance metrics | ✅ | ❌ | ❌ | ❌ |
-| Process spawn | ✅ | ❌ | ❌ | ❌ |
-| Terminal log watch | ✅ | ❌ | ❌ | ❌ |
-| Full-stack correlation | ✅ | ❌ | ❌ | ❌ |
-| AI-friendly errors | ✅ Bundled | ❌ | ❌ | Partial |
-| diagnose_fullstack | ✅ | ❌ | ❌ | ❌ |
-| Multi-session parallel | ✅ | ❌ | ❌ | ✅ |
-| Open source | ✅ MIT | ✅ Apache | ✅ MIT | ✅ MIT |
+### Prerequisites
 
-## Roadmap
+| Requirement | Version |
+|---|---|
+| **Node.js** | >= 20.0.0 |
+| **npm** / **pnpm** / **yarn** | Latest stable |
+| **OS** | macOS, Linux, Windows (WSL2 recommended) |
 
-- **v0.1** — MCP server foundation, navigation, interaction, console
-- **v0.2** — Full DevTools (network, performance), diagnostic tools
-- **v0.3** — Storage & auth (cookies, sessions, login form auto-fill)
-- **v0.4** — Process & terminal layer (spawn, attach, log watch)
-- **v0.5** — Correlation engine & full-stack diagnosis
-- **v0.6** — Multi-tab, CDP raw access, SSE transport
-- **v0.7** — OSS polish: docs, examples, CI/CD, Docker
-- **v1.0** — Stable release, 80%+ test coverage, published to npm
+### Option 1: Quick Install (Recommended)
+
+```bash
+# 1. Install globally
+npm install -g @fennec/cli
+
+# 2. Install browser engines (Playwright Chromium)
+fennec install-browsers
+
+# 3. Generate config file (optional)
+fennec init
+
+# 4. Start the MCP server
+fennec start
+```
+
+### Option 2: From Source
+
+```bash
+git clone https://github.com/plumpslabs/fennec.git
+cd fennec
+
+# Install dependencies
+pnpm install
+
+# Build both packages (core + cli)
+pnpm build
+
+# Install browser engines
+npx playwright install chromium --with-deps
+
+# Start the server
+node packages/cli/dist/index.js start
+```
+
+### Configure Your MCP Client
+
+Add Fennec to your MCP client (Claude Desktop, etc.):
+
+**Claude Desktop** — add to `claude_desktop_config.json`:
+```json
+{
+  "mcpServers": {
+    "fennec": {
+      "command": "fennec",
+      "args": ["start"]
+    }
+  }
+}
+```
+
+Or run the guided setup:
+```bash
+fennec setup
+```
+
+### Verify It Works
+
+```bash
+# Start the server
+fennec start
+
+# In another terminal, test with the MCP inspector
+npx @modelcontextprotocol/inspector fennec start
+```
+
+## Quick Start: Your First Diagnosis
+
+Once Fennec is running and connected to your AI agent, try this workflow:
+
+```bash
+# Terminal: Start your app with Fennec watching
+npm run dev 2>&1 | fennec pipe --name "my-app"
+```
+
+Then ask your AI agent:
+> "Check why my app is broken"
+
+The AI will automatically use Fennec tools to:
+1. Open the browser to your app
+2. Check console errors
+3. Inspect failed network requests
+4. Correlate with server logs
+5. Report the root cause
+
+## What You Need to Set Up
+
+| Step | What | Required? | Notes |
+|---|---|---|---|
+| 1 | Install Node.js >= 20 | ✅ Yes | [nodejs.org](https://nodejs.org) |
+| 2 | Install `@fennec/cli` | ✅ Yes | `npm install -g @fennec/cli` |
+| 3 | Install Playwright browsers | ✅ Yes | `fennec install-browsers` (Chromium only) |
+| 4 | MCP client (Claude Desktop, etc.) | ✅ Yes | For AI agent integration |
+| 5 | Config file | Optional | `fennec init` for customization |
+| 6 | Pipe server output | Optional | `| fennec pipe --name "my-app"` for server logs |
+| 7 | Set env vars | Optional | See [configuration docs](docs/configuration.md) |
 
 ## Contributing
 

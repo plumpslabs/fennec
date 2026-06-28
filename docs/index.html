@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fennec — AI-Native Developer Observability</title>
+    <meta name="description" content="Fennec is an AI-native developer observability MCP server that gives AI agents full-stack visibility into your development environment." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+            --orange-50: #fff7ed;
+            --orange-100: #ffedd5;
+            --orange-200: #fed7aa;
+            --orange-300: #fdba74;
+            --orange-400: #fb923c;
+            --orange-500: #f97316;
+            --orange-600: #ea580c;
+            --orange-700: #c2410c;
+            --orange-800: #9a3412;
+            --orange-900: #7c2d12;
+
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-850: #1a1d23;
+            --gray-900: #111318;
+            --gray-950: #0a0c10;
+
+            --bg-primary: var(--gray-950);
+            --bg-secondary: var(--gray-900);
+            --bg-tertiary: var(--gray-850);
+            --bg-card: var(--gray-850);
+            --bg-hover: var(--gray-700);
+            --text-primary: #f3f4f6;
+            --text-secondary: var(--gray-400);
+            --text-muted: var(--gray-500);
+            --border-color: var(--gray-800);
+            --accent: var(--orange-500);
+            --accent-hover: var(--orange-400);
+            --accent-glow: rgba(249, 115, 22, 0.15);
+            --sidebar-width: 260px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+        ::-webkit-scrollbar-thumb { background: var(--gray-700); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--gray-600); }
+
+        /* ── Sidebar ── */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: var(--sidebar-width);
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            overflow-y: auto;
+            z-index: 100;
+            padding: 24px 0;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 20px 24px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 16px;
+        }
+
+        .sidebar-logo .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--orange-500), var(--orange-600));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+            flex-shrink: 0;
+        }
+
+        .sidebar-logo span {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .sidebar-logo small {
+            font-size: 11px;
+            color: var(--text-muted);
+            display: block;
+            font-weight: 400;
+            margin-top: -2px;
+        }
+
+        .nav-section {
+            padding: 0 12px;
+            margin-bottom: 8px;
+        }
+
+        .nav-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            padding: 8px 8px 6px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: all 0.15s ease;
+            cursor: pointer;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--accent-glow);
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        .nav-item .nav-icon {
+            width: 18px;
+            text-align: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        /* ── Mobile Menu Button ── */
+        .menu-toggle {
+            display: none;
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            z-index: 200;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 10px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 99;
+        }
+
+        /* ── Main Content ── */
+        .main {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+        }
+
+        section {
+            padding: 80px 48px;
+            max-width: 900px;
+        }
+
+        section:first-of-type {
+            padding-top: 100px;
+        }
+
+        @media (max-width: 900px) {
+            section { padding: 60px 24px; }
+        }
+
+        /* ── Hero ── */
+        .hero {
+            padding: 120px 48px 100px;
+            max-width: 900px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--accent-glow);
+            color: var(--accent);
+            font-size: 13px;
+            font-weight: 500;
+            padding: 4px 14px;
+            border-radius: 20px;
+            border: 1px solid rgba(249, 115, 22, 0.2);
+            margin-bottom: 20px;
+        }
+
+        .hero h1 {
+            font-size: clamp(40px, 6vw, 64px);
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 16px;
+            letter-spacing: -0.03em;
+        }
+
+        .hero h1 .highlight {
+            background: linear-gradient(135deg, var(--orange-400), var(--orange-600));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 18px;
+            color: var(--text-secondary);
+            max-width: 600px;
+            line-height: 1.7;
+            margin-bottom: 32px;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.15s ease;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(249, 115, 22, 0.3);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+        .btn-secondary:hover {
+            background: var(--bg-hover);
+            border-color: var(--gray-600);
+            transform: translateY(-1px);
+        }
+
+        /* ── Section Headers ── */
+        .section-tag {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+
+        .section-title {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            letter-spacing: -0.02em;
+        }
+
+        .section-desc {
+            font-size: 16px;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin-bottom: 40px;
+        }
+
+        /* ── Features Grid ── */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 16px;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            transition: all 0.2s ease;
+        }
+
+        .feature-card:hover {
+            border-color: var(--gray-700);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+        }
+
+        .feature-card .icon {
+            width: 40px;
+            height: 40px;
+            background: var(--accent-glow);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            margin-bottom: 14px;
+        }
+
+        .feature-card h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .feature-card p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* ── Code Blocks ── */
+        pre {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 20px 24px;
+            overflow-x: auto;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 13.5px;
+            line-height: 1.7;
+            color: var(--text-primary);
+            margin: 16px 0;
+            position: relative;
+        }
+
+        pre .comment { color: var(--gray-500); font-style: italic; }
+        pre .keyword { color: #c084fc; }
+        pre .string { color: #86efac; }
+        pre .function { color: #60a5fa; }
+        pre .number { color: #facc15; }
+        pre .punctuation { color: var(--gray-400); }
+        pre .operator { color: var(--orange-400); }
+        pre .variable { color: #fca5a5; }
+
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .code-header .label {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .copy-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.15s;
+        }
+        .copy-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-secondary);
+        }
+
+        /* ── Tool Groups ── */
+        .tool-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 8px;
+        }
+
+        .tool-group-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 16px;
+            transition: all 0.15s ease;
+        }
+
+        .tool-group-card:hover {
+            border-color: var(--gray-700);
+        }
+
+        .tool-group-card .group-name {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tool-group-card .tool-count {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .tool-group-card ul {
+            list-style: none;
+        }
+
+        .tool-group-card li {
+            font-size: 13px;
+            color: var(--text-secondary);
+            padding: 3px 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+        }
+
+        .tool-group-card li::before {
+            content: '→ ';
+            color: var(--accent);
+            opacity: 0.6;
+        }
+
+        /* ── Comparison Table ── */
+        .comparison-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            font-size: 14px;
+        }
+
+        .comparison-table th {
+            background: var(--bg-tertiary);
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .comparison-table td {
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        .comparison-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .comparison-table .check {
+            color: #86efac;
+            font-weight: 600;
+        }
+
+        .comparison-table .cross {
+            color: var(--gray-600);
+        }
+
+        .comparison-table tr:hover td {
+            background: var(--bg-tertiary);
+        }
+
+        /* ── Stats ── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 16px;
+            margin: 32px 0;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-card .stat-number {
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--orange-400), var(--orange-600));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-card .stat-label {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* ── Footer ── */
+        footer {
+            border-top: 1px solid var(--border-color);
+            padding: 32px 48px;
+            margin-left: var(--sidebar-width);
+            color: var(--text-muted);
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        footer a {
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            color: var(--accent);
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .menu-toggle { display: block; }
+            .sidebar-overlay.open { display: block; }
+            .main { margin-left: 0; }
+            footer { margin-left: 0; padding: 24px 20px; }
+            .hero { padding: 80px 20px 60px; }
+            section { padding: 48px 20px; }
+            .features-grid { grid-template-columns: 1fr; }
+            .tool-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+            .comparison-table { font-size: 12px; }
+            .comparison-table th, .comparison-table td { padding: 8px 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ── Mobile Menu ── -->
+    <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">☰</button>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- ── Sidebar ── -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            <div class="logo-icon">🦊</div>
+            <div>
+                <span>Fennec</span>
+                <small>AI-native observability</small>
+            </div>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-section-title">Getting Started</div>
+            <a class="nav-item active" href="#overview" data-section="overview">
+                <span class="nav-icon">🏠</span> Overview
+            </a>
+            <a class="nav-item" href="#install" data-section="install">
+                <span class="nav-icon">📦</span> Installation
+            </a>
+            <a class="nav-item" href="#quickstart" data-section="quickstart">
+                <span class="nav-icon">🚀</span> Quick Start
+            </a>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-section-title">Features</div>
+            <a class="nav-item" href="#features" data-section="features">
+                <span class="nav-icon">⚡</span> Core Features
+            </a>
+            <a class="nav-item" href="#correlation" data-section="correlation">
+                <span class="nav-icon">🔗</span> Full-Stack Correlation
+            </a>
+            <a class="nav-item" href="#modes" data-section="modes">
+                <span class="nav-icon">🎮</span> Modes of Operation
+            </a>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-section-title">Reference</div>
+            <a class="nav-item" href="#tools" data-section="tools">
+                <span class="nav-icon">🧰</span> Tool Reference
+            </a>
+
+        </div>
+
+        <div class="nav-section" style="margin-top:8px;padding:0 12px;">
+            <a class="nav-item" href="https://github.com/plumpslabs/fennec/blob/main/docs/getting-started.md" target="_blank" style="font-size:13px;">
+                <span class="nav-icon">📖</span> Getting Started Guide →
+            </a>
+            <a class="nav-item" href="https://github.com/plumpslabs/fennec/blob/main/docs/tools/README.md" target="_blank" style="font-size:13px;">
+                <span class="nav-icon">🔧</span> Full Tool Reference →
+            </a>
+            <a class="nav-item" href="https://github.com/plumpslabs/fennec/blob/main/docs/configuration.md" target="_blank" style="font-size:13px;">
+                <span class="nav-icon">⚙️</span> Configuration →
+            </a>
+            <a class="nav-item" href="https://github.com/plumpslabs/fennec/blob/main/examples/README.md" target="_blank" style="font-size:13px;">
+                <span class="nav-icon">💡</span> Usage Examples →
+            </a>
+            <a class="nav-item" href="https://github.com/plumpslabs/fennec" target="_blank" style="font-size:13px;">
+                <span class="nav-icon">📂</span> GitHub →
+            </a>
+        </div>
+    </nav>
+
+    <!-- ── Main Content ── -->
+    <div class="main">
+
+        <!-- ── Hero ── -->
+        <section class="hero" id="overview">
+            <div class="hero-badge">🦊 v0.1.0 — MIT License</div>
+            <h1>
+                <span class="highlight">Ears everywhere</span><br />
+                in your stack.
+            </h1>
+            <p>
+                Fennec is an AI-native developer observability MCP server that gives AI agents 
+                <strong>full-stack visibility</strong> into your development environment — 
+                browser, terminal, and processes — all in one unified interface.
+            </p>
+            <div class="hero-actions">
+                <a href="#install" class="btn btn-primary">📦 Get Started</a>
+                <a href="https://github.com/plumpslabs/fennec" target="_blank" class="btn btn-secondary">📂 GitHub</a>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number">90+</div>
+                    <div class="stat-label">MCP Tools</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">12</div>
+                    <div class="stat-label">Tool Groups</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">200+</div>
+                    <div class="stat-label">Tests</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">MIT</div>
+                    <div class="stat-label">License</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── The Problem ── -->
+        <section id="the-problem" style="padding-top:0;">
+            <div class="section-tag">The Problem</div>
+            <h2 class="section-title">AI agents are blind without context</h2>
+            <p class="section-desc">
+                When a developer asks an AI agent "why is my login broken?", the agent has no access to 
+                the browser console, network tab, or server terminal. The developer becomes a 
+                copy-paste bridge.
+            </p>
+            <pre><span class="comment"># What the AI agent sees without Fennec:</span>
+<span class="punctuation">"</span>I can't access your terminal<span class="punctuation">"</span>
+<span class="punctuation">"</span>Please paste the error message<span class="punctuation">"</span>
+<span class="punctuation">"</span>I don't have browser access<span class="punctuation">"</span>
+
+<span class="comment"># What the developer sees:</span>
+<span class="variable">✗</span> TypeError: jwt.sign is undefined          <span class="comment">// Browser Console</span>
+<span class="variable">✗</span> Error: JWT_SECRET not set in env          <span class="comment">// Terminal</span>
+<span class="variable">✗</span> POST /api/login -<span class="operator">&gt;</span> <span class="number">500</span>                 <span class="comment">// Network Tab</span></pre>
+        </section>
+
+        <!-- ── Installation ── -->
+        <section id="install">
+            <div class="section-tag">Setup</div>
+            <h2 class="section-title">Installation &amp; Configuration</h2>
+            <p class="section-desc">
+                Get Fennec running in under 2 minutes. No external services, no cloud accounts — 
+                everything runs locally.
+            </p>
+
+            <h3 style="font-size:16px;font-weight:600;margin-bottom:8px;">Prerequisites</h3>
+            <div style="overflow-x:auto;">
+                <table class="comparison-table" style="margin-bottom:24px;">
+                    <tr><th>Requirement</th><th>Version</th></tr>
+                    <tr><td>Node.js</td><td>>&thinsp;= 20.0.0</td></tr>
+                    <tr><td>npm / pnpm / yarn</td><td>Latest stable</td></tr>
+                    <tr><td>OS</td><td>macOS, Linux, Windows (WSL2 recommended)</td></tr>
+                </table>
+            </div>
+
+            <h3 style="font-size:16px;font-weight:600;margin-bottom:8px;">Quick Install</h3>
+            <pre><span class="comment"># 1. Install globally</span>
+npm install <span class="operator">-g</span> @fennec/cli
+
+<span class="comment"># 2. Install browser engines (Chromium)</span>
+fennec install-browsers
+
+<span class="comment"># 3. Generate config (optional)</span>
+fennec init
+
+<span class="comment"># 4. Start the MCP server</span>
+fennec start</pre>
+
+            <h3 style="font-size:16px;font-weight:600;margin:16px 0 8px;">From Source</h3>
+            <pre>git clone https:<span class="punctuation">//</span>github.com<span class="punctuation">/</span>plumpslabs<span class="punctuation">/</span>fennec.git
+<span class="keyword">cd</span> fennec
+pnpm install
+pnpm build
+npx playwright install chromium <span class="operator">--</span>with-deps
+node packages/cli/dist/index.js start</pre>
+
+            <h3 style="font-size:16px;font-weight:600;margin:16px 0 8px;">Configure MCP Client</h3>
+            <p style="color:var(--text-secondary);font-size:14px;margin-bottom:8px;">
+                Add to your Claude Desktop config (<code style="color:var(--accent);font-family:monospace;">claude_desktop_config.json</code>):
+            </p>
+            <pre>{
+  <span class="string">"mcpServers"</span>: {
+    <span class="string">"fennec"</span>: {
+      <span class="string">"command"</span>: <span class="string">"fennec"</span>,
+      <span class="string">"args"</span>: [<span class="string">"start"</span>]
+    }
+  }
+}</pre>
+        </section>
+
+        <!-- ── Quick Start ── -->
+        <section id="quickstart">
+            <div class="section-tag">Your First Diagnosis</div>
+            <h2 class="section-title">Quick Start</h2>
+            <p class="section-desc">
+                Once Fennec is running and connected to your AI agent, pipe your server output 
+                and let the AI investigate.
+            </p>
+            <pre><span class="comment"># Terminal: Start your app with Fennec watching</span>
+npm run dev <span class="number">2</span>&gt;&amp;<span class="number">1</span> <span class="operator">|</span> fennec pipe <span class="operator">--</span>name <span class="string">"my-app"</span></pre>
+            <p style="color:var(--text-secondary);font-size:14px;margin:12px 0 8px;">
+                Then ask your AI agent: <strong style="color:var(--text-primary);">"Check why my app is broken"</strong>
+            </p>
+            <p style="color:var(--text-secondary);font-size:14px;">
+                The AI will automatically use Fennec tools to open the browser, check console errors, 
+                inspect network requests, correlate with server logs, and report the root cause.
+            </p>
+        </section>
+
+        <!-- ── Features ── -->
+        <section id="features">
+            <div class="section-tag">Capabilities</div>
+            <h2 class="section-title">Core Features</h2>
+            <p class="section-desc">
+                Fennec packs 90+ MCP tools across 12 groups, covering everything from browser 
+                automation to full-stack diagnosis.
+            </p>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="icon">🌐</div>
+                    <h3>Browser Automation</h3>
+                    <p>Navigate, click, type, scroll, drag-drop, screenshot. Full DOM and accessibility tree access.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">📋</div>
+                    <h3>Console Monitoring</h3>
+                    <p>Real-time console log collection, filtering by level, JS error tracking with stack traces.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">🌍</div>
+                    <h3>Network Intelligence</h3>
+                    <p>Monitor all requests/responses, intercept and mock, detect CORS issues and slow requests.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">⚡</div>
+                    <h3>Performance Metrics</h3>
+                    <p>Core Web Vitals (FCP, LCP, CLS), memory profiling, DOM counters, network simulation.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">🔐</div>
+                    <h3>Auth &amp; Sessions</h3>
+                    <p>Auto-fill login forms, save/load authenticated sessions, multi-user parallel testing.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">🖥️</div>
+                    <h3>Process Management</h3>
+                    <p>Spawn, monitor, and interact with processes. Attach by PID or port. Auto-detect log levels.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">📡</div>
+                    <h3>Log Watching</h3>
+                    <p>Watch log files, pipe streams, named pipes (FIFO). Level-aware filtering and error extraction.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">🔗</div>
+                    <h3>Full-Stack Correlation</h3>
+                    <p>Correlate browser errors with server logs. Automatic root cause inference with confidence scoring.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">📁</div>
+                    <h3>Storage Access</h3>
+                    <p>Read/write localStorage, sessionStorage, cookies, IndexedDB. Export and import full state.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">🔄</div>
+                    <h3>Multi-Tab &amp; Context</h3>
+                    <p>Multiple isolated browser sessions with independent cookies, storage, and auth state.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">🔍</div>
+                    <h3>Diagnostic Tools</h3>
+                    <p>Page diagnostics, element debugging, network health, auth checks, performance analysis.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">🛡️</div>
+                    <h3>Security First</h3>
+                    <p>Sandbox mode, process allowlists, domain restrictions. Secure defaults with opt-in permissions.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── Correlation ── -->
+        <section id="correlation">
+            <div class="section-tag">Signature Feature</div>
+            <h2 class="section-title">Full-Stack Correlation</h2>
+            <p class="section-desc">
+                The crown jewel of Fennec. A single command correlates browser errors with server logs 
+                and process state to identify root causes automatically.
+            </p>
+            <pre><span class="comment">// diagnose_fullstack({ processId: "dev-server" })</span>
+{
+  <span class="string">"correlation"</span>: {
+    <span class="string">"rootCause"</span>: <span class="string">"JWT_SECRET environment variable missing on server"</span>,
+    <span class="string">"confidence"</span>: <span class="number">0.94</span>,
+    <span class="string">"fix"</span>: <span class="string">"Add JWT_SECRET to your .env file"</span>,
+    <span class="string">"timeline"</span>: [
+      { <span class="string">"t"</span>: <span class="string">"+0ms"</span>,  <span class="string">"layer"</span>: <span class="string">"browser"</span>, <span class="string">"event"</span>: <span class="string">"POST /api/auth/login initiated"</span> },
+      { <span class="string">"t"</span>: <span class="string">"+12ms"</span>, <span class="string">"layer"</span>: <span class="string">"server"</span>,  <span class="string">"event"</span>: <span class="string">"ERROR: JWT_SECRET not set"</span> },
+      { <span class="string">"t"</span>: <span class="string">"+16ms"</span>, <span class="string">"layer"</span>: <span class="string">"browser"</span>, <span class="string">"event"</span>: <span class="string">"TypeError thrown in auth.js:67"</span> }
+    ]
+  }
+}</pre>
+            <p style="color:var(--text-secondary);font-size:14px;margin-top:12px;">
+                Fennec automatically constructs a timeline across layers, infers the root cause with 
+                confidence scoring, and suggests a fix — all from a single MCP tool call.
+            </p>
+        </section>
+
+        <!-- ── Modes ── -->
+        <section id="modes">
+            <div class="section-tag">Flexibility</div>
+            <h2 class="section-title">Modes of Operation</h2>
+            <p class="section-desc">
+                Fennec adapts to your workflow. Choose the mode that fits, or combine them.
+            </p>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;">
+                <div class="feature-card">
+                    <div class="icon">👀</div>
+                    <h3>Observe (Passive)</h3>
+                    <p>Run your server normally, Fennec listens passively via piped output or file watching.</p>
+                    <pre style="margin-top:12px;font-size:12px;padding:12px 16px;">npm run dev <span class="number">2</span>&gt;&amp;<span class="number">1</span> <span class="operator">|</span> fennec pipe <span class="operator">--</span>name my-app</pre>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">🎮</div>
+                    <h3>Control (Active)</h3>
+                    <p>AI spawns and manages processes directly — start servers, run builds, execute tests.</p>
+                    <pre style="margin-top:12px;font-size:12px;padding:12px 16px;">process_spawn({
+  command: <span class="string">"npm run dev"</span>
+})</pre>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">🔀</div>
+                    <h3>Hybrid (Recommended)</h3>
+                    <p>Developer spawns the server, AI controls the browser and observes logs simultaneously.</p>
+                    <pre style="margin-top:12px;font-size:12px;padding:12px 16px;"><span class="comment"># Terminal: pipe server output</span>
+npm run dev <span class="operator">|</span> fennec pipe <span class="operator">--</span>name dev-server
+
+<span class="comment"># AI has full visibility</span></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── Tool Reference ── -->
+        <section id="tools">
+            <div class="section-tag">MCP Tools</div>
+            <h2 class="section-title">Tool Reference</h2>
+            <p class="section-desc">
+                90+ tools organized into 12 groups. Every tool follows MCP conventions with 
+                structured Zod schemas, descriptive error messages, and consistent response formats.
+            </p>
+
+            <div class="tool-grid">
+                <div class="tool-group-card">
+                    <div class="group-name">🧭 Navigation</div>
+                    <div class="tool-count">6 tools</div>
+                    <ul>
+                        <li>browser_navigate</li>
+                        <li>browser_go_back</li>
+                        <li>browser_go_forward</li>
+                        <li>browser_reload</li>
+                        <li>browser_get_current_url</li>
+                        <li>browser_wait_for_navigation</li>
+                    </ul>
+                </div>
+                <div class="tool-group-card">
+                    <div class="group-name">🖱️ Interaction</div>
+                    <div class="tool-count">10 tools</div>
+                    <ul>
+                        <li>browser_click</li>
+                        <li>browser_type</li>
+                        <li>browser_select</li>
+                        <li>browser_hover</li>
+                        <li>browser_scroll</li>
+                        <li>browser_press_key</li>
+                        <li>browser_upload_file</li>
+                        <li>browser_focus</li>
+                        <li>browser_clear</li>
+                        <li>browser_drag_drop</li>
+                    </ul>
+                </div>
+                <div class="tool-group-card">
+                    <div class="group-name">📄 DOM &amp; Page</div>
+                    <div class="tool-count">9 tools</div>
+                    <ul>
+                        <li>browser_screenshot</li>
+                        <li>browser_get_dom_snapshot</li>
+                        <li>browser_get_accessibility_tree</li>
+                        <li>browser_find_elements</li>
+                        <li>browser_get_element_info</li>
+                        <li>browser_wait_for_element</li>
+                        <li>browser_get_page_text</li>
+                        <li>browser_get_page_title</li>
+                        <li>browser_get_meta</li>
+                    </ul>
+                </div>
+                <div class="tool-group-card">
+                    <div class="group-name">📋 Console</div>
+                    <div class="tool-count">5 tools</div>
+                    <ul>
+                        <li>devtools_get_console_logs</li>
+                        <li>devtools_clear_console</li>
+                        <li>devtools_evaluate</li>
+                        <li>devtools_get_js_errors</li>
+                        <li>devtools_watch_console</li>
+                    </ul>
+                </div>
+                <div class="tool-group-card">
+                    <div class="group-name">🌍 Network</div>
+                    <div class="tool-count">9 tools</div>
+                    <ul>
+                        <li>network_get_logs</li>
+                        <li>network_get_failed_requests</li>
+                        <li>network_get_cors_issues</li>
+                        <li>network_clear_logs</li>
+                        <li>network_intercept</li>
+                        <li>network_remove_intercept</li>
+                        <li>network_mock_response</li>
+                        <li>network_wait_for_request</li>
+                        <li>network_get_request_detail</li>
+                    </ul>
+                </div>
+                <div class="tool-group-card">
+                    <div class="group-name">⚡ Performance</div>
+                    <div class="tool-count">6 tools</div>
+                    <ul>
+                        <li>devtools_get_performance_metrics</li>
+                        <li>devtools_get_memory_usage</li>
+                        <li>devtools_get_dom_counters</li>
+                        <li>devtools_simulate_network</li>
+                        <li>devtools_start_profiling</li>
+                        <li>devtools_stop_profiling</li>
+                    </ul>
+                </div>
+                <div class="tool-group-card">
+                    <div class="group-name">📦 Storage</div>
+                    <div class="tool-count">12 tools</div>
+                    <ul>
+                        <li>storage_get_local</li>
+                        <li>storage_set_local</li>
+                        <li>storage_remove_local</li>
+                        <li>storage_clear_local</li>
+                        <li>storage_get_session</li>
+                        <li>storage_set_session</li>
+                        <li>storage_get_cookies</li>
+                        <li>storage_set_cookie</li>
+                        <li>storage_delete_cookie</li>
+                        <li>storage_get_indexeddb</li>
+                        <li>storage_export_state</li>
+                        <li>storage_import_state</li>
+                    </ul>
+                </div>
+                <div class="tool-group-card">
+                    <div class="group-name">🔐 Auth</div>
+                    <div class="tool-count">6 tools</div>
+                    <ul>
+                        <li>auth_fill_login_form</li>
+                        <li>auth_save_session</li>
+                        <li>auth_load_session</li>
+                        <li>auth_list_sessions</li>
+                        <li>auth_delete_session</li>
+                        <li>auth_check_logged_in</li>
+                    </ul>
+                </div>
+                <div class="tool-group-card">
+                    <div class="group-name">📑 Tabs &amp; Contexts</div>
+                    <div class="tool-count">7 tools</div>
+                    <ul>
+                        <li>tab_new</li>
+                        <li>tab_close</li>
+                        <li>tab_list</li>
+                        <li>tab_switch</li>
+                        <li>tab_get_current</li>
+                        <li>context_new</li>
+                        <li>context_close</li>
+                    </ul>
+                </div>
+                <div class="tool-group-card">
+                    <div class="group-name">⚙️ Process</div>
+                    <div class="tool-count">10 tools</div>
+                    <ul>
+                        <li>process_spawn</li>
+                        <li>process_list</li>
+                        <li>process_get_logs</li>
+                        <li>process_get_status</li>
+                        <li>process_send_input</li>
+                        <li>process_kill</li>
+                        <li>process_restart</li>
+                        <li>process_wait_for_ready</li>
+                        <li>process_attach_pid</li>
+                        <li>process_attach_port</li>
+                    </ul>
+                </div>
+                <div class="tool-group-card">
+                    <div class="group-name">🖥️ Terminal</div>
+                    <div class="tool-count">7 tools</div>
+                    <ul>
+                        <li>terminal_watch_file</li>
+                        <li>terminal_watch_pipe</li>
+                        <li>terminal_get_logs</li>
+                        <li>terminal_get_errors</li>
+                        <li>terminal_list_watchers</li>
+                        <li>terminal_clear_buffer</li>
+                        <li>terminal_stop_watcher</li>
+                    </ul>
+                </div>
+                <div class="tool-group-card">
+                    <div class="group-name">🔍 Diagnostic</div>
+                    <div class="tool-count">6 tools</div>
+                    <ul>
+                        <li>diagnose_page</li>
+                        <li>diagnose_element</li>
+                        <li>diagnose_network</li>
+                        <li>diagnose_auth</li>
+                        <li>diagnose_fullstack</li>
+                        <li>diagnose_performance</li>
+                    </ul>
+                </div>
+            </div>
+            <p style="color:var(--text-muted);font-size:13px;margin-top:16px;">
+                See the <a href="https://github.com/plumpslabs/fennec/blob/main/docs/tools/README.md" target="_blank" style="color:var(--accent);">full tool reference</a> for detailed schemas and examples.
+            </p>
+        </section>
+
+
+
+    </div>
+
+    <!-- ── Footer ── -->
+    <footer>
+        <span>🦊 Fennec — MIT License</span>
+        <span>
+            <a href="https://github.com/plumpslabs/fennec" target="_blank">GitHub</a>
+            &nbsp;·&nbsp;
+            <a href="https://github.com/plumpslabs/fennec/issues" target="_blank">Issues</a>
+            &nbsp;·&nbsp;
+            <a href="https://github.com/plumpslabs/fennec/discussions" target="_blank">Discussions</a>
+        </span>
+        <span>Built with ❤️ for AI-native development</span>
+    </footer>
+
+    <script>
+        // ── Mobile Menu ──
+        const menuToggle = document.getElementById('menuToggle');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+
+        function toggleMenu() {
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('open');
+        }
+
+        menuToggle.addEventListener('click', toggleMenu);
+        overlay.addEventListener('click', toggleMenu);
+
+        // ── Smooth Scroll & Active Nav ──
+        document.querySelectorAll('.nav-item[data-section]').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                const section = item.dataset.section;
+                const target = document.getElementById(section);
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth' });
+                }
+                // Close mobile menu
+                sidebar.classList.remove('open');
+                overlay.classList.remove('open');
+                // Update active
+                document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                item.classList.add('active');
+            });
+        });
+
+        // ── Scroll Spy ──
+        const sections = document.querySelectorAll('section[id]');
+        const navItems = document.querySelectorAll('.nav-item[data-section]');
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    navItems.forEach(item => {
+                        item.classList.toggle('active', item.dataset.section === entry.target.id);
+                    });
+                }
+            });
+        }, { threshold: 0.3 });
+
+        sections.forEach(s => observer.observe(s));
+    </script>
+</body>
+</html>
