@@ -1,0 +1,52 @@
+{
+  "name": "fennec",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI-native developer observability MCP — browser, terminal, and process, all in one.",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "browser-automation",
+    "developer-tools",
+    "observability",
+    "ai",
+    "playwright",
+    "debugging"
+  ],
+  "homepage": "https://github.com/plumpslabs/fennec#readme",
+  "bugs": {      "url": "https://github.com/plumpslabs/fennec/issues"
+  },
+  "repository": {
+    "type": "git",      "url": "git+https://github.com/plumpslabs/fennec.git"
+  },
+  "license": "MIT",
+  "author": "Fennec Contributors",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm -r --parallel dev",
+    "clean": "pnpm -r clean && rm -rf node_modules",
+    "lint": "pnpm -r lint",
+    "format": "prettier --write \"**/*.{ts,js,json,yaml,yml,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,js,json,yaml,yml,md}\"",
+    "test": "pnpm -r test",
+    "test:coverage": "pnpm -r test -- --coverage",
+    "typecheck": "pnpm -r typecheck",
+    "prepublishOnly": "pnpm test && pnpm build"
+  },
+  "devDependencies": {
+    "prettier": "^3.2.0",
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+
+  "publishConfig": {
+    "access": "public"
+  }
+}
