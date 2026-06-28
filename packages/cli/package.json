@@ -1,5 +1,5 @@
 {
-  "name": "@fennec/cli",
+  "name": "@plumpslabs/fennec-cli",
   "version": "0.7.0",
   "description": "Fennec CLI — pipe, attach, watch, and start the Fennec MCP server",
   "keywords": [
@@ -46,7 +46,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.7.0",
-    "@fennec/core": "workspace:*",
+    "@plumpslabs/fennec-core": "workspace:*",
     "pino": "^8.19.0",
     "playwright": "^1.42.0"
   },

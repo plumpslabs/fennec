@@ -10,7 +10,7 @@
 ### Global Install (Recommended)
 
 ```bash
-npm install -g @fennec/cli
+npm install -g @plumpslabs/fennec-cli
 
 # Install browser engines
 fennec install-browsers

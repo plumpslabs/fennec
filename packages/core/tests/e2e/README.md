@@ -13,5 +13,5 @@ Full end-to-end tests that exercise Fennec's complete feature set.
 ## Running
 
 ```bash
-pnpm --filter @fennec/core test:e2e
+pnpm --filter @plumpslabs/fennec-core test:e2e
 ```

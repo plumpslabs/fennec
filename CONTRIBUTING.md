@@ -51,13 +51,13 @@ npx playwright install chromium
 
 ```bash
 # Watch mode for core package
-pnpm --filter @fennec/core dev
+pnpm --filter @plumpslabs/fennec-core dev
 
 # Watch mode for CLI package
-pnpm --filter @fennec/cli dev
+pnpm --filter @plumpslabs/fennec-cli dev
 
 # Run tests in watch mode
-pnpm --filter @fennec/core test --watch
+pnpm --filter @plumpslabs/fennec-core test --watch
 ```
 
 ## Project Structure

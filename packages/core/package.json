@@ -1,5 +1,5 @@
 {
-  "name": "@fennec/core",
+  "name": "@plumpslabs/fennec-core",
   "version": "0.7.0",
   "description": "Fennec MCP server — AI-native browser, terminal, and process observability",
   "keywords": [

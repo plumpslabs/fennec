@@ -13,5 +13,5 @@ Integration tests for Fennec that test multiple components together.
 ## Running
 
 ```bash
-pnpm --filter @fennec/core test:integration
+pnpm --filter @plumpslabs/fennec-core test:integration
 ```

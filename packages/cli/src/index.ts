@@ -3,7 +3,7 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { intro, outro, spinner, confirm, select, isCancel } from "@clack/prompts";
-import { FennecServer, SessionStore } from "@fennec/core";
+import { FennecServer, SessionStore } from "@plumpslabs/fennec-core";
 import { execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { printBanner } from "./utils/banner.js";

@@ -152,7 +152,7 @@ Fennec's signature feature — correlate browser errors with server logs and pro
 
 ```bash
 # 1. Install globally
-npm install -g @fennec/cli
+npm install -g @plumpslabs/fennec-cli
 
 # 2. Install browser engines (Playwright Chromium)
 fennec install-browsers
@@ -238,7 +238,7 @@ The AI will automatically use Fennec tools to:
 | Step | What | Required? | Notes |
 |---|---|---|---|
 | 1 | Install Node.js >= 20 | ✅ Yes | [nodejs.org](https://nodejs.org) |
-| 2 | Install `@fennec/cli` | ✅ Yes | `npm install -g @fennec/cli` |
+| 2 | Install `@plumpslabs/fennec-cli` | ✅ Yes | `npm install -g @plumpslabs/fennec-cli` |
 | 3 | Install Playwright browsers | ✅ Yes | `fennec install-browsers` (Chromium only) |
 | 4 | MCP client (Claude Desktop, etc.) | ✅ Yes | For AI agent integration |
 | 5 | Config file | Optional | `fennec init` for customization |

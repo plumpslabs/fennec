@@ -11,7 +11,7 @@ export default defineConfig({
   outDir: "dist",
   external: [
     "@clack/prompts",
-    "@fennec/core",
+    "@plumpslabs/fennec-core",
     "playwright",
     "pino",
   ],

@@ -7,7 +7,7 @@ export async function pipeCommand(args: string[]): Promise<void> {
     process.exit(1);
   }
 
-  const { PipeWatcher } = await import("@fennec/core");
+  const { PipeWatcher } = await import("@plumpslabs/fennec-core");
   const watcher = new PipeWatcher();
   const { write } = watcher.createPipe(name);
 

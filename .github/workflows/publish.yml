@@ -28,14 +28,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
 
-      - name: Publish @fennec/core
+      - name: Publish @plumpslabs/fennec-core
         run: |
           cd packages/core
           pnpm publish --provenance --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Publish @fennec/cli
+      - name: Publish @plumpslabs/fennec-cli
         run: |
           cd packages/cli
           pnpm publish --provenance --access public --no-git-checks
@@ -67,16 +67,16 @@ jobs:
 
       - name: Configure GPR registry
         run: |
-          npm config set @fennec:registry https://npm.pkg.github.com
+          npm config set @plumpslabs:registry https://npm.pkg.github.com
 
-      - name: Publish @fennec/core
+      - name: Publish @plumpslabs/fennec-core
         run: |
           cd packages/core
           pnpm publish --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish @fennec/cli
+      - name: Publish @plumpslabs/fennec-cli
         run: |
           cd packages/cli
           pnpm publish --no-git-checks

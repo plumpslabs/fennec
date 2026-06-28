@@ -1013,7 +1013,7 @@ fennec/
 
 ```bash
 # Install
-npm install -g @fennec/cli
+npm install -g @plumpslabs/fennec-cli
 
 # Install browsers
 fennec install-browsers
@@ -1126,7 +1126,7 @@ fennec install-browsers             # install Playwright browsers
 - [ ] 80%+ test coverage
 - [ ] Performance benchmarks
 - [ ] Semantic versioning
-- [ ] Published: `npm install -g @fennec/cli`
+- [ ] Published: `npm install -g @plumpslabs/fennec-cli`
 
 ---
 

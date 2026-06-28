@@ -4,7 +4,7 @@ export async function attachPortCommand(args: string[]): Promise<void> {
     console.error("Error: valid port number is required");
     process.exit(1);
   }
-  const { PortDetector } = await import("@fennec/core");
+  const { PortDetector } = await import("@plumpslabs/fennec-core");
   const detector = new PortDetector();
   const info = detector.detectByPort(port);
   if (info) {

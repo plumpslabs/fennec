@@ -4,7 +4,7 @@ export async function attachPidCommand(args: string[]): Promise<void> {
     console.error("Error: valid PID is required");
     process.exit(1);
   }
-  const { PortDetector } = await import("@fennec/core");
+  const { PortDetector } = await import("@plumpslabs/fennec-core");
   const detector = new PortDetector();
   const info = detector.detectByPid(pid);
   if (info) {
