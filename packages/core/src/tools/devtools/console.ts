@@ -110,3 +110,37 @@ export const devtoolsGetJsErrors = createTool({
     }, sessionManager.buildMeta(session));
   },
 });
+
+export const devtoolsWatchConsole = createTool({
+  name: "devtools_watch_console",
+  description: "`<use_case>Debugging</use_case> Watch console logs for a specified duration (ms). Collects all logs emitted during the window. logs[], summary.`",
+  inputSchema: z.object({
+    durationMs: z.number().describe("Duration in milliseconds to watch console"),
+    level: z.enum(["log", "info", "warn", "error", "debug"]).optional().describe("Filter by log level"),
+    sessionId: z.string().optional().describe("Session ID"),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    const before = new Date().toISOString();
+    await new Promise((resolve) => setTimeout(resolve, input.durationMs));
+    const logs = sessionManager.getConsoleBuffer(session.id, {
+      level: input.level,
+      since: before,
+    });
+
+    const errorCount = logs.filter((l) => l.level === "error").length;
+    const warnCount = logs.filter((l) => l.level === "warn").length;
+
+    return responseBuilder.success({
+      logs,
+      errorCount,
+      warnCount,
+      summary: errorCount > 0
+        ? `${errorCount} error(s) in ${input.durationMs}ms`
+        : warnCount > 0
+          ? `${warnCount} warning(s) in ${input.durationMs}ms`
+          : `No errors or warnings in ${input.durationMs}ms`,
+    }, sessionManager.buildMeta(session));
+  },
+});
+

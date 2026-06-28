@@ -326,3 +326,145 @@ export const storageGetIndexedDB = createTool({
     }
   },
 });
+
+// ─── Storage Export / Import ─────────────────────────────────────
+
+export const storageExportState = createTool({
+  name: "storage_export_state",
+  description: "`<use_case>Storage management</use_case> Export all browser state (cookies, localStorage, sessionStorage) to a JSON object or file. cookies, localStorage, sessionStorage, savedAt.`",
+  inputSchema: z.object({
+    filePath: z.string().optional().describe("Optional file path to save the state to"),
+    sessionId: z.string().optional().describe("Session ID"),
+  }),
+  handler: async (input, { sessionManager, responseBuilder, config }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    try {
+      const cookies = await session.context.cookies();
+      const origin = session.page.url();
+
+      const localStorage = await session.page.evaluate(() => {
+        const items: Record<string, string> = {};
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key) items[key] = localStorage.getItem(key) ?? "";
+        }
+        return items;
+      }).catch(() => ({}));
+
+      const sessionStorage = await session.page.evaluate(() => {
+        const items: Record<string, string> = {};
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const key = sessionStorage.key(i);
+          if (key) items[key] = sessionStorage.getItem(key) ?? "";
+        }
+        return items;
+      }).catch(() => ({}));
+
+      const state = {
+        cookies: cookies.map((c) => ({
+          name: c.name, value: c.value, domain: c.domain, path: c.path,
+          httpOnly: c.httpOnly, secure: c.secure, sameSite: c.sameSite,
+        })),
+        localStorage,
+        sessionStorage,
+        origin,
+        savedAt: new Date().toISOString(),
+      };
+
+      if (input.filePath) {
+        const { writeFileSync } = await import("node:fs");
+        const { resolve } = await import("node:path");
+        const exportDir = config.security.exportPath;
+        const fullPath = resolve(exportDir, input.filePath);
+        writeFileSync(fullPath, JSON.stringify(state, null, 2), "utf-8");
+        return responseBuilder.success({ ...state, savedTo: fullPath }, sessionManager.buildMeta(session));
+      }
+
+      return responseBuilder.success(state, sessionManager.buildMeta(session));
+    } catch (error) {
+      return responseBuilder.error(error, {
+        code: "STORAGE_ACCESS_DENIED",
+        suggestions: ["Storage export may be restricted in cross-origin contexts"],
+      });
+    }
+  },
+});
+
+export const storageImportState = createTool({
+  name: "storage_import_state",
+  description: "`<use_case>Storage management</use_case> Import previously exported browser state from a state object or file. Restores cookies, localStorage, and sessionStorage. cookiesRestored, itemsRestored.`",
+  inputSchema: z.object({
+    filePath: z.string().optional().describe("File path to load state from"),
+    stateObject: z.string().optional().describe("JSON string of state object (alternative to filePath)"),
+    sessionId: z.string().optional().describe("Session ID"),
+  }),
+  handler: async (input, { sessionManager, responseBuilder, config }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    try {
+      let state: any;
+
+      if (input.stateObject) {
+        state = JSON.parse(input.stateObject);
+      } else if (input.filePath) {
+        const { readFileSync, existsSync } = await import("node:fs");
+        const { resolve } = await import("node:path");
+        const exportDir = config.security.exportPath;
+        const fullPath = resolve(exportDir, input.filePath);
+        if (!existsSync(fullPath)) {
+          return responseBuilder.error(
+            new Error(`State file not found: ${fullPath}`),
+            { code: "STATE_FILE_NOT_FOUND" },
+          );
+        }
+        state = JSON.parse(readFileSync(fullPath, "utf-8"));
+      } else {
+        return responseBuilder.error(
+          new Error("Either filePath or stateObject is required"),
+          { code: "INVALID_INPUT" },
+        );
+      }
+
+      // Restore cookies
+      if (state.cookies && state.cookies.length > 0) {
+        await session.context.addCookies(state.cookies.map((c: Record<string, any>) => ({
+          name: c.name, value: c.value,
+          domain: c.domain, path: c.path ?? "/",
+          httpOnly: c.httpOnly, secure: c.secure,
+          sameSite: c.sameSite,
+        })));
+      }
+
+      // Navigate to origin if different
+      if (state.origin && session.page.url() !== state.origin) {
+        await session.page.goto(state.origin).catch(() => {});
+      }
+
+      // Restore localStorage
+      let itemsRestored = 0;
+      if (state.localStorage) {
+        for (const [key, value] of Object.entries(state.localStorage)) {
+          await session.page.evaluate((k, v) => localStorage.setItem(k, v), key, value).catch(() => {});
+          itemsRestored++;
+        }
+      }
+
+      // Restore sessionStorage
+      if (state.sessionStorage) {
+        for (const [key, value] of Object.entries(state.sessionStorage)) {
+          await session.page.evaluate((k, v) => sessionStorage.setItem(k, v), key, value).catch(() => {});
+          itemsRestored++;
+        }
+      }
+
+      return responseBuilder.success({
+        cookiesRestored: state.cookies?.length ?? 0,
+        itemsRestored,
+      }, sessionManager.buildMeta(session));
+    } catch (error) {
+      return responseBuilder.error(error, {
+        code: "STORAGE_ACCESS_DENIED",
+        suggestions: ["Verify the file path or JSON string is valid"],
+      });
+    }
+  },
+});

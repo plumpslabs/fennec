@@ -71,3 +71,41 @@ export const terminalStopWatcher = createTool({
     return responseBuilder.success({ stopped: logWatcher.stop(input.watcherId) });
   },
 });
+
+export const terminalWatchPipe = createTool({
+  name: "terminal_watch_pipe",
+  description: "`<use_case>Log monitoring</use_case> Watch a named pipe (FIFO) for incoming data. Useful for monitoring inter-process communication or log streams from piped output. watcherId, name.`",
+  inputSchema: z.object({
+    pipePath: z.string().describe("Path to the named pipe"),
+    name: z.string().optional().describe("Name for this watcher"),
+  }),
+  handler: async (input, { responseBuilder, logWatcher }) => {
+    try {
+      // Reuse watchFile logic since named pipes behave like files for reading
+      const watcherId = logWatcher.watchFile(input.pipePath, input.name);
+      return responseBuilder.success({ watcherId, name: input.name ?? watcherId });
+    } catch (error) {
+      return responseBuilder.error(error, {
+        code: "INVALID_INPUT",
+        suggestions: ["Verify the pipe path exists", "Ensure the named pipe was created by the source process"],
+      });
+    }
+  },
+});
+
+export const terminalClearBuffer = createTool({
+  name: "terminal_clear_buffer",
+  description: "`<use_case>Log monitoring</use_case> Clear the log buffer for a terminal watcher. Useful for resetting state between operations. cleared (bool).`",
+  inputSchema: z.object({ watcherId: z.string().describe("Watcher ID to clear buffer for") }),
+  handler: async (input, { responseBuilder, logWatcher }) => {
+    try {
+      const cleared = logWatcher.clearBuffer(input.watcherId);
+      return responseBuilder.success({ cleared });
+    } catch (error) {
+      return responseBuilder.error(error, {
+        code: "INVALID_INPUT",
+        suggestions: ["Use terminal_list_watchers to see available watchers"],
+      });
+    }
+  },
+});

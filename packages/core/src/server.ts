@@ -15,16 +15,16 @@ import type { FennecConfig } from "./config/defaults.js";
 
 // Import all tools
 import { browserNavigate, browserGoBack, browserGoForward, browserReload, browserGetCurrentUrl, browserWaitForNavigation } from "./tools/navigation/index.js";
-import { browserClick, browserType, browserSelect, browserHover, browserScroll, browserPressKey, browserFocus, browserClear } from "./tools/interaction/index.js";
-import { browserScreenshot, browserGetDomSnapshot, browserGetAccessibilityTree, browserFindElements, browserGetElementInfo, browserWaitForElement, browserGetPageText, browserGetPageTitle } from "./tools/dom/index.js";
-import { devtoolsGetConsoleLogs, devtoolsClearConsole, devtoolsEvaluate, devtoolsGetJsErrors } from "./tools/devtools/console.js";
-import { networkGetLogs, networkGetFailedRequests, networkGetCorsIssues, networkClearLogs } from "./tools/devtools/network.js";
-import { devtoolsGetPerformanceMetrics, devtoolsGetMemoryUsage, devtoolsGetDomCounters, devtoolsSimulateNetwork } from "./tools/devtools/performance.js";
-import { storageGetLocal, storageSetLocal, storageRemoveLocal, storageClearLocal, storageGetSession, storageSetSession, storageGetCookies, storageSetCookie, storageDeleteCookie, storageGetIndexedDB } from "./tools/storage/index.js";
+import { browserClick, browserType, browserSelect, browserHover, browserScroll, browserPressKey, browserFocus, browserClear, browserUploadFile, browserDragDrop } from "./tools/interaction/index.js";
+import { browserScreenshot, browserGetDomSnapshot, browserGetAccessibilityTree, browserFindElements, browserGetElementInfo, browserWaitForElement, browserGetPageText, browserGetPageTitle, browserGetMeta } from "./tools/dom/index.js";
+import { devtoolsGetConsoleLogs, devtoolsClearConsole, devtoolsEvaluate, devtoolsGetJsErrors, devtoolsWatchConsole } from "./tools/devtools/console.js";
+import { networkGetLogs, networkGetFailedRequests, networkGetCorsIssues, networkClearLogs, networkIntercept, networkRemoveIntercept, networkMockResponse, networkWaitForRequest, networkGetRequestDetail } from "./tools/devtools/network.js";
+import { devtoolsGetPerformanceMetrics, devtoolsGetMemoryUsage, devtoolsGetDomCounters, devtoolsStartProfiling, devtoolsStopProfiling, devtoolsSimulateNetwork } from "./tools/devtools/performance.js";
+import { storageGetLocal, storageSetLocal, storageRemoveLocal, storageClearLocal, storageGetSession, storageSetSession, storageGetCookies, storageSetCookie, storageDeleteCookie, storageGetIndexedDB, storageExportState, storageImportState } from "./tools/storage/index.js";
 import { authFillLoginForm, authSaveSession, authLoadSession, authListSessions, authDeleteSession, authCheckLoggedIn } from "./tools/auth/index.js";
-import { tabNew, tabClose, tabList, tabSwitch, contextNew, contextClose } from "./tools/tabs/index.js";
-import { processSpawn, processList, processGetLogs, processGetStatus, processSendInput, processKill, processWaitForReady } from "./tools/process/index.js";
-import { terminalWatchFile, terminalGetLogs, terminalGetErrors, terminalListWatchers, terminalStopWatcher } from "./tools/terminal/index.js";
+import { tabNew, tabClose, tabList, tabSwitch, tabGetCurrent, contextNew, contextClose } from "./tools/tabs/index.js";
+import { processSpawn, processList, processGetLogs, processGetStatus, processSendInput, processKill, processWaitForReady, processAttachPid, processAttachPort, processRestart } from "./tools/process/index.js";
+import { terminalWatchFile, terminalGetLogs, terminalGetErrors, terminalListWatchers, terminalStopWatcher, terminalWatchPipe, terminalClearBuffer } from "./tools/terminal/index.js";
 import { diagnosePage, diagnoseElement, diagnoseNetwork, diagnoseAuth, diagnoseFullstack, diagnosePerformance } from "./tools/diagnostic/index.js";
 
 export class FennecServer {
@@ -64,16 +64,16 @@ export class FennecServer {
   private registerAllTools(): void {
     const tools = [
       browserNavigate, browserGoBack, browserGoForward, browserReload, browserGetCurrentUrl, browserWaitForNavigation,
-      browserClick, browserType, browserSelect, browserHover, browserScroll, browserPressKey, browserFocus, browserClear,
-      browserScreenshot, browserGetDomSnapshot, browserGetAccessibilityTree, browserFindElements, browserGetElementInfo, browserWaitForElement, browserGetPageText, browserGetPageTitle,
-      devtoolsGetConsoleLogs, devtoolsClearConsole, devtoolsEvaluate, devtoolsGetJsErrors,
-      networkGetLogs, networkGetFailedRequests, networkGetCorsIssues, networkClearLogs,
-      devtoolsGetPerformanceMetrics, devtoolsGetMemoryUsage, devtoolsGetDomCounters, devtoolsSimulateNetwork,
-      storageGetLocal, storageSetLocal, storageRemoveLocal, storageClearLocal, storageGetSession, storageSetSession, storageGetCookies, storageSetCookie, storageDeleteCookie, storageGetIndexedDB,
+      browserClick, browserType, browserSelect, browserHover, browserScroll, browserPressKey, browserFocus, browserClear, browserUploadFile, browserDragDrop,
+      browserScreenshot, browserGetDomSnapshot, browserGetAccessibilityTree, browserFindElements, browserGetElementInfo, browserWaitForElement, browserGetPageText, browserGetPageTitle, browserGetMeta,
+      devtoolsGetConsoleLogs, devtoolsClearConsole, devtoolsEvaluate, devtoolsGetJsErrors, devtoolsWatchConsole,
+      networkGetLogs, networkGetFailedRequests, networkGetCorsIssues, networkClearLogs, networkIntercept, networkRemoveIntercept, networkMockResponse, networkWaitForRequest, networkGetRequestDetail,
+      devtoolsGetPerformanceMetrics, devtoolsGetMemoryUsage, devtoolsGetDomCounters, devtoolsStartProfiling, devtoolsStopProfiling, devtoolsSimulateNetwork,
+      storageGetLocal, storageSetLocal, storageRemoveLocal, storageClearLocal, storageGetSession, storageSetSession, storageGetCookies, storageSetCookie, storageDeleteCookie, storageGetIndexedDB, storageExportState, storageImportState,
       authFillLoginForm, authSaveSession, authLoadSession, authListSessions, authDeleteSession, authCheckLoggedIn,
-      tabNew, tabClose, tabList, tabSwitch, contextNew, contextClose,
-      processSpawn, processList, processGetLogs, processGetStatus, processSendInput, processKill, processWaitForReady,
-      terminalWatchFile, terminalGetLogs, terminalGetErrors, terminalListWatchers, terminalStopWatcher,
+      tabNew, tabClose, tabList, tabSwitch, tabGetCurrent, contextNew, contextClose,
+      processSpawn, processList, processGetLogs, processGetStatus, processSendInput, processKill, processWaitForReady, processAttachPid, processAttachPort, processRestart,
+      terminalWatchFile, terminalGetLogs, terminalGetErrors, terminalListWatchers, terminalStopWatcher, terminalWatchPipe, terminalClearBuffer,
       diagnosePage, diagnoseElement, diagnoseNetwork, diagnoseAuth, diagnoseFullstack, diagnosePerformance,
     ];
 

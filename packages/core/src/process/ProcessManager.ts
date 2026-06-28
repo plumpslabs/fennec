@@ -7,6 +7,7 @@ export interface ManagedProcess {
   pid: number;
   name: string;
   command: string;
+  spawnArgs: string[];
   cwd?: string;
   startedAt: Date;
   child: ChildProcess;
@@ -70,6 +71,7 @@ export class ProcessManager {
       pid: child.pid ?? 0,
       name: processId,
       command: `${command} ${args.join(" ")}`,
+      spawnArgs: args,
       cwd,
       startedAt: new Date(),
       child,
@@ -192,6 +194,52 @@ export class ProcessManager {
       if (proc.running) count++;
     }
     return count;
+  }
+
+  restart(processId: string): Promise<ManagedProcess> {
+    const proc = this.get(processId);
+    if (!proc) {
+      return Promise.reject(new Error(`Process not found: ${processId}`));
+    }
+
+    const doSpawn = () => {
+      this.processes.delete(processId);
+      return this.spawn(
+        proc.command.split(" ")[0]!,
+        proc.spawnArgs,
+        proc.cwd,
+        undefined,
+        proc.name,
+      );
+    };
+
+    if (!proc.running) {
+      return Promise.resolve(doSpawn());
+    }
+
+    // Kill and wait for actual exit before re-spawning
+    return new Promise<ManagedProcess>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        // Force kill after timeout
+        try {
+          proc.child.kill("SIGKILL");
+        } catch { /* ignore */ }
+        resolve(doSpawn());
+      }, 2000);
+
+      proc.child.once("exit", () => {
+        clearTimeout(timeout);
+        proc.running = false;
+        resolve(doSpawn());
+      });
+
+      try {
+        proc.child.kill("SIGTERM");
+      } catch {
+        clearTimeout(timeout);
+        resolve(doSpawn());
+      }
+    });
   }
 
   cleanup(): void {

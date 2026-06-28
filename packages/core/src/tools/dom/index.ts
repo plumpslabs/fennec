@@ -273,3 +273,57 @@ export const browserGetPageTitle = createTool({
     }
   },
 });
+
+export const browserGetMeta = createTool({
+  name: "browser_get_meta",
+  description: "`<use_case>SEO/Meta inspection</use_case> Get page metadata: title, description, Open Graph tags, Twitter cards, canonical URL, favicon, and viewport info. title, description, ogTags, twitterTags, canonical, favicon, viewport, metaTags.`",
+  inputSchema: z.object({
+    sessionId: z.string().optional().describe("Session ID"),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    try {
+      const meta = await session.page.evaluate(() => {
+        const getMeta = (name: string): string | null => {
+          const el = document.querySelector(`meta[name="${name}"], meta[property="${name}"]`);
+          return el ? el.getAttribute("content") : null;
+        };
+
+        const ogTags: Record<string, string | null> = {};
+        const twitterTags: Record<string, string | null> = {};
+        const allMeta: Record<string, string | null> = {};
+
+        document.querySelectorAll("meta").forEach((el) => {
+          const property = el.getAttribute("property");
+          const name = el.getAttribute("name");
+          const content = el.getAttribute("content");
+          const key = property || name;
+          if (key && content) {
+            allMeta[key] = content;
+            if (key.startsWith("og:")) ogTags[key] = content;
+            if (key.startsWith("twitter:")) twitterTags[key] = content;
+          }
+        });
+
+        const canonical = document.querySelector("link[rel='canonical']")?.getAttribute("href") ?? null;
+        const favicon = document.querySelector("link[rel='icon'], link[rel='shortcut icon']")?.getAttribute("href") ?? null;
+        const viewport = getMeta("viewport");
+
+        return {
+          title: document.title,
+          description: getMeta("description"),
+          ogTags,
+          twitterTags,
+          canonical,
+          favicon,
+          viewport,
+          metaTags: allMeta,
+        };
+      });
+
+      return responseBuilder.success(meta, sessionManager.buildMeta(session));
+    } catch (error) {
+      return responseBuilder.error(error);
+    }
+  },
+});

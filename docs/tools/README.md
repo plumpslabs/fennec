@@ -150,3 +150,22 @@ Full-stack diagnosis and correlation.
 | `diagnose_auth` | Auth state check |
 | `diagnose_fullstack` | **Full-stack correlation** |
 | `diagnose_performance` | Performance diagnosis |
+
+---
+
+## Usage Examples
+
+Step-by-step walkthroughs with real MCP JSON-RPC tool call examples are available in the [`examples/`](../../examples/) directory:
+
+| Example | Description | Key Tools |
+|---|---|---|
+| [Login Flow](../../examples/login-flow/) | Auth session persistence — login once, save session, restore later | `auth_fill_login_form`, `auth_save_session`, `auth_load_session` |
+| [Debug API Error](../../examples/debug-api-error/) | Full-stack error diagnosis — correlate browser console, network, and server logs | `diagnose_fullstack`, `network_get_failed_requests`, `process_get_logs` |
+| [Multi-User Test](../../examples/multi-user-test/) | Parallel session testing — admin + regular user in isolated contexts | `context_new`, `tab_switch`, `auth_check_logged_in` |
+| [Full-Stack Diagnose](../../examples/fullstack-diagnose/) | Process lifecycle — spawn server, pipe logs, open browser, correlate errors | `process_spawn`, `process_wait_for_ready`, `diagnose_fullstack`, `terminal_watch_pipe` |
+
+Each example includes:
+- Full MCP JSON-RPC request/response examples for every tool call
+- Multiple scenarios (happy path, error recovery, advanced usage)
+- Error handling with `isError: true` response samples
+- Troubleshooting tables for common issues

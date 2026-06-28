@@ -63,6 +63,83 @@ export const devtoolsGetDomCounters = createTool({
   },
 });
 
+export const devtoolsStartProfiling = createTool({
+  name: "devtools_start_profiling",
+  description: "`<use_case>Performance analysis</use_case> Start CPU performance profiling via CDP. Returns a profileId for use with devtools_stop_profiling. Captures JavaScript stack traces and execution timing. profileId (string).`",
+  inputSchema: z.object({
+    sessionId: z.string().optional().describe("Session ID"),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    try {
+      const cdpSession = session.cdpSession;
+      await cdpSession.send("Profiler.enable" as never);
+      await cdpSession.send("Profiler.start" as never);
+      const profileId = `profile_${Date.now()}`;
+      const meta = session.metadata as Record<string, any>;
+      if (!meta.activeProfiles) meta.activeProfiles = {};
+      meta.activeProfiles[profileId] = { startedAt: Date.now() };
+      return responseBuilder.success({ profileId }, sessionManager.buildMeta(session));
+    } catch (error) {
+      return responseBuilder.error(error, {
+        code: "CDP_ERROR",
+        suggestions: ["CDP Profiler may not be available in all browser contexts"],
+      });
+    }
+  },
+});
+
+export const devtoolsStopProfiling = createTool({
+  name: "devtools_stop_profiling",
+  description: "`<use_case>Performance analysis</use_case> Stop CPU profiling and return collected profile data. topFunctions[], duration (ms), totalSamples.`",
+  inputSchema: z.object({
+    profileId: z.string().describe("Profile ID from devtools_start_profiling"),
+    sessionId: z.string().optional().describe("Session ID"),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    try {
+      const meta = session.metadata as Record<string, any>;
+      const profileMeta = meta.activeProfiles?.[input.profileId];
+      if (!profileMeta) {
+        return responseBuilder.error(
+          new Error(`Profile not found: ${input.profileId}`),
+          { code: "INVALID_INPUT" },
+        );
+      }
+
+      const cdpSession = session.cdpSession;
+      const result = await cdpSession.send("Profiler.stop" as never) as any;
+      const profile = result.profile;
+
+      const nodes = profile.nodes ?? [];
+      const topFunctions = nodes
+        .filter((n: any) => (n.hitCount ?? 0) > 0)
+        .sort((a: any, b: any) => (b.hitCount ?? 0) - (a.hitCount ?? 0))
+        .slice(0, 20)
+        .map((n: any) => ({
+          functionName: n.callFrame.functionName || "(anonymous)",
+          url: n.callFrame.url || "",
+          lineNumber: n.callFrame.lineNumber,
+          hitCount: n.hitCount ?? 0,
+        }));
+
+      delete meta.activeProfiles[input.profileId];
+
+      return responseBuilder.success({
+        topFunctions,
+        duration: Date.now() - (profileMeta.startedAt ?? Date.now()),
+        totalSamples: profile.totalSamples ?? 0,
+      }, sessionManager.buildMeta(session));
+    } catch (error) {
+      return responseBuilder.error(error, {
+        code: "CDP_ERROR",
+        suggestions: ["Ensure profiling was started with devtools_start_profiling first"],
+      });
+    }
+  },
+});
+
 export const devtoolsSimulateNetwork = createTool({
   name: "devtools_simulate_network",
   description: "`<use_case>Testing</use_case> Simulate network conditions: offline, slow-3g, fast-3g, 4g, or reset. applied (string).`",

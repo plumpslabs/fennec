@@ -146,6 +146,32 @@ export const contextNew = createTool({
   },
 });
 
+export const tabGetCurrent = createTool({
+  name: "tab_get_current",
+  description: "`<use_case>Tab management</use_case> Get current active tab information: URL, title, and ready state. url, title, readyState.`",
+  inputSchema: z.object({
+    sessionId: z.string().optional().describe("Session ID"),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    try {
+      const [url, title, readyState] = await Promise.all([
+        session.page.url(),
+        session.page.title().catch(() => ""),
+        session.page.evaluate(() => document.readyState).catch(() => "unknown"),
+      ]);
+
+      return responseBuilder.success({
+        url,
+        title,
+        readyState,
+      }, sessionManager.buildMeta(session));
+    } catch (error) {
+      return responseBuilder.error(error);
+    }
+  },
+});
+
 export const contextClose = createTool({
   name: "context_close",
   description: "`<use_case>Session management</use_case> Close a browser context by sessionId. The default session cannot be closed. success.`",

@@ -291,3 +291,77 @@ export const browserClear = createTool({
     }
   },
 });
+
+// ─── File Upload ─────────────────────────────────────────────────
+
+export const browserUploadFile = createTool({
+  name: "browser_upload_file",
+  description: "`<use_case>File upload</use_case> Upload a file to a file input element. Supports single or multiple files by path. fileName, fileSize.`",
+  inputSchema: z.object({
+    selector: z.string().describe("File input element selector"),
+    filePaths: z.array(z.string()).describe("Absolute file paths to upload"),
+    sessionId: z.string().optional().describe("Session ID"),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    try {
+      const resolved = await resolveSelector(session.page, input.selector);
+      if (!resolved.found) {
+        return responseBuilder.error(new Error(`File input not found: ${input.selector}`), { code: "ELEMENT_NOT_FOUND" });
+      }
+
+      await session.page.locator(resolved.selector).setInputFiles(input.filePaths);
+
+      return responseBuilder.success({
+        fileCount: input.filePaths.length,
+        fileName: input.filePaths[0]?.split(/[\\/]/).pop(),
+      }, sessionManager.buildMeta(session));
+    } catch (error) {
+      return responseBuilder.error(error, {
+        code: "FILE_UPLOAD_FAILED",
+        suggestions: [
+          "Ensure the element is a valid <input type=\"file\">",
+          "Verify file paths exist and are accessible",
+        ],
+      });
+    }
+  },
+});
+
+export const browserDragDrop = createTool({
+  name: "browser_drag_drop",
+  description: "`<use_case>Drag and drop</use_case> Drag an element to a target element. Uses Playwright's built-in dragTo() for reliable mouse-based DnD. Returns: success.`",
+  inputSchema: z.object({
+    sourceSelector: z.string().describe("Source element selector to drag"),
+    targetSelector: z.string().describe("Target element selector to drop onto"),
+    sessionId: z.string().optional().describe("Session ID"),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    try {
+      const sourceResolved = await resolveSelector(session.page, input.sourceSelector);
+      if (!sourceResolved.found) {
+        return responseBuilder.error(new Error(`Source element not found: ${input.sourceSelector}`), { code: "ELEMENT_NOT_FOUND" });
+      }
+
+      const targetResolved = await resolveSelector(session.page, input.targetSelector);
+      if (!targetResolved.found) {
+        return responseBuilder.error(new Error(`Target element not found: ${input.targetSelector}`), { code: "ELEMENT_NOT_FOUND" });
+      }
+
+      await session.page.locator(sourceResolved.selector).dragTo(
+        session.page.locator(targetResolved.selector),
+      );
+
+      return responseBuilder.success({ success: true }, sessionManager.buildMeta(session));
+    } catch (error) {
+      return responseBuilder.error(error, {
+        code: "DRAG_DROP_FAILED",
+        suggestions: [
+          "Ensure both elements are visible and interactable",
+          "Check if the page uses custom HTML5 drag events"
+        ],
+      });
+    }
+  },
+});

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createTool } from "../_registry.js";
+import { PortDetector } from "../../process/PortDetector.js";
 
 export const processSpawn = createTool({
   name: "process_spawn",
@@ -118,6 +119,29 @@ export const processKill = createTool({
   },
 });
 
+export const processRestart = createTool({
+  name: "process_restart",
+  description: "`<use_case>Process management</use_case> Restart a managed process by killing and re-spawning it with the same configuration. Returns the new process info. processId, pid, startedAt.`",
+  inputSchema: z.object({
+    processId: z.string().describe("Process ID to restart"),
+  }),
+  handler: async (input, { config, responseBuilder, processManager }) => {
+    if (!config.security.allowProcessSpawn) {
+      return responseBuilder.error(new Error("Process spawning is disabled"), { code: "INVALID_INPUT" });
+    }
+    try {
+      const newProc = await processManager.restart(input.processId);
+      return responseBuilder.success({
+        processId: newProc.processId,
+        pid: newProc.pid,
+        startedAt: newProc.startedAt.toISOString(),
+      }, { elapsed: 0, sessionId: "", timestamp: new Date().toISOString() });
+    } catch (error) {
+      return responseBuilder.error(error, { code: "PROCESS_NOT_FOUND", suggestions: ["Use process_list to see available processes"] });
+    }
+  },
+});
+
 export const processWaitForReady = createTool({
   name: "process_wait_for_ready",
   description: "`<use_case>Process management</use_case> Wait for a process to output a ready pattern (e.g. 'listening on port'). ready (bool), elapsed (ms), matchedLine.`",
@@ -155,6 +179,72 @@ export const processWaitForReady = createTool({
       });
     } catch (error) {
       return responseBuilder.error(error, { code: "PROCESS_NOT_FOUND" });
+    }
+  },
+});
+
+// ─── Attach to existing processes ─────────────────────────────────
+
+export const processAttachPid = createTool({
+  name: "process_attach_pid",
+  description: "`<use_case>Process management</use_case> Look up a running process by PID. Returns process info for monitoring (not process control). processId, pid, command, port (if detected).`",
+  inputSchema: z.object({
+    pid: z.number().describe("Process ID to attach to"),
+    name: z.string().optional().describe("Name for this process reference"),
+  }),
+  handler: async (input, { responseBuilder }) => {
+    try {
+      const detector = new PortDetector();
+      const info = detector.detectByPid(input.pid);
+      if (!info) {
+        return responseBuilder.error(
+          new Error(`Could not find process with PID ${input.pid}`),
+          { code: "PROCESS_NOT_FOUND", suggestions: ["Verify the PID is correct and the process is running"] },
+        );
+      }
+      return responseBuilder.success({
+        processId: input.name ?? `pid_${input.pid}`,
+        pid: input.pid,
+        command: info.command,
+        port: info.port ?? null,
+      }, { elapsed: 0, sessionId: "", timestamp: new Date().toISOString() });
+    } catch (error) {
+      return responseBuilder.error(error, {
+        code: "ATTACH_FAILED",
+        suggestions: ["Verify the PID is correct", "Ensure the process is running"],
+      });
+    }
+  },
+});
+
+export const processAttachPort = createTool({
+  name: "process_attach_port",
+  description: "`<use_case>Process management</use_case> Look up a process by port number. Returns process info. processId, pid, command, port.`",
+  inputSchema: z.object({
+    port: z.number().describe("Port number to find process on"),
+    name: z.string().optional().describe("Name for this process reference"),
+  }),
+  handler: async (input, { responseBuilder }) => {
+    try {
+      const detector = new PortDetector();
+      const info = detector.detectByPort(input.port);
+      if (!info) {
+        return responseBuilder.error(
+          new Error(`No process found listening on port ${input.port}`),
+          { code: "PROCESS_NOT_FOUND", suggestions: ["Verify the port is in use", "Check if the server is running"] },
+        );
+      }
+      return responseBuilder.success({
+        processId: input.name ?? `port_${input.port}`,
+        pid: info.pid,
+        command: info.command,
+        port: input.port,
+      }, { elapsed: 0, sessionId: "", timestamp: new Date().toISOString() });
+    } catch (error) {
+      return responseBuilder.error(error, {
+        code: "ATTACH_FAILED",
+        suggestions: ["Verify the port number is correct", "Ensure a process is listening on this port"],
+      });
     }
   },
 });
