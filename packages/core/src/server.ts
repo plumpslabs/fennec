@@ -157,6 +157,8 @@ import {
   smartNavigate,
   smartFillForm,
   smartValidateForm,
+  browserScreenshotAnnotated,
+  browserScreenshotExport,
 } from './tools/smart/index.js';
 
 export class FennecServer {
@@ -332,6 +334,8 @@ export class FennecServer {
       smartNavigate,
       smartFillForm,
       smartValidateForm,
+      browserScreenshotAnnotated,
+      browserScreenshotExport,
     ];
 
     for (const tool of tools) {

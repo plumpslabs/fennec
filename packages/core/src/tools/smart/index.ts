@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { createTool } from "../_registry.js";
 import { takeScreenshot } from "../../utils/screenshot.js";
+import fs from "node:fs";
+import path from "node:path";
 
 // ─── smart_fill_form ──────────────────────────────────────────────
 
@@ -167,6 +169,13 @@ export interface DetectedField {
   dataTestid: string;
   required: boolean;
   currentValue: string;
+  // HTML5 validation constraints (populated in same evaluate pass)
+  minLength: number | null;
+  maxLength: number | null;
+  pattern: string | null;
+  min: string | null;
+  max: string | null;
+  step: string | null;
 }
 
 /** @internal Exported for use by auth_fill_login_form */
@@ -186,6 +195,12 @@ export async function detectFormFields(page: {
       dataTestid: string;
       required: boolean;
       currentValue: string;
+      minLength: number | null;
+      maxLength: number | null;
+      pattern: string | null;
+      min: string | null;
+      max: string | null;
+      step: string | null;
     }> = [];
     let index = 0;
 
@@ -212,6 +227,14 @@ export async function detectFormFields(page: {
           const ref = document.getElementById(labelledBy);
           if (ref) label = ref.textContent?.trim() ?? "";
         }
+      }
+
+      // HTML5 validation attributes
+      const rawMinLength = el.getAttribute("minlength");
+      const rawMaxLength = el.getAttribute("maxlength");
+      let pattern = null;
+      if (tag === "input") {
+        pattern = (el as HTMLInputElement).getAttribute("pattern");
       }
 
       let type = "";
@@ -242,6 +265,13 @@ export async function detectFormFields(page: {
         dataTestid: el.getAttribute("data-testid") ?? "",
         required: el.hasAttribute("required"),
         currentValue,
+        // Validation constraints
+        minLength: rawMinLength ? parseInt(rawMinLength, 10) : null,
+        maxLength: rawMaxLength ? parseInt(rawMaxLength, 10) : null,
+        pattern,
+        min: el.getAttribute("min"),
+        max: el.getAttribute("max"),
+        step: el.getAttribute("step"),
       });
     }
 
@@ -376,7 +406,7 @@ export const smartValidateForm = createTool({
     const page = session.page;
 
     try {
-      // Phase 1: Detect all form fields with current values
+      // Phase 1: Detect all form fields with current values + HTML5 constraints (single evaluate)
       const formFields = await detectFormFields(page);
 
       if (formFields.length === 0) {
@@ -392,17 +422,11 @@ export const smartValidateForm = createTool({
         );
       }
 
-      // Phase 2: Get extended validation attributes from the page
-      const htmlAttributes = await getFieldConstraints(page);
-
-      // Phase 3: Validate each field
+      // Phase 2: Validate each field (constraints already included in detectFormFields)
       const fieldResults: FieldValidation[] = [];
       let totalIssues = 0;
 
       for (const field of formFields) {
-        const constraints = htmlAttributes.find(
-          (a) => a.index === field.index,
-        );
         const customRule = input.customRules?.[
           field.label || field.name || field.id || field.placeholder || `field_${field.index}`
         ];
@@ -411,9 +435,9 @@ export const smartValidateForm = createTool({
         const value = field.currentValue;
         const isRequired = customRule?.required ?? field.required;
         const fieldType = customRule?.type ?? field.type;
-        const minLen = customRule?.minLength ?? constraints?.minLength ?? null;
-        const maxLen = customRule?.maxLength ?? constraints?.maxLength ?? null;
-        const pattern = customRule?.pattern ?? constraints?.pattern ?? null;
+        const minLen = customRule?.minLength ?? field.minLength ?? null;
+        const maxLen = customRule?.maxLength ?? field.maxLength ?? null;
+        const pattern = customRule?.pattern ?? field.pattern ?? null;
 
         // Check required
         if (isRequired && (!value || value.trim() === "")) {
@@ -472,9 +496,9 @@ export const smartValidateForm = createTool({
             minLength: minLen,
             maxLength: maxLen,
             pattern,
-            min: constraints?.min ?? null,
-            max: constraints?.max ?? null,
-            step: constraints?.step ?? null,
+            min: field.min ?? null,
+            max: field.max ?? null,
+            step: field.step ?? null,
           },
         });
       }
@@ -519,70 +543,380 @@ export const smartValidateForm = createTool({
   },
 });
 
+// ─── browser_screenshot_annotated ───────────────────────────────
+
+interface AnnotatedElement {
+  index: number;
+  tag: string;
+  text: string;
+  selector: string;
+  boundingBox: { x: number; y: number; width: number; height: number };
+}
+
 /**
- * Get HTML5 validation attributes for each form field.
+ * Inject numbered annotation badges on interactive elements.
  */
-async function getFieldConstraints(page: {
+async function injectAnnotations(page: {
   evaluate: <T>(fn: () => T) => Promise<T>;
-}): Promise<
-  Array<{
-    index: number;
-    minLength: number | null;
-    maxLength: number | null;
-    pattern: string | null;
-    min: string | null;
-    max: string | null;
-    step: string | null;
-  }>
-> {
-  const constraints = await page.evaluate(() => {
+}): Promise<AnnotatedElement[]> {
+  const elements = await page.evaluate(() => {
+    const tags = ["a", "button", "input", "select", "textarea", "[role=button]", "[role=link]", "[role=tab]", "[role=menuitem]"];
+    const selector = tags
+      .map((t) => `${t}:not([data-ai-annotated]):not([type=hidden]):not([type=submit]):not([type=button]):not([type=reset]):not([type=image])`)
+      .join(", ");
+
+    const els = Array.from(document.querySelectorAll<HTMLElement>(selector));
     const results: Array<{
       index: number;
-      minLength: number | null;
-      maxLength: number | null;
-      pattern: string | null;
-      min: string | null;
-      max: string | null;
-      step: string | null;
+      tag: string;
+      text: string;
+      selector: string;
+      boundingBox: { x: number; y: number; width: number; height: number };
     }> = [];
 
-    const inputs = Array.from(document.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
-      "input:not([type=hidden]):not([type=submit]):not([type=button]):not([type=reset]):not([type=image]), select, textarea",
-    ));
-
     let index = 0;
-    for (const el of inputs) {
-      const minLength = el.getAttribute("minlength");
-      const maxLength = el.getAttribute("maxlength");
+    for (const el of els) {
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) continue;
+      if (rect.x + rect.width < 0 || rect.y + rect.height < 0) continue;
 
-      let pattern = null;
-      if (el.tagName === "INPUT") {
-        pattern = (el as HTMLInputElement).getAttribute("pattern");
-      }
+      // Add data-ai-index directly on the element so AI can click via [data-ai-index='N']
+      el.setAttribute("data-ai-index", String(index));
+
+      const text = (el.textContent ?? "").trim().slice(0, 40);
+      const id = el.id ? `#${CSS.escape(el.id)}` : "";
 
       results.push({
-        index: index++,
-        minLength: minLength ? parseInt(minLength, 10) : null,
-        maxLength: maxLength ? parseInt(maxLength, 10) : null,
-        pattern,
-        min: el.getAttribute("min"),
-        max: el.getAttribute("max"),
-        step: el.getAttribute("step"),
+        index,
+        tag: el.tagName.toLowerCase(),
+        text,
+        selector: id || el.getAttribute("data-testid") || el.getAttribute("name") || el.getAttribute("aria-label") || text.slice(0, 20),
+        boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
       });
+
+      // Create badge overlay (visual indicator only)
+      const badge = document.createElement("div");
+      badge.setAttribute("data-ai-annotated", "true");
+      badge.style.cssText = `
+        position: fixed;
+        z-index: 2147483647;
+        top: ${rect.y}px;
+        left: ${rect.x}px;
+        width: ${rect.width}px;
+        height: ${rect.height}px;
+        pointer-events: none;
+        box-sizing: border-box;
+        border: 2px solid rgba(255, 100, 50, 0.7);
+        background: rgba(255, 100, 50, 0.08);
+      `;
+
+      const label = document.createElement("span");
+      label.style.cssText = `
+        position: absolute;
+        top: -12px;
+        left: -6px;
+        background: #ff6432;
+        color: white;
+        font: bold 11px/18px monospace;
+        padding: 0 5px;
+        border-radius: 3px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      `;
+      label.textContent = String(index);
+      badge.appendChild(label);
+
+      document.body.appendChild(badge);
+      index++;
     }
 
     return results;
   }).catch(() => []);
 
-  return constraints as Array<{
-    index: number;
-    minLength: number | null;
-    maxLength: number | null;
-    pattern: string | null;
-    min: string | null;
-    max: string | null;
-    step: string | null;
-  }>;
+  return elements as unknown as AnnotatedElement[];
+}
+
+/**
+ * Remove annotation badges from the page and clean up data-ai-index attributes.
+ */
+async function removeAnnotations(page: {
+  evaluate: <T>(fn: () => T) => Promise<T>;
+}): Promise<void> {
+  await page.evaluate(() => {
+    document.querySelectorAll("[data-ai-annotated]").forEach((el) => el.remove());
+    document.querySelectorAll("[data-ai-index]").forEach((el) => el.removeAttribute("data-ai-index"));
+  }).catch(() => {});
+}
+
+export const browserScreenshotAnnotated = createTool({
+  name: "browser_screenshot_annotated",
+  description:
+    "`<use_case>Visual capture</use_case> Take a screenshot with auto-numbered annotations on all interactive elements (buttons, links, inputs, selects, etc.). Each element gets a numbered badge in the screenshot + a data-ai-index attribute for easy clicking. Returns base64 screenshot, elements[ {index, tag, text, selector, boundingBox} ]. Use the index to click: browser_click(selector=\"[data-ai-index='3']\").`",
+  inputSchema: z.object({
+    format: z
+      .enum(["png", "jpeg"])
+      .optional()
+      .default("png")
+      .describe("Image format"),
+    fullPage: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe("Capture full page (including scrollable content)"),
+    sessionId: z.string().optional().describe("Session ID"),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    const page = session.page;
+
+    try {
+      // Phase 1: Inject numbered annotations on interactive elements
+      const annotatedElements = await injectAnnotations(page);
+
+      // Phase 2: Take screenshot with annotations visible
+      const format = input.format ?? "png";
+      const fullPage = input.fullPage ?? false;
+      const buffer = await page.screenshot({ fullPage, type: format });
+
+      const base64 = buffer.toString("base64");
+
+      // Phase 3: Clean up annotations
+      await removeAnnotations(page);
+
+      return responseBuilder.success(
+        {
+          base64,
+          format,
+          width: page.viewportSize()?.width ?? 1280,
+          height: page.viewportSize()?.height ?? 720,
+          timestamp: new Date().toISOString(),
+          annotatedCount: annotatedElements.length,
+          elements: annotatedElements.map((el) => ({
+            index: el.index,
+            tag: el.tag,
+            text: el.text.slice(0, 80),
+            selector: el.selector,
+            boundingBox: el.boundingBox,
+          })),
+        },
+        sessionManager.buildMeta(session),
+      );
+    } catch (error) {
+      // Ensure cleanup even on error
+      await removeAnnotations(page).catch(() => {});
+      return responseBuilder.error(error, {
+        code: "SCREENSHOT_FAILED",
+        suggestions: [
+          "Check if the page is still open and accessible",
+          "Try browser_screenshot instead",
+        ],
+      });
+    }
+  },
+});
+
+// ─── browser_screenshot_export ───────────────────────────────────
+
+export const browserScreenshotExport = createTool({
+  name: "browser_screenshot_export",
+  description:
+    "`<use_case>Visual capture</use_case> Take a screenshot with bounding box highlights on all interactive elements and export as a standalone HTML file. The HTML file embeds the screenshot + interactive overlays so you can open it in any browser to visually inspect elements. Returns filePath, elementCount, elements[].`",
+  inputSchema: z.object({
+    format: z
+      .enum(["png", "jpeg"])
+      .optional()
+      .default("png")
+      .describe("Image format"),
+    sessionId: z.string().optional().describe("Session ID"),
+  }),
+  handler: async (input, { sessionManager, responseBuilder, config }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    const page = session.page;
+
+    try {
+      // Phase 1: Take screenshot
+      const format = input.format ?? "png";
+      const buffer = await page.screenshot({ type: format });
+      const base64 = buffer.toString("base64");
+      const viewport = page.viewportSize() ?? { width: 1280, height: 720 };
+
+      // Phase 2: Scan interactive elements with bounding boxes
+      const rawElements = await page.evaluate(() => {
+        const selector = [
+          "a:not([data-ai-annotated])",
+          "button:not([data-ai-annotated])",
+          "input:not([type=hidden]):not([type=submit]):not([type=button]):not([data-ai-annotated])",
+          "select:not([data-ai-annotated])",
+          "textarea:not([data-ai-annotated])",
+          "[role=button]:not([data-ai-annotated])",
+          "[role=link]:not([data-ai-annotated])",
+          "[role=tab]:not([data-ai-annotated])",
+          "[role=menuitem]:not([data-ai-annotated])",
+        ].join(", ");
+
+        const els = Array.from(document.querySelectorAll<HTMLElement>(selector));
+        const results: Array<{
+          index: number;
+          tag: string;
+          text: string;
+          type: string;
+          name: string;
+          id: string;
+          boundingBox: { x: number; y: number; width: number; height: number };
+          color: string;
+        }> = [];
+
+        const colors = [
+          "#ff4444", "#44aa44", "#4488ff", "#ff8800", "#aa44ff",
+          "#ff44aa", "#44dddd", "#dddd44", "#dd44dd", "#44dd88",
+        ];
+
+        let index = 0;
+        for (const el of els) {
+          const rect = el.getBoundingClientRect();
+          if (rect.width < 5 || rect.height < 5) continue;
+
+          const tag = el.tagName.toLowerCase();
+          const text = (el.textContent ?? "").trim().slice(0, 60);
+          const inputType = (el as HTMLInputElement).type ?? "";
+
+          results.push({
+            index,
+            tag,
+            text,
+            type: tag === "input" ? inputType : tag,
+            name: (el as HTMLInputElement).name ?? "",
+            id: el.id,
+            boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+            color: colors[index % colors.length] ?? "#888888",
+          });
+          index++;
+        }
+
+        return results;
+      }).catch(() => []);
+
+      // Phase 3: Generate HTML with embedded screenshot + overlays
+      const timestamp = Date.now();
+      const filename = `screenshots/screenshot-${timestamp}.html`;
+      const exportPath = config.security.exportPath ?? "./.fennec/exports";
+      const fullDir = path.resolve(exportPath, "screenshots");
+      const fullPath = path.resolve(exportPath, filename);
+
+      await fs.promises.mkdir(fullDir, { recursive: true });
+
+      const boxesHtml = rawElements
+        .map(
+          (el) => `
+    <div class="box" style="
+      left: ${el.boundingBox.x}px;
+      top: ${el.boundingBox.y}px;
+      width: ${el.boundingBox.width}px;
+      height: ${el.boundingBox.height}px;
+      border-color: ${el.color};
+    " title="[${el.index}] ${el.tag}${el.text ? `: ${escapeHtml(el.text)}` : ""}${el.name ? ` (name: ${escapeHtml(el.name)})` : ""}${el.id ? ` (#${escapeHtml(el.id)})` : ""}">
+      <span class="label" style="background: ${el.color};">${el.index}</span>
+      <span class="info">${el.tag}${el.type !== el.tag ? `[type=${el.type}]` : ""}</span>
+    </div>`,
+        )
+        .join("");
+
+      // Build legend
+      const legendHtml = rawElements
+        .slice(0, 30)
+        .map(
+          (el) =>
+            `<li><span class="legend-dot" style="background:${el.color}"></span><strong>[${el.index}]</strong> &lt;${el.tag}&gt; ${el.text ? `&quot;${escapeHtml(el.text)}&quot;` : ""}${el.name ? ` <em>name=&quot;${escapeHtml(el.name)}&quot;</em>` : ""}${el.id ? ` <em>#${escapeHtml(el.id)}</em>` : ""}</li>`,
+        )
+        .join("");
+
+      const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Fennec Screenshot Export - ${new Date(timestamp).toISOString()}</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: system-ui, -apple-system, sans-serif; background: #1a1a2e; color: #e0e0e0; }
+.container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+h1 { font-size: 18px; color: #ff6432; margin-bottom: 20px; }
+.screenshot-wrapper { position: relative; display: inline-block; max-width: 100%; }
+.screenshot-wrapper img { max-width: 100%; height: auto; display: block; }
+.box { position: absolute; border: 2px solid; border-radius: 3px; cursor: pointer; transition: background 0.2s; }
+.box:hover { background: rgba(255,255,255,0.15) !important; }
+.label { position: absolute; top: -12px; left: -6px; color: #fff; font: bold 10px/16px monospace; padding: 0 4px; border-radius: 2px; z-index: 2; }
+.info { display: none; position: absolute; bottom: -18px; left: 0; font: 10px monospace; color: #aaa; white-space: nowrap; }
+.box:hover .info { display: block; }
+.sidebar { margin-top: 20px; }
+h2 { font-size: 14px; color: #ff6432; margin-bottom: 10px; }
+ul { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 4px; }
+li { font: 11px monospace; padding: 4px 8px; background: rgba(255,255,255,0.05); border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.meta { font: 11px monospace; color: #888; margin-bottom: 15px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Fennec Screenshot Export</h1>
+  <div class="meta">
+    ${rawElements.length} elements detected &middot;
+    ${viewport.width}x${viewport.height} viewport &middot;
+    ${new Date(timestamp).toISOString()}
+  </div>
+  <div class="screenshot-wrapper">
+    <img src="data:image/${format};base64,${base64}" alt="Screenshot">
+    ${boxesHtml}
+  </div>
+  <div class="sidebar">
+    <h2>Elements (${rawElements.length})</h2>
+    <ul>${legendHtml}</ul>
+  </div>
+</div>
+</body>
+</html>`;
+
+      await fs.promises.writeFile(fullPath, html, "utf-8");
+
+      return responseBuilder.success(
+        {
+          filePath: fullPath,
+          elementCount: rawElements.length,
+          viewport: `${viewport.width}x${viewport.height}`,
+          timestamp: new Date(timestamp).toISOString(),
+          elements: rawElements.map((el) => ({
+            index: el.index,
+            tag: el.tag,
+            text: el.text.slice(0, 80),
+            type: el.type,
+            name: el.name,
+            id: el.id,
+            boundingBox: el.boundingBox,
+          })),
+        },
+        sessionManager.buildMeta(session),
+      );
+    } catch (error) {
+      return responseBuilder.error(error, {
+        code: "EXPORT_FAILED",
+        suggestions: [
+          "Check if the page is still open and accessible",
+          "Check disk space and write permissions",
+          "Try browser_screenshot instead",
+        ],
+      });
+    }
+  },
+});
+
+/**
+ * Escape HTML special characters.
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 // ─── smartWait ───────────────────────────────────────────────────
