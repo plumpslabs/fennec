@@ -109,9 +109,31 @@ auth_save_session({ name: "myapp-prod" })
 diagnose_fullstack({ processId: "dev-server" })
 ```
 
+### Smart Tools — AI-Powered Interaction
+
+```
+// Smart wait with auto-diagnosis on timeout
+smart_wait({ selector: "button:has-text(\"Login\")", timeout: 5000 })
+
+// Smart fill form — auto-detect fields by label
+smart_fill_form({ fields: { "email": "user@test.com", "password": "secret" }, submitAfter: true })
+
+// Validate form before submit
+smart_validate_form({ customRules: { "email": { type: "email", required: true } } })
+
+// Annotated screenshot — numbered badges on elements
+browser_screenshot_annotated({ format: "png" })
+
+// Export screenshot as standalone HTML with bounding boxes
+browser_screenshot_export({ format: "png" })
+
+// Compare page changes — diff against previous state
+browser_screenshot_diff({ baseline: { elements, screenshot } })
+```
+
 ## Next Steps
 
-- Explore the full [Tool Reference](tools/README.md)
+- Explore the full [Tool Reference](tools/README.md) — 90+ MCP tools across 13 groups
 - Learn about [Auth Flows](guides/auth-flows.md)
 - Try [Full-Stack Debugging](guides/fullstack-debugging.md)
 - Configure Fennec with `fennec init`

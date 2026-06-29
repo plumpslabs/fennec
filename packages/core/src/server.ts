@@ -159,6 +159,7 @@ import {
   smartValidateForm,
   browserScreenshotAnnotated,
   browserScreenshotExport,
+  browserScreenshotDiff,
 } from './tools/smart/index.js';
 
 export class FennecServer {
@@ -336,6 +337,7 @@ export class FennecServer {
       smartValidateForm,
       browserScreenshotAnnotated,
       browserScreenshotExport,
+      browserScreenshotDiff,
     ];
 
     for (const tool of tools) {

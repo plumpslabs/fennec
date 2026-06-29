@@ -714,6 +714,81 @@ export const browserScreenshotAnnotated = createTool({
   },
 });
 
+// ─── browser_screenshot_diff ────────────────────────────────────
+
+export interface DiffElement {
+  index: number;
+  tag: string;
+  text: string;
+  type: string;
+  name: string;
+  id: string;
+  boundingBox: { x: number; y: number; width: number; height: number };
+}
+
+export interface DiffResult {
+  status: "added" | "removed" | "changed" | "same";
+  before: DiffElement | null;
+  after: DiffElement | null;
+  changes: string[];
+}
+
+function matchElements(
+  before: DiffElement[],
+  after: DiffElement[],
+): DiffResult[] {
+  const MAX_DIST = 30;
+  const usedAfter = new Set<number>();
+  const results: DiffResult[] = [];
+
+  for (const b of before) {
+    let bestMatch: { el: DiffElement; idx: number; dist: number; changes: string[] } | null = null;
+
+    for (let i = 0; i < after.length; i++) {
+      if (usedAfter.has(i)) continue;
+      const a = after[i]!;
+      const cxDist = Math.abs(b.boundingBox.x - a.boundingBox.x);
+      const cyDist = Math.abs(b.boundingBox.y - a.boundingBox.y);
+      const dist = Math.sqrt(cxDist * cxDist + cyDist * cyDist);
+
+      if (dist < MAX_DIST) {
+        const changes: string[] = [];
+        if (b.tag !== a.tag) changes.push(`tag: ${b.tag} -> ${a.tag}`);
+        if (b.text !== a.text) changes.push(`text: "${b.text.slice(0, 30)}" -> "${a.text.slice(0, 30)}"`);
+        if (
+          Math.abs(b.boundingBox.width - a.boundingBox.width) > 5 ||
+          Math.abs(b.boundingBox.height - a.boundingBox.height) > 5
+        ) {
+          changes.push(`size: ${b.boundingBox.width}x${b.boundingBox.height} -> ${a.boundingBox.width}x${a.boundingBox.height}`);
+        }
+        if (Math.abs(b.boundingBox.x - a.boundingBox.x) > 5 || Math.abs(b.boundingBox.y - a.boundingBox.y) > 5) {
+          changes.push(`position: (${b.boundingBox.x},${b.boundingBox.y}) -> (${a.boundingBox.x},${a.boundingBox.y})`);
+        }
+
+        if (!bestMatch || dist < bestMatch.dist) {
+          bestMatch = { el: a, idx: i, dist, changes };
+        }
+      }
+    }
+
+    if (bestMatch) {
+      usedAfter.add(bestMatch.idx);
+      const status = bestMatch.changes.length > 0 ? "changed" : "same";
+      results.push({ status, before: b, after: bestMatch.el, changes: bestMatch.changes });
+    } else {
+      results.push({ status: "removed", before: b, after: null, changes: [] });
+    }
+  }
+
+  for (let i = 0; i < after.length; i++) {
+    if (!usedAfter.has(i)) {
+      results.push({ status: "added", before: null, after: after[i]!, changes: [] });
+    }
+  }
+
+  return results;
+}
+
 // ─── browser_screenshot_export ───────────────────────────────────
 
 export const browserScreenshotExport = createTool({
@@ -901,6 +976,301 @@ li { font: 11px monospace; padding: 4px 8px; background: rgba(255,255,255,0.05);
           "Check if the page is still open and accessible",
           "Check disk space and write permissions",
           "Try browser_screenshot instead",
+        ],
+      });
+    }
+  },
+});
+
+export const browserScreenshotDiff = createTool({
+  name: "browser_screenshot_diff",
+  description:
+    "`<use_case>Visual diff</use_case> Compare current page state against a baseline and generate a diff HTML report. Accepts baselineElements + baselineScreenshot from a previous browser_screenshot_export call. Detects added (green), removed (red), changed/moved/resized (orange), and unchanged (dimmed) elements. Returns filePath, summary stats.",
+  inputSchema: z.object({
+    baseline: z.object({
+      elements: z.array(
+        z.object({
+          index: z.number(),
+          tag: z.string(),
+          text: z.string(),
+          type: z.string(),
+          name: z.string(),
+          id: z.string(),
+          boundingBox: z.object({
+            x: z.number(),
+            y: z.number(),
+            width: z.number(),
+            height: z.number(),
+          }),
+        }),
+      ),
+      screenshot: z.string().describe("Base64-encoded baseline screenshot"),
+      viewport: z
+        .object({ width: z.number(), height: z.number() })
+        .optional(),
+    }),
+    format: z
+      .enum(["png", "jpeg"])
+      .optional()
+      .default("png")
+      .describe("Image format"),
+    label: z
+      .string()
+      .optional()
+      .describe("Optional label for the diff (e.g. 'After clicking Login')"),
+    sessionId: z.string().optional().describe("Session ID"),
+  }),
+  handler: async (input, { sessionManager, responseBuilder, config }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    const page = session.page;
+
+    try {
+      // Phase 1: Take current screenshot + scan elements
+      const format = input.format ?? "png";
+      const buffer = await page.screenshot({ type: format });
+      const afterBase64 = buffer.toString("base64");
+      const viewport = page.viewportSize() ?? { width: 1280, height: 720 };
+
+      const afterElements = await page.evaluate(() => {
+        const selector = [
+          "a", "button",
+          "input:not([type=hidden]):not([type=submit]):not([type=button])",
+          "select", "textarea",
+          "[role=button]", "[role=link]", "[role=tab]", "[role=menuitem]",
+        ].join(", ");
+
+        const els = Array.from(document.querySelectorAll<HTMLElement>(selector));
+        const results: Array<{
+          index: number; tag: string; text: string; type: string;
+          name: string; id: string;
+          boundingBox: { x: number; y: number; width: number; height: number };
+        }> = [];
+
+        let index = 0;
+        for (const el of els) {
+          const rect = el.getBoundingClientRect();
+          if (rect.width < 5 || rect.height < 5) continue;
+          const tag = el.tagName.toLowerCase();
+          const text = (el.textContent ?? "").trim().slice(0, 60);
+          const inputType = (el as HTMLInputElement).type ?? "";
+          results.push({
+            index: index++,
+            tag,
+            text,
+            type: tag === "input" ? inputType : tag,
+            name: (el as HTMLInputElement).name ?? "",
+            id: el.id,
+            boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+          });
+        }
+        return results;
+      }).catch(() => []);
+
+      // Phase 2: Diff baseline vs current
+      const baselineElements: DiffElement[] = input.baseline.elements.map((e) => ({
+        index: e.index,
+        tag: e.tag,
+        text: e.text,
+        type: e.type,
+        name: e.name,
+        id: e.id,
+        boundingBox: { ...e.boundingBox },
+      }));
+
+      const diffResults = matchElements(baselineElements, afterElements as DiffElement[]);
+
+      // Phase 3: Generate diff HTML
+      const timestamp = Date.now();
+      const filename = `screenshots/diff-${timestamp}.html`;
+      const exportPath = config.security.exportPath ?? "./.fennec/exports";
+      const fullDir = path.resolve(exportPath, "screenshots");
+      const fullPath = path.resolve(exportPath, filename);
+
+      await fs.promises.mkdir(fullDir, { recursive: true });
+
+      const added = diffResults.filter((r) => r.status === "added");
+      const removed = diffResults.filter((r) => r.status === "removed");
+      const changed = diffResults.filter((r) => r.status === "changed");
+      const same = diffResults.filter((r) => r.status === "same");
+
+      // Build before overlays
+      const beforeBoxesHtml = diffResults
+        .filter((r) => r.before)
+        .map((r) => {
+          const b = r.before!;
+          const color =
+            r.status === "removed"
+              ? "#ff4444"
+              : r.status === "changed"
+                ? "#ff8800"
+                : "rgba(255,255,255,0.15)";
+          const labelBg =
+            r.status === "removed"
+              ? "#ff4444"
+              : r.status === "changed"
+                ? "#ff8800"
+                : "#666";
+          return `<div class="overlay ${r.status}" style="left:${b.boundingBox.x}px;top:${b.boundingBox.y}px;width:${b.boundingBox.width}px;height:${b.boundingBox.height}px;border-color:${color}" title="[${b.index}] ${b.tag}: ${escapeHtml(b.text.slice(0,40))}"><span class="olabel" style="background:${labelBg}">${b.index}</span></div>`;
+        })
+        .join("");
+
+      // Build after overlays
+      const afterBoxesHtml = diffResults
+        .filter((r) => r.after)
+        .map((r) => {
+          const a = r.after!;
+          const color =
+            r.status === "added"
+              ? "#44cc44"
+              : r.status === "changed"
+                ? "#ff8800"
+                : "rgba(255,255,255,0.08)";
+          const labelBg =
+            r.status === "added"
+              ? "#44cc44"
+              : r.status === "changed"
+                ? "#ff8800"
+                : "#444";
+          return `<div class="overlay ${r.status}" style="left:${a.boundingBox.x}px;top:${a.boundingBox.y}px;width:${a.boundingBox.width}px;height:${a.boundingBox.height}px;border-color:${color}" title="[${a.index}] ${a.tag}: ${escapeHtml(a.text.slice(0,40))}"><span class="olabel" style="background:${labelBg}">${a.index}</span></div>`;
+        })
+        .join("");
+
+      // Build detail list
+      const detailHtml = diffResults
+        .slice(0, 50)
+        .map((r) => {
+          const icon =
+            r.status === "added"
+              ? "🟢"
+              : r.status === "removed"
+                ? "🔴"
+                : r.status === "changed"
+                  ? "🟠"
+                  : "⚪";
+          const label = r.after || r.before;
+          const text = label?.text ?? "";
+          let changes = "";
+          if (r.changes.length > 0) {
+            changes = r.changes.map((c) => escapeHtml(c)).join("; ");
+          }
+          return `<li class="row-${r.status}">${icon} <strong>[${label?.index ?? "?"}]</strong> &lt;${label?.tag ?? "?"}&gt; ${text ? `&quot;${escapeHtml(text)}&quot;` : ""}${changes ? ` <span class="changes">${changes}</span>` : ""}</li>`;
+        })
+        .join("");
+
+      const labelStr = input.label ? ` - ${escapeHtml(input.label)}` : "";
+
+      const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Fennec Screenshot Diff${labelStr} - ${new Date(timestamp).toISOString()}</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: system-ui, -apple-system, sans-serif; background: #1a1a2e; color: #e0e0e0; }
+.container { max-width: 1600px; margin: 0 auto; padding: 20px; }
+h1 { font-size: 18px; color: #ff6432; margin-bottom: 4px; }
+h2 { font-size: 14px; color: #aaa; font-weight: 400; margin-bottom: 20px; }
+.panels { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.panel { background: rgba(255,255,255,0.03); border-radius: 8px; padding: 12px; }
+.panel h3 { font-size: 13px; color: #888; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+.shot-wrapper { position: relative; display: inline-block; max-width: 100%; }
+.shot-wrapper img { max-width: 100%; height: auto; display: block; border-radius: 4px; }
+.overlay { position: absolute; border: 2px solid; border-radius: 3px; pointer-events: none; }
+.overlay.removed { background: rgba(255,68,68,0.08); }
+.overlay.added { background: rgba(68,204,68,0.08); }
+.overlay.changed { background: rgba(255,136,0,0.08); }
+.overlay.same { border-style: dashed; opacity: 0.3; }
+.olabel { position: absolute; top: -11px; left: -5px; color: #fff; font: bold 9px/14px monospace; padding: 0 3px; border-radius: 2px; z-index: 2; }
+.summary { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+.stat { padding: 10px 16px; border-radius: 6px; font: 12px monospace; }
+.stat-added { background: rgba(68,204,68,0.15); border: 1px solid #44cc44; }
+.stat-removed { background: rgba(255,68,68,0.15); border: 1px solid #ff4444; }
+.stat-changed { background: rgba(255,136,0,0.15); border: 1px solid #ff8800; }
+.stat-same { background: rgba(255,255,255,0.05); border: 1px solid #555; }
+.stat-num { font-size: 20px; font-weight: 700; display: block; }
+.stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #aaa; }
+.details { margin-top: 20px; }
+.details h3 { font-size: 13px; color: #888; margin-bottom: 8px; }
+ul { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 3px; }
+li { font: 11px monospace; padding: 4px 8px; border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-added { background: rgba(68,204,68,0.08); }
+.row-removed { background: rgba(255,68,68,0.08); }
+.row-changed { background: rgba(255,136,0,0.08); }
+.row-same { background: rgba(255,255,255,0.03); opacity: 0.5; }
+.changes { color: #ff8800; font-style: italic; }
+.meta { font: 11px monospace; color: #666; margin-bottom: 15px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Fennec Screenshot Diff${labelStr}</h1>
+  <h2>${new Date(timestamp).toISOString()}</h2>
+
+  <div class="summary">
+    <div class="stat stat-added"><span class="stat-num">${added.length}</span><span class="stat-label">Added</span></div>
+    <div class="stat stat-removed"><span class="stat-num">${removed.length}</span><span class="stat-label">Removed</span></div>
+    <div class="stat stat-changed"><span class="stat-num">${changed.length}</span><span class="stat-label">Changed</span></div>
+    <div class="stat stat-same"><span class="stat-num">${same.length}</span><span class="stat-label">Unchanged</span></div>
+  </div>
+
+  <div class="panels">
+    <div class="panel">
+      <h3>Before</h3>
+      <div class="shot-wrapper">
+        <img src="data:;base64,${input.baseline.screenshot}" alt="Before">
+        ${beforeBoxesHtml}
+      </div>
+    </div>
+    <div class="panel">
+      <h3>After</h3>
+      <div class="shot-wrapper">
+        <img src="data:;base64,${afterBase64}" alt="After">
+        ${afterBoxesHtml}
+      </div>
+    </div>
+  </div>
+
+  <div class="details">
+    <h3>Changes (${diffResults.length} total)</h3>
+    <ul>${detailHtml}</ul>
+  </div>
+</div>
+</body>
+</html>`;
+
+      await fs.promises.writeFile(fullPath, html, "utf-8");
+
+      return responseBuilder.success(
+        {
+          filePath: fullPath,
+          summary: {
+            total: diffResults.length,
+            added: added.length,
+            removed: removed.length,
+            changed: changed.length,
+            unchanged: same.length,
+          },
+          viewport: `${viewport.width}x${viewport.height}`,
+          timestamp: new Date(timestamp).toISOString(),
+          changes: diffResults
+            .filter((r) => r.status !== "same")
+            .slice(0, 30)
+            .map((r) => ({
+              status: r.status,
+              tag: (r.after || r.before)?.tag ?? "",
+              text: (r.after || r.before)?.text ?? "",
+              changes: r.changes,
+            })),
+        },
+        sessionManager.buildMeta(session),
+      );
+    } catch (error) {
+      return responseBuilder.error(error, {
+        code: "DIFF_FAILED",
+        suggestions: [
+          "Check if the page is still open and accessible",
+          "Ensure baseline.elements contains valid element data from a previous browser_screenshot_export call",
+          "Try browser_screenshot_export first to get baseline data",
         ],
       });
     }

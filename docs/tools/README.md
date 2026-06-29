@@ -139,6 +139,19 @@ Watch log files and pipe streams.
 | `terminal_list_watchers` | List active watchers |
 | `terminal_stop_watcher` | Stop watcher |
 
+### [Smart Tools](smart.md) 🔥
+AI-powered page interaction with auto-diagnosis, validation, and visual testing.
+
+| Tool | Description |
+|---|---|
+| `smart_wait` | Wait for element with auto-diagnosis on timeout (URL, DOM, screenshot) |
+| `smart_navigate` | Navigate + auto-collect DOM snapshot after load |
+| `smart_fill_form` | Auto-detect ALL form fields, fill by label/name/placeholder, submit |
+| `smart_validate_form` | Validate fields against HTML5 constraints (required, email, minlength, pattern) |
+| `browser_screenshot_annotated` | Screenshot with numbered badges on all interactive elements + data-ai-index for clicking |
+| `browser_screenshot_export` | Screenshot + bounding box highlights exported as standalone HTML file |
+| `browser_screenshot_diff` | Compare current page against baseline — detect added/removed/changed elements, export diff HTML |
+
 ### [Diagnostic](diagnostic.md) ⭐⭐
 Full-stack diagnosis and correlation.
 
