@@ -15,7 +15,7 @@ import { createLogger, getLogger } from './utils/logger.js';
 import { ProcessManager } from './process/ProcessManager.js';
 import { LogWatcher } from './process/LogWatcher.js';
 import type { FennecConfig } from './config/defaults.js';
-import { Pipeline, createPermissionGuard, createRetryHandler, createTelemetryMiddleware, createSmartHook, createAuditLog } from './middleware/index.js';
+import { Pipeline, createPermissionGuard, createRetryHandler, createTelemetryMiddleware, createSmartHook, createAuditLog, createStateMachineMiddleware } from './middleware/index.js';
 import { ResourceManager } from './resource/ResourceManager.js';
 import { StateManager } from './state/index.js';
 import { PerformanceMetrics } from './utils/PerformanceMetrics.js';
@@ -164,6 +164,13 @@ import {
   browserScreenshotExport,
   browserScreenshotDiff,
 } from './tools/smart/index.js';
+import {
+  plannerExecuteGoal,
+  plannerCreatePlan,
+  plannerListPlans,
+  plannerGetPlan,
+  plannerCancelPlan,
+} from './tools/planner/index.js';
 
 export class FennecServer {
   private server: Server;
@@ -220,14 +227,17 @@ export class FennecServer {
     this.processManager.setEventBus(this.eventBus);
     this.logWatcher.setEventBus(this.eventBus);
 
-    // Wire tool executor to scheduler so auto-triggered workflows call real tools
-    this.workflowScheduler.setToolExecutor(async (toolName, input) => {
+    // Wire a shared tool executor that both the WorkflowScheduler and WorkflowEngine can use
+    const pipelineExecutor = async (toolName: string, input: Record<string, unknown>) => {
       const tool = this.toolRegistry.get(toolName);
-      if (!tool) throw new Error(`Scheduler: tool not found: ${toolName}`);
+      if (!tool) throw new Error(`Tool not found: ${toolName}`);
       const parsed = tool.inputSchema.parse(input);
       const context = this.getToolContext();
       return this.pipeline.execute(tool, parsed, context);
-    });
+    };
+
+    this.workflowScheduler.setToolExecutor(pipelineExecutor);
+    this.workflowEngine.setToolExecutor(pipelineExecutor);
 
     this.pipeline = new Pipeline();
     this.setupPipeline();
@@ -351,6 +361,11 @@ export class FennecServer {
       browserScreenshotAnnotated,
       browserScreenshotExport,
       browserScreenshotDiff,
+      plannerExecuteGoal,
+      plannerCreatePlan,
+      plannerListPlans,
+      plannerGetPlan,
+      plannerCancelPlan,
     ];
 
     for (const tool of tools) {
@@ -498,6 +513,7 @@ export class FennecServer {
     this.pipeline.use(createTelemetryMiddleware(this.performanceMetrics));
     this.pipeline.use(this.auditLog.middleware);
     this.pipeline.use(createPermissionGuard());
+    this.pipeline.use(createStateMachineMiddleware());
     this.pipeline.use(createSmartHook());
     this.pipeline.use(createRetryHandler({ maxRetries: 2 }));
   }

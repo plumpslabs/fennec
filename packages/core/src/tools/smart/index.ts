@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { createTool } from "../_registry.js";
 import { takeScreenshot } from "../../utils/screenshot.js";
+import { resolveSelector } from "../../utils/selector.js";
+import type { Page } from "playwright";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -120,35 +122,40 @@ export const smartFillForm = createTool({
 
 /**
  * Auto-detect submit button on the page.
+ * Uses resolveSelector() for text-based matching, falls back to CSS selectors.
  */
 /** @internal Exported for use by auth_fill_login_form */
-export async function findSubmitButton(page: {
-  locator: (selector: string) => { click: () => Promise<void> };
-  $: (selector: string) => Promise<unknown>;
-}): Promise<{ click: () => Promise<void> } | null> {
-  const selectors = [
+export async function findSubmitButton(
+  page: Page,
+): Promise<{ click: () => Promise<void> } | null> {
+  // Phase 1: Try text-based matching via resolveSelector (ARIA → testid → text → CSS → XPath)
+  const buttonTexts = [
+    "Submit", "Save", "Continue", "Next", "Send",
+    "Register", "Sign Up", "Sign up", "Log in", "Login",
+    "Create", "Update", "Add", "Done", "Confirm", "Pay",
+  ];
+
+  for (const text of buttonTexts) {
+    const resolved = await resolveSelector(page, text).catch(() => null);
+    if (resolved?.found) {
+      const loc = page.locator(resolved.selector).first();
+      return { click: () => loc.click() };
+    }
+  }
+
+  // Phase 2: Fall back to CSS attribute selectors (type="submit", form buttons)
+  const cssSelectors = [
     'button[type="submit"]',
     'input[type="submit"]',
-    'button:has-text("Submit")',
-    'button:has-text("Submit")',
-    'button:has-text("Save")',
-    'button:has-text("Continue")',
-    'button:has-text("Next")',
-    'button:has-text("Send")',
-    'button:has-text("Register")',
-    'button:has-text("Sign Up")',
-    'button:has-text("Create")',
-    'button:has-text("Update")',
-    '[role="button"]:has-text("Submit")',
-    '[role="button"]:has-text("Save")',
+    'button[type="button"]',
     'form button',
     'form input[type="button"]',
   ];
 
-  for (const sel of selectors) {
+  for (const sel of cssSelectors) {
     const el = await page.$(sel);
     if (el) {
-      return page.locator(sel);
+      return { click: () => page.locator(sel).first().click() };
     }
   }
 
@@ -319,38 +326,57 @@ export function matchField(fields: DetectedField[], query: string): DetectedFiel
 
 /** @internal Exported for use by auth_fill_login_form */
 export async function fillField(
-  page: {
-    locator: (selector: string) => {
-      fill: (text: string) => Promise<void>;
-      selectOption: (val: string) => Promise<string[]>;
-      setChecked: (checked: boolean) => Promise<void>;
-    };
-  },
+  page: Page,
   field: DetectedField,
   value: string,
 ): Promise<boolean> {
-  // Build a robust selector (use attribute selectors to avoid CSS.escape issue in Node.js)
-  let selector: string;
-  if (field.id) {
-    selector = `[id="${field.id.replace(/["]/g, '\\"')}"]`;
-  } else if (field.name) {
-    selector = `${field.tag}[name="${field.name.replace(/["]/g, '\\"')}"]`;
-  } else if (field.placeholder) {
-    selector = `${field.tag}[placeholder="${field.placeholder.replace(/["]/g, '\\"')}"]`;
-  } else {
-    // No reliable selector available — skip filling this field
-    return false;
+  // Strategy 1: Use resolveSelector with the best human-readable identifier
+  // This handles ARIA labels, text content, data-testid, etc. that attribute selectors miss
+  const identifier = field.label || field.ariaLabel || field.name || field.id || field.placeholder || field.dataTestid;
+
+  if (identifier) {
+    const resolved = await resolveSelector(page, identifier).catch(() => null);
+    if (resolved?.found) {
+      // Found via resolveSelector — use the resolved selector to interact
+      return interactField(page, resolved.selector, field, value);
+    }
   }
 
+  // Strategy 2: Build attribute-based selector (precise fallback for ID/name/placeholder)
+  let attrSelector: string | null = null;
+  if (field.id) {
+    attrSelector = `[id="${field.id.replace(/["]/g, '\\"')}"]`;
+  } else if (field.name) {
+    attrSelector = `${field.tag}[name="${field.name.replace(/["]/g, '\\"')}"]`;
+  } else if (field.placeholder) {
+    attrSelector = `${field.tag}[placeholder="${field.placeholder.replace(/["]/g, '\\"')}"]`;
+  }
+
+  if (attrSelector) {
+    return interactField(page, attrSelector, field, value);
+  }
+
+  return false;
+}
+
+/**
+ * Interact with a form field using a resolved selector.
+ * Errors propagate naturally so the tool handler can report FORM_FILL_FAILED.
+ */
+async function interactField(
+  page: Page,
+  selector: string,
+  field: DetectedField,
+  value: string,
+): Promise<boolean> {
   if (field.type === "checkbox" || field.type === "radio") {
     const shouldCheck = value === "true" || value === "yes" || value === "1" || value === "on";
-    await page.locator(selector).setChecked(shouldCheck);
+    await page.locator(selector).first().setChecked(shouldCheck);
   } else if (field.tag === "select") {
-    await page.locator(selector).selectOption(value);
+    await page.locator(selector).first().selectOption(value);
   } else {
-    await page.locator(selector).fill(value);
+    await page.locator(selector).first().fill(value);
   }
-
   return true;
 }
 

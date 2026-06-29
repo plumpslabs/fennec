@@ -6,3 +6,4 @@ export { createTelemetryMiddleware } from "./TelemetryMiddleware.js";
 export { createSmartHook } from "./SmartHook.js";
 export { createAuditLog } from "./AuditLog.js";
 export type { AuditEntry } from "./AuditLog.js";
+export { createStateMachineMiddleware } from "./StateMachineMiddleware.js";
