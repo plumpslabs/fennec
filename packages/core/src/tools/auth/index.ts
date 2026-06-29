@@ -9,14 +9,15 @@ const LOGIN_INDICATORS = {
 
 export const authFillLoginForm = createTool({
   name: "auth_fill_login_form",
-  description: "`<use_case>Authentication</use_case> Auto-detect and fill login form (username/email + password). Optionally submit after filling. formFound, fieldsDetected, submitted (bool).`",
+  description: "`<use_case>Authentication</use_case> Auto-detect and fill login form (username/email + password). Optionally submit after filling. When saveAfterLogin is true, automatically saves session on successful login detection. formFound, fieldsDetected, submitted (bool), sessionSaved (bool), sessionName (str).`",
   inputSchema: z.object({
     username: z.string().describe("Username or email to fill"),
     password: z.string().describe("Password to fill"),
     submitAfter: z.boolean().optional().default(false).describe("Submit the form after filling"),
+    saveAfterLogin: z.boolean().optional().default(false).describe("Auto-save session after successful login detection"),
     sessionId: z.string().optional().describe("Session ID"),
   }),
-  handler: async (input, { sessionManager, responseBuilder }) => {
+  handler: async (input, { sessionManager, responseBuilder, sessionStore }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     const page = session.page;
 
@@ -56,8 +57,58 @@ export const authFillLoginForm = createTool({
       await page.locator(usernameField).fill(input.username);
       await page.locator(passwordField).fill(input.password);
 
+      let submitted = false;
       if (input.submitAfter && submitButton) {
-        await page.locator(submitButton).click();
+        if (input.saveAfterLogin) {
+          await Promise.all([
+            page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {}),
+            page.locator(submitButton).click(),
+          ]);
+        } else {
+          await page.locator(submitButton).click();
+        }
+        submitted = true;
+      }
+
+      // Auto-save session if requested
+      let sessionSaved = false;
+      let sessionName = "";
+
+      if (input.saveAfterLogin) {
+        // Wait a bit for any post-login redirect to settle
+        if (submitted) {
+          await page.waitForTimeout(2000);
+        }
+
+        const cookies = await session.context.cookies();
+        const hasAuthCookie = cookies.some((c) => /token|session|auth|jwt|sid|connect/i.test(c.name));
+
+        if (hasAuthCookie) {
+          const origin = new URL(page.url()).origin;
+          const domain = new URL(page.url()).hostname;
+          sessionName = `auto-${domain}`;
+
+          const localStorage = await page.evaluate(() => {
+            const items: Record<string, string> = {};
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i);
+              if (key) items[key] = localStorage.getItem(key) ?? "";
+            }
+            return items;
+          }).catch(() => ({}));
+
+          sessionStore.save(sessionName, {
+            cookies: cookies.map((c) => ({
+              name: c.name, value: c.value, domain: c.domain, path: c.path,
+              httpOnly: c.httpOnly, secure: c.secure, sameSite: c.sameSite,
+            })),
+            localStorage,
+            sessionStorage: {},
+            origin,
+          });
+
+          sessionSaved = true;
+        }
       }
 
       return responseBuilder.success({
@@ -67,7 +118,9 @@ export const authFillLoginForm = createTool({
           passwordField: passwordField !== null,
           submitButton: submitButton !== null,
         },
-        submitted: input.submitAfter && submitButton !== null,
+        submitted,
+        sessionSaved,
+        ...(sessionSaved ? { sessionName } : {}),
       }, sessionManager.buildMeta(session));
     } catch (error) {
       return responseBuilder.error(error);
