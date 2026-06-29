@@ -1,6 +1,6 @@
 {
   "name": "@plumpslabs/fennec-core",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Fennec MCP server — AI-native browser, terminal, and process observability",
   "keywords": [
     "mcp",
@@ -52,7 +52,8 @@
     "chokidar": "^3.6.0",
     "pino": "^8.19.0",
     "playwright": "^1.42.0",
-    "zod": "^3.22.0"
+    "zod": "^3.22.0",
+    "zod-to-json-schema": "^3.23.2"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
