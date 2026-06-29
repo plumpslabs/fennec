@@ -113,7 +113,7 @@ export function exportAsHar(events: NetworkEvent[]): HarLog {
   return {
     log: {
       version: "1.2",
-      creator: { name: "Fennec", version: "1.8.0" },
+      creator: { name: "Fennec", version: "1.9.0" },
       entries,
     },
   };

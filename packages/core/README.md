@@ -37,7 +37,7 @@
 | Module | Description |
 |--------|-------------|
 | `session/` | Browser session manager — Playwright contexts, tabs, CDP integration, multi-browser (Chromium, Firefox, WebKit) |
-| `tools/` | 90+ MCP tool definitions across 14 categories (navigation, interaction, dom, devtools, storage, auth, tabs, process, terminal, diagnostic, scheduler, smart) |
+| `tools/` | 112 MCP tool definitions across 15 categories (navigation, interaction, dom, devtools console/network/performance, storage, auth, tabs, process, terminal, diagnostic, scheduler, smart, planner) |
 | `process/` | Process spawner, log watcher, pipe watcher, port detector |
 | `cdp/` | Chrome DevTools Protocol collectors (console, network, performance) |
 | `correlation/` | Event bus, timeline builder, root cause inference engine with 6+ pattern rules |
@@ -88,7 +88,7 @@ await server.start();
 ┌───────────────────────────────────────────────┐
 │              Fennec MCP Server                 │
 ├───────────────────────────────────────────────┤
-│  Tool Registry (90+ tools, 14 categories)     │
+│  Tool Registry (112 tools, 15 categories)     │
 │  Input Validation (Zod schemas)               │
 │  Middleware Pipeline: Telemetry → Audit →     │
 │    PermissionGuard → SmartHook → RetryHandler │
@@ -108,7 +108,7 @@ await server.start();
 ## Features
 
 ### Token-Efficient Tool Registry
-Tools are grouped into 14 categories. MCP clients can request specific categories to reduce context window usage.
+Tools are grouped into 15 categories. MCP clients can request specific categories to reduce context window usage.
 
 ### Self-Observability
 Track Fennec's own performance metrics: tool call durations, memory usage, error rates. Access via the PerformanceMetrics API.

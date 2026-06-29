@@ -1,6 +1,6 @@
 {
   "name": "fennec",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "private": true,
   "description": "AI-native developer observability MCP — browser, terminal, and process, all in one.",
   "keywords": [
@@ -36,6 +36,9 @@
     "test:coverage": "pnpm -r test -- --coverage",
     "typecheck": "pnpm -r typecheck",
     "prepublishOnly": "pnpm test && pnpm build"
+  },
+  "dependencies": {
+    "zod": "^3.22.0"
   },
   "devDependencies": {
     "prettier": "^3.2.0",

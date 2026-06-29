@@ -108,6 +108,9 @@ vi.mock('../../src/workflow/WorkflowEngine.js', () => ({
     createDebugWorkflow: vi.fn(),
     createLoginWorkflow: vi.fn(),
     findByTag: vi.fn().mockReturnValue([]),
+    setToolExecutor: vi.fn(),
+    planToWorkflow: vi.fn(),
+    executePlan: vi.fn().mockResolvedValue({ id: 'exec_test', status: 'completed', stepResults: [] }),
   })),
 }));
 

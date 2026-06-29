@@ -75,15 +75,16 @@ Fennec's signature feature correlates browser errors with server logs to identif
 
 > ✅ **The confidence scores above are derived from actual inference rules with unit-tested pattern matching**, not fabricated illustrations.
 
-### 🔧 87 MCP Tools Across 14 Categories
+### 🔧 112 MCP Tools Across 15 Categories
 
 | Category | Tools | What You Can Do |
 |----------|-------|----------------|
 | **Navigation** | 6 | Navigate, go back/forward, reload, wait for navigation |
 | **Interaction** | 10 | Click, type, select, hover, scroll, upload file, drag-drop |
 | **DOM** | 9 | Screenshot, DOM snapshot, accessibility tree, find elements |
-| **DevTools** | 20 | Console logs, network monitoring, mock/intercept, performance |
-| **... total** | **87** | |
+| **DevTools Console** | 5 | Console logs, JS errors, watch console |
+| **DevTools Network** | 9 | Network monitoring, intercept, mock, wait for request |
+| **DevTools Performance** | 6 | Performance metrics, memory, profiling, simulate network |
 | **Storage** | 12 | localStorage, cookies, IndexedDB, session export/import |
 | **Auth** | 6 | Auto-fill login, save/load sessions, check auth state |
 | **Tabs** | 7 | Multi-tab, multi-context, tab switching |
@@ -92,8 +93,9 @@ Fennec's signature feature correlates browser errors with server logs to identif
 | **Diagnostic** | 6 | diagnose_page, diagnose_fullstack, diagnose_auth, etc. |
 | **Scheduler** | 7 | Auto-trigger workflows, manage rules, view history |
 | **Smart** | 7 | Smart wait, smart fill form, annotated screenshots, diff |
+| **Planner** | 5 | Execute multi-step goals, plan preview, plan management |
 
-> 💡 **Token-Efficient**: Tools are categorized. MCP clients can request only specific categories to reduce context window usage. Use the `_categories` field in ListTools response to discover available categories.
+> 💡 **Token-Efficient**: Tools are categorized into 15 groups. MCP clients can request only specific categories to reduce context window usage. Use the `_categories` field in ListTools response to discover available categories.
 
 ### 🔐 Auth Session Persistence
 Save and load browser auth states across conversations:
