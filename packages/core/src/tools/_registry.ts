@@ -5,6 +5,14 @@ import type { FennecConfig } from "../config/defaults.js";
 import type { ProcessManager } from "../process/ProcessManager.js";
 import type { LogWatcher } from "../process/LogWatcher.js";
 import type { SessionStore } from "../session/SessionStore.js";
+import type { ResourceManager } from "../resource/ResourceManager.js";
+import type { StateManager } from "../state/index.js";
+import type { CapabilityDetector } from "../capability/Detector.js";
+import type { Planner } from "../planner/Planner.js";
+import type { WorkflowEngine } from "../workflow/WorkflowEngine.js";
+import type { Recorder } from "../recorder/Recorder.js";
+import type { WorkflowScheduler } from "../scheduler/WorkflowScheduler.js";
+import type { EventBus } from "../correlation/EventBus.js";
 import type pino from "pino";
 
 export interface ToolContext {
@@ -15,6 +23,15 @@ export interface ToolContext {
   processManager: ProcessManager;
   logWatcher: LogWatcher;
   sessionStore: SessionStore;
+  // New architecture modules
+  resourceManager: ResourceManager;
+  stateManager: StateManager;
+  capabilityDetector: CapabilityDetector;
+  planner: Planner;
+  workflowEngine: WorkflowEngine;
+  recorder: Recorder;
+  workflowScheduler: WorkflowScheduler;
+  eventBus: EventBus;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -55,7 +55,7 @@ export const browserGetDomSnapshot = createTool({
           const getDepth = (el: Element, depth: number): void => {
             elementCount++;
             if (depth > maxDepth) maxDepth = depth;
-            for (const child of el.children) {
+            for (const child of Array.from(el.children)) {
               getDepth(child, depth + 1);
             }
           };
@@ -85,7 +85,7 @@ export const browserGetAccessibilityTree = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const tree = await session.page.accessibility.snapshot({
+      const tree = await (session.page as any).accessibility.snapshot({
         interestingOnly: true,
         root: input.selector ? await session.page.$(input.selector) : undefined,
       });
@@ -171,7 +171,7 @@ export const browserGetElementInfo = createTool({
         locator.textContent().catch(() => null),
         locator.evaluate((el) => {
           const attrs: Record<string, string> = {};
-          for (const attr of el.attributes) {
+          for (const attr of Array.from(el.attributes as unknown as ArrayLike<Attr>)) {
             attrs[attr.name] = attr.value;
           }
           return attrs;

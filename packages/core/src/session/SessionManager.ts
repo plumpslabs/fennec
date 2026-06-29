@@ -4,6 +4,7 @@ import { getLogger } from "../utils/logger.js";
 import type { FennecSession, ConsoleEvent, NetworkEvent, SessionMeta } from "./types.js";
 import { SessionStore } from "./SessionStore.js";
 import type { FennecConfig } from "../config/defaults.js";
+import type { EventBus } from "../correlation/EventBus.js";
 
 export class SessionManager {
   private sessions: Map<string, FennecSession> = new Map();
@@ -12,9 +13,18 @@ export class SessionManager {
   private store: SessionStore;
   private browser: Browser | null = null;
 
+  private eventBus: EventBus | null = null;
+
   constructor(config: FennecConfig) {
     this.config = config;
     this.store = new SessionStore(config.session.persistPath);
+  }
+
+  /**
+   * Set the EventBus to publish browser events to.
+   */
+  setEventBus(eventBus: EventBus): void {
+    this.eventBus = eventBus;
   }
 
   async initialize(): Promise<void> {
@@ -179,6 +189,16 @@ export class SessionManager {
     if (session.consoleBuffer.length > this.config.console.bufferSize) {
       session.consoleBuffer.shift();
     }
+
+    // Publish to EventBus for scheduler auto-trigger
+    if (this.eventBus) {
+      this.eventBus.publish("browser:console", {
+        level: event.level,
+        message: event.message,
+        source: event.source,
+        sessionId,
+      });
+    }
   }
 
   addNetworkEvent(sessionId: string, event: NetworkEvent): void {
@@ -188,6 +208,19 @@ export class SessionManager {
     session.networkBuffer.push(event);
     if (session.networkBuffer.length > this.config.network.bufferSize) {
       session.networkBuffer.shift();
+    }
+
+    // Publish to EventBus for scheduler auto-trigger
+    if (this.eventBus) {
+      this.eventBus.publish("browser:network", {
+        method: event.method,
+        url: event.url,
+        status: event.status,
+        statusText: event.statusText,
+        duration: event.duration,
+        type: event.type,
+        sessionId,
+      });
     }
   }
 

@@ -29,3 +29,25 @@ export type { ToolDefinition, ToolContext } from "./tools/_registry.js";
 export type { SavedSession } from "./session/SessionStore.js";
 export type { ManagedProcess } from "./process/ProcessManager.js";
 export type { WatcherLogEntry } from "./process/LogWatcher.js";
+
+// New Architecture Modules
+export { Pipeline, createPermissionGuard, createRetryHandler, createTelemetryMiddleware, createSmartHook } from "./middleware/index.js";
+export type { MiddlewareFn, MiddlewareContext } from "./middleware/index.js";
+export { ResourceManager } from "./resource/index.js";
+export type { Resource, ResourceType, ResourceLimits, HealthReport } from "./resource/index.js";
+export { StateManager, StateMachine } from "./state/index.js";
+export type { AppState, StateTransition, StateHistoryEntry } from "./state/index.js";
+export { CapabilityDetector } from "./capability/index.js";
+export type { CapabilityReport, FrameworkCapability, EnvironmentCapability } from "./capability/index.js";
+export { Planner } from "./planner/index.js";
+export type { Plan, PlanStep, PlanStatus, PlanExecutor } from "./planner/index.js";
+export { WorkflowEngine } from "./workflow/index.js";
+export type { Workflow, WorkflowStep, WorkflowStepType, WorkflowExecution } from "./workflow/index.js";
+export { Recorder } from "./recorder/index.js";
+export type { RecordedAction, Recording, ReplayResult } from "./recorder/index.js";
+export { PluginSystem } from "./plugin/index.js";
+export type { PluginManifest, PluginInstance, PluginAPI, PluginHookType, HookHandler } from "./plugin/index.js";
+export { KnowledgeGraph } from "./knowledge/index.js";
+export type { GraphNode, GraphEdge, KnowledgeReport } from "./knowledge/index.js";
+export { WorkflowScheduler } from "./scheduler/index.js";
+export type { TriggerRule, TriggerCondition, TriggerPriority, TriggerEvent, SchedulerStats } from "./scheduler/index.js";

@@ -12,14 +12,15 @@ export const storageGetLocal = createTool({
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
       if (input.key) {
-        const value = await session.page.evaluate((k) => localStorage.getItem(k), input.key);
+        const value = await session.page.evaluate((k: string) => localStorage.getItem(k), input.key);
         return responseBuilder.success({ value, size: value?.length ?? 0 }, sessionManager.buildMeta(session));
       } else {
         const allItems = await session.page.evaluate(() => {
+          const ls = window.localStorage;
           const items: Record<string, string> = {};
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key) items[key] = localStorage.getItem(key) ?? "";
+          for (let i = 0; i < ls.length; i++) {
+            const key = ls.key(i);
+            if (key) items[key] = ls.getItem(key) ?? "";
           }
           return items;
         });
@@ -46,13 +47,12 @@ export const storageSetLocal = createTool({
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
       const previousValue = await session.page.evaluate(
-        (k) => localStorage.getItem(k),
-        input.key,
+        (k: string) => localStorage.getItem(k),
+        input.key as string,
       );
       await session.page.evaluate(
-        (k, v) => localStorage.setItem(k, v),
-        input.key,
-        input.value,
+        (args: { k: string; v: string }) => localStorage.setItem(args.k, args.v),
+        { k: input.key as string, v: input.value as string },
       );
       return responseBuilder.success({ previousValue }, sessionManager.buildMeta(session));
     } catch (error) {
@@ -71,7 +71,7 @@ export const storageRemoveLocal = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      await session.page.evaluate((k) => localStorage.removeItem(k), input.key);
+      await session.page.evaluate((k: string) => localStorage.removeItem(k), input.key);
       return responseBuilder.success({}, sessionManager.buildMeta(session));
     } catch (error) {
       return responseBuilder.error(error, { code: "STORAGE_ACCESS_DENIED" });
@@ -89,8 +89,9 @@ export const storageClearLocal = createTool({
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
       const count = await session.page.evaluate(() => {
-        const n = localStorage.length;
-        localStorage.clear();
+        const storage = window.localStorage;
+        const n = storage.length;
+        storage.clear();
         return n;
       });
       return responseBuilder.success({ clearedCount: count }, sessionManager.buildMeta(session));
@@ -111,14 +112,15 @@ export const storageGetSession = createTool({
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
       if (input.key) {
-        const value = await session.page.evaluate((k) => sessionStorage.getItem(k), input.key);
+        const value = await session.page.evaluate((k: string) => sessionStorage.getItem(k), input.key);
         return responseBuilder.success({ value }, sessionManager.buildMeta(session));
       } else {
         const allItems = await session.page.evaluate(() => {
+          const ss = window.sessionStorage;
           const items: Record<string, string> = {};
-          for (let i = 0; i < sessionStorage.length; i++) {
-            const key = sessionStorage.key(i);
-            if (key) items[key] = sessionStorage.getItem(key) ?? "";
+          for (let i = 0; i < ss.length; i++) {
+            const key = ss.key(i);
+            if (key) items[key] = ss.getItem(key) ?? "";
           }
           return items;
         });
@@ -142,9 +144,8 @@ export const storageSetSession = createTool({
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
       await session.page.evaluate(
-        (k, v) => sessionStorage.setItem(k, v),
-        input.key,
-        input.value,
+        (args: { k: string; v: string }) => sessionStorage.setItem(args.k, args.v),
+        { k: input.key as string, v: input.value as string },
       );
       return responseBuilder.success({}, sessionManager.buildMeta(session));
     } catch (error) {
@@ -164,15 +165,17 @@ export const storageGetCookies = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const context = session.context;
-      const cookies = await context.cookies();
+      const ctx = session.context;
+      const cookies = await ctx.cookies();
 
       let filtered = cookies;
       if (input.name) {
-        filtered = filtered.filter((c) => c.name === input.name);
+        const name = input.name;
+        filtered = filtered.filter((c) => c.name === name);
       }
       if (input.domain) {
-        filtered = filtered.filter((c) => c.domain.includes(input.domain));
+        const domain = input.domain;
+        filtered = filtered.filter((c) => c.domain.includes(domain));
       }
 
       return responseBuilder.success({
@@ -263,59 +266,61 @@ export const storageGetIndexedDB = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
+      const dbName = input.dbName ?? null;
+      const storeName = input.storeName ?? null;
       const result = await session.page.evaluate(
-        ({ dbName, storeName }) => {
+        ({ dbName: db, storeName: store }: { dbName: string | null; storeName: string | null }) => {
           return new Promise<{ databases: Array<{ name: string; version: number; stores: string[] }>; records?: unknown[] }>(
             (resolve, reject) => {
-              if (!dbName) {
-                const dbs = indexedDB.databases ? indexedDB.databases() : Promise.resolve([]);
-                dbs.then((dbs) => {
+              if (!db) {
+                const dbsList = indexedDB.databases ? indexedDB.databases() : Promise.resolve([]);
+                dbsList.then((dbs) => {
                   resolve({
-                    databases: dbs.map((db) => ({ name: db.name ?? "unknown", version: db.version ?? 0, stores: [] })),
+                    databases: dbs.map((dbEntry) => ({ name: dbEntry.name ?? "unknown", version: dbEntry.version ?? 0, stores: [] })),
                   });
                 }).catch(reject);
                 return;
               }
 
-              const request = indexedDB.open(dbName);
+              const request = indexedDB.open(db);
               request.onsuccess = () => {
-                const db = request.result;
-                const storeNames = Array.from(db.objectStoreNames);
+                const dbResult = request.result;
+                const storeNames = Array.from(dbResult.objectStoreNames);
 
                 const databases = [{
-                  name: dbName,
-                  version: db.version,
+                  name: db,
+                  version: dbResult.version,
                   stores: storeNames,
                 }];
 
                 let records: unknown[] | undefined;
 
-                if (storeName && storeNames.includes(storeName)) {
-                  const transaction = db.transaction(storeName, "readonly");
-                  const store = transaction.objectStore(storeName);
-                  const getAll = store.getAll();
+                if (store && storeNames.includes(store)) {
+                  const transaction = dbResult.transaction(store, "readonly");
+                  const objStore = transaction.objectStore(store);
+                  const getAll = objStore.getAll();
                   getAll.onsuccess = () => {
                     records = getAll.result;
-                    db.close();
+                    dbResult.close();
                     resolve({ databases, records });
                   };
                   getAll.onerror = () => {
-                    db.close();
+                    dbResult.close();
                     resolve({ databases, records: [] });
                   };
                 } else {
-                  db.close();
+                  dbResult.close();
                   resolve({ databases });
                 }
               };
 
               request.onerror = () => {
-                reject(new Error(`Failed to open database: ${dbName}`));
+                reject(new Error(`Failed to open database: ${db}`));
               };
             },
           );
         },
-        { dbName: input.dbName ?? null, storeName: input.storeName ?? null },
+        { dbName, storeName },
       );
 
       return responseBuilder.success(result, sessionManager.buildMeta(session));
@@ -342,31 +347,33 @@ export const storageExportState = createTool({
       const cookies = await session.context.cookies();
       const origin = session.page.url();
 
-      const localStorage = await session.page.evaluate(() => {
+      const localStorageData = await session.page.evaluate(() => {
+        const ls = window.localStorage;
         const items: Record<string, string> = {};
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key) items[key] = localStorage.getItem(key) ?? "";
+        for (let i = 0; i < ls.length; i++) {
+          const key = ls.key(i);
+          if (key) items[key] = ls.getItem(key) ?? "";
         }
         return items;
-      }).catch(() => ({}));
+      }).catch(() => ({} as Record<string, string>));
 
-      const sessionStorage = await session.page.evaluate(() => {
+      const sessionStorageData = await session.page.evaluate(() => {
+        const ss = window.sessionStorage;
         const items: Record<string, string> = {};
-        for (let i = 0; i < sessionStorage.length; i++) {
-          const key = sessionStorage.key(i);
-          if (key) items[key] = sessionStorage.getItem(key) ?? "";
+        for (let i = 0; i < ss.length; i++) {
+          const key = ss.key(i);
+          if (key) items[key] = ss.getItem(key) ?? "";
         }
         return items;
-      }).catch(() => ({}));
+      }).catch(() => ({} as Record<string, string>));
 
       const state = {
         cookies: cookies.map((c) => ({
           name: c.name, value: c.value, domain: c.domain, path: c.path,
           httpOnly: c.httpOnly, secure: c.secure, sameSite: c.sameSite,
         })),
-        localStorage,
-        sessionStorage,
+        localStorage: localStorageData,
+        sessionStorage: sessionStorageData,
         origin,
         savedAt: new Date().toISOString(),
       };
@@ -443,7 +450,10 @@ export const storageImportState = createTool({
       let itemsRestored = 0;
       if (state.localStorage) {
         for (const [key, value] of Object.entries(state.localStorage)) {
-          await session.page.evaluate((k, v) => localStorage.setItem(k, v), key, value).catch(() => {});
+          await session.page.evaluate(
+            (args: { k: string; v: string }) => localStorage.setItem(args.k, args.v),
+            { k: key as string, v: value as string },
+          ).catch(() => {});
           itemsRestored++;
         }
       }
@@ -451,7 +461,10 @@ export const storageImportState = createTool({
       // Restore sessionStorage
       if (state.sessionStorage) {
         for (const [key, value] of Object.entries(state.sessionStorage)) {
-          await session.page.evaluate((k, v) => sessionStorage.setItem(k, v), key, value).catch(() => {});
+          await session.page.evaluate(
+            (args: { k: string; v: string }) => sessionStorage.setItem(args.k, args.v),
+            { k: key as string, v: value as string },
+          ).catch(() => {});
           itemsRestored++;
         }
       }

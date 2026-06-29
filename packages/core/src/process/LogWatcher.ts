@@ -2,6 +2,7 @@ import { watch, type FSWatcher } from "node:fs";
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { getLogger } from "../utils/logger.js";
 import { detectLogLevel, type LogLevel } from "../utils/levelDetector.js";
+import type { EventBus } from "../correlation/EventBus.js";
 
 export interface WatcherLogEntry {
   line: string;
@@ -13,9 +14,17 @@ export interface WatcherLogEntry {
 export class LogWatcher {
   private watchers: Map<string, { watcher: FSWatcher; name: string; buffer: WatcherLogEntry[]; filePath: string; fileSize: number }> = new Map();
   private maxLines: number;
+  private eventBus: EventBus | null = null;
 
   constructor(maxLines = 2000) {
     this.maxLines = maxLines;
+  }
+
+  /**
+   * Set the EventBus to publish log events to.
+   */
+  setEventBus(eventBus: EventBus): void {
+    this.eventBus = eventBus;
   }
 
   watchFile(filePath: string, name?: string): string {
@@ -50,6 +59,15 @@ export class LogWatcher {
               });
               if (entry.buffer.length > this.maxLines) {
                 entry.buffer.shift();
+              }
+
+              // Publish error-level log lines to EventBus
+              if (this.eventBus && (level === "error" || /error|Error|ERROR|exception|Exception|FATAL|fatal/.test(line))) {
+                this.eventBus.publish("process:stderr", {
+                  line,
+                  source: resolvedPath,
+                  watcherId,
+                });
               }
             }
 

@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { createTool } from "../_registry.js";
+import { detectFormFields, matchField, fillField, findSubmitButton } from "../smart/index.js";
 
-const LOGIN_INDICATORS = {
+// Fallback selectors when smart field detection returns no results
+const LOGIN_SELECTORS = {
   usernameFields: ['input[type="email"]', 'input[type="text"][name*="user"]', 'input[type="text"][name*="email"]', 'input[type="text"][name*="login"]', 'input#email', 'input#username', 'input#login'],
   passwordFields: ['input[type="password"]'],
   submitButtons: ['button[type="submit"]', 'input[type="submit"]', 'button:has-text("Sign in")', 'button:has-text("Login")', 'button:has-text("Log in")', 'button:has-text("Continue")'],
@@ -9,7 +11,7 @@ const LOGIN_INDICATORS = {
 
 export const authFillLoginForm = createTool({
   name: "auth_fill_login_form",
-  description: "`<use_case>Authentication</use_case> Auto-detect and fill login form (username/email + password). Optionally submit after filling. When saveAfterLogin is true, automatically saves session on successful login detection. formFound, fieldsDetected, submitted (bool), sessionSaved (bool), sessionName (str).`",
+  description: "`<use_case>Authentication</use_case> Auto-detect and fill login form (username/email + password). Uses smart field detection for robust matching (label, name, id, placeholder, aria-label, data-testid). Optionally submit after filling. When saveAfterLogin is true, automatically saves session on successful login detection. formFound, fieldsDetected, submitted (bool), sessionSaved (bool), sessionName (str).`",
   inputSchema: z.object({
     username: z.string().describe("Username or email to fill"),
     password: z.string().describe("Password to fill"),
@@ -22,60 +24,93 @@ export const authFillLoginForm = createTool({
     const page = session.page;
 
     try {
-      let usernameField: string | null = null;
-      let passwordField: string | null = null;
-      let submitButton: string | null = null;
+      // Phase 1: Smart-detect all form fields
+      const formFields = await detectFormFields(page);
 
-      for (const sel of LOGIN_INDICATORS.usernameFields) {
-        const el = await page.$(sel);
-        if (el) { usernameField = sel; break; }
-      }
+      // Phase 2: Smart-match username and password fields
+      const usernameField = formFields.length > 0
+        ? matchField(formFields, "email") || matchField(formFields, "username") || matchField(formFields, "login") || matchField(formFields, "user")
+        : null;
 
-      for (const sel of LOGIN_INDICATORS.passwordFields) {
-        const el = await page.$(sel);
-        if (el) { passwordField = sel; break; }
-      }
-
-      for (const sel of LOGIN_INDICATORS.submitButtons) {
-        const el = await page.$(sel);
-        if (el) { submitButton = sel; break; }
-      }
-
-      if (!usernameField || !passwordField) {
-        return responseBuilder.error(
-          new Error("Could not detect login form fields"),
-          {
-            code: "ELEMENT_NOT_FOUND",
-            suggestions: [
-              "Use browser_get_dom_snapshot to see the page structure",
-              "Manually use browser_type to fill in the fields",
-            ],
-          },
-        );
-      }
-
-      await page.locator(usernameField).fill(input.username);
-      await page.locator(passwordField).fill(input.password);
+      const passwordField = formFields.length > 0
+        ? matchField(formFields, "password")
+        : null;
 
       let submitted = false;
-      if (input.submitAfter && submitButton) {
-        if (input.saveAfterLogin) {
-          await Promise.all([
-            page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {}),
-            page.locator(submitButton).click(),
-          ]);
-        } else {
-          await page.locator(submitButton).click();
+
+      // Phase 3: Fill fields (two paths: smart vs legacy fallback)
+      if (usernameField && passwordField) {
+        // Path A: Smart fill via fillField — handles label/name/id/placeholder/aria-label
+        await fillField(page, usernameField, input.username);
+        await fillField(page, passwordField, input.password);
+
+        if (input.submitAfter) {
+          const submitBtn = await findSubmitButton(page);
+          if (submitBtn) {
+            if (input.saveAfterLogin) {
+              await Promise.all([
+                page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {}),
+                submitBtn.click(),
+              ]);
+            } else {
+              await submitBtn.click();
+            }
+            submitted = true;
+          }
         }
-        submitted = true;
+      } else {
+        // Path B: Legacy fallback using hardcoded selectors
+        let usernameSelector: string | null = null;
+        let passwordSelector: string | null = null;
+        let submitSelector: string | null = null;
+
+        for (const sel of LOGIN_SELECTORS.usernameFields) {
+          const el = await page.$(sel);
+          if (el) { usernameSelector = sel; break; }
+        }
+        for (const sel of LOGIN_SELECTORS.passwordFields) {
+          const el = await page.$(sel);
+          if (el) { passwordSelector = sel; break; }
+        }
+        for (const sel of LOGIN_SELECTORS.submitButtons) {
+          const el = await page.$(sel);
+          if (el) { submitSelector = sel; break; }
+        }
+
+        if (!usernameSelector || !passwordSelector) {
+          return responseBuilder.error(
+            new Error("Could not detect login form fields"),
+            {
+              code: "ELEMENT_NOT_FOUND",
+              suggestions: [
+                "Use browser_get_dom_snapshot to see the page structure",
+                "Manually use browser_type to fill in the fields",
+              ],
+            },
+          );
+        }
+
+        await page.locator(usernameSelector).fill(input.username);
+        await page.locator(passwordSelector).fill(input.password);
+
+        if (input.submitAfter && submitSelector) {
+          if (input.saveAfterLogin) {
+            await Promise.all([
+              page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {}),
+              page.locator(submitSelector).click(),
+            ]);
+          } else {
+            await page.locator(submitSelector).click();
+          }
+          submitted = true;
+        }
       }
 
-      // Auto-save session if requested
+      // Phase 4: Auto-save session if requested
       let sessionSaved = false;
       let sessionName = "";
 
       if (input.saveAfterLogin) {
-        // Wait a bit for any post-login redirect to settle
         if (submitted) {
           await page.waitForTimeout(2000);
         }
@@ -116,7 +151,6 @@ export const authFillLoginForm = createTool({
         fieldsDetected: {
           usernameField: usernameField !== null,
           passwordField: passwordField !== null,
-          submitButton: submitButton !== null,
         },
         submitted,
         sessionSaved,

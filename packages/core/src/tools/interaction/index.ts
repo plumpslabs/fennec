@@ -183,23 +183,23 @@ export const browserScroll = createTool({
           return responseBuilder.error(new Error(`Element not found: ${input.selector}`), { code: "ELEMENT_NOT_FOUND" });
         }
 
-        await session.page.locator(resolved.selector).evaluate((el, { x, y, direction }) => {
+        await session.page.locator(resolved.selector).evaluate((el, { x, y, direction: dir }) => {
           const element = el as HTMLElement;
-          if (direction) {
+          if (dir) {
             const amount = 200;
-            const scrollMap = { up: [0, -amount], down: [0, amount], left: [-amount, 0], right: [amount, 0] };
-            const [sx, sy] = scrollMap[direction];
+            const sx = dir === "up" || dir === "down" ? 0 : (dir === "left" ? -amount : amount);
+            const sy = dir === "left" || dir === "right" ? 0 : (dir === "up" ? -amount : amount);
             element.scrollBy(sx, sy);
           } else {
             element.scrollTo(x ?? 0, y ?? 0);
           }
         }, { x: input.x, y: input.y, direction: input.direction });
       } else {
-        await session.page.evaluate(({ x, y, direction }) => {
-          if (direction) {
+        await session.page.evaluate(({ x, y, direction: dir }) => {
+          if (dir) {
             const amount = 200;
-            const scrollMap = { up: [0, -amount], down: [0, amount], left: [-amount, 0], right: [amount, 0] };
-            const [sx, sy] = scrollMap[direction];
+            const sx = dir === "up" || dir === "down" ? 0 : (dir === "left" ? -amount : amount);
+            const sy = dir === "left" || dir === "right" ? 0 : (dir === "up" ? -amount : amount);
             window.scrollBy(sx, sy);
           } else {
             window.scrollTo(x ?? 0, y ?? 0);
@@ -232,9 +232,8 @@ export const browserPressKey = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      await session.page.keyboard.press(input.key, {
-        modifiers: input.modifiers as ("Alt" | "Control" | "Meta" | "Shift")[] | undefined,
-      });
+      const pressOptions = input.modifiers?.length ? { modifiers: input.modifiers } as any : undefined;
+      await session.page.keyboard.press(input.key, pressOptions);
       return responseBuilder.success({}, sessionManager.buildMeta(session));
     } catch (error) {
       return responseBuilder.error(error);

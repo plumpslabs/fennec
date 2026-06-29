@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { getLogger } from "../utils/logger.js";
 import { detectLogLevel, type LogLevel } from "../utils/levelDetector.js";
+import type { EventBus } from "../correlation/EventBus.js";
 
 export interface ManagedProcess {
   processId: string;
@@ -25,9 +26,17 @@ export class ProcessManager {
   private processes: Map<string, ManagedProcess> = new Map();
   private nextId = 0;
   private config: ProcessConfig;
+  private eventBus: EventBus | null = null;
 
   constructor(config: ProcessConfig) {
     this.config = config;
+  }
+
+  /**
+   * Set the EventBus to publish process events to.
+   */
+  setEventBus(eventBus: EventBus): void {
+    this.eventBus = eventBus;
   }
 
   spawn(
@@ -102,6 +111,11 @@ export class ProcessManager {
           if (managed.logBuffer.length > this.config.logBufferLines) {
             managed.logBuffer.shift();
           }
+
+          // Publish stderr lines to EventBus for scheduler auto-trigger
+          if (this.eventBus) {
+            this.eventBus.publish("process:stderr", { line, processId });
+          }
         }
       });
     }
@@ -110,6 +124,15 @@ export class ProcessManager {
     child.on("exit", (code, signal) => {
       managed.running = false;
       logger.info({ processId, code, signal }, "Process exited");
+
+      // Publish exit event to EventBus for scheduler auto-trigger
+      if (this.eventBus) {
+        this.eventBus.publish("process:exit", {
+          code: code ?? -1,
+          signal: signal ?? null,
+          processId,
+        });
+      }
     });
 
     child.on("error", (err) => {

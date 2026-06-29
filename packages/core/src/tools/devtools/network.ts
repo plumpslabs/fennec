@@ -17,13 +17,16 @@ export const networkGetLogs = createTool({
     let requests = session.networkBuffer;
 
     if (input.status) {
-      requests = requests.filter((r) => r.status === input.status);
+      const status = input.status;
+      requests = requests.filter((r) => r.status === status);
     }
     if (input.method) {
-      requests = requests.filter((r) => r.method.toUpperCase() === input.method.toUpperCase());
+      const method = input.method.toUpperCase();
+      requests = requests.filter((r) => r.method.toUpperCase() === method);
     }
     if (input.urlPattern) {
-      requests = requests.filter((r) => r.url.includes(input.urlPattern));
+      const pattern = input.urlPattern;
+      requests = requests.filter((r) => r.url.includes(pattern));
     }
 
     if (input.limit && input.limit > 0) {

@@ -13,6 +13,17 @@ import { createLogger, getLogger } from './utils/logger.js';
 import { ProcessManager } from './process/ProcessManager.js';
 import { LogWatcher } from './process/LogWatcher.js';
 import type { FennecConfig } from './config/defaults.js';
+import { Pipeline, createPermissionGuard, createRetryHandler, createTelemetryMiddleware, createSmartHook } from './middleware/index.js';
+import { ResourceManager } from './resource/ResourceManager.js';
+import { StateManager } from './state/index.js';
+import { CapabilityDetector } from './capability/Detector.js';
+import { Planner } from './planner/Planner.js';
+import { WorkflowEngine } from './workflow/WorkflowEngine.js';
+import { Recorder } from './recorder/Recorder.js';
+import { WorkflowScheduler } from './scheduler/WorkflowScheduler.js';
+import { EventBus } from './correlation/EventBus.js';
+import { ConsoleCollector } from './cdp/ConsoleCollector.js';
+import { NetworkCollector } from './cdp/NetworkCollector.js';
 
 // Import all tools
 import {
@@ -132,6 +143,21 @@ import {
   diagnoseFullstack,
   diagnosePerformance,
 } from './tools/diagnostic/index.js';
+import {
+  schedulerGetStats,
+  schedulerGetLastResult,
+  schedulerTriggerRule,
+  schedulerListRules,
+  schedulerDisableRule,
+  schedulerEnableRule,
+  schedulerClearHistory,
+} from './tools/scheduler/index.js';
+import {
+  smartWait,
+  smartNavigate,
+  smartFillForm,
+  smartValidateForm,
+} from './tools/smart/index.js';
 
 export class FennecServer {
   private server: Server;
@@ -142,6 +168,16 @@ export class FennecServer {
   private logWatcher: LogWatcher;
   private sessionStore: SessionStore;
   private config: FennecConfig;
+  private pipeline: Pipeline;
+  // New architecture modules
+  private resourceManager: ResourceManager;
+  private stateManager: StateManager;
+  private capabilityDetector: CapabilityDetector;
+  private planner: Planner;
+  private workflowEngine: WorkflowEngine;
+  private recorder: Recorder;
+  private workflowScheduler: WorkflowScheduler;
+  private eventBus: EventBus;
 
   constructor(configPath?: string) {
     const configLoader = new ConfigLoader(configPath);
@@ -156,6 +192,32 @@ export class FennecServer {
     this.processManager = new ProcessManager(this.config.process);
     this.logWatcher = new LogWatcher(this.config.terminal.logBufferLines);
     this.sessionStore = new SessionStore(this.config.session.persistPath);
+
+    this.resourceManager = new ResourceManager(this.config.process);
+    this.stateManager = new StateManager();
+    this.capabilityDetector = new CapabilityDetector();
+    this.planner = new Planner();
+    this.workflowEngine = new WorkflowEngine(this.config.session.persistPath.replace('sessions', 'workflows'));
+    this.recorder = new Recorder();
+    this.eventBus = new EventBus();
+    this.workflowScheduler = new WorkflowScheduler(this.eventBus, this.workflowEngine);
+
+    // Wire EventBus to modules for auto-trigger events
+    this.sessionManager.setEventBus(this.eventBus);
+    this.processManager.setEventBus(this.eventBus);
+    this.logWatcher.setEventBus(this.eventBus);
+
+    // Wire tool executor to scheduler so auto-triggered workflows call real tools
+    this.workflowScheduler.setToolExecutor(async (toolName, input) => {
+      const tool = this.toolRegistry.get(toolName);
+      if (!tool) throw new Error(`Scheduler: tool not found: ${toolName}`);
+      const parsed = tool.inputSchema.parse(input);
+      const context = this.getToolContext();
+      return this.pipeline.execute(tool, parsed, context);
+    });
+
+    this.pipeline = new Pipeline();
+    this.setupPipeline();
 
     this.server = new Server({ name: 'fennec', version: '0.1.0' }, { capabilities: { tools: {} } });
 
@@ -259,6 +321,17 @@ export class FennecServer {
       diagnoseAuth,
       diagnoseFullstack,
       diagnosePerformance,
+      schedulerGetStats,
+      schedulerGetLastResult,
+      schedulerTriggerRule,
+      schedulerListRules,
+      schedulerDisableRule,
+      schedulerEnableRule,
+      schedulerClearHistory,
+      smartWait,
+      smartNavigate,
+      smartFillForm,
+      smartValidateForm,
     ];
 
     for (const tool of tools) {
@@ -275,7 +348,49 @@ export class FennecServer {
       processManager: this.processManager,
       logWatcher: this.logWatcher,
       sessionStore: this.sessionStore,
+      // New architecture modules
+      resourceManager: this.resourceManager,
+      stateManager: this.stateManager,
+      capabilityDetector: this.capabilityDetector,
+      planner: this.planner,
+      workflowEngine: this.workflowEngine,
+      recorder: this.recorder,
+      workflowScheduler: this.workflowScheduler,
+      eventBus: this.eventBus,
     };
+  }
+
+  /**
+   * Setup CDP monitoring (console + network) for the active session.
+   * This enables real-time event collection and EventBus publishing.
+   */
+  private async setupSessionCDPMonitoring(): Promise<void> {
+    const logger = getLogger();
+    try {
+      const session = this.sessionManager.getOrDefault();
+      if (!session) {
+        logger.warn('No session available for CDP monitoring');
+        return;
+      }
+
+      const consoleCollector = new ConsoleCollector();
+      const networkCollector = new NetworkCollector();
+
+      consoleCollector.on('smart-hook', (event) => {
+        this.sessionManager.addConsoleEvent(session.id, event);
+      });
+
+      networkCollector.on('smart-hook', (event) => {
+        this.sessionManager.addNetworkEvent(session.id, event);
+      });
+
+      await consoleCollector.enable(session.cdpSession);
+      await networkCollector.enable(session.cdpSession);
+
+      logger.info('CDP monitoring enabled for session');
+    } catch (error) {
+      logger.warn({ error }, 'Failed to setup CDP monitoring (non-fatal)');
+    }
   }
 
   private setupHandlers(): void {
@@ -315,12 +430,12 @@ export class FennecServer {
         };
       }
 
-      logger.info({ tool: name, args }, 'Tool called');
-
       try {
         const parsed = tool.inputSchema.parse(args ?? {});
         const context = this.getToolContext();
-        const result = await tool.handler(parsed, context);
+
+        // Execute through middleware pipeline
+        const result = await this.pipeline.execute(tool, parsed, context);
 
         // Per MCP spec: if handler returns success: false, mark as isError
         const isError =
@@ -366,9 +481,36 @@ export class FennecServer {
     });
   }
 
+  private setupPipeline(): void {
+    this.pipeline.use(createTelemetryMiddleware());
+    this.pipeline.use(createPermissionGuard());
+    this.pipeline.use(createSmartHook());
+    this.pipeline.use(createRetryHandler({ maxRetries: 2 }));
+  }
+
   async start(): Promise<void> {
     const logger = getLogger();
     await this.sessionManager.initialize();
+
+    // Setup CDP monitoring for the default session
+    await this.setupSessionCDPMonitoring();
+
+    // Initialize workflow engine with built-in workflows
+    this.workflowEngine.createDebugWorkflow('auto-diagnose');
+    this.workflowEngine.createLoginWorkflow('auto-login');
+
+    // Setup scheduler with default rules targeting the auto-diagnose workflow
+    const debugWf = this.workflowEngine.findByTag('diagnostic')[0];
+    if (debugWf) {
+      const defaultRules = WorkflowScheduler.createDefaultRules(debugWf.id);
+      this.workflowScheduler.addRules(defaultRules);
+      this.workflowScheduler.start();
+      logger.info({ rules: defaultRules.length }, 'WorkflowScheduler: auto-trigger rules registered');
+    }
+
+    // Start auto-cleanup of resources
+    this.resourceManager.startAutoCleanup();
+    this.resourceManager.startHealthChecks();
 
     if (this.config.transport.type === 'sse') {
       logger.error('SSE transport not yet implemented');
@@ -378,21 +520,20 @@ export class FennecServer {
       logger.info('Starting Fennec MCP server (stdio transport)...');
       await this.server.connect(transport);
 
-      process.on('SIGINT', async () => {
+      const shutdown = async () => {
         logger.info('Shutting down Fennec...');
+        this.workflowScheduler.stop();
+        this.resourceManager.stopAutoCleanup();
+        this.resourceManager.stopHealthChecks();
+        await this.resourceManager.releaseAll();
         this.processManager.cleanup();
         this.logWatcher.cleanup();
         await this.sessionManager.close();
         process.exit(0);
-      });
+      };
 
-      process.on('SIGTERM', async () => {
-        logger.info('Shutting down Fennec...');
-        this.processManager.cleanup();
-        this.logWatcher.cleanup();
-        await this.sessionManager.close();
-        process.exit(0);
-      });
+      process.on('SIGINT', shutdown);
+      process.on('SIGTERM', shutdown);
     }
   }
 }
