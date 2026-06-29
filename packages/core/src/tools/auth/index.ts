@@ -88,21 +88,21 @@ export const authFillLoginForm = createTool({
           const domain = new URL(page.url()).hostname;
           sessionName = `auto-${domain}`;
 
-          const localStorage = await page.evaluate(() => {
+          const storage = await page.evaluate(() => {
             const items: Record<string, string> = {};
             for (let i = 0; i < localStorage.length; i++) {
               const key = localStorage.key(i);
               if (key) items[key] = localStorage.getItem(key) ?? "";
             }
             return items;
-          }).catch(() => ({}));
+          }).catch(() => ({} as Record<string, string>));
 
           sessionStore.save(sessionName, {
             cookies: cookies.map((c) => ({
               name: c.name, value: c.value, domain: c.domain, path: c.path,
               httpOnly: c.httpOnly, secure: c.secure, sameSite: c.sameSite,
             })),
-            localStorage,
+            localStorage: storage,
             sessionStorage: {},
             origin,
           });
@@ -141,21 +141,21 @@ export const authSaveSession = createTool({
       const cookies = await session.context.cookies();
       const origin = new URL(session.page.url()).origin;
 
-      const localStorage = await session.page.evaluate(() => {
+      const storage = await session.page.evaluate(() => {
         const items: Record<string, string> = {};
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
           if (key) items[key] = localStorage.getItem(key) ?? "";
         }
         return items;
-      }).catch(() => ({}));
+      }).catch(() => ({} as Record<string, string>));
 
       sessionStore.save(input.name, {
         cookies: cookies.map((c) => ({
           name: c.name, value: c.value, domain: c.domain, path: c.path,
           httpOnly: c.httpOnly, secure: c.secure, sameSite: c.sameSite,
         })),
-        localStorage,
+        localStorage: storage,
         sessionStorage: {},
         origin,
       });
@@ -188,16 +188,19 @@ export const authLoadSession = createTool({
         );
       }
 
-      await session.context.addCookies(saved.cookies.map((c: Record<string, unknown>) => ({
-        name: c.name as string, value: c.value as string,
-        domain: c.domain as string | undefined, path: (c.path as string) ?? "/",
-        httpOnly: c.httpOnly as boolean | undefined, secure: c.secure as boolean | undefined,
-        sameSite: c.sameSite as "Strict" | "Lax" | "None" | undefined,
+      await session.context.addCookies(saved.cookies.map((c) => ({
+        name: (c as Record<string, unknown>).name as string,
+        value: (c as Record<string, unknown>).value as string,
+        domain: (c as Record<string, unknown>).domain as string | undefined,
+        path: ((c as Record<string, unknown>).path as string) ?? "/",
+        httpOnly: (c as Record<string, unknown>).httpOnly as boolean | undefined,
+        secure: (c as Record<string, unknown>).secure as boolean | undefined,
+        sameSite: (c as Record<string, unknown>).sameSite as "Strict" | "Lax" | "None" | undefined,
       })));
 
       await session.page.goto(saved.origin).catch(() => {});
       for (const [key, value] of Object.entries(saved.localStorage)) {
-        await session.page.evaluate((k, v) => localStorage.setItem(k, v), key, value).catch(() => {});
+        await session.page.evaluate(({ k, v }) => localStorage.setItem(k, v), { k: key, v: value }).catch(() => {});
       }
 
       return responseBuilder.success({
