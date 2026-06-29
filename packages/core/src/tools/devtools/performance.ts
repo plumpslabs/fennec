@@ -6,6 +6,7 @@ const collector = new PerformanceCollector();
 
 export const devtoolsGetPerformanceMetrics = createTool({
   name: "devtools_get_performance_metrics",
+  category: "devtools",
   description: "`<use_case>Performance analysis</use_case> Get core web vitals: FCP, LCP, TBT, CLS, TTI, and memory usage. metrics.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
@@ -26,6 +27,7 @@ export const devtoolsGetPerformanceMetrics = createTool({
 
 export const devtoolsGetMemoryUsage = createTool({
   name: "devtools_get_memory_usage",
+  category: "devtools",
   description: "`<use_case>Performance analysis</use_case> Get JavaScript memory usage (jsHeapSize, totalSize, limit) and DOM node count. jsHeapSize, totalSize, limit, domNodes.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
@@ -48,6 +50,7 @@ export const devtoolsGetMemoryUsage = createTool({
 
 export const devtoolsGetDomCounters = createTool({
   name: "devtools_get_dom_counters",
+  category: "devtools",
   description: "`<use_case>Performance analysis</use_case> Get DOM node counters: nodes, documents, frames. nodes, documents, frames.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
@@ -65,6 +68,7 @@ export const devtoolsGetDomCounters = createTool({
 
 export const devtoolsStartProfiling = createTool({
   name: "devtools_start_profiling",
+  category: "devtools",
   description: "`<use_case>Performance analysis</use_case> Start CPU performance profiling via CDP. Returns a profileId for use with devtools_stop_profiling. Captures JavaScript stack traces and execution timing. profileId (string).`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
@@ -91,6 +95,7 @@ export const devtoolsStartProfiling = createTool({
 
 export const devtoolsStopProfiling = createTool({
   name: "devtools_stop_profiling",
+  category: "devtools",
   description: "`<use_case>Performance analysis</use_case> Stop CPU profiling and return collected profile data. topFunctions[], duration (ms), totalSamples.`",
   inputSchema: z.object({
     profileId: z.string().describe("Profile ID from devtools_start_profiling"),
@@ -142,6 +147,7 @@ export const devtoolsStopProfiling = createTool({
 
 export const devtoolsSimulateNetwork = createTool({
   name: "devtools_simulate_network",
+  category: "devtools",
   description: "`<use_case>Testing</use_case> Simulate network conditions: offline, slow-3g, fast-3g, 4g, or reset. applied (string).`",
   inputSchema: z.object({
     condition: z.enum(["offline", "slow-3g", "fast-3g", "4g", "reset"]).describe("Network condition to simulate"),

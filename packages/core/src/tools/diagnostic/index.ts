@@ -7,6 +7,7 @@ const perfCollector = new PerformanceCollector();
 
 export const diagnosePage = createTool({
   name: "diagnose_page",
+  category: "diagnostic",
   description: "`<use_case>Debugging</use_case> Comprehensive page diagnostic: console errors, network failures, performance metrics, and page state. page, consoleErrors[], networkFailures[], performance, summary.`",
   inputSchema: z.object({
     focus: z.enum(["errors", "performance", "network", "all"]).optional().default("all").describe("Diagnostic focus area"),
@@ -37,6 +38,7 @@ export const diagnosePage = createTool({
 
 export const diagnoseElement = createTool({
   name: "diagnose_element",
+  category: "diagnostic",
   description: "`<use_case>Debugging</use_case> Debug an element: check existence, visibility, interactability, and get actionable suggestions. exists, visible, enabled, interactable, reason, suggestions[].`",
   inputSchema: z.object({
     selector: z.string().describe("Element selector to diagnose"),
@@ -76,6 +78,7 @@ export const diagnoseElement = createTool({
 
 export const diagnoseNetwork = createTool({
   name: "diagnose_network",
+  category: "diagnostic",
   description: "`<use_case>Debugging</use_case> Network diagnostic: failed requests, slow requests, CORS issues, and summary. failedRequests[], slowRequests[], corsIssues[], summary.`",
   inputSchema: z.object({ since: z.string().optional().describe("ISO timestamp filter"), sessionId: z.string().optional().describe("Session ID") }),
   handler: async (input, { sessionManager, responseBuilder }) => {
@@ -94,6 +97,7 @@ export const diagnoseNetwork = createTool({
 
 export const diagnoseAuth = createTool({
   name: "diagnose_auth",
+  category: "diagnostic",
   description: "`<use_case>Debugging</use_case> Check authentication state: auth cookies, token presence, expiry info. isAuthenticated, tokenFound, cookiesPresent, expiryInfo.`",
   inputSchema: z.object({ sessionId: z.string().optional().describe("Session ID") }),
   handler: async (input, { sessionManager, responseBuilder }) => {
@@ -116,6 +120,7 @@ export const diagnoseAuth = createTool({
 
 export const diagnoseFullstack = createTool({
   name: "diagnose_fullstack",
+  category: "diagnostic",
   description: "`<use_case>Debugging</use_case> Unified browser + server diagnostic with correlated timeline and root cause analysis. Links browser console + network with server process logs. browser, server, correlation {rootCause, confidence, fix}.`",
   inputSchema: z.object({
     processId: z.string().optional().describe("Server process ID to correlate with browser state"),
@@ -172,6 +177,7 @@ export const diagnoseFullstack = createTool({
 
 export const diagnosePerformance = createTool({
   name: "diagnose_performance",
+  category: "diagnostic",
   description: "`<use_case>Debugging</use_case> Performance diagnostic: metrics (FCP, LCP, CLS), issues found, optimization recommendations, and score (0-100). metrics, score, issues[], recommendations[].`",
   inputSchema: z.object({ sessionId: z.string().optional().describe("Session ID") }),
   handler: async (input, { sessionManager, responseBuilder }) => {

@@ -8,6 +8,7 @@ import path from "node:path";
 
 export const smartFillForm = createTool({
   name: "smart_fill_form",
+  category: "smart",
   description:
     "`<use_case>Smart form filling</use_case> Auto-detect ALL form fields on the page and fill them with provided values. Accepts a map of field identifiers (label, name, placeholder, id, aria-label) to values. Handles inputs, selects, textareas, checkboxes. Optionally submits after filling. Returns fieldsDetected, fieldsFilled, unmatchedFields, availableFields, submitted.`",
   inputSchema: z.object({
@@ -379,6 +380,7 @@ export interface FieldValidation {
 
 export const smartValidateForm = createTool({
   name: "smart_validate_form",
+  category: "smart",
   description:
     "`<use_case>Smart form validation</use_case> Validate all form fields on the page against HTML5 constraints (required, email format, minlength, maxlength, pattern, type). Also checks for common issues like empty required fields, invalid email/URL/phone format. Returns valid (bool), fieldResults[], totalIssues (int).`",
   inputSchema: z.object({
@@ -649,6 +651,7 @@ async function removeAnnotations(page: {
 
 export const browserScreenshotAnnotated = createTool({
   name: "browser_screenshot_annotated",
+  category: "smart",
   description:
     "`<use_case>Visual capture</use_case> Take a screenshot with auto-numbered annotations on all interactive elements (buttons, links, inputs, selects, etc.). Each element gets a numbered badge in the screenshot + a data-ai-index attribute for easy clicking. Returns base64 screenshot, elements[ {index, tag, text, selector, boundingBox} ]. Use the index to click: browser_click(selector=\"[data-ai-index='3']\").`",
   inputSchema: z.object({
@@ -793,6 +796,7 @@ function matchElements(
 
 export const browserScreenshotExport = createTool({
   name: "browser_screenshot_export",
+  category: "smart",
   description:
     "`<use_case>Visual capture</use_case> Take a screenshot with bounding box highlights on all interactive elements and export as a standalone HTML file. The HTML file embeds the screenshot + interactive overlays so you can open it in any browser to visually inspect elements. Returns filePath, elementCount, elements[].`",
   inputSchema: z.object({
@@ -984,6 +988,7 @@ li { font: 11px monospace; padding: 4px 8px; background: rgba(255,255,255,0.05);
 
 export const browserScreenshotDiff = createTool({
   name: "browser_screenshot_diff",
+  category: "smart",
   description:
     "`<use_case>Visual diff</use_case> Compare current page state against a baseline and generate a diff HTML report. Accepts baselineElements + baselineScreenshot from a previous browser_screenshot_export call. Detects added (green), removed (red), changed/moved/resized (orange), and unchanged (dimmed) elements. Returns filePath, summary stats.",
   inputSchema: z.object({
@@ -1293,6 +1298,7 @@ function escapeHtml(text: string): string {
 
 export const smartWait = createTool({
   name: "smart_wait",
+  category: "smart",
   description:
     "`<use_case>Smart page interaction</use_case> Smart element wait with auto-diagnosis. Waits for an element by selector/text and if timeout occurs, automatically collects page context (URL, DOM snapshot, visible text, screenshot) so AI can diagnose what went wrong. Returns found (bool), elapsed (ms), and diagnosis info on failure.`",
   inputSchema: z.object({
@@ -1485,6 +1491,7 @@ export const smartWait = createTool({
 
 export const smartNavigate = createTool({
   name: "smart_navigate",
+  category: "smart",
   description:
     "`<use_case>Smart page interaction</use_case> Navigate to a URL with smart waiting. After navigation, waits for the page to load AND collects DOM snapshot to help AI understand what's on the page. Returns url, title, elementCount, availableElements[].`",
   inputSchema: z.object({

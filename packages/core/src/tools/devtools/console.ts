@@ -3,6 +3,7 @@ import { createTool } from "../_registry.js";
 
 export const devtoolsGetConsoleLogs = createTool({
   name: "devtools_get_console_logs",
+  category: "devtools",
   description: "`<use_case>Debugging</use_case> Get browser console logs. Filterable by level, keyword, and recency (since). logs[], errorCount, warnCount, summary.`",
   inputSchema: z.object({
     level: z.enum(["log", "info", "warn", "error", "debug"]).optional().describe("Filter by log level"),
@@ -38,6 +39,7 @@ export const devtoolsGetConsoleLogs = createTool({
 
 export const devtoolsClearConsole = createTool({
   name: "devtools_clear_console",
+  category: "devtools",
   description: "`<use_case>Debugging</use_case> Clear all console logs from the buffer. cleared (bool), previousCount.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
@@ -54,6 +56,7 @@ export const devtoolsClearConsole = createTool({
 
 export const devtoolsEvaluate = createTool({
   name: "devtools_evaluate",
+  category: "devtools",
   description: "`<use_case>Code execution</use_case> Execute JavaScript in the browser context (requires security.allowJSEvaluation). result, type (typeof).`",
   inputSchema: z.object({
     expression: z.string().describe("JavaScript expression to evaluate"),
@@ -89,6 +92,7 @@ export const devtoolsEvaluate = createTool({
 
 export const devtoolsGetJsErrors = createTool({
   name: "devtools_get_js_errors",
+  category: "devtools",
   description: "`<use_case>Debugging</use_case> Get only JavaScript errors from the console buffer. errors[], count, lastError.`",
   inputSchema: z.object({
     since: z.string().optional().describe("ISO timestamp to filter errors after"),
@@ -113,6 +117,7 @@ export const devtoolsGetJsErrors = createTool({
 
 export const devtoolsWatchConsole = createTool({
   name: "devtools_watch_console",
+  category: "devtools",
   description: "`<use_case>Debugging</use_case> Watch console logs for a specified duration (ms). Collects all logs emitted during the window. logs[], summary.`",
   inputSchema: z.object({
     durationMs: z.number().describe("Duration in milliseconds to watch console"),

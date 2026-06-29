@@ -4,6 +4,7 @@ import { PortDetector } from "../../process/PortDetector.js";
 
 export const processSpawn = createTool({
   name: "process_spawn",
+  category: "process",
   description: "`<use_case>Process management</use_case> Spawn a new process (dev server, build tool, etc.). Requires security.allowProcessSpawn. processId, pid, name, startedAt.`",
   inputSchema: z.object({
     command: z.string().describe("Command to run (e.g., 'npm', 'node')"),
@@ -38,6 +39,7 @@ export const processSpawn = createTool({
 
 export const processList = createTool({
   name: "process_list",
+  category: "process",
   description: "`<use_case>Process management</use_case> List all managed processes with status. processes[], count.`",
   inputSchema: z.object({}),
   handler: async (input, { responseBuilder, processManager }) => {
@@ -53,6 +55,7 @@ export const processList = createTool({
 
 export const processGetLogs = createTool({
   name: "process_get_logs",
+  category: "process",
   description: "`<use_case>Process management</use_case> Get logs from a managed process. Filterable by level, line count, since. logs[], count, errorCount.`",
   inputSchema: z.object({
     processId: z.string().describe("Process ID to get logs from"),
@@ -72,6 +75,7 @@ export const processGetLogs = createTool({
 
 export const processGetStatus = createTool({
   name: "process_get_status",
+  category: "process",
   description: "`<use_case>Process management</use_case> Get process status: running, pid, uptime. running (bool), pid, uptime (ms), memoryMB, cpuPercent.`",
   inputSchema: z.object({ processId: z.string().describe("Process ID") }),
   handler: async (input, { responseBuilder, processManager }) => {
@@ -89,6 +93,7 @@ export const processGetStatus = createTool({
 
 export const processSendInput = createTool({
   name: "process_send_input",
+  category: "process",
   description: "`<use_case>Process management</use_case> Send input to a running process's stdin. sent (bool).`",
   inputSchema: z.object({ processId: z.string().describe("Process ID"), input: z.string().describe("Input to send") }),
   handler: async (input, { responseBuilder, processManager }) => {
@@ -102,6 +107,7 @@ export const processSendInput = createTool({
 
 export const processKill = createTool({
   name: "process_kill",
+  category: "process",
   description: "`<use_case>Process management</use_case> Kill a managed process. Supports SIGTERM, SIGKILL, SIGINT. Requires security.allowProcessKill. killed (bool).`",
   inputSchema: z.object({
     processId: z.string().describe("Process ID to kill"),
@@ -121,6 +127,7 @@ export const processKill = createTool({
 
 export const processRestart = createTool({
   name: "process_restart",
+  category: "process",
   description: "`<use_case>Process management</use_case> Restart a managed process by killing and re-spawning it with the same configuration. Returns the new process info. processId, pid, startedAt.`",
   inputSchema: z.object({
     processId: z.string().describe("Process ID to restart"),
@@ -144,6 +151,7 @@ export const processRestart = createTool({
 
 export const processWaitForReady = createTool({
   name: "process_wait_for_ready",
+  category: "process",
   description: "`<use_case>Process management</use_case> Wait for a process to output a ready pattern (e.g. 'listening on port'). ready (bool), elapsed (ms), matchedLine.`",
   inputSchema: z.object({
     processId: z.string().describe("Process ID to wait for"),
@@ -187,6 +195,7 @@ export const processWaitForReady = createTool({
 
 export const processAttachPid = createTool({
   name: "process_attach_pid",
+  category: "process",
   description: "`<use_case>Process management</use_case> Look up a running process by PID. Returns process info for monitoring (not process control). processId, pid, command, port (if detected).`",
   inputSchema: z.object({
     pid: z.number().describe("Process ID to attach to"),
@@ -219,6 +228,7 @@ export const processAttachPid = createTool({
 
 export const processAttachPort = createTool({
   name: "process_attach_port",
+  category: "process",
   description: "`<use_case>Process management</use_case> Look up a process by port number. Returns process info. processId, pid, command, port.`",
   inputSchema: z.object({
     port: z.number().describe("Port number to find process on"),

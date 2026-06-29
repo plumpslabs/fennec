@@ -1,6 +1,6 @@
 {
   "name": "fennec",
-  "version": "0.7.3",
+  "version": "1.8.0",
   "private": true,
   "description": "AI-native developer observability MCP — browser, terminal, and process, all in one.",
   "keywords": [
@@ -28,7 +28,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "dev": "pnpm -r --parallel dev",
-    "clean": "pnpm -r clean && rm -rf node_modules",
+    "clean": "pnpm -r clean && node -e \"const{rmSync,existsSync}=require('fs');['node_modules'].forEach(d=>existsSync(d)&&(console.log('removing',d),rmSync(d,{recursive:true,force:true})))\"",
     "lint": "pnpm -r lint",
     "format": "prettier --write \"**/*.{ts,js,json,yaml,yml,md}\"",
     "format:check": "prettier --check \"**/*.{ts,js,json,yaml,yml,md}\"",

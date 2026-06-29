@@ -3,6 +3,7 @@ import { createTool } from "../_registry.js";
 
 export const schedulerGetStats = createTool({
   name: "scheduler_get_stats",
+  category: "scheduler",
   description:
     "`<use_case>Scheduler</use_case> Get Workflow Scheduler stats and recent trigger history. Returns rules count, total triggers, last trigger info, and recent history. Useful to see what auto-diagnosis workflows have been triggered by events like 500 errors or console errors.",
   inputSchema: z.object({}),
@@ -37,6 +38,7 @@ export const schedulerGetStats = createTool({
 
 export const schedulerGetLastResult = createTool({
   name: "scheduler_get_last_result",
+  category: "scheduler",
   description:
     "`<use_case>Scheduler</use_case> Get the most recent auto-triggered workflow execution result. Returns step results with diagnosis data, console logs, network failures, and screenshot if available. Useful when AI wants to see what the auto-diagnosis workflow already found.",
   inputSchema: z.object({}),
@@ -69,6 +71,7 @@ export const schedulerGetLastResult = createTool({
 
 export const schedulerTriggerRule = createTool({
   name: "scheduler_trigger_rule",
+  category: "scheduler",
   description:
     "`<use_case>Scheduler</use_case> Manually trigger a scheduler rule by ID. This executes the associated workflow immediately, bypassing event matching. Returns the workflow execution result. Useful to re-run diagnosis or force a workflow execution.",
   inputSchema: z.object({
@@ -114,6 +117,7 @@ export const schedulerTriggerRule = createTool({
 
 export const schedulerListRules = createTool({
   name: "scheduler_list_rules",
+  category: "scheduler",
   description:
     "`<use_case>Scheduler</use_case> List all registered scheduler trigger rules with their status. Shows rule ID, name, event type, priority, cooldown, and whether the rule is enabled. Useful to understand what auto-trigger rules are active.",
   inputSchema: z.object({}),
@@ -138,6 +142,7 @@ export const schedulerListRules = createTool({
 
 export const schedulerDisableRule = createTool({
   name: "scheduler_disable_rule",
+  category: "scheduler",
   description:
     "`<use_case>Scheduler</use_case> Disable a scheduler trigger rule by ID. The rule will stop matching events until re-enabled. Useful to suppress noisy or unwanted auto-triggers.",
   inputSchema: z.object({
@@ -157,6 +162,7 @@ export const schedulerDisableRule = createTool({
 
 export const schedulerEnableRule = createTool({
   name: "scheduler_enable_rule",
+  category: "scheduler",
   description:
     "`<use_case>Scheduler</use_case> Enable a previously disabled scheduler trigger rule by ID. The rule will resume matching events. Useful to re-activate a rule that was suppressed.",
   inputSchema: z.object({
@@ -176,6 +182,7 @@ export const schedulerEnableRule = createTool({
 
 export const schedulerClearHistory = createTool({
   name: "scheduler_clear_history",
+  category: "scheduler",
   description:
     "`<use_case>Scheduler</use_case> Clear scheduler trigger history. Resets the stats and removes all recorded trigger events.",
   inputSchema: z.object({}),

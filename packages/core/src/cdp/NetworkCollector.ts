@@ -1,6 +1,7 @@
 import type { CDPSession } from "playwright";
 import type { NetworkEvent } from "../session/types.js";
 import { getLogger } from "../utils/logger.js";
+import { exportAsHar, type HarLog } from "./HarExporter.js";
 
 type NetworkCallback = (event: NetworkEvent) => void;
 
@@ -49,6 +50,8 @@ interface CDPLoadingFinished {
 export class NetworkCollector {
   private listeners: Map<string, NetworkCallback> = new Map();
   private pendingRequests: Map<string, { request: CDPRequest; method: string; url: string; timestamp: string; type: string }> = new Map();
+  private collectedEvents: NetworkEvent[] = [];
+  private maxCollectedEvents = 1000;
   private enabled = false;
 
   async enable(cdpSession: CDPSession): Promise<void> {
@@ -119,6 +122,12 @@ export class NetworkCollector {
   }
 
   private emit(event: NetworkEvent): void {
+    // Store for HAR export
+    this.collectedEvents.push(event);
+    if (this.collectedEvents.length > this.maxCollectedEvents) {
+      this.collectedEvents.shift();
+    }
+
     for (const [, callback] of this.listeners) {
       try {
         callback(event);
@@ -126,5 +135,41 @@ export class NetworkCollector {
         // Ignore listener errors
       }
     }
+  }
+
+  /**
+   * Export collected network events as a HAR (HTTP Archive) log.
+   */
+  getHar(): HarLog {
+    return exportAsHar(this.collectedEvents);
+  }
+
+  /**
+   * Get all collected events.
+   */
+  getEvents(): NetworkEvent[] {
+    return [...this.collectedEvents];
+  }
+
+  /**
+   * Clear collected events.
+   */
+  clearEvents(): void {
+    this.collectedEvents = [];
+  }
+
+  /**
+   * Disable the network collector.
+   */
+  async disable(): Promise<void> {
+    this.enabled = false;
+    this.listeners.clear();
+  }
+
+  /**
+   * Get pending request count (for monitoring).
+   */
+  getPendingCount(): number {
+    return this.pendingRequests.size;
   }
 }

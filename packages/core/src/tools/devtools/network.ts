@@ -4,6 +4,7 @@ import type { NetworkEvent } from "../../session/types.js";
 
 export const networkGetLogs = createTool({
   name: "network_get_logs",
+  category: "devtools",
   description: "`<use_case>Network debugging</use_case> Get network request logs. Filterable by status, method, URL pattern. requests[], count, failedCount, slowCount.`",
   inputSchema: z.object({
     status: z.number().optional().describe("Filter by HTTP status code"),
@@ -47,6 +48,7 @@ export const networkGetLogs = createTool({
 
 export const networkGetFailedRequests = createTool({
   name: "network_get_failed_requests",
+  category: "devtools",
   description: "`<use_case>Network debugging</use_case> Get all failed network requests (status >= 400). requests[], count.`",
   inputSchema: z.object({
     since: z.string().optional().describe("ISO timestamp filter"),
@@ -65,6 +67,7 @@ export const networkGetFailedRequests = createTool({
 
 export const networkGetCorsIssues = createTool({
   name: "network_get_cors_issues",
+  category: "devtools",
   description: "`<use_case>Network debugging</use_case> Detect CORS-related issues from network logs. issues[], count.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
@@ -96,6 +99,7 @@ export const networkGetCorsIssues = createTool({
 
 export const networkClearLogs = createTool({
   name: "network_clear_logs",
+  category: "devtools",
   description: "`<use_case>Network debugging</use_case> Clear all network request logs from the buffer. cleared (bool).`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
@@ -109,6 +113,7 @@ export const networkClearLogs = createTool({
 
 export const networkWaitForRequest = createTool({
   name: "network_wait_for_request",
+  category: "devtools",
   description: "`<use_case>Network debugging</use_case> Wait for a network request matching a URL pattern and method. Returns full request and response details once captured. request, response, elapsed (ms).`",
   inputSchema: z.object({
     urlPattern: z.string().describe("URL or pattern to wait for (glob or substring)"),
@@ -164,6 +169,7 @@ export const networkWaitForRequest = createTool({
 
 export const networkGetRequestDetail = createTool({
   name: "network_get_request_detail",
+  category: "devtools",
   description: "`<use_case>Network debugging</use_case> Get full detail of a network request by URL or requestId from the buffer. Provide either url or requestId. request, response, timing, size.`",
   inputSchema: z.object({
     url: z.string().optional().describe("URL of the request to get detail for"),
@@ -210,6 +216,7 @@ export const networkGetRequestDetail = createTool({
 
 export const networkIntercept = createTool({
   name: "network_intercept",
+  category: "devtools",
   description: "`<use_case>Network mocking</use_case> Intercept network requests matching a URL pattern. Returns an interceptorId that can be used to remove the intercept later. interceptorId (string).`",
   inputSchema: z.object({
     urlPattern: z.string().describe("URL pattern to intercept (glob or substring)"),
@@ -244,6 +251,7 @@ export const networkIntercept = createTool({
 
 export const networkRemoveIntercept = createTool({
   name: "network_remove_intercept",
+  category: "devtools",
   description: "`<use_case>Network mocking</use_case> Remove a previously set network intercept by interceptorId. success (bool).`",
   inputSchema: z.object({
     interceptorId: z.string().describe("Interceptor ID to remove"),
@@ -270,6 +278,7 @@ export const networkRemoveIntercept = createTool({
 
 export const networkMockResponse = createTool({
   name: "network_mock_response",
+  category: "devtools",
   description: "`<use_case>Network mocking</use_case> Mock a response for a URL pattern. Intercept and fulfill with custom status, body, and headers. mockId (string).`",
   inputSchema: z.object({
     urlPattern: z.string().describe("URL pattern to mock (glob or substring)"),

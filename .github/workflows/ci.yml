@@ -30,11 +30,12 @@ jobs:
       - run: pnpm -r lint
 
   test:
-    name: Test
-    runs-on: ubuntu-latest
+    name: Test (${{ matrix.os }}, Node ${{ matrix.node-version }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
       matrix:
+        os: [ubuntu-latest, windows-latest]
         node-version: [20, 22]
     steps:
       - uses: actions/checkout@v4
@@ -46,11 +47,13 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: npx playwright install chromium --with-deps
+      - shell: bash
+        run: npx playwright install chromium --with-deps
+        if: matrix.os == 'ubuntu-latest'
       - run: pnpm build
       - run: pnpm test -- --reporter=verbose
       - name: Upload coverage
-        if: matrix.node-version == 20
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == 20
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -73,6 +76,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - name: Verify package artifacts
+        shell: bash
         run: |
           for pkg in packages/*/; do
             if [ -f "$pkg/package.json" ]; then

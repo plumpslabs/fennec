@@ -5,6 +5,7 @@ import { resolveSelector } from "../../utils/selector.js";
 
 export const browserClick = createTool({
   name: "browser_click",
+  category: "interaction",
   description: "`<use_case>Element interaction</use_case> Click an element. Supports left/right/middle buttons and clickCount for double-click. elementFound (bool), coordinates.`",
   inputSchema: z.object({
     selector: z.string().describe("Element selector (ARIA, testid, text, CSS, or XPath)"),
@@ -57,6 +58,7 @@ export const browserClick = createTool({
 
 export const browserType = createTool({
   name: "browser_type",
+  category: "interaction",
   description: "`<use_case>Form input</use_case> Type text into an input field. Optionally clear the field first. elementFound (bool), valueAfter.`",
   inputSchema: z.object({
     selector: z.string().describe("Element selector"),
@@ -104,6 +106,7 @@ export const browserType = createTool({
 
 export const browserSelect = createTool({
   name: "browser_select",
+  category: "interaction",
   description: "`<use_case>Form input</use_case> Select an option from a <select> dropdown element. selectedValue, allOptions[].`",
   inputSchema: z.object({
     selector: z.string().describe("Select element selector"),
@@ -137,6 +140,7 @@ export const browserSelect = createTool({
 
 export const browserHover = createTool({
   name: "browser_hover",
+  category: "interaction",
   description: "`<use_case>Element interaction</use_case> Hover over an element to trigger hover states or tooltips. coordinates.`",
   inputSchema: z.object({
     selector: z.string().describe("Element selector"),
@@ -166,6 +170,7 @@ export const browserHover = createTool({
 
 export const browserScroll = createTool({
   name: "browser_scroll",
+  category: "interaction",
   description: "`<use_case>Page navigation</use_case> Scroll the page or a specific element. Supports pixel position, selector-based, or directional (up/down/left/right) scrolling. scrollPosition {x, y}.`",
   inputSchema: z.object({
     x: z.number().optional().describe("Horizontal scroll position"),
@@ -223,6 +228,7 @@ export const browserScroll = createTool({
 
 export const browserPressKey = createTool({
   name: "browser_press_key",
+  category: "interaction",
   description: "`<use_case>Keyboard input</use_case> Press a keyboard key with optional modifier keys (Control, Shift, Alt, Meta). success.`",
   inputSchema: z.object({
     key: z.string().describe("Key to press (e.g., 'Enter', 'Escape', 'Tab', 'ArrowDown')"),
@@ -243,6 +249,7 @@ export const browserPressKey = createTool({
 
 export const browserFocus = createTool({
   name: "browser_focus",
+  category: "interaction",
   description: "`<use_case>Element interaction</use_case> Focus on an element by selector. success.`",
   inputSchema: z.object({
     selector: z.string().describe("Element selector"),
@@ -266,6 +273,7 @@ export const browserFocus = createTool({
 
 export const browserClear = createTool({
   name: "browser_clear",
+  category: "interaction",
   description: "`<use_case>Form input</use_case> Clear the content of an input field. previousValue.`",
   inputSchema: z.object({
     selector: z.string().describe("Element selector"),
@@ -295,6 +303,7 @@ export const browserClear = createTool({
 
 export const browserUploadFile = createTool({
   name: "browser_upload_file",
+  category: "interaction",
   description: "`<use_case>File upload</use_case> Upload a file to a file input element. Supports single or multiple files by path. fileName, fileSize.`",
   inputSchema: z.object({
     selector: z.string().describe("File input element selector"),
@@ -329,6 +338,7 @@ export const browserUploadFile = createTool({
 
 export const browserDragDrop = createTool({
   name: "browser_drag_drop",
+  category: "interaction",
   description: "`<use_case>Drag and drop</use_case> Drag an element to a target element. Uses Playwright's built-in dragTo() for reliable mouse-based DnD. Returns: success.`",
   inputSchema: z.object({
     sourceSelector: z.string().describe("Source element selector to drag"),

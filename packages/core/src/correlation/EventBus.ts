@@ -19,6 +19,51 @@ export class EventBus {
   private subscribers: Map<EventType, Set<EventHandler>> = new Map();
   private history: BusEvent[] = [];
   private maxHistory = 10000;
+  private maxAgeMs: number | null = null;
+  private pruneTimer: ReturnType<typeof setInterval> | null = null;
+
+  /**
+   * Enable time-based pruning. Old events are automatically removed.
+   * @param maxAgeMs Maximum age of events in milliseconds
+   * @param pruneIntervalMs How often to check for stale events (default: 60s)
+   */
+  startPruning(maxAgeMs: number, pruneIntervalMs = 60000): void {
+    this.maxAgeMs = maxAgeMs;
+    if (this.pruneTimer) clearInterval(this.pruneTimer);
+    this.pruneTimer = setInterval(() => {
+      const cutoff = Date.now() - maxAgeMs;
+      const before = this.history.length;
+      this.history = this.history.filter((e) => e.timestamp >= cutoff);
+      const pruned = before - this.history.length;
+      if (pruned > 0) {
+        // silent cleanup
+      }
+    }, pruneIntervalMs);
+    // Allow process to exit even if timer is active
+    if (this.pruneTimer && typeof this.pruneTimer === 'object' && 'unref' in this.pruneTimer) {
+      this.pruneTimer.unref();
+    }
+  }
+
+  /**
+   * Stop time-based pruning.
+   */
+  stopPruning(): void {
+    if (this.pruneTimer) {
+      clearInterval(this.pruneTimer);
+      this.pruneTimer = null;
+    }
+  }
+
+  /**
+   * Set max history length.
+   */
+  setMaxHistory(max: number): void {
+    this.maxHistory = max;
+    if (this.history.length > this.maxHistory) {
+      this.history = this.history.slice(-this.maxHistory);
+    }
+  }
 
   subscribe(type: EventType, handler: EventHandler): () => void {
     if (!this.subscribers.has(type)) {
