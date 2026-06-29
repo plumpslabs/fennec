@@ -13,13 +13,13 @@ import type { WorkflowEngine } from "../workflow/WorkflowEngine.js";
 import type { Recorder } from "../recorder/Recorder.js";
 import type { WorkflowScheduler } from "../scheduler/WorkflowScheduler.js";
 import type { EventBus } from "../correlation/EventBus.js";
-import type pino from "pino";
+import type { FennecLogger } from "../utils/logger.js";
 
 export interface ToolContext {
   sessionManager: SessionManager;
   responseBuilder: ResponseBuilder;
   config: FennecConfig;
-  logger: pino.Logger;
+  logger: FennecLogger;
   processManager: ProcessManager;
   logWatcher: LogWatcher;
   sessionStore: SessionStore;
@@ -38,6 +38,11 @@ export interface ToolContext {
 export interface ToolDefinition<TInput = any, TOutput = any> {
   name: string;
   description: string;
+  /**
+   * Tool category for grouping and selective loading.
+   * Clients can request only specific categories to reduce context window usage.
+   */
+  category?: string;
   inputSchema: z.ZodType<TInput>;
   handler: (input: TInput, context: ToolContext) => Promise<TOutput>;
 }
@@ -60,6 +65,31 @@ export class ToolRegistry {
 
   getAll(): ToolDefinition[] {
     return Array.from(this.tools.values());
+  }
+
+  /**
+   * Get all tool categories that have at least one registered tool.
+   */
+  getCategories(): string[] {
+    const cats = new Set<string>();
+    for (const tool of this.tools.values()) {
+      if (tool.category) cats.add(tool.category);
+    }
+    return Array.from(cats).sort();
+  }
+
+  /**
+   * Get tools filtered by one or more categories.
+   * If categories is empty, returns ALL tools (backward compatible).
+   */
+  getByCategories(categories?: string[]): ToolDefinition[] {
+    if (!categories || categories.length === 0) {
+      return this.getAll();
+    }
+    const catSet = new Set(categories);
+    return Array.from(this.tools.values()).filter(
+      (t) => t.category && catSet.has(t.category),
+    );
   }
 
   has(name: string): boolean {

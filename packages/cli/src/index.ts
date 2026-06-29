@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 
-import { existsSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { intro, outro, spinner, confirm, select, isCancel } from "@clack/prompts";
-import { FennecServer, SessionStore } from "@plumpslabs/fennec-core";
+import { createInterface } from "node:readline";
 import { execSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { FennecServer, SessionStore } from "@plumpslabs/fennec-core";
 import { printBanner } from "./utils/banner.js";
 import { showHelp } from "./utils/help.js";
 import { pipeCommand } from "./commands/pipe.js";
@@ -14,6 +13,64 @@ import { attachPortCommand } from "./commands/attach-port.js";
 import { watchCommand } from "./commands/watch.js";
 
 const [, , command, ...args] = process.argv;
+
+// ─── Minimal readline-based prompt utilities ─────────────────────
+
+function rlQuestion(query: string): Promise<string> {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    rl.question(query, (answer) => {
+      rl.close();
+      resolve(answer.trim());
+    });
+  });
+}
+
+async function confirmPrompt(message: string, defaultValue = false): Promise<boolean> {
+  const hint = defaultValue ? "Y/n" : "y/N";
+  const answer = await rlQuestion(`\n${message} (${hint}): `);
+  if (!answer) return defaultValue;
+  return answer.toLowerCase() === "y" || answer.toLowerCase() === "yes";
+}
+
+async function selectPrompt<T extends string>(
+  message: string,
+  options: { value: T; label: string }[],
+): Promise<T | symbol> {
+  console.log(`\n${message}\n`);
+  options.forEach((opt, i) => {
+    console.log(`  ${i + 1}) ${opt.label}`);
+  });
+  console.log(`  0) Cancel`);
+  const answer = await rlQuestion(`\nEnter number (0-${options.length}): `);
+  const num = parseInt(answer, 10);
+  if (isNaN(num) || num === 0) return Symbol("cancel");
+  const selected = options[num - 1];
+  if (!selected) {
+    console.log("  Invalid selection. Cancelled.");
+    return Symbol("cancel");
+  }
+  return selected.value;
+}
+
+function simpleSpinner(text: string) {
+  const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+  let i = 0;
+  const interval = setInterval(() => {
+    process.stdout.write(`\r${frames[i]} ${text}`);
+    i = (i + 1) % frames.length;
+  }, 80);
+  return {
+    stop(message?: string) {
+      clearInterval(interval);
+      process.stdout.write(`\r${message ? "✓" : " "} ${message ?? text}\n`);
+    },
+  };
+}
+
+const isCancel = (v: unknown): boolean => v === Symbol("cancel");
+
+// ─── Main ────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
   if (!command || command === "start") {
@@ -70,18 +127,15 @@ async function sessionsCommand(): Promise<void> {
 }
 
 async function setupCommand(): Promise<void> {
-  intro("Fennec Setup");
+  console.log("\n  Fennec Setup\n");
 
-  const mcpClient = await select({
-    message: "Which MCP client are you using?",
-    options: [
-      { value: "claude", label: "Claude Desktop" },
-      { value: "other", label: "Other MCP client" },
-    ],
-  });
+  const mcpClient = await selectPrompt("Which MCP client are you using?", [
+    { value: "claude", label: "Claude Desktop" },
+    { value: "other", label: "Other MCP client" },
+  ]);
 
   if (isCancel(mcpClient)) {
-    outro("Setup cancelled");
+    console.log("Setup cancelled");
     return;
   }
 
@@ -100,14 +154,13 @@ To configure Claude Desktop for Fennec, add to your config:
     `);
   }
 
-  outro("Setup complete! Run 'fennec start' to begin.");
+  console.log("Setup complete! Run 'fennec start' to begin.\n");
 }
 
 async function installBrowsersCommand(): Promise<void> {
-  intro("Installing browser engines");
+  console.log("\n  Installing browser engines\n");
 
-  const s = spinner();
-  s.start("Installing Chromium...");
+  const s = simpleSpinner("Installing Chromium...");
 
   try {
     execSync("npx playwright install chromium", {
@@ -120,21 +173,22 @@ async function installBrowsersCommand(): Promise<void> {
     console.error("Try running manually: npx playwright install chromium");
   }
 
-  outro("Browser installation complete.");
+  console.log("\nBrowser installation complete.\n");
 }
 
 async function initCommand(): Promise<void> {
-  intro("Initialize Fennec Configuration");
+  console.log("\n  Initialize Fennec Configuration\n");
 
   const configFile = resolve("./fennec.config.yaml");
 
   if (existsSync(configFile)) {
-    const overwrite = await confirm({
-      message: "fennec.config.yaml already exists. Overwrite?",
-    });
+    const overwrite = await confirmPrompt(
+      "fennec.config.yaml already exists. Overwrite?",
+      false,
+    );
 
-    if (isCancel(overwrite) || !overwrite) {
-      outro("Cancelled");
+    if (!overwrite) {
+      console.log("Cancelled");
       return;
     }
   }
@@ -153,7 +207,7 @@ browser:
 session:
   maxSessions: 10
   idleTimeoutSecs: 1800
-  persistPath: "./.fennec/sessions"
+  persistPath: ".fennec/sessions"
 
 process:
   maxProcesses: 10
@@ -199,7 +253,7 @@ security:
   blockedDomains: []
   allowFileProtocol: false
   allowCDPRawAccess: false
-  exportPath: "./.fennec/exports"
+  exportPath: ".fennec/exports"
   maxExportSizeMB: 10
 
 transport:
@@ -214,7 +268,7 @@ logging:
 `;
 
   writeFileSync(configFile, config, "utf-8");
-  outro(`Configuration written to ${configFile}`);
+  console.log(`Configuration written to ${configFile}\n`);
 }
 
 main().catch((error) => {

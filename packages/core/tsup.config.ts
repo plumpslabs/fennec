@@ -7,13 +7,11 @@ export default defineConfig({
   clean: true,
   dts: true,
   sourcemap: true,
-  splitting: false,
+  splitting: true,
   outDir: "dist",
   external: [
     "@modelcontextprotocol/sdk",
     "playwright",
-    "chokidar",
-    "pino",
     "zod",
   ],
 });

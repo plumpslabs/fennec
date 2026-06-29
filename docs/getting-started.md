@@ -12,12 +12,14 @@
 ```bash
 npm install -g @plumpslabs/fennec-cli
 
-# Install browser engines
-fennec install-browsers
-
-# Start the MCP server
+# Start the MCP server (works without browser engines for terminal/process monitoring)
 fennec start
 ```
+
+> **Optional:** Install Playwright if you need browser automation:
+> ```bash
+> fennec install-browsers
+> ```
 
 ### From Source
 
@@ -29,6 +31,15 @@ pnpm build
 
 # Start the server
 node packages/cli/dist/index.js start
+```
+
+### Peer Dependency Note
+
+Playwright is an **optional peer dependency**. Features that don't require a browser (terminal watching, process management, log correlation) work without it. Install Playwright only when you need browser automation:
+
+```bash
+npm install playwright
+fennec install-browsers
 ```
 
 ## Quick Start
