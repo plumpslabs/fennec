@@ -1,10 +1,14 @@
 # Fennec Tool Reference
 
-Fennec provides over 60 MCP tools organized into logical groups. Each tool is designed to be consumed by AI agents, with structured input/output and actionable error messages.
+Fennec provides **112 MCP tools** organized into **15 categories**. Each tool is designed to be consumed by AI agents, with structured input/output and actionable error messages.
 
-## Tool Groups
+> 💡 **Token-Efficient**: MCP clients can request specific categories to reduce context window usage.
 
-### [Navigation](navigation.md)
+---
+
+## Tool Categories
+
+### [Navigation](navigation.md) (6 tools)
 Navigate the browser: URLs, back/forward, reload, wait for navigation.
 
 | Tool | Description |
@@ -16,8 +20,8 @@ Navigate the browser: URLs, back/forward, reload, wait for navigation.
 | `browser_get_current_url` | Get current URL and title |
 | `browser_wait_for_navigation` | Wait for URL pattern |
 
-### [Interaction](interaction.md)
-Click, type, select, hover, scroll, and keyboard interactions.
+### [Interaction](interaction.md) (10 tools)
+Click, type, select, hover, scroll, keyboard, file upload, and drag-and-drop.
 
 | Tool | Description |
 |---|---|
@@ -30,33 +34,36 @@ Click, type, select, hover, scroll, and keyboard interactions.
 | `browser_upload_file` | Upload a file |
 | `browser_focus` | Focus an element |
 | `browser_clear` | Clear input field |
+| `browser_drag_drop` | Drag element to target |
 
-### [DOM & Page](dom.md)
-Query the DOM, get page content, wait for elements, take screenshots.
+### [DOM & Page](dom.md) (9 tools)
+Query the DOM, get page content, wait for elements, take screenshots, inspect meta tags.
 
 | Tool | Description |
 |---|---|
 | `browser_screenshot` | Take screenshot |
-| `browser_get_dom_snapshot` | Get DOM HTML snapshot |
+| `browser_get_dom_snapshot` | Get DOM HTML snapshot with Shadow DOM |
 | `browser_get_accessibility_tree` | Get accessibility tree |
-| `browser_find_elements` | Find elements by selector |
+| `browser_find_elements` | Find elements with Shadow DOM piercing |
 | `browser_get_element_info` | Get element details |
 | `browser_wait_for_element` | Wait for element state |
 | `browser_get_page_text` | Get page text content |
 | `browser_get_page_title` | Get page title |
+| `browser_get_meta` | Get SEO/meta tags |
 
-### [DevTools — Console](console.md)
+### [DevTools — Console](console.md) (5 tools)
 Monitor and interact with browser console.
 
 | Tool | Description |
 |---|---|
-| `devtools_get_console_logs` | Get console logs |
+| `devtools_get_console_logs` | Get console logs (filterable) |
 | `devtools_clear_console` | Clear console buffer |
-| `devtools_evaluate` | Execute JavaScript |
-| `devtools_get_js_errors` | Get JS errors |
+| `devtools_evaluate` | Execute JavaScript in browser |
+| `devtools_get_js_errors` | Get JS errors only |
+| `devtools_watch_console` | Watch console for duration |
 
-### [DevTools — Network](network.md)
-Monitor and mock network requests.
+### [DevTools — Network](network.md) (9 tools)
+Monitor, intercept, mock, and wait for network requests.
 
 | Tool | Description |
 |---|---|
@@ -64,19 +71,26 @@ Monitor and mock network requests.
 | `network_get_failed_requests` | Get failed requests |
 | `network_get_cors_issues` | Detect CORS issues |
 | `network_clear_logs` | Clear network buffer |
+| `network_wait_for_request` | Wait for request matching URL |
+| `network_get_request_detail` | Get full request detail |
+| `network_intercept` | Intercept requests |
+| `network_remove_intercept` | Remove intercept |
+| `network_mock_response` | Mock API response |
 
-### [DevTools — Performance](performance.md)
-Measure page performance and simulate network conditions.
+### [DevTools — Performance](performance.md) (6 tools)
+Measure page performance, memory, profiling, and network simulation.
 
 | Tool | Description |
 |---|---|
 | `devtools_get_performance_metrics` | Get Core Web Vitals |
 | `devtools_get_memory_usage` | Get JS memory usage |
 | `devtools_get_dom_counters` | Get DOM node counts |
+| `devtools_start_profiling` | Start CPU profiling |
+| `devtools_stop_profiling` | Stop profiling, get samples |
 | `devtools_simulate_network` | Simulate network condition |
 
-### [Storage](storage.md)
-Read/write localStorage, sessionStorage, cookies, and IndexedDB.
+### [Storage](storage.md) (12 tools)
+Read/write localStorage, sessionStorage, cookies, IndexedDB, and state export/import.
 
 | Tool | Description |
 |---|---|
@@ -86,25 +100,27 @@ Read/write localStorage, sessionStorage, cookies, and IndexedDB.
 | `storage_clear_local` | Clear localStorage |
 | `storage_get_session` | Get sessionStorage |
 | `storage_set_session` | Set sessionStorage |
-| `storage_get_cookies` | Get cookies |
-| `storage_set_cookie` | Set cookie |
+| `storage_get_cookies` | Get cookies (filterable) |
+| `storage_set_cookie` | Set cookie with options |
 | `storage_delete_cookie` | Delete cookie |
 | `storage_get_indexeddb` | Read IndexedDB |
+| `storage_export_state` | Export all state to JSON |
+| `storage_import_state` | Import saved state |
 
-### [Auth](auth.md)
-Authentication session management.
+### [Auth](auth.md) (6 tools)
+Authentication: auto-fill login forms, save/load sessions, check auth state.
 
 | Tool | Description |
 |---|---|
-| `auth_fill_login_form` | Auto-fill login form |
+| `auth_fill_login_form` | Auto-detect + fill login form |
 | `auth_save_session` | Save auth session |
 | `auth_load_session` | Load saved session |
 | `auth_list_sessions` | List saved sessions |
 | `auth_delete_session` | Delete session |
 | `auth_check_logged_in` | Check login state |
 
-### [Tabs & Contexts](tabs.md)
-Multi-tab and multi-context management.
+### [Tabs & Contexts](tabs.md) (7 tools)
+Multi-tab and multi-context (incognito) management.
 
 | Tool | Description |
 |---|---|
@@ -112,11 +128,12 @@ Multi-tab and multi-context management.
 | `tab_close` | Close tab |
 | `tab_list` | List open tabs |
 | `tab_switch` | Switch to tab |
-| `context_new` | Create new context |
+| `tab_get_current` | Get current tab info |
+| `context_new` | Create isolated context |
 | `context_close` | Close context |
 
-### [Process](process.md)
-Spawn and manage processes.
+### [Process](process.md) (10 tools)
+Spawn, monitor, attach, and manage processes. Works **without browser**.
 
 | Tool | Description |
 |---|---|
@@ -126,10 +143,13 @@ Spawn and manage processes.
 | `process_get_status` | Get process status |
 | `process_send_input` | Send input to process |
 | `process_kill` | Kill a process |
+| `process_restart` | Restart a process |
 | `process_wait_for_ready` | Wait for ready pattern |
+| `process_attach_pid` | Attach by PID |
+| `process_attach_port` | Attach by port |
 
-### [Terminal / Log Watcher](terminal.md)
-Watch log files and pipe streams.
+### [Terminal / Log Watcher](terminal.md) (7 tools)
+Watch log files, pipe streams, and monitor terminal output. Works **without browser**.
 
 | Tool | Description |
 |---|---|
@@ -138,22 +158,11 @@ Watch log files and pipe streams.
 | `terminal_get_errors` | Get error logs |
 | `terminal_list_watchers` | List active watchers |
 | `terminal_stop_watcher` | Stop watcher |
+| `terminal_watch_pipe` | Watch a named pipe |
+| `terminal_clear_buffer` | Clear log buffer |
 
-### [Smart Tools](smart.md) 🔥
-AI-powered page interaction with auto-diagnosis, validation, and visual testing.
-
-| Tool | Description |
-|---|---|
-| `smart_wait` | Wait for element with auto-diagnosis on timeout (URL, DOM, screenshot) |
-| `smart_navigate` | Navigate + auto-collect DOM snapshot after load |
-| `smart_fill_form` | Auto-detect ALL form fields, fill by label/name/placeholder, submit |
-| `smart_validate_form` | Validate fields against HTML5 constraints (required, email, minlength, pattern) |
-| `browser_screenshot_annotated` | Screenshot with numbered badges on all interactive elements + data-ai-index for clicking |
-| `browser_screenshot_export` | Screenshot + bounding box highlights exported as standalone HTML file |
-| `browser_screenshot_diff` | Compare current page against baseline — detect added/removed/changed elements, export diff HTML |
-
-### [Diagnostic](diagnostic.md) ⭐⭐
-Full-stack diagnosis and correlation.
+### [Diagnostic](diagnostic.md) (6 tools) ⭐
+Page, element, network, auth, performance, and full-stack correlation diagnostics.
 
 | Tool | Description |
 |---|---|
@@ -164,6 +173,68 @@ Full-stack diagnosis and correlation.
 | `diagnose_fullstack` | **Full-stack correlation** |
 | `diagnose_performance` | Performance diagnosis |
 
+### [Scheduler](scheduler.md) (7 tools)
+Auto-triggered workflow rules for event-based diagnosis.
+
+| Tool | Description |
+|---|---|
+| `scheduler_get_stats` | Get scheduler stats |
+| `scheduler_get_last_result` | Get last execution result |
+| `scheduler_trigger_rule` | Manually trigger a rule |
+| `scheduler_list_rules` | List all rules |
+| `scheduler_disable_rule` | Disable a rule |
+| `scheduler_enable_rule` | Enable a rule |
+| `scheduler_clear_history` | Clear trigger history |
+
+### [Smart Tools](smart.md) (7 tools) 🔥
+AI-powered interaction with auto-diagnosis, form filling, validation, and visual testing.
+
+| Tool | Description |
+|---|---|
+| `smart_wait` | Wait with auto-diagnosis on timeout |
+| `smart_navigate` | Navigate + collect DOM snapshot |
+| `smart_fill_form` | Auto-detect + fill form fields |
+| `smart_validate_form` | Validate fields + custom rules |
+| `browser_screenshot_annotated` | Screenshot with numbered badges |
+| `browser_screenshot_export` | Screenshot + HTML export |
+| `browser_screenshot_diff` | Visual diff against baseline |
+
+### [Planner](planner.md) (5 tools) 🆕
+Multi-step execution planning from natural language goals.
+
+| Tool | Description |
+|---|---|
+| `planner_execute_goal` | Plan + execute in one call |
+| `planner_create_plan` | Preview plan without executing |
+| `planner_list_plans` | List all plans |
+| `planner_get_plan` | Get plan details |
+| `planner_cancel_plan` | Cancel running plan |
+
+---
+
+## Quick Stats
+
+| Category | Tools | Requires Browser |
+|----------|-------|:----------------:|
+| Navigation | 6 | ✅ |
+| Interaction | 10 | ✅ |
+| DOM & Page | 9 | ✅ |
+| DevTools Console | 5 | ✅ |
+| DevTools Network | 9 | ✅ |
+| DevTools Performance | 6 | ✅ |
+| Storage | 12 | ✅ |
+| Auth | 6 | ⚠️ Partial |
+| Tabs & Contexts | 7 | ✅ |
+| Process | 10 | ❌ |
+| Terminal | 7 | ❌ |
+| Diagnostic | 6 | ⚠️ Partial |
+| Scheduler | 7 | ❌ |
+| Smart | 7 | ✅ |
+| Planner | 5 | ❌ |
+| **Total** | **112** | **53 without browser** |
+
+> **53 tools work without Playwright/browser engines** — process, terminal, storage (basic), scheduler, planner, and partial auth + diagnostic.
+
 ---
 
 ## Usage Examples
@@ -172,13 +243,7 @@ Step-by-step walkthroughs with real MCP JSON-RPC tool call examples are availabl
 
 | Example | Description | Key Tools |
 |---|---|---|
-| [Login Flow](../../examples/login-flow/) | Auth session persistence — login once, save session, restore later | `auth_fill_login_form`, `auth_save_session`, `auth_load_session` |
-| [Debug API Error](../../examples/debug-api-error/) | Full-stack error diagnosis — correlate browser console, network, and server logs | `diagnose_fullstack`, `network_get_failed_requests`, `process_get_logs` |
-| [Multi-User Test](../../examples/multi-user-test/) | Parallel session testing — admin + regular user in isolated contexts | `context_new`, `tab_switch`, `auth_check_logged_in` |
-| [Full-Stack Diagnose](../../examples/fullstack-diagnose/) | Process lifecycle — spawn server, pipe logs, open browser, correlate errors | `process_spawn`, `process_wait_for_ready`, `diagnose_fullstack`, `terminal_watch_pipe` |
-
-Each example includes:
-- Full MCP JSON-RPC request/response examples for every tool call
-- Multiple scenarios (happy path, error recovery, advanced usage)
-- Error handling with `isError: true` response samples
-- Troubleshooting tables for common issues
+| [Login Flow](../../examples/login-flow/) | Auth session persistence | `auth_fill_login_form`, `auth_save_session`, `auth_load_session` |
+| [Debug API Error](../../examples/debug-api-error/) | Full-stack error diagnosis | `diagnose_fullstack`, `network_get_failed_requests`, `process_get_logs` |
+| [Multi-User Test](../../examples/multi-user-test/) | Parallel session testing | `context_new`, `tab_switch`, `auth_check_logged_in` |
+| [Full-Stack Diagnose](../../examples/fullstack-diagnose/) | Process lifecycle debugging | `process_spawn`, `process_wait_for_ready`, `diagnose_fullstack`, `terminal_watch_pipe` |
