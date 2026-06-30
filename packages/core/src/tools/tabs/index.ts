@@ -12,14 +12,10 @@ export const tabNew = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const newPage = await session.context.newPage();
+      const newPage = await session.browser.contextNewPage();
       if (input.url) {
-        await newPage.goto(input.url, { waitUntil: "networkidle" });
+        await newPage.navigate(input.url, { waitUntil: "networkidle" });
       }
-
-      // Update session page reference
-      const currentSession = sessionManager.getSession(session.id);
-      currentSession.page = newPage;
 
       return responseBuilder.success({
         tabId: newPage.url(),
@@ -42,7 +38,7 @@ export const tabClose = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const pages = session.context.pages();
+      const pages = session.browser.contextPages();
       for (const page of pages) {
         if (page.url() === input.tabId) {
           await page.close();
@@ -70,18 +66,18 @@ export const tabList = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const pages = session.context.pages();
+      const pages = session.browser.contextPages();
       const tabs = await Promise.all(
         pages.map(async (p) => ({
           url: p.url(),
           title: await p.title().catch(() => ""),
-          active: p === session.page,
+          active: p === session.browser,
         })),
       );
 
       return responseBuilder.success({
         tabs,
-        activeTabId: session.page.url(),
+        activeTabId: session.browser.url(),
       }, sessionManager.buildMeta(session));
     } catch (error) {
       return responseBuilder.error(error);
@@ -100,11 +96,9 @@ export const tabSwitch = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const pages = session.context.pages();
+      const pages = session.browser.contextPages();
       for (const page of pages) {
         if (page.url() === input.tabId) {
-          const currentSession = sessionManager.getSession(session.id);
-          currentSession.page = page;
           await page.bringToFront();
           return responseBuilder.success({
             url: page.url(),
@@ -162,9 +156,9 @@ export const tabGetCurrent = createTool({
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
       const [url, title, readyState] = await Promise.all([
-        session.page.url(),
-        session.page.title().catch(() => ""),
-        session.page.evaluate(() => document.readyState).catch(() => "unknown"),
+        session.browser.url(),
+        session.browser.title().catch(() => ""),
+        session.browser.evaluate(() => document.readyState).catch(() => "unknown"),
       ]);
 
       return responseBuilder.success({

@@ -16,7 +16,7 @@ export const browserClick = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const resolved = await resolveSelector(session.page, input.selector);
+      const resolved = await resolveSelector(session.browser, input.selector);
       if (!resolved.found) {
         return responseBuilder.error(
           new Error(`Element not found: ${input.selector}`),
@@ -32,9 +32,9 @@ export const browserClick = createTool({
         );
       }
 
-      const box = await session.page.locator(resolved.selector).boundingBox();
+      const box = await session.browser.locator(resolved.selector).boundingBox();
 
-      await session.page.locator(resolved.selector).click({
+      await session.browser.locator(resolved.selector).click({
         button: input.button,
         clickCount: input.clickCount,
       });
@@ -70,7 +70,7 @@ export const browserType = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const resolved = await resolveSelector(session.page, input.selector);
+      const resolved = await resolveSelector(session.browser, input.selector);
       if (!resolved.found) {
         return responseBuilder.error(
           new Error(`Element not found: ${input.selector}`),
@@ -79,14 +79,14 @@ export const browserType = createTool({
       }
 
       if (input.clear) {
-        await session.page.locator(resolved.selector).fill("");
+        await session.browser.locator(resolved.selector).fill("");
       }
 
-      await session.page.locator(resolved.selector).pressSequentially(input.text, {
+      await session.browser.locator(resolved.selector).pressSequentially(input.text, {
         delay: input.delay,
       });
 
-      const valueAfter = await session.page.locator(resolved.selector).inputValue().catch(() => null);
+      const valueAfter = await session.browser.locator(resolved.selector).inputValue().catch(() => null);
 
       return responseBuilder.success({
         elementFound: true,
@@ -116,14 +116,14 @@ export const browserSelect = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const resolved = await resolveSelector(session.page, input.selector);
+      const resolved = await resolveSelector(session.browser, input.selector);
       if (!resolved.found) {
         return responseBuilder.error(new Error(`Element not found: ${input.selector}`), { code: "ELEMENT_NOT_FOUND" });
       }
 
-      await session.page.locator(resolved.selector).selectOption(input.value);
+      await session.browser.locator(resolved.selector).selectOption(input.value);
 
-      const allOptions = await session.page.locator(`${resolved.selector} option`).allTextContents();
+      const allOptions = await session.browser.locator(`${resolved.selector} option`).allTextContents();
 
       return responseBuilder.success({
         selectedValue: input.value,
@@ -149,13 +149,13 @@ export const browserHover = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const resolved = await resolveSelector(session.page, input.selector);
+      const resolved = await resolveSelector(session.browser, input.selector);
       if (!resolved.found) {
         return responseBuilder.error(new Error(`Element not found: ${input.selector}`), { code: "ELEMENT_NOT_FOUND" });
       }
 
-      const box = await session.page.locator(resolved.selector).boundingBox();
-      await session.page.locator(resolved.selector).hover();
+      const box = await session.browser.locator(resolved.selector).boundingBox();
+      await session.browser.locator(resolved.selector).hover();
 
       return responseBuilder.success({
         coordinates: box ? { x: box.x, y: box.y, width: box.width, height: box.height } : null,
@@ -183,12 +183,12 @@ export const browserScroll = createTool({
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
       if (input.selector) {
-        const resolved = await resolveSelector(session.page, input.selector);
+        const resolved = await resolveSelector(session.browser, input.selector);
         if (!resolved.found) {
           return responseBuilder.error(new Error(`Element not found: ${input.selector}`), { code: "ELEMENT_NOT_FOUND" });
         }
 
-        await session.page.locator(resolved.selector).evaluate((el, { x, y, direction: dir }) => {
+        await session.browser.locator(resolved.selector).evaluate((el, { x, y, direction: dir }) => {
           const element = el as HTMLElement;
           if (dir) {
             const amount = 200;
@@ -200,7 +200,7 @@ export const browserScroll = createTool({
           }
         }, { x: input.x, y: input.y, direction: input.direction });
       } else {
-        await session.page.evaluate(({ x, y, direction: dir }) => {
+        await session.browser.evaluate(({ x, y, direction: dir }) => {
           if (dir) {
             const amount = 200;
             const sx = dir === "up" || dir === "down" ? 0 : (dir === "left" ? -amount : amount);
@@ -212,7 +212,7 @@ export const browserScroll = createTool({
         }, { x: input.x, y: input.y, direction: input.direction });
       }
 
-      const scrollPos = await session.page.evaluate(() => ({
+      const scrollPos = await session.browser.evaluate(() => ({
         x: window.scrollX,
         y: window.scrollY,
       }));
@@ -239,7 +239,7 @@ export const browserPressKey = createTool({
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
       const pressOptions = input.modifiers?.length ? { modifiers: input.modifiers } as any : undefined;
-      await session.page.keyboard.press(input.key, pressOptions);
+      await session.browser.keyboardPress(input.key, { modifiers: input.modifiers });
       return responseBuilder.success({}, sessionManager.buildMeta(session));
     } catch (error) {
       return responseBuilder.error(error);
@@ -258,12 +258,12 @@ export const browserFocus = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const resolved = await resolveSelector(session.page, input.selector);
+      const resolved = await resolveSelector(session.browser, input.selector);
       if (!resolved.found) {
         return responseBuilder.error(new Error(`Element not found: ${input.selector}`), { code: "ELEMENT_NOT_FOUND" });
       }
 
-      await session.page.locator(resolved.selector).focus();
+      await session.browser.locator(resolved.selector).focus();
       return responseBuilder.success({}, sessionManager.buildMeta(session));
     } catch (error) {
       return responseBuilder.error(error);
@@ -282,13 +282,13 @@ export const browserClear = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const resolved = await resolveSelector(session.page, input.selector);
+      const resolved = await resolveSelector(session.browser, input.selector);
       if (!resolved.found) {
         return responseBuilder.error(new Error(`Element not found: ${input.selector}`), { code: "ELEMENT_NOT_FOUND" });
       }
 
-      const previousValue = await session.page.locator(resolved.selector).inputValue().catch(() => null);
-      await session.page.locator(resolved.selector).fill("");
+      const previousValue = await session.browser.locator(resolved.selector).inputValue().catch(() => null);
+      await session.browser.locator(resolved.selector).fill("");
 
       return responseBuilder.success({
         previousValue,
@@ -313,12 +313,12 @@ export const browserUploadFile = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const resolved = await resolveSelector(session.page, input.selector);
+      const resolved = await resolveSelector(session.browser, input.selector);
       if (!resolved.found) {
         return responseBuilder.error(new Error(`File input not found: ${input.selector}`), { code: "ELEMENT_NOT_FOUND" });
       }
 
-      await session.page.locator(resolved.selector).setInputFiles(input.filePaths);
+      await session.browser.locator(resolved.selector).setInputFiles(input.filePaths);
 
       return responseBuilder.success({
         fileCount: input.filePaths.length,
@@ -348,18 +348,18 @@ export const browserDragDrop = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const sourceResolved = await resolveSelector(session.page, input.sourceSelector);
+      const sourceResolved = await resolveSelector(session.browser, input.sourceSelector);
       if (!sourceResolved.found) {
         return responseBuilder.error(new Error(`Source element not found: ${input.sourceSelector}`), { code: "ELEMENT_NOT_FOUND" });
       }
 
-      const targetResolved = await resolveSelector(session.page, input.targetSelector);
+      const targetResolved = await resolveSelector(session.browser, input.targetSelector);
       if (!targetResolved.found) {
         return responseBuilder.error(new Error(`Target element not found: ${input.targetSelector}`), { code: "ELEMENT_NOT_FOUND" });
       }
 
-      await session.page.locator(sourceResolved.selector).dragTo(
-        session.page.locator(targetResolved.selector),
+      await session.browser.locator(sourceResolved.selector).dragTo(
+        session.browser.locator(targetResolved.selector),
       );
 
       return responseBuilder.success({ success: true }, sessionManager.buildMeta(session));

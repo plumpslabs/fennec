@@ -115,7 +115,7 @@ export class StateMachine {
     const fromState = this.currentState;
     this.currentState = transition.to;
 
-    const url = session?.page?.url() ?? "unknown";
+    const url = session?.browser?.url() ?? "unknown";
 
     this.history.push({
       state: this.currentState,
@@ -160,25 +160,31 @@ export class StateMachine {
   }
 
   async detectState(session: FennecSession): Promise<AppState> {
-    if (!session?.page || session.page.isClosed()) return this.currentState;
+    if (!session?.browser) return this.currentState;
+    try {
+      if (session.browser.isClosed()) return this.currentState;
+    } catch {
+      // isClosed might not be available on all implementations
+      return this.currentState;
+    }
 
     try {
-      const url = session.page.url();
-      const title = await session.page.title().catch(() => "");
+      const url = session.browser.url();
+      const title = await session.browser.title().catch(() => "");
 
       // Check for login indicators
-      const hasLoginForm = await session.page.$(
+      const hasLoginForm = await session.browser.$(
         'input[type="password"], button[type="submit"]:has-text("Login"), button[type="submit"]:has-text("Sign in")',
       ).catch(() => null);
 
       // Check for auth cookies
-      const cookies = await session.context.cookies().catch(() => []);
+      const cookies = await session.browser.contextCookies().catch(() => []);
       const hasAuthCookie = cookies.some(
         (c) => /token|session|auth|jwt|sid|connect/i.test(c.name),
       );
 
       // Check for dashboard indicators
-      const hasLogoutLink = await session.page.$(
+      const hasLogoutLink = await session.browser.$(
         'a[href*="logout"], a[href*="sign-out"], a[href*="profile"], a[href*="/account"]',
       ).catch(() => null);
 

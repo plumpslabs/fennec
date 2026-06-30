@@ -15,7 +15,7 @@ export const diagnosePage = createTool({
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
-    const page = session.page;
+    const page = session.browser;
     try {
       const [url, title, readyState, consoleLogs, perfMetrics] = await Promise.all([
         page.url(), page.title().catch(() => ""),
@@ -47,7 +47,7 @@ export const diagnoseElement = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const resolved = await resolveSelector(session.page, input.selector);
+      const resolved = await resolveSelector(session.browser, input.selector);
       if (!resolved.found) {
         return responseBuilder.success({
           exists: false, visible: false, interactable: false,
@@ -55,7 +55,7 @@ export const diagnoseElement = createTool({
           suggestions: ["Check if the page has finished loading", "Try a different selector strategy"],
         }, sessionManager.buildMeta(session));
       }
-      const locator = session.page.locator(resolved.selector);
+      const locator = session.browser.locator(resolved.selector);
       const [visible, enabled] = await Promise.all([
         locator.isVisible().catch(() => false),
         locator.isEnabled().catch(() => false),
@@ -103,14 +103,14 @@ export const diagnoseAuth = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const cookies = await session.context.cookies();
+      const cookies = await session.browser.contextCookies();
       const authCookies = cookies.filter((c) => /token|session|auth|jwt|sid|connect/i.test(c.name));
       return responseBuilder.success({
         isAuthenticated: authCookies.length > 0,
         tokenFound: authCookies.some((c) => /token|jwt/i.test(c.name)),
         cookiesPresent: cookies.length, authCookiesCount: authCookies.length,
         expiryInfo: authCookies.length > 0 ? authCookies.map((c) => ({ name: c.name, expires: c.expires ? new Date(c.expires * 1000).toISOString() : "session" })) : null,
-        currentUrl: session.page.url(),
+        currentUrl: session.browser.url(),
       }, sessionManager.buildMeta(session));
     } catch (error) {
       return responseBuilder.error(error);
@@ -128,7 +128,7 @@ export const diagnoseFullstack = createTool({
   }),
   handler: async (input, { sessionManager, responseBuilder, processManager }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
-    const page = session.page;
+    const page = session.browser;
     try {
       const [url, title, consoleErrors, networkFailures] = await Promise.all([
         page.url(), page.title().catch(() => ""),
@@ -183,7 +183,7 @@ export const diagnosePerformance = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const metrics = await perfCollector.getMetrics(session.page);
+      const metrics = await perfCollector.getMetrics(session.browser);
       const issues: string[] = [];
       const recommendations: string[] = [];
       if (metrics.FCP !== null && metrics.FCP > 2000) { issues.push("First Contentful Paint is slow (> 2s)"); recommendations.push("Optimize critical rendering path"); }

@@ -13,10 +13,10 @@ export const storageGetLocal = createTool({
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
       if (input.key) {
-        const value = await session.page.evaluate((k: string) => localStorage.getItem(k), input.key);
+        const value = await session.browser.evaluate((k: string) => localStorage.getItem(k), input.key);
         return responseBuilder.success({ value, size: value?.length ?? 0 }, sessionManager.buildMeta(session));
       } else {
-        const allItems = await session.page.evaluate(() => {
+        const allItems = await session.browser.evaluate(() => {
           const ls = window.localStorage;
           const items: Record<string, string> = {};
           for (let i = 0; i < ls.length; i++) {
@@ -48,11 +48,11 @@ export const storageSetLocal = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const previousValue = await session.page.evaluate(
+      const previousValue = await session.browser.evaluate(
         (k: string) => localStorage.getItem(k),
         input.key as string,
       );
-      await session.page.evaluate(
+      await session.browser.evaluate(
         (args: { k: string; v: string }) => localStorage.setItem(args.k, args.v),
         { k: input.key as string, v: input.value as string },
       );
@@ -74,7 +74,7 @@ export const storageRemoveLocal = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      await session.page.evaluate((k: string) => localStorage.removeItem(k), input.key);
+      await session.browser.evaluate((k: string) => localStorage.removeItem(k), input.key);
       return responseBuilder.success({}, sessionManager.buildMeta(session));
     } catch (error) {
       return responseBuilder.error(error, { code: "STORAGE_ACCESS_DENIED" });
@@ -92,7 +92,7 @@ export const storageClearLocal = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const count = await session.page.evaluate(() => {
+      const count = await session.browser.evaluate(() => {
         const storage = window.localStorage;
         const n = storage.length;
         storage.clear();
@@ -117,10 +117,10 @@ export const storageGetSession = createTool({
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
       if (input.key) {
-        const value = await session.page.evaluate((k: string) => sessionStorage.getItem(k), input.key);
+        const value = await session.browser.evaluate((k: string) => sessionStorage.getItem(k), input.key);
         return responseBuilder.success({ value }, sessionManager.buildMeta(session));
       } else {
-        const allItems = await session.page.evaluate(() => {
+        const allItems = await session.browser.evaluate(() => {
           const ss = window.sessionStorage;
           const items: Record<string, string> = {};
           for (let i = 0; i < ss.length; i++) {
@@ -149,7 +149,7 @@ export const storageSetSession = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      await session.page.evaluate(
+      await session.browser.evaluate(
         (args: { k: string; v: string }) => sessionStorage.setItem(args.k, args.v),
         { k: input.key as string, v: input.value as string },
       );
@@ -172,8 +172,8 @@ export const storageGetCookies = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const ctx = session.context;
-      const cookies = await ctx.cookies();
+      const ctx = session.browser;
+      const cookies = await ctx.contextCookies();
 
       let filtered = cookies;
       if (input.name) {
@@ -212,7 +212,7 @@ export const storageSetCookie = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      await session.context.addCookies([{
+      await session.browser.contextAddCookies([{
         name: input.name,
         value: input.value,
         domain: input.domain,
@@ -220,7 +220,7 @@ export const storageSetCookie = createTool({
         httpOnly: input.httpOnly,
         secure: input.secure,
         sameSite: input.sameSite,
-        url: input.domain ? undefined : session.page.url(),
+        url: input.domain ? undefined : session.browser.url(),
       }]);
       return responseBuilder.success({}, sessionManager.buildMeta(session));
     } catch (error) {
@@ -241,13 +241,13 @@ export const storageDeleteCookie = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const url = session.page.url();
-      await session.context.clearCookies();
+      const url = session.browser.url();
+      await session.browser.contextClearCookies();
       // Re-add all cookies except the one to delete
-      const cookies = await session.context.cookies();
+      const cookies = await session.browser.contextCookies();
       const filtered = cookies.filter((c) => c.name !== input.name);
       if (filtered.length > 0) {
-        await session.context.addCookies(filtered.map((c) => ({
+        await session.browser.contextAddCookies(filtered.map((c) => ({
           name: c.name,
           value: c.value,
           domain: c.domain,
@@ -278,7 +278,7 @@ export const storageGetIndexedDB = createTool({
     try {
       const dbName = input.dbName ?? null;
       const storeName = input.storeName ?? null;
-      const result = await session.page.evaluate(
+      const result = await session.browser.evaluate(
         ({ dbName: db, storeName: store }: { dbName: string | null; storeName: string | null }) => {
           return new Promise<{ databases: Array<{ name: string; version: number; stores: string[] }>; records?: unknown[] }>(
             (resolve, reject) => {
@@ -355,10 +355,10 @@ export const storageExportState = createTool({
   handler: async (input, { sessionManager, responseBuilder, config }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const cookies = await session.context.cookies();
-      const origin = session.page.url();
+      const cookies = await session.browser.contextCookies();
+      const origin = session.browser.url();
 
-      const localStorageData = await session.page.evaluate(() => {
+      const localStorageData = await session.browser.evaluate(() => {
         const ls = window.localStorage;
         const items: Record<string, string> = {};
         for (let i = 0; i < ls.length; i++) {
@@ -368,7 +368,7 @@ export const storageExportState = createTool({
         return items;
       }).catch(() => ({} as Record<string, string>));
 
-      const sessionStorageData = await session.page.evaluate(() => {
+      const sessionStorageData = await session.browser.evaluate(() => {
         const ss = window.sessionStorage;
         const items: Record<string, string> = {};
         for (let i = 0; i < ss.length; i++) {
@@ -445,7 +445,7 @@ export const storageImportState = createTool({
 
       // Restore cookies
       if (state.cookies && state.cookies.length > 0) {
-        await session.context.addCookies(state.cookies.map((c: Record<string, any>) => ({
+        await session.browser.contextAddCookies(state.cookies.map((c: Record<string, any>) => ({
           name: c.name, value: c.value,
           domain: c.domain, path: c.path ?? "/",
           httpOnly: c.httpOnly, secure: c.secure,
@@ -454,15 +454,15 @@ export const storageImportState = createTool({
       }
 
       // Navigate to origin if different
-      if (state.origin && session.page.url() !== state.origin) {
-        await session.page.goto(state.origin).catch(() => {});
+      if (state.origin && session.browser.url() !== state.origin) {
+        await session.browser.navigate(state.origin).catch(() => {});
       }
 
       // Restore localStorage
       let itemsRestored = 0;
       if (state.localStorage) {
         for (const [key, value] of Object.entries(state.localStorage)) {
-          await session.page.evaluate(
+          await session.browser.evaluate(
             (args: { k: string; v: string }) => localStorage.setItem(args.k, args.v),
             { k: key as string, v: value as string },
           ).catch(() => {});
@@ -473,7 +473,7 @@ export const storageImportState = createTool({
       // Restore sessionStorage
       if (state.sessionStorage) {
         for (const [key, value] of Object.entries(state.sessionStorage)) {
-          await session.page.evaluate(
+          await session.browser.evaluate(
             (args: { k: string; v: string }) => sessionStorage.setItem(args.k, args.v),
             { k: key as string, v: value as string },
           ).catch(() => {});

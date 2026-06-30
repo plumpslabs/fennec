@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { StateMachine } from "../../../src/state/StateMachine.js";
 import type { FennecSession } from "../../../src/session/types.js";
+import type { BrowserSession } from "../../../src/browser/types.js";
 
 function createMockSession(overrides?: Partial<FennecSession>): FennecSession {
   return {
@@ -10,18 +11,14 @@ function createMockSession(overrides?: Partial<FennecSession>): FennecSession {
     consoleBuffer: [],
     networkBuffer: [],
     metadata: {},
-    page: {
+    browser: {
       url: () => "https://example.com",
       title: async () => "Test Page",
       isClosed: () => false,
-      $: async () => null,
-      evaluate: async () => "",
-    } as unknown as FennecSession["page"],
-    context: {
-      cookies: async () => [],
-    } as unknown as FennecSession["context"],
-    browser: {} as unknown as FennecSession["browser"],
-    cdpSession: {} as unknown as FennecSession["cdpSession"],
+      $: async (_selector: string) => null,
+      evaluate: async (_fn: unknown, ..._args: unknown[]) => "",
+      contextCookies: async () => [],
+    } as unknown as BrowserSession,
     ...overrides,
   };
 }
@@ -143,7 +140,7 @@ describe("StateMachine", () => {
   describe("detectState", () => {
     it("should return current state for closed page", async () => {
       const session = createMockSession({
-        page: { isClosed: () => true } as unknown as FennecSession["page"],
+        browser: { isClosed: () => true } as unknown as BrowserSession,
       });
       const state = await machine.detectState(session);
       expect(state).toBe("initial");
@@ -151,14 +148,15 @@ describe("StateMachine", () => {
 
     it("should detect login form when password input present", async () => {
       const session = createMockSession({
-        page: {
+        browser: {
           url: () => "https://example.com/login",
           title: async () => "Login",
           isClosed: () => false,
           $: async (selector: string) =>
             selector.includes('input[type="password"]') ? ({} as never) : null,
-          evaluate: async () => "complete",
-        } as unknown as FennecSession["page"],
+          evaluate: async (_fn: unknown, ..._args: unknown[]) => "",
+          contextCookies: async () => [],
+        } as unknown as BrowserSession,
       });
       const state = await machine.detectState(session);
       expect(state).toBe("login_form");
@@ -166,12 +164,13 @@ describe("StateMachine", () => {
 
     it("should return current state on error", async () => {
       const session = createMockSession({
-        page: {
+        browser: {
           url: () => { throw new Error("fail"); },
           isClosed: () => false,
           $: async () => { throw new Error("fail"); },
           evaluate: async () => { throw new Error("fail"); },
-        } as unknown as FennecSession["page"],
+          contextCookies: async () => { throw new Error("fail"); },
+        } as unknown as BrowserSession,
       });
       const state = await machine.detectState(session);
       expect(state).toBe("initial");

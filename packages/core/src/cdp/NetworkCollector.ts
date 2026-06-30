@@ -1,4 +1,4 @@
-import type { CDPSession } from "playwright";
+import type { BrowserCDPSession } from "../browser/types.js";
 import type { NetworkEvent } from "../session/types.js";
 import { getLogger } from "../utils/logger.js";
 import { exportAsHar, type HarLog } from "./HarExporter.js";
@@ -54,21 +54,21 @@ export class NetworkCollector {
   private maxCollectedEvents = 1000;
   private enabled = false;
 
-  async enable(cdpSession: CDPSession): Promise<void> {
+  async enable(cdpSession: BrowserCDPSession): Promise<void> {
     if (this.enabled) return;
 
     try {
-      await cdpSession.send("Network.enable" as never);
+      await cdpSession.send("Network.enable");
 
-      cdpSession.on("Network.requestWillBeSent" as never, (msg: unknown) => {
+      cdpSession.on("Network.requestWillBeSent", (msg: unknown) => {
         this.handleRequestSent(msg as CDPRequestWillBeSent);
       });
 
-      cdpSession.on("Network.responseReceived" as never, (msg: unknown) => {
+      cdpSession.on("Network.responseReceived", (msg: unknown) => {
         this.handleResponseReceived(msg as CDPResponseReceived);
       });
 
-      cdpSession.on("Network.loadingFinished" as never, (msg: unknown) => {
+      cdpSession.on("Network.loadingFinished", (msg: unknown) => {
         this.handleLoadingFinished(msg as CDPLoadingFinished);
       });
 

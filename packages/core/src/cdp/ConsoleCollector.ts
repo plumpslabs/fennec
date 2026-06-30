@@ -1,4 +1,4 @@
-import type { CDPSession } from "playwright";
+import type { BrowserCDPSession } from "../browser/types.js";
 import type { ConsoleEvent } from "../session/types.js";
 import { getLogger } from "../utils/logger.js";
 
@@ -8,18 +8,18 @@ export class ConsoleCollector {
   private listeners: Map<string, ConsoleCallback> = new Map();
   private enabled = false;
 
-  async enable(cdpSession: CDPSession): Promise<void> {
+  async enable(cdpSession: BrowserCDPSession): Promise<void> {
     if (this.enabled) return;
 
     try {
-      await cdpSession.send("Console.enable" as never);
-      await cdpSession.send("Runtime.enable" as never);
+      await cdpSession.send("Console.enable");
+      await cdpSession.send("Runtime.enable");
 
-      cdpSession.on("Console.messageAdded" as never, (msg: unknown) => {
+      cdpSession.on("Console.messageAdded", (msg: unknown) => {
         this.handleConsoleEvent(msg as { message: { level: string; text: string; source: string; url?: string; line?: number; stackTrace?: { callFrames: Array<{ functionName: string; url: string; lineNumber: number; columnNumber: number }> } } });
       });
 
-      cdpSession.on("Runtime.exceptionThrown" as never, (msg: unknown) => {
+      cdpSession.on("Runtime.exceptionThrown", (msg: unknown) => {
         this.handleExceptionEvent(msg as { exceptionDetails: { text: string; url?: string; lineNumber?: number; stackTrace?: { callFrames: Array<{ functionName: string; url: string; lineNumber: number; columnNumber: number }> } } });
       });
 

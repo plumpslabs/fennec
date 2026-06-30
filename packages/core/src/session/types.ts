@@ -1,4 +1,4 @@
-import type { Browser, BrowserContext, Page, CDPSession } from "playwright";
+import type { BrowserSession } from "../browser/types.js";
 
 export interface ConsoleEvent {
   level: "log" | "info" | "warn" | "error" | "debug";
@@ -28,10 +28,8 @@ export interface FennecSession {
   name?: string;
   createdAt: Date;
   lastUsedAt: Date;
-  browser: Browser;
-  context: BrowserContext;
-  page: Page;
-  cdpSession: CDPSession;
+  /** Browser session abstraction — engine-agnostic */
+  browser: BrowserSession;
   consoleBuffer: ConsoleEvent[];
   networkBuffer: NetworkEvent[];
   metadata: {

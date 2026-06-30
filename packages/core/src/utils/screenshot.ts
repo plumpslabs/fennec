@@ -1,4 +1,4 @@
-import type { Page, ElementHandle } from "playwright";
+import type { BrowserSession } from "../browser/types.js";
 
 export interface ScreenshotOptions {
   fullPage?: boolean;
@@ -14,7 +14,7 @@ export interface ScreenshotResult {
 }
 
 export async function takeScreenshot(
-  page: Page,
+  session: BrowserSession,
   options: ScreenshotOptions = {},
 ): Promise<ScreenshotResult> {
   const format = options.format ?? "png";
@@ -23,7 +23,7 @@ export async function takeScreenshot(
   let clip: { x: number; y: number; width: number; height: number } | undefined;
 
   if (options.selector) {
-    const element = await page.$(options.selector);
+    const element = await session.$(options.selector);
     if (element) {
       const box = await element.boundingBox();
       if (box) {
@@ -37,13 +37,13 @@ export async function takeScreenshot(
     }
   }
 
-  const buffer = await page.screenshot({
+  const buffer = await session.screenshot({
     fullPage,
     clip,
     type: format,
   });
 
-  const viewport = page.viewportSize() ?? { width: 1280, height: 720 };
+  const viewport = session.viewportSize() ?? { width: 1280, height: 720 };
 
   return {
     base64: buffer.toString("base64"),

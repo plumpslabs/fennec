@@ -1,39 +1,19 @@
-import type { Browser, BrowserContext, Page, CDPSession } from "playwright";
 import { randomUUID } from "node:crypto";
 import { getLogger } from "../utils/logger.js";
 import type { FennecSession, ConsoleEvent, NetworkEvent, SessionMeta } from "./types.js";
 import { SessionStore } from "./SessionStore.js";
 import type { FennecConfig } from "../config/defaults.js";
 import type { EventBus } from "../correlation/EventBus.js";
-
-/**
- * Lazy-load playwright — it's an optional peer dependency.
- */
-async function getPlaywright() {
-  try {
-    return await import("playwright");
-  } catch (err) {
-    // "Cannot find module" covers both CJS (MODULE_NOT_FOUND) and ESM (ERR_MODULE_NOT_FOUND)
-    const isModuleNotFound =
-      err instanceof Error && err.message?.includes("Cannot find module");
-    if (isModuleNotFound) {
-      throw new Error(
-        "Playwright is not installed. Install it with: npm install playwright\n" +
-        "Or install browser engines: npx playwright install chromium"
-      );
-    }
-    throw new Error(
-      "Failed to load Playwright: " + (err instanceof Error ? err.message : String(err))
-    );
-  }
-}
+import { PlaywrightEngineFactory } from "../browser/playwright-engine.js";
+import type { BrowserEngine, BrowserInstance } from "../browser/types.js";
 
 export class SessionManager {
   private sessions: Map<string, FennecSession> = new Map();
   private defaultSessionId: string | null = null;
   private config: FennecConfig;
   private store: SessionStore;
-  private browser: Browser | null = null;
+  private engine: BrowserEngine | null = null;
+  private browserInstance: BrowserInstance | null = null;
 
   private eventBus: EventBus | null = null;
   private pruneTimer: ReturnType<typeof setInterval> | null = null;
@@ -60,54 +40,40 @@ export class SessionManager {
     const logger = getLogger();
     logger.info("Initializing Fennec session manager");
 
-    const browserType = this.config.browser.type;
-    const browserOptions = {
+    const factory = new PlaywrightEngineFactory();
+    this.engine = factory.create(this.config.browser.type);
+
+    this.browserInstance = await this.engine.launch({
       headless: this.config.browser.headless,
       slowMo: this.config.browser.slowMo,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
       ignoreHTTPSErrors: this.config.browser.ignoreHTTPSErrors,
-    };
-
-    const pw = await getPlaywright();
-    switch (browserType) {
-      case "chromium":
-        this.browser = await pw.chromium.launch(browserOptions);
-        break;
-      case "firefox":
-        this.browser = await pw.firefox.launch(browserOptions);
-        break;
-      case "webkit":
-        this.browser = await pw.webkit.launch(browserOptions);
-        break;
-    }
+      viewport: this.config.browser.viewport,
+      locale: this.config.browser.locale,
+      userAgent: this.config.browser.userAgent ?? undefined,
+    });
 
     // Create default session
     await this.createDefaultSession();
   }
 
   private async createDefaultSession(): Promise<FennecSession> {
-    if (!this.browser) {
+    if (!this.browserInstance) {
       throw new Error("Browser not initialized");
     }
 
-    const context = await this.browser.newContext({
+    const browserSession = await this.browserInstance.createSession({
       viewport: this.config.browser.viewport,
       locale: this.config.browser.locale,
       timezoneId: this.config.browser.timezone,
       userAgent: this.config.browser.userAgent ?? undefined,
     });
 
-    const page = await context.newPage();
-    const cdpSession = await context.newCDPSession(page);
-
     const session: FennecSession = {
       id: `sess_${randomUUID().slice(0, 8)}`,
       createdAt: new Date(),
       lastUsedAt: new Date(),
-      browser: this.browser,
-      context,
-      page,
-      cdpSession,
+      browser: browserSession,
       consoleBuffer: [],
       networkBuffer: [],
       metadata: {},
@@ -119,7 +85,7 @@ export class SessionManager {
   }
 
   async createSession(name?: string): Promise<FennecSession> {
-    if (!this.browser) {
+    if (!this.browserInstance) {
       throw new Error("Browser not initialized");
     }
 
@@ -129,24 +95,18 @@ export class SessionManager {
       await this.cleanupIdleSessions();
     }
 
-    const context = await this.browser.newContext({
+    const browserSession = await this.browserInstance.createSession({
       viewport: this.config.browser.viewport,
       locale: this.config.browser.locale,
       timezoneId: this.config.browser.timezone,
     });
-
-    const page = await context.newPage();
-    const cdpSession = await context.newCDPSession(page);
 
     const session: FennecSession = {
       id: `sess_${randomUUID().slice(0, 8)}`,
       name,
       createdAt: new Date(),
       lastUsedAt: new Date(),
-      browser: this.browser,
-      context,
-      page,
-      cdpSession,
+      browser: browserSession,
       consoleBuffer: [],
       networkBuffer: [],
       metadata: {},
@@ -179,8 +139,7 @@ export class SessionManager {
     if (!session) return;
 
     try {
-      await session.page.close();
-      await session.context.close();
+      await session.browser.close();
     } catch {
       // Ignore cleanup errors
     }
@@ -354,9 +313,9 @@ export class SessionManager {
       this.pruneTimer = null;
     }
     await this.destroyAll();
-    if (this.browser) {
-      await this.browser.close();
-      this.browser = null;
+    if (this.browserInstance) {
+      await this.browserInstance.close();
+      this.browserInstance = null;
     }
   }
 }

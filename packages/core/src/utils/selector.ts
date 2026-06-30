@@ -1,4 +1,4 @@
-import type { Page } from "playwright";
+import type { BrowserSession } from "../browser/types.js";
 
 /**
  * Selector strategy: ARIA-first with auto-fallback.
@@ -15,11 +15,11 @@ export interface SelectorResult {
   found: boolean;
 }
 
-export async function findElement(page: Page, input: string): Promise<SelectorResult> {
+export async function findElement(session: BrowserSession, input: string): Promise<SelectorResult> {
   // Strategy 1: ARIA role + accessible name
   try {
     const ariaSelector = `[role="${input}"]`;
-    const el = await page.$(ariaSelector);
+    const el = await session.$(ariaSelector);
     if (el) {
       return { selector: ariaSelector, strategy: "aria", found: true };
     }
@@ -30,7 +30,7 @@ export async function findElement(page: Page, input: string): Promise<SelectorRe
   // Try role=button with name
   try {
     const roleSelector = `role=${JSON.stringify(input)}`;
-    const el = await page.locator(roleSelector).first().elementHandle().catch(() => null);
+    const el = await session.locator(roleSelector).first().elementHandle().catch(() => null);
     if (el) {
       return { selector: roleSelector, strategy: "aria", found: true };
     }
@@ -46,7 +46,7 @@ export async function findElement(page: Page, input: string): Promise<SelectorRe
       `[data-fennec-id="${input}"]`,
     ];
     for (const sel of testIdSelectors) {
-      const el = await page.$(sel);
+      const el = await session.$(sel);
       if (el) {
         return { selector: sel, strategy: "testid", found: true };
       }
@@ -58,7 +58,7 @@ export async function findElement(page: Page, input: string): Promise<SelectorRe
   // Strategy 3: Text content
   try {
     const textSelector = `text=${JSON.stringify(input)}`;
-    const el = await page.locator(textSelector).first().elementHandle().catch(() => null);
+    const el = await session.locator(textSelector).first().elementHandle().catch(() => null);
     if (el) {
       return { selector: textSelector, strategy: "text", found: true };
     }
@@ -68,7 +68,7 @@ export async function findElement(page: Page, input: string): Promise<SelectorRe
 
   // Strategy 4: CSS selector
   try {
-    const el = await page.$(input);
+    const el = await session.$(input);
     if (el) {
       return { selector: input, strategy: "css", found: true };
     }
@@ -79,7 +79,7 @@ export async function findElement(page: Page, input: string): Promise<SelectorRe
   // Strategy 5: XPath
   try {
     const xpathSelector = `xpath=${input}`;
-    const el = await page.$(xpathSelector);
+    const el = await session.$(xpathSelector);
     if (el) {
       return { selector: xpathSelector, strategy: "xpath", found: true };
     }
@@ -91,7 +91,7 @@ export async function findElement(page: Page, input: string): Promise<SelectorRe
 }
 
 export async function resolveSelector(
-  page: Page,
+  session: BrowserSession,
   selector: string,
 ): Promise<SelectorResult> {
   // If it already looks like a structured selector, use it directly
@@ -101,7 +101,7 @@ export async function resolveSelector(
     selector.startsWith("xpath=") ||
     selector.startsWith("css=")
   ) {
-    const el = await page.$(selector).catch(() => null);
+    const el = await session.$(selector).catch(() => null);
     return {
       selector,
       strategy: selector.startsWith("role=")
@@ -115,5 +115,5 @@ export async function resolveSelector(
     };
   }
 
-  return findElement(page, selector);
+  return findElement(session, selector);
 }

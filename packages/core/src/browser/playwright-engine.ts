@@ -71,7 +71,7 @@ function wrapLocator(pwLocator: ReturnType<Page["locator"]>): Locator {
     allTextContents: () => pwLocator.allTextContents(),
     setInputFiles: (paths) => pwLocator.setInputFiles(paths),
     setChecked: (checked) => pwLocator.setChecked(checked),
-    evaluate: (fn, ...args) => pwLocator.evaluate(fn as any, ...args),
+    evaluate: (fn: any, ...args: any[]) => pwLocator.evaluate(fn, ...args),
     elementHandle: () => pwLocator.elementHandle().then((h) => (h ? wrapElementHandle(h) : null)),
     first: () => wrapLocator(pwLocator.first()),
     all: () => pwLocator.all().then(() => [] as Locator[]),
@@ -198,7 +198,7 @@ class PlaywrightSession implements BrowserSession {
   async goBack(): Promise<void> { await this.page.goBack(); }
   async goForward(): Promise<void> { await this.page.goForward(); }
 
-  async reload(options?: { waitUntil?: "load" | "domcontentloaded" | "networkidle" | "commit" }): Promise<void> {
+  async reload(options?: { waitUntil?: "load" | "domcontentloaded" | "networkidle" }): Promise<void> {
     await this.page.reload({ waitUntil: options?.waitUntil ?? "networkidle" });
   }
 
@@ -232,7 +232,7 @@ class PlaywrightSession implements BrowserSession {
     await this.page.waitForURL(urlOrFn as any, { timeout: options?.timeout });
   }
 
-  async waitForLoadState(state?: "load" | "domcontentloaded" | "networkidle" | "commit", options?: { timeout?: number }): Promise<void> {
+  async waitForLoadState(state?: "load" | "domcontentloaded" | "networkidle", options?: { timeout?: number }): Promise<void> {
     await this.page.waitForLoadState(state ?? "networkidle", { timeout: options?.timeout });
   }
 
@@ -368,7 +368,7 @@ class PlaywrightPageSession implements BrowserSession {
   }
   async goBack(): Promise<void> { await this.page.goBack(); }
   async goForward(): Promise<void> { await this.page.goForward(); }
-  async reload(options?: { waitUntil?: "load" | "domcontentloaded" | "networkidle" | "commit" }): Promise<void> {
+  async reload(options?: { waitUntil?: "load" | "domcontentloaded" | "networkidle" }): Promise<void> {
     await this.page.reload({ waitUntil: options?.waitUntil ?? "networkidle" });
   }
   url(): string { return this.page.url(); }
@@ -392,7 +392,7 @@ class PlaywrightPageSession implements BrowserSession {
   async waitForURL(urlOrFn: string | ((url: string) => boolean), options?: { timeout?: number }): Promise<void> {
     await this.page.waitForURL(urlOrFn as any, { timeout: options?.timeout });
   }
-  async waitForLoadState(state?: "load" | "domcontentloaded" | "networkidle" | "commit", options?: { timeout?: number }): Promise<void> {
+  async waitForLoadState(state?: "load" | "domcontentloaded" | "networkidle", options?: { timeout?: number }): Promise<void> {
     await this.page.waitForLoadState(state ?? "networkidle", { timeout: options?.timeout });
   }
   async waitForTimeout(ms: number): Promise<void> { await this.page.waitForTimeout(ms); }

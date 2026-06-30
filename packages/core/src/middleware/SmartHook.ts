@@ -1,4 +1,5 @@
 import type { MiddlewareFn, MiddlewareContext } from "./Pipeline.js";
+import type { BrowserSession } from "../browser/types.js";
 import { getLogger } from "../utils/logger.js";
 import { takeScreenshot } from "../utils/screenshot.js";
 
@@ -76,11 +77,11 @@ function generateFallbackSelectors(input: string): FallbackSelector[] {
  */
 async function tryRecoverAction(
   ctx: MiddlewareContext,
-  page: NonNullable<NonNullable<typeof ctx.session>["page"]>,
+  browser: BrowserSession,
   fallback: string,
 ): Promise<Record<string, unknown> | null> {
   const input = ctx.input as Record<string, string | number | boolean | string[] | undefined>;
-  const loc = page.locator(fallback);
+  const loc = browser.locator(fallback);
 
   try {
     switch (ctx.toolName) {
@@ -138,7 +139,7 @@ async function tryRecoverAction(
       // ─── Select (dropdown) ───────────────────────────────────
       case "browser_select": {
         await loc.selectOption(input.value as string);
-        const allOptions = await page
+        const allOptions = await browser
           .locator(`${fallback} option`)
           .allTextContents()
           .catch(() => []);
@@ -149,7 +150,7 @@ async function tryRecoverAction(
       case "browser_wait_for_element": {
         const state = (input.state as string) ?? "visible";
         const timeout = (input.timeout as number) ?? 10000;
-        await page.waitForSelector(fallback, {
+        await browser.waitForSelector(fallback, {
           state: state as "attached" | "detached" | "visible" | "hidden",
           timeout,
         });
@@ -183,7 +184,7 @@ async function tryRecoverAction(
           el.setAttribute("data-fennec-scope", id);
         }, uniqueId);
 
-        const snapshot = await page.evaluate(
+        const snapshot = await browser.evaluate(
           ({ scopeId }: { scopeId: string }) => {
             const root = document.querySelector(`[data-fennec-scope="${scopeId}"]`)
               ?? document.documentElement;
@@ -232,10 +233,10 @@ async function tryRecoverAction(
 
       // ─── Scroll element into view ────────────────────────────
       case "browser_scroll": {
-        await loc.evaluate((el: HTMLElement) => {
-          el.scrollIntoView({ behavior: "instant", block: "center" });
+        await loc.evaluate((el: Element) => {
+          (el as HTMLElement).scrollIntoView({ behavior: "instant", block: "center" });
         }).catch(() => {});
-        const scrollPos = await page.evaluate(() => ({
+        const scrollPos = await browser.evaluate(() => ({
           x: window.scrollX,
           y: window.scrollY,
         })).catch(() => ({ x: 0, y: 0 }));
@@ -315,13 +316,13 @@ export function createSmartHook(): MiddlewareFn {
     let enrichedContext: Record<string, unknown> = {};
 
     if (ctx.session) {
-      const page = ctx.session.page;
-      if (page) {
+      const browser = ctx.session.browser;
+      if (browser) {
         try {
           // Collect evidence in parallel (no isClosed guard — try regardless)
           const [url, screenshot] = await Promise.allSettled([
-            page.url(),
-            takeScreenshot(page).catch(() => null),
+            browser.url(),
+            takeScreenshot(browser).catch(() => null),
           ]);
 
           if (url.status === "fulfilled") {
@@ -333,7 +334,7 @@ export function createSmartHook(): MiddlewareFn {
 
           // Get page title
           try {
-            enrichedContext.pageTitle = await page.title();
+            enrichedContext.pageTitle = await browser.title();
           } catch { /* ignore */ }
 
           // Get console errors from session buffer
@@ -364,7 +365,7 @@ export function createSmartHook(): MiddlewareFn {
       // Try fallback selectors when the original selector failed.
       // If a fallback finds the element AND the action succeeds,
       // return a success response so the AI can continue uninterrupted.
-      if (errorCode === "ELEMENT_NOT_FOUND" && page && ctx.input?.selector) {
+      if (errorCode === "ELEMENT_NOT_FOUND" && browser && ctx.input?.selector) {
         const originalSelector = String(ctx.input.selector);
         const fallbacks = generateFallbackSelectors(originalSelector);
 
@@ -372,7 +373,7 @@ export function createSmartHook(): MiddlewareFn {
 
         for (const fb of fallbacks) {
           try {
-            const el = await page.$(fb.selector);
+            const el = await browser.$(fb.selector);
             if (el) {
               recoveryAttempt = { strategy: fb.strategy, selector: fb.selector };
               break;
@@ -388,7 +389,7 @@ export function createSmartHook(): MiddlewareFn {
             "SmartHook: found element via fallback selector, attempting recovery",
           );
 
-          const actionResult = await tryRecoverAction(ctx, page, recoveryAttempt.selector);
+          const actionResult = await tryRecoverAction(ctx, browser, recoveryAttempt.selector);
 
           if (actionResult) {
             // ✅ Recovery succeeded — return a success response

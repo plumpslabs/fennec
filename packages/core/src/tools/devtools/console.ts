@@ -73,7 +73,7 @@ export const devtoolsEvaluate = createTool({
 
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const result = await session.page.evaluate(input.expression);
+      const result = await session.browser.evaluate(input.expression);
       return responseBuilder.success({
         result,
         type: typeof result,

@@ -14,7 +14,7 @@ export const devtoolsGetPerformanceMetrics = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const metrics = await collector.getMetrics(session.page);
+      const metrics = await collector.getMetrics(session.browser);
       return responseBuilder.success(metrics, sessionManager.buildMeta(session));
     } catch (error) {
       return responseBuilder.error(error, {
@@ -35,12 +35,12 @@ export const devtoolsGetMemoryUsage = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const metrics = await collector.getMetrics(session.page);
+      const metrics = await collector.getMetrics(session.browser);
       return responseBuilder.success({
         jsHeapSize: metrics.memoryUsage?.jsHeapSize ?? 0,
         totalSize: metrics.memoryUsage?.totalSize ?? 0,
         limit: metrics.memoryUsage?.limit ?? 0,
-        domNodes: (await collector.getDOMCounters(session.page)).nodes,
+        domNodes: (await collector.getDOMCounters(session.browser)).nodes,
       }, sessionManager.buildMeta(session));
     } catch (error) {
       return responseBuilder.error(error);
@@ -58,7 +58,7 @@ export const devtoolsGetDomCounters = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const counters = await collector.getDOMCounters(session.page);
+      const counters = await collector.getDOMCounters(session.browser);
       return responseBuilder.success(counters, sessionManager.buildMeta(session));
     } catch (error) {
       return responseBuilder.error(error);
@@ -76,7 +76,7 @@ export const devtoolsStartProfiling = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const cdpSession = session.cdpSession;
+      const cdpSession = session.browser.cdp();
       await cdpSession.send("Profiler.enable" as never);
       await cdpSession.send("Profiler.start" as never);
       const profileId = `profile_${Date.now()}`;
@@ -113,7 +113,7 @@ export const devtoolsStopProfiling = createTool({
         );
       }
 
-      const cdpSession = session.cdpSession;
+      const cdpSession = session.browser.cdp();
       const result = await cdpSession.send("Profiler.stop" as never) as any;
       const profile = result.profile;
 
@@ -156,7 +156,7 @@ export const devtoolsSimulateNetwork = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const cdpSession = session.cdpSession;
+      const cdpSession = session.browser.cdp();
 
       // Reset first
       await cdpSession.send("Network.emulateNetworkConditions" as never, {

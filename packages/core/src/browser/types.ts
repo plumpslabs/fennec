@@ -83,7 +83,8 @@ export interface BrowserSession {
   waitForRequest(urlOrPredicate: string | ((request: { url: () => string; method: () => string }) => boolean), options?: { timeout?: number }): Promise<{ url: string; method: string; headers: Record<string, string>; postData: string | null; resourceType: string; response: () => Promise<{ status: number; statusText: string; headers: Record<string, string>; url: string } | null> }>;
 
   // ── JavaScript Execution ──
-  evaluate<T = unknown>(fn: string | ((...args: unknown[]) => T), ...args: unknown[]): Promise<T>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  evaluate<T = unknown>(fn: string | ((...args: any[]) => T), ...args: unknown[]): Promise<T>;
 
   // ── Locator ──
   locator(selector: string): Locator;
@@ -153,7 +154,8 @@ export interface Locator {
   allTextContents(): Promise<string[]>;
   setInputFiles(paths: string[]): Promise<void>;
   setChecked(checked: boolean): Promise<void>;
-  evaluate<T = unknown>(fn: string | ((el: Element, ...args: unknown[]) => T), ...args: unknown[]): Promise<T>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  evaluate<T = unknown>(fn: string | ((el: Element, ...args: any[]) => T), ...args: unknown[]): Promise<T>;
   elementHandle(): Promise<ElementHandle | null>;
   first(): Locator;
   all(): Promise<Locator[]>;
