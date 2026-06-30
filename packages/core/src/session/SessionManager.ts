@@ -1,10 +1,32 @@
-import { chromium, firefox, webkit, type Browser, type BrowserContext, type Page, type CDPSession } from "playwright";
+import type { Browser, BrowserContext, Page, CDPSession } from "playwright";
 import { randomUUID } from "node:crypto";
 import { getLogger } from "../utils/logger.js";
 import type { FennecSession, ConsoleEvent, NetworkEvent, SessionMeta } from "./types.js";
 import { SessionStore } from "./SessionStore.js";
 import type { FennecConfig } from "../config/defaults.js";
 import type { EventBus } from "../correlation/EventBus.js";
+
+/**
+ * Lazy-load playwright — it's an optional peer dependency.
+ */
+async function getPlaywright() {
+  try {
+    return await import("playwright");
+  } catch (err) {
+    // "Cannot find module" covers both CJS (MODULE_NOT_FOUND) and ESM (ERR_MODULE_NOT_FOUND)
+    const isModuleNotFound =
+      err instanceof Error && err.message?.includes("Cannot find module");
+    if (isModuleNotFound) {
+      throw new Error(
+        "Playwright is not installed. Install it with: npm install playwright\n" +
+        "Or install browser engines: npx playwright install chromium"
+      );
+    }
+    throw new Error(
+      "Failed to load Playwright: " + (err instanceof Error ? err.message : String(err))
+    );
+  }
+}
 
 export class SessionManager {
   private sessions: Map<string, FennecSession> = new Map();
@@ -14,10 +36,17 @@ export class SessionManager {
   private browser: Browser | null = null;
 
   private eventBus: EventBus | null = null;
+  private pruneTimer: ReturnType<typeof setInterval> | null = null;
+  private bufferMaxAgeMs: number;
+  private pruneIntervalMs: number;
 
   constructor(config: FennecConfig) {
     this.config = config;
     this.store = new SessionStore(config.session.persistPath);
+    // Buffer pruning: keep max 5 minutes of console/network events
+    this.bufferMaxAgeMs = 5 * 60 * 1000; // 5 minutes
+    this.pruneIntervalMs = 60000; // check every 60s
+    this.startBufferPruning();
   }
 
   /**
@@ -39,15 +68,16 @@ export class SessionManager {
       ignoreHTTPSErrors: this.config.browser.ignoreHTTPSErrors,
     };
 
+    const pw = await getPlaywright();
     switch (browserType) {
       case "chromium":
-        this.browser = await chromium.launch(browserOptions);
+        this.browser = await pw.chromium.launch(browserOptions);
         break;
       case "firefox":
-        this.browser = await firefox.launch(browserOptions);
+        this.browser = await pw.firefox.launch(browserOptions);
         break;
       case "webkit":
-        this.browser = await webkit.launch(browserOptions);
+        this.browser = await pw.webkit.launch(browserOptions);
         break;
     }
 
@@ -297,7 +327,32 @@ export class SessionManager {
     };
   }
 
+  private startBufferPruning(): void {
+    this.pruneTimer = setInterval(() => {
+      const cutoff = Date.now() - this.bufferMaxAgeMs;
+      for (const [, session] of this.sessions) {
+        // Prune console buffer
+        session.consoleBuffer = session.consoleBuffer.filter(
+          (e) => new Date(e.timestamp).getTime() > cutoff,
+        );
+        // Prune network buffer
+        session.networkBuffer = session.networkBuffer.filter(
+          (e) => new Date(e.timestamp).getTime() > cutoff,
+        );
+      }
+    }, this.pruneIntervalMs);
+
+    // Don't prevent process exit
+    if (this.pruneTimer && typeof this.pruneTimer === 'object' && 'unref' in this.pruneTimer) {
+      (this.pruneTimer as ReturnType<typeof setInterval>).unref();
+    }
+  }
+
   async close(): Promise<void> {
+    if (this.pruneTimer) {
+      clearInterval(this.pruneTimer);
+      this.pruneTimer = null;
+    }
     await this.destroyAll();
     if (this.browser) {
       await this.browser.close();

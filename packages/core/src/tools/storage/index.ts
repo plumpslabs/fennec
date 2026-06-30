@@ -3,6 +3,7 @@ import { createTool } from "../_registry.js";
 
 export const storageGetLocal = createTool({
   name: "storage_get_local",
+  category: "storage",
   description: "`<use_case>Storage management</use_case> Get localStorage value by key or all items (if no key). value (str) or allItems (obj), size.`",
   inputSchema: z.object({
     key: z.string().optional().describe("localStorage key to retrieve"),
@@ -37,6 +38,7 @@ export const storageGetLocal = createTool({
 
 export const storageSetLocal = createTool({
   name: "storage_set_local",
+  category: "storage",
   description: "`<use_case>Storage management</use_case> Set a localStorage value. previousValue.`",
   inputSchema: z.object({
     key: z.string().describe("localStorage key"),
@@ -63,6 +65,7 @@ export const storageSetLocal = createTool({
 
 export const storageRemoveLocal = createTool({
   name: "storage_remove_local",
+  category: "storage",
   description: "`<use_case>Storage management</use_case> Remove a localStorage key. success.`",
   inputSchema: z.object({
     key: z.string().describe("localStorage key to remove"),
@@ -81,6 +84,7 @@ export const storageRemoveLocal = createTool({
 
 export const storageClearLocal = createTool({
   name: "storage_clear_local",
+  category: "storage",
   description: "`<use_case>Storage management</use_case> Clear all localStorage data. clearedCount (int).`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
@@ -103,6 +107,7 @@ export const storageClearLocal = createTool({
 
 export const storageGetSession = createTool({
   name: "storage_get_session",
+  category: "storage",
   description: "`<use_case>Storage management</use_case> Get sessionStorage value by key or all items (if no key). value (str) or allItems (obj).`",
   inputSchema: z.object({
     key: z.string().optional().describe("sessionStorage key to retrieve"),
@@ -134,6 +139,7 @@ export const storageGetSession = createTool({
 
 export const storageSetSession = createTool({
   name: "storage_set_session",
+  category: "storage",
   description: "`<use_case>Storage management</use_case> Set a sessionStorage value. success.`",
   inputSchema: z.object({
     key: z.string().describe("sessionStorage key"),
@@ -156,6 +162,7 @@ export const storageSetSession = createTool({
 
 export const storageGetCookies = createTool({
   name: "storage_get_cookies",
+  category: "storage",
   description: "`<use_case>Storage management</use_case> Get browser cookies, filterable by name or domain. cookies[], count.`",
   inputSchema: z.object({
     name: z.string().optional().describe("Filter by cookie name"),
@@ -190,6 +197,7 @@ export const storageGetCookies = createTool({
 
 export const storageSetCookie = createTool({
   name: "storage_set_cookie",
+  category: "storage",
   description: "`<use_case>Storage management</use_case> Set a browser cookie with name, value, domain, path, httpOnly, secure, sameSite. success.`",
   inputSchema: z.object({
     name: z.string().describe("Cookie name"),
@@ -223,6 +231,7 @@ export const storageSetCookie = createTool({
 
 export const storageDeleteCookie = createTool({
   name: "storage_delete_cookie",
+  category: "storage",
   description: "`<use_case>Storage management</use_case> Delete a browser cookie by name. success.`",
   inputSchema: z.object({
     name: z.string().describe("Cookie name to delete"),
@@ -257,6 +266,7 @@ export const storageDeleteCookie = createTool({
 
 export const storageGetIndexedDB = createTool({
   name: "storage_get_indexeddb",
+  category: "storage",
   description: "`<use_case>Storage management</use_case> Get IndexedDB database names and optionally records from a specific object store. databases[], records (optional).`",
   inputSchema: z.object({
     dbName: z.string().optional().describe("Database name"),
@@ -336,6 +346,7 @@ export const storageGetIndexedDB = createTool({
 
 export const storageExportState = createTool({
   name: "storage_export_state",
+  category: "storage",
   description: "`<use_case>Storage management</use_case> Export all browser state (cookies, localStorage, sessionStorage) to a JSON object or file. cookies, localStorage, sessionStorage, savedAt.`",
   inputSchema: z.object({
     filePath: z.string().optional().describe("Optional file path to save the state to"),
@@ -399,6 +410,7 @@ export const storageExportState = createTool({
 
 export const storageImportState = createTool({
   name: "storage_import_state",
+  category: "storage",
   description: "`<use_case>Storage management</use_case> Import previously exported browser state from a state object or file. Restores cookies, localStorage, and sessionStorage. cookiesRestored, itemsRestored.`",
   inputSchema: z.object({
     filePath: z.string().optional().describe("File path to load state from"),

@@ -1,7 +1,8 @@
 import type { MiddlewareFn } from "./Pipeline.js";
 import { getLogger } from "../utils/logger.js";
+import type { PerformanceMetrics } from "../utils/PerformanceMetrics.js";
 
-export function createTelemetryMiddleware(): MiddlewareFn {
+export function createTelemetryMiddleware(metrics?: PerformanceMetrics): MiddlewareFn {
   const logger = getLogger();
 
   return async (ctx, next) => {
@@ -27,18 +28,33 @@ export function createTelemetryMiddleware(): MiddlewareFn {
         "success" in result &&
         result.success === false;
 
+      const errorCode: string | undefined = isError
+        ? String(((result as Record<string, unknown>).error as Record<string, unknown> | undefined)
+            ?.code ?? "UNKNOWN")
+        : undefined;
+
       logger.info(
         {
           tool: toolName,
           durationMs: duration,
           isError: !!isError,
-          errorCode: isError
-            ? ((result as Record<string, unknown>).error as Record<string, unknown> | undefined)
-                ?.code ?? "UNKNOWN"
-            : null,
+          errorCode: errorCode ?? null,
         },
         "Telemetry: tool completed",
       );
+
+      // Record performance metric
+      if (metrics) {
+        metrics.recordToolCall({
+          toolName,
+          category: ctx.category,
+          durationMs: duration,
+          success: !isError,
+          errorCode,
+          timestamp: Date.now(),
+          sessionId: ctx.session?.id,
+        });
+      }
 
       // Attach elapsed time to meta
       const resultObj = result as Record<string, unknown>;
@@ -58,6 +74,19 @@ export function createTelemetryMiddleware(): MiddlewareFn {
         },
         "Telemetry: tool failed",
       );
+
+      // Record failure metric
+      if (metrics) {
+        metrics.recordToolCall({
+          toolName,
+          category: ctx.category,
+          durationMs: duration,
+          success: false,
+          errorCode: "EXCEPTION",
+          timestamp: Date.now(),
+          sessionId: ctx.session?.id,
+        });
+      }
 
       throw error;
     }

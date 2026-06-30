@@ -3,6 +3,7 @@ import { createTool } from "../_registry.js";
 
 export const terminalWatchFile = createTool({
   name: "terminal_watch_file",
+  category: "terminal",
   description: "`<use_case>Log monitoring</use_case> Watch a log file for new content (tail-like). Optionally name the watcher. watcherId, name.`",
   inputSchema: z.object({
     filePath: z.string().describe("Absolute path to the log file"),
@@ -23,6 +24,7 @@ export const terminalWatchFile = createTool({
 
 export const terminalGetLogs = createTool({
   name: "terminal_get_logs",
+  category: "terminal",
   description: "`<use_case>Log monitoring</use_case> Get logs from a terminal watcher. Filterable by lines, since (ISO), keyword. logs[], count.`",
   inputSchema: z.object({
     watcherId: z.string().describe("Watcher ID"),
@@ -42,6 +44,7 @@ export const terminalGetLogs = createTool({
 
 export const terminalGetErrors = createTool({
   name: "terminal_get_errors",
+  category: "terminal",
   description: "`<use_case>Log monitoring</use_case> Get only error-level logs from a terminal watcher. errors[], count.`",
   inputSchema: z.object({ watcherId: z.string().describe("Watcher ID"), since: z.string().optional().describe("ISO timestamp filter") }),
   handler: async (input, { responseBuilder, logWatcher }) => {
@@ -56,6 +59,7 @@ export const terminalGetErrors = createTool({
 
 export const terminalListWatchers = createTool({
   name: "terminal_list_watchers",
+  category: "terminal",
   description: "`<use_case>Log monitoring</use_case> List all active terminal watchers. watchers[], count.`",
   inputSchema: z.object({}),
   handler: async (input, { responseBuilder, logWatcher }) => {
@@ -65,6 +69,7 @@ export const terminalListWatchers = createTool({
 
 export const terminalStopWatcher = createTool({
   name: "terminal_stop_watcher",
+  category: "terminal",
   description: "`<use_case>Log monitoring</use_case> Stop a terminal watcher by ID. stopped (bool).`",
   inputSchema: z.object({ watcherId: z.string().describe("Watcher ID to stop") }),
   handler: async (input, { responseBuilder, logWatcher }) => {
@@ -74,6 +79,7 @@ export const terminalStopWatcher = createTool({
 
 export const terminalWatchPipe = createTool({
   name: "terminal_watch_pipe",
+  category: "terminal",
   description: "`<use_case>Log monitoring</use_case> Watch a named pipe (FIFO) for incoming data. Useful for monitoring inter-process communication or log streams from piped output. watcherId, name.`",
   inputSchema: z.object({
     pipePath: z.string().describe("Path to the named pipe"),
@@ -95,6 +101,7 @@ export const terminalWatchPipe = createTool({
 
 export const terminalClearBuffer = createTool({
   name: "terminal_clear_buffer",
+  category: "terminal",
   description: "`<use_case>Log monitoring</use_case> Clear the log buffer for a terminal watcher. Useful for resetting state between operations. cleared (bool).`",
   inputSchema: z.object({ watcherId: z.string().describe("Watcher ID to clear buffer for") }),
   handler: async (input, { responseBuilder, logWatcher }) => {

@@ -7,12 +7,10 @@ export default defineConfig({
   clean: true,
   dts: true,
   sourcemap: true,
-  splitting: false,
+  splitting: true,
   outDir: "dist",
   external: [
-    "@clack/prompts",
     "@plumpslabs/fennec-core",
     "playwright",
-    "pino",
   ],
 });

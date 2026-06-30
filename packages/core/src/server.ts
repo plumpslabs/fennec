@@ -1,6 +1,8 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { createServer, type Server as HttpServer } from 'node:http';
 import { ZodError } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { ToolRegistry, type ToolContext } from './tools/_registry.js';
@@ -13,9 +15,10 @@ import { createLogger, getLogger } from './utils/logger.js';
 import { ProcessManager } from './process/ProcessManager.js';
 import { LogWatcher } from './process/LogWatcher.js';
 import type { FennecConfig } from './config/defaults.js';
-import { Pipeline, createPermissionGuard, createRetryHandler, createTelemetryMiddleware, createSmartHook } from './middleware/index.js';
+import { Pipeline, createPermissionGuard, createRetryHandler, createTelemetryMiddleware, createSmartHook, createAuditLog, createStateMachineMiddleware } from './middleware/index.js';
 import { ResourceManager } from './resource/ResourceManager.js';
 import { StateManager } from './state/index.js';
+import { PerformanceMetrics } from './utils/PerformanceMetrics.js';
 import { CapabilityDetector } from './capability/Detector.js';
 import { Planner } from './planner/Planner.js';
 import { WorkflowEngine } from './workflow/WorkflowEngine.js';
@@ -161,6 +164,13 @@ import {
   browserScreenshotExport,
   browserScreenshotDiff,
 } from './tools/smart/index.js';
+import {
+  plannerExecuteGoal,
+  plannerCreatePlan,
+  plannerListPlans,
+  plannerGetPlan,
+  plannerCancelPlan,
+} from './tools/planner/index.js';
 
 export class FennecServer {
   private server: Server;
@@ -172,7 +182,6 @@ export class FennecServer {
   private sessionStore: SessionStore;
   private config: FennecConfig;
   private pipeline: Pipeline;
-  // New architecture modules
   private resourceManager: ResourceManager;
   private stateManager: StateManager;
   private capabilityDetector: CapabilityDetector;
@@ -181,6 +190,12 @@ export class FennecServer {
   private recorder: Recorder;
   private workflowScheduler: WorkflowScheduler;
   private eventBus: EventBus;
+  private performanceMetrics: PerformanceMetrics;
+  private auditLog: ReturnType<typeof createAuditLog>;
+
+  // SSE transport fields
+  private sseTransport: SSEServerTransport | null = null;
+  private httpServer: HttpServer | null = null;
 
   constructor(configPath?: string) {
     const configLoader = new ConfigLoader(configPath);
@@ -204,25 +219,33 @@ export class FennecServer {
     this.recorder = new Recorder();
     this.eventBus = new EventBus();
     this.workflowScheduler = new WorkflowScheduler(this.eventBus, this.workflowEngine);
+    this.performanceMetrics = new PerformanceMetrics();
+    this.auditLog = createAuditLog({ logToConsole: true });
 
     // Wire EventBus to modules for auto-trigger events
     this.sessionManager.setEventBus(this.eventBus);
     this.processManager.setEventBus(this.eventBus);
     this.logWatcher.setEventBus(this.eventBus);
 
-    // Wire tool executor to scheduler so auto-triggered workflows call real tools
-    this.workflowScheduler.setToolExecutor(async (toolName, input) => {
+    // Wire a shared tool executor that both the WorkflowScheduler and WorkflowEngine can use
+    const pipelineExecutor = async (toolName: string, input: Record<string, unknown>) => {
       const tool = this.toolRegistry.get(toolName);
-      if (!tool) throw new Error(`Scheduler: tool not found: ${toolName}`);
+      if (!tool) throw new Error(`Tool not found: ${toolName}`);
       const parsed = tool.inputSchema.parse(input);
       const context = this.getToolContext();
       return this.pipeline.execute(tool, parsed, context);
-    });
+    };
+
+    this.workflowScheduler.setToolExecutor(pipelineExecutor);
+    this.workflowEngine.setToolExecutor(pipelineExecutor);
 
     this.pipeline = new Pipeline();
     this.setupPipeline();
 
-    this.server = new Server({ name: 'fennec', version: '0.1.0' }, { capabilities: { tools: {} } });
+    // Start self-monitoring
+    this.performanceMetrics.startMemoryMonitoring();
+
+    this.server = new Server({ name: 'fennec', version: '1.9.0' }, { capabilities: { tools: {} } });
 
     this.registerAllTools();
     this.setupHandlers();
@@ -338,6 +361,11 @@ export class FennecServer {
       browserScreenshotAnnotated,
       browserScreenshotExport,
       browserScreenshotDiff,
+      plannerExecuteGoal,
+      plannerCreatePlan,
+      plannerListPlans,
+      plannerGetPlan,
+      plannerCancelPlan,
     ];
 
     for (const tool of tools) {
@@ -354,7 +382,6 @@ export class FennecServer {
       processManager: this.processManager,
       logWatcher: this.logWatcher,
       sessionStore: this.sessionStore,
-      // New architecture modules
       resourceManager: this.resourceManager,
       stateManager: this.stateManager,
       capabilityDetector: this.capabilityDetector,
@@ -366,10 +393,6 @@ export class FennecServer {
     };
   }
 
-  /**
-   * Setup CDP monitoring (console + network) for the active session.
-   * This enables real-time event collection and EventBus publishing.
-   */
   private async setupSessionCDPMonitoring(): Promise<void> {
     const logger = getLogger();
     try {
@@ -402,8 +425,9 @@ export class FennecServer {
   private setupHandlers(): void {
     const logger = getLogger();
 
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
-      const tools = this.toolRegistry.getAll();
+    this.server.setRequestHandler(ListToolsRequestSchema, async (request) => {
+      const categories = (request.params as Record<string, unknown>)?.categories as string[] | undefined;
+      const tools = categories?.length ? this.toolRegistry.getByCategories(categories) : this.toolRegistry.getAll();
       return {
         tools: tools.map((t) => {
           const { $schema, ...schema } = zodToJsonSchema(t.inputSchema) as any;
@@ -411,8 +435,10 @@ export class FennecServer {
             name: t.name,
             description: t.description,
             inputSchema: schema,
+            _category: t.category,
           };
         }),
+        _categories: this.toolRegistry.getCategories(),
       };
     });
 
@@ -439,11 +465,8 @@ export class FennecServer {
       try {
         const parsed = tool.inputSchema.parse(args ?? {});
         const context = this.getToolContext();
-
-        // Execute through middleware pipeline
         const result = await this.pipeline.execute(tool, parsed, context);
 
-        // Per MCP spec: if handler returns success: false, mark as isError
         const isError =
           result && typeof result === 'object' && 'success' in result && result.success === false;
         return {
@@ -460,14 +483,13 @@ export class FennecServer {
         }
         logger.error({ tool: name, error }, 'Tool execution failed');
 
-        // Enrich error with browser context (screenshot, URL, console logs)
         let enrichedContext: Record<string, unknown> = {};
         try {
           const session = this.sessionManager.getOrDefault();
           const enricher = new ErrorEnricher();
           enrichedContext = (await enricher.enrich(session)) as unknown as Record<string, unknown>;
         } catch {
-          // Enrichment is best-effort; don't let it mask the original error
+          // best-effort
         }
 
         const errorResponse = this.responseBuilder.error(error, {
@@ -488,24 +510,110 @@ export class FennecServer {
   }
 
   private setupPipeline(): void {
-    this.pipeline.use(createTelemetryMiddleware());
+    this.pipeline.use(createTelemetryMiddleware(this.performanceMetrics));
+    this.pipeline.use(this.auditLog.middleware);
     this.pipeline.use(createPermissionGuard());
+    this.pipeline.use(createStateMachineMiddleware());
     this.pipeline.use(createSmartHook());
     this.pipeline.use(createRetryHandler({ maxRetries: 2 }));
+  }
+
+  /**
+   * Start the MCP server with SSE transport.
+   * Creates an HTTP server that accepts SSE connections and message posts.
+   *
+   * Endpoints:
+   *   GET  /sse        — SSE stream (client connects here)
+   *   POST /messages   — Message endpoint (client sends tool calls here)
+   */
+  private async startSSE(): Promise<void> {
+    const logger = getLogger();
+    const port = this.config.transport.port;
+    const host = this.config.transport.host;
+
+    logger.info({ port, host }, 'Starting Fennec MCP server (SSE transport)...');
+
+    return new Promise((resolve, reject) => {
+      this.httpServer = createServer(async (req, res) => {
+        // Handle CORS preflight
+        if (req.method === 'OPTIONS') {
+          res.writeHead(204, {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          });
+          res.end();
+          return;
+        }
+
+        // Add CORS headers
+        res.setHeader('Access-Control-Allow-Origin', '*');
+
+        const url = new URL(req.url ?? '/', `http://${host}:${port}`);
+
+        if (req.method === 'GET' && url.pathname === '/sse') {
+          // SSE endpoint: create a new SSEServerTransport for this connection
+          logger.info('SSE client connected');
+          this.sseTransport = new SSEServerTransport('/messages', res);
+
+          try {
+            await this.server.connect(this.sseTransport);
+            logger.info('MCP server connected via SSE transport');
+            resolve();
+          } catch (error) {
+            logger.error({ error }, 'Failed to connect MCP server via SSE');
+            reject(error);
+          }
+
+          // Handle client disconnect
+          req.on('close', () => {
+            logger.info('SSE client disconnected');
+            this.sseTransport = null;
+          });
+        } else if (req.method === 'POST' && url.pathname === '/messages') {
+          // Message endpoint: forward POST data to existing SSE transport
+          if (this.sseTransport) {
+            try {
+              await this.sseTransport.handlePostMessage(req, res);
+            } catch (error) {
+              logger.error({ error }, 'Failed to handle SSE message');
+              res.writeHead(500).end('Internal server error');
+            }
+          } else {
+            res.writeHead(400).end('No active SSE connection');
+          }
+        } else {
+          // Health check endpoint
+          if (url.pathname === '/health') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ status: 'ok', transport: 'sse' }));
+            return;
+          }
+          res.writeHead(404).end('Not found');
+        }
+      });
+
+      this.httpServer.listen(port, host, () => {
+        logger.info({ port, host }, 'Fennec SSE transport listening');
+        resolve();
+      });
+
+      this.httpServer.on('error', (error) => {
+        logger.error({ error }, 'SSE HTTP server error');
+        reject(error);
+      });
+    });
   }
 
   async start(): Promise<void> {
     const logger = getLogger();
     await this.sessionManager.initialize();
 
-    // Setup CDP monitoring for the default session
     await this.setupSessionCDPMonitoring();
 
-    // Initialize workflow engine with built-in workflows
     this.workflowEngine.createDebugWorkflow('auto-diagnose');
     this.workflowEngine.createLoginWorkflow('auto-login');
 
-    // Setup scheduler with default rules targeting the auto-diagnose workflow
     const debugWf = this.workflowEngine.findByTag('diagnostic')[0];
     if (debugWf) {
       const defaultRules = WorkflowScheduler.createDefaultRules(debugWf.id);
@@ -514,13 +622,11 @@ export class FennecServer {
       logger.info({ rules: defaultRules.length }, 'WorkflowScheduler: auto-trigger rules registered');
     }
 
-    // Start auto-cleanup of resources
     this.resourceManager.startAutoCleanup();
     this.resourceManager.startHealthChecks();
 
     if (this.config.transport.type === 'sse') {
-      logger.error('SSE transport not yet implemented');
-      process.exit(1);
+      await this.startSSE();
     } else {
       const transport = new StdioServerTransport();
       logger.info('Starting Fennec MCP server (stdio transport)...');

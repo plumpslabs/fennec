@@ -11,6 +11,7 @@ const LOGIN_SELECTORS = {
 
 export const authFillLoginForm = createTool({
   name: "auth_fill_login_form",
+  category: "auth",
   description: "`<use_case>Authentication</use_case> Auto-detect and fill login form (username/email + password). Uses smart field detection for robust matching (label, name, id, placeholder, aria-label, data-testid). Optionally submit after filling. When saveAfterLogin is true, automatically saves session on successful login detection. formFound, fieldsDetected, submitted (bool), sessionSaved (bool), sessionName (str).`",
   inputSchema: z.object({
     username: z.string().describe("Username or email to fill"),
@@ -164,6 +165,7 @@ export const authFillLoginForm = createTool({
 
 export const authSaveSession = createTool({
   name: "auth_save_session",
+  category: "auth",
   description: "`<use_case>Authentication</use_case> Save current auth state (cookies + localStorage) to a named session for later reuse. sessionId, savedAt.`",
   inputSchema: z.object({
     name: z.string().describe("Session name to save as"),
@@ -206,6 +208,7 @@ export const authSaveSession = createTool({
 
 export const authLoadSession = createTool({
   name: "auth_load_session",
+  category: "auth",
   description: "`<use_case>Authentication</use_case> Load a saved auth session (cookies + localStorage) into the browser. cookiesLoaded (int), storageLoaded (int).`",
   inputSchema: z.object({
     name: z.string().describe("Session name to load"),
@@ -249,6 +252,7 @@ export const authLoadSession = createTool({
 
 export const authListSessions = createTool({
   name: "auth_list_sessions",
+  category: "auth",
   description: "`<use_case>Authentication</use_case> List all saved authentication sessions. sessions[], count.`",
   inputSchema: z.object({}),
   handler: async (input, { responseBuilder, sessionStore }) => {
@@ -262,6 +266,7 @@ export const authListSessions = createTool({
 
 export const authDeleteSession = createTool({
   name: "auth_delete_session",
+  category: "auth",
   description: "`<use_case>Authentication</use_case> Delete a saved auth session by name. deleted (bool).`",
   inputSchema: z.object({
     name: z.string().describe("Session name to delete"),
@@ -274,6 +279,7 @@ export const authDeleteSession = createTool({
 
 export const authCheckLoggedIn = createTool({
   name: "auth_check_logged_in",
+  category: "auth",
   description: "`<use_case>Authentication</use_case> Check login state via auth indicators (cookies, logout/profile links). Custom indicators supported. loggedIn (bool), confidence (0-1), detectedIndicators[].`",
   inputSchema: z.object({
     indicators: z.array(z.string()).optional().describe("Custom CSS selectors to check for login state"),

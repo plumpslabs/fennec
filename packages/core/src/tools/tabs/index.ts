@@ -3,6 +3,7 @@ import { createTool } from "../_registry.js";
 
 export const tabNew = createTool({
   name: "tab_new",
+  category: "tabs",
   description: "`<use_case>Tab management</use_case> Create a new browser tab. Optionally navigate to a URL. tabId (url), sessionId.`",
   inputSchema: z.object({
     url: z.string().optional().describe("URL to navigate to in the new tab"),
@@ -32,6 +33,7 @@ export const tabNew = createTool({
 
 export const tabClose = createTool({
   name: "tab_close",
+  category: "tabs",
   description: "`<use_case>Tab management</use_case> Close a tab by its URL (tabId). success.`",
   inputSchema: z.object({
     tabId: z.string().describe("Tab ID (URL) to close"),
@@ -60,6 +62,7 @@ export const tabClose = createTool({
 
 export const tabList = createTool({
   name: "tab_list",
+  category: "tabs",
   description: "`<use_case>Tab management</use_case> List all open tabs with URL, title, and active status. tabs[], activeTabId.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
@@ -88,6 +91,7 @@ export const tabList = createTool({
 
 export const tabSwitch = createTool({
   name: "tab_switch",
+  category: "tabs",
   description: "`<use_case>Tab management</use_case> Switch to a tab by its URL (tabId). url, title.`",
   inputSchema: z.object({
     tabId: z.string().describe("Tab URL to switch to"),
@@ -121,6 +125,7 @@ export const tabSwitch = createTool({
 
 export const contextNew = createTool({
   name: "context_new",
+  category: "tabs",
   description: "`<use_case>Session management</use_case> Create a new isolated browser context (separate cookies/storage, incognito-like). contextId (session ID).`",
   inputSchema: z.object({
     options: z
@@ -148,6 +153,7 @@ export const contextNew = createTool({
 
 export const tabGetCurrent = createTool({
   name: "tab_get_current",
+  category: "tabs",
   description: "`<use_case>Tab management</use_case> Get current active tab information: URL, title, and ready state. url, title, readyState.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
@@ -174,6 +180,7 @@ export const tabGetCurrent = createTool({
 
 export const contextClose = createTool({
   name: "context_close",
+  category: "tabs",
   description: "`<use_case>Session management</use_case> Close a browser context by sessionId. The default session cannot be closed. success.`",
   inputSchema: z.object({
     sessionId: z.string().describe("Session (context) ID to close"),

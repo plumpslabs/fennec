@@ -7,6 +7,8 @@ import type { StateManager } from "../state/index.js";
 
 export interface MiddlewareContext {
   toolName: string;
+  /** Tool category for grouping/filtering. Populated from ToolDefinition.category. */
+  category: string | undefined;
   input: Record<string, unknown>;
   parsedInput: Record<string, unknown>;
   session: FennecSession | null;
@@ -67,6 +69,7 @@ export class Pipeline {
 
     const ctx: MiddlewareContext = {
       toolName: tool.name,
+      category: tool.category,
       input: parsedInput,
       parsedInput,
       session: null,

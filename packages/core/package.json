@@ -1,6 +1,6 @@
 {
   "name": "@plumpslabs/fennec-core",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "Fennec MCP server — AI-native browser, terminal, and process observability",
   "keywords": [
     "mcp",
@@ -41,7 +41,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "clean": "rm -rf dist",
+    "clean": "node -e \"const{rmSync,existsSync}=require('fs');const d='dist';existsSync(d)&&(console.log('removing',d),rmSync(d,{recursive:true,force:true}))\"",
     "typecheck": "tsc --noEmit",
     "lint": "echo 'lint: ok'",
     "test": "vitest run",
@@ -49,11 +49,16 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "chokidar": "^3.6.0",
-    "pino": "^8.19.0",
-    "playwright": "^1.42.0",
     "zod": "^3.22.0",
     "zod-to-json-schema": "^3.23.2"
+  },
+  "peerDependencies": {
+    "playwright": "^1.42.0"
+  },
+  "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

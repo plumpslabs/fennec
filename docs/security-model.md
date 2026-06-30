@@ -65,14 +65,36 @@ security:
 - Ability to install browser extensions
 - Raw OS command execution (only through the controlled allowlist)
 
+### 5. Audit Logging
+
+Fennec maintains an internal audit log of all tool calls, available via the AuditLog middleware:
+
+```
+AuditEntry {
+  id: string
+  timestamp: string
+  toolName: string
+  sessionId: string | null
+  input: Record<string, unknown>
+  result: { success: boolean; errorCode?: string }
+  durationMs: number
+}
+```
+
+- Every tool call is recorded with full context
+- Audit entries are kept in memory (max 5000 entries)
+- Accessible for security review and debugging
+- Particularly useful for tracking who-called-what in multi-session scenarios
+
 ## Best Practices
 
 1. **Review the spawn allowlist**: Only include commands your AI agent actually needs
 2. **Use domain restrictions**: If testing against specific sites, add them to `allowedDomains`
 3. **Disable process spawning** if not needed
 4. **Use sandbox mode** in production or untrusted environments
-5. **Clean up saved sessions** regularly, especially those containing auth tokens
-6. **Never share exportPath contents** — they may contain sensitive session data
+5. **Monitor the audit log** regularly to detect unusual tool usage patterns
+6. **Clean up saved sessions** regularly, especially those containing auth tokens
+7. **Never share exportPath contents** — they may contain sensitive session data
 
 ## Reporting Vulnerabilities
 

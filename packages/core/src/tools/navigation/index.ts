@@ -4,6 +4,7 @@ import type { ToolContext } from "../_registry.js";
 
 export const browserNavigate = createTool({
   name: "browser_navigate",
+  category: "navigation",
   description: "`<use_case>Page navigation</use_case> Navigate to a URL. finalUrl, statusCode (int), loadTime (ms).`",
   inputSchema: z.object({
     url: z.string().url().describe("The URL to navigate to"),
@@ -58,6 +59,7 @@ export const browserNavigate = createTool({
 
 export const browserGoBack = createTool({
   name: "browser_go_back",
+  category: "navigation",
   description: "`<use_case>History navigation</use_case> Go back one page in browser history. currentUrl.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
@@ -80,6 +82,7 @@ export const browserGoBack = createTool({
 
 export const browserGoForward = createTool({
   name: "browser_go_forward",
+  category: "navigation",
   description: "`<use_case>History navigation</use_case> Go forward one page in browser history. currentUrl.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
@@ -102,6 +105,7 @@ export const browserGoForward = createTool({
 
 export const browserReload = createTool({
   name: "browser_reload",
+  category: "navigation",
   description: "`<use_case>Page refresh</use_case> Reload the current page. Optionally bypass cache (hardReload). loadTime (ms).`",
   inputSchema: z.object({
     hardReload: z.boolean().optional().default(false).describe("If true, bypass cache"),
@@ -132,6 +136,7 @@ export const browserReload = createTool({
 
 export const browserGetCurrentUrl = createTool({
   name: "browser_get_current_url",
+  category: "navigation",
   description: "`<use_case>Page state</use_case> Get current URL, page title, and document readyState. url, title, readyState.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
@@ -156,6 +161,7 @@ export const browserGetCurrentUrl = createTool({
 
 export const browserWaitForNavigation = createTool({
   name: "browser_wait_for_navigation",
+  category: "navigation",
   description: "`<use_case>Page state</use_case> Wait for the page to navigate to a URL matching a pattern (glob or substring). finalUrl, elapsed (ms).`",
   inputSchema: z.object({
     urlPattern: z.string().optional().describe("URL pattern to wait for (glob or regex string)"),

@@ -1,4 +1,14 @@
 import { randomUUID } from "node:crypto";
+import type { Plan } from "../planner/Planner.js";
+
+/**
+ * Function type for executing tool calls from workflow steps.
+ * Receives the tool name and parsed input, returns the tool result.
+ */
+export type ToolExecutor = (
+  toolName: string,
+  input: Record<string, unknown>,
+) => Promise<unknown>;
 
 export type WorkflowStepType =
   | "navigate"
@@ -55,9 +65,90 @@ export class WorkflowEngine {
   private workflows: Map<string, Workflow> = new Map();
   private executions: Map<string, WorkflowExecution> = new Map();
   private storagePath: string;
+  private toolExecutor: ToolExecutor | null = null;
 
   constructor(storagePath = "./.fennec/workflows") {
     this.storagePath = storagePath;
+  }
+
+  /**
+   * Set a real tool executor so workflow steps can call tools through the pipeline.
+   */
+  setToolExecutor(executor: ToolExecutor): void {
+    this.toolExecutor = executor;
+  }
+
+  /**
+   * Convert a Planner Plan into a registered Workflow.
+   * Maps PlanStep → WorkflowStep using 'execute' type.
+   * Returns the newly registered workflow.
+   */
+  planToWorkflow(plan: Plan): Workflow {
+    const steps: WorkflowStep[] = plan.steps.map((step, i) => ({
+      id: step.id,
+      type: "execute",
+      description: step.description,
+      params: {
+        tool: step.tool,
+        input: step.input,
+      },
+      timeoutMs: step.timeoutMs,
+      retryOnFailure: true,
+      maxRetries: 1,
+      onFailure: "abort" as const,
+    }));
+
+    return this.register({
+      name: `Plan: ${plan.goal}`,
+      description: `Auto-generated from Planner goal: ${plan.goal}`,
+      version: "1.0.0",
+      tags: ["planner", "auto-generated"],
+      steps,
+    });
+  }
+
+  /**
+   * Convert a Planner Plan into a Workflow and execute it immediately.
+   * Uses the configured tool executor to call real tools through the pipeline.
+   * Returns the full execution result with step-by-step status.
+   */
+  async executePlan(
+    plan: Plan,
+    initialContext: Record<string, unknown> = {},
+  ): Promise<WorkflowExecution> {
+    if (!this.toolExecutor) {
+      throw new Error("WorkflowEngine: no tool executor configured. Call setToolExecutor() first.");
+    }
+
+    const workflow = this.planToWorkflow(plan);
+
+    return this.execute(
+      workflow.id,
+      async (step, context) => {
+        if (step.type === "execute") {
+          const toolName = step.params.tool as string | undefined;
+          const toolInput = step.params.input as Record<string, unknown> | undefined;
+
+          if (toolName && this.toolExecutor) {
+            return this.toolExecutor(toolName, toolInput ?? {});
+          }
+        }
+
+        return {
+          stepId: step.id,
+          type: step.type,
+          params: step.params,
+          context,
+          timestamp: Date.now(),
+        };
+      },
+      {
+        planId: plan.id,
+        planGoal: plan.goal,
+        planSteps: plan.steps.length,
+        ...initialContext,
+      },
+    );
   }
 
   /**

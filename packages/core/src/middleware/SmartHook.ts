@@ -1,6 +1,265 @@
-import type { MiddlewareFn } from "./Pipeline.js";
+import type { MiddlewareFn, MiddlewareContext } from "./Pipeline.js";
 import { getLogger } from "../utils/logger.js";
 import { takeScreenshot } from "../utils/screenshot.js";
+
+/**
+ * Generate alternative selectors for auto-recovery.
+ * Each entry tries a different strategy to locate the element on the page.
+ */
+function escapeAttr(value: string): string {
+  return value.replace(/["\\]/g, "\\$&");
+}
+
+interface FallbackSelector {
+  selector: string;
+  strategy: string;
+}
+
+function generateFallbackSelectors(input: string): FallbackSelector[] {
+  // Don't generate fallbacks for structured selectors (they already are specific)
+  if (
+    input.startsWith("role=") ||
+    input.startsWith("xpath=") ||
+    input.startsWith("css=")
+  ) {
+    return [];
+  }
+
+  const trimmed = input.trim();
+  const jsonStr = JSON.stringify(trimmed);
+  const escaped = escapeAttr(trimmed);
+
+  const strategies: FallbackSelector[] = [];
+
+  // 1. Playwright text selector (most reliable for visible text)
+  strategies.push({ selector: `text=${jsonStr}`, strategy: "text" });
+
+  // 2. Button with matching text
+  strategies.push({ selector: `button:has-text(${jsonStr})`, strategy: "button-text" });
+
+  // 3. Link/ anchor with matching text
+  strategies.push({ selector: `a:has-text(${jsonStr})`, strategy: "link-text" });
+
+  // 4. Any element with matching aria-label
+  strategies.push({ selector: `[aria-label="${escaped}"]`, strategy: "aria-label" });
+
+  // 5. data-testid / data-test-id / data-fennec-id
+  strategies.push({ selector: `[data-testid="${escaped}"]`, strategy: "testid" });
+  strategies.push({ selector: `[data-test-id="${escaped}"]`, strategy: "testid" });
+
+  // 6. name attribute (common for form fields)
+  strategies.push({ selector: `[name="${escaped}"]`, strategy: "name" });
+
+  // 7. placeholder attribute (common for form fields)
+  strategies.push({ selector: `[placeholder="${escaped}"]`, strategy: "placeholder" });
+
+  // 8. title attribute
+  strategies.push({ selector: `[title="${escaped}"]`, strategy: "title" });
+
+  // 9. Any element containing the text (broad match)
+  strategies.push({ selector: `:has-text(${jsonStr})`, strategy: "text-contains" });
+
+  // 10. Try as a CSS selector (if it looks like one)
+  if (/^[#.[\]:a-zA-Z-]/.test(trimmed)) {
+    strategies.push({ selector: trimmed, strategy: "css" });
+  }
+
+  // 11. Try as an id selector
+  strategies.push({ selector: `#${escaped}`, strategy: "id" });
+
+  return strategies;
+}
+
+/**
+ * Try to perform the original tool action using a fallback selector.
+ * Returns the data payload if recovery succeeds, or null if it fails.
+ */
+async function tryRecoverAction(
+  ctx: MiddlewareContext,
+  page: NonNullable<NonNullable<typeof ctx.session>["page"]>,
+  fallback: string,
+): Promise<Record<string, unknown> | null> {
+  const input = ctx.input as Record<string, string | number | boolean | string[] | undefined>;
+  const loc = page.locator(fallback);
+
+  try {
+    switch (ctx.toolName) {
+      // ─── Click ───────────────────────────────────────────────
+      case "browser_click": {
+        const box = await loc.boundingBox();
+        await loc.click({
+          button: (input.button as "left" | "right" | "middle") ?? "left",
+          clickCount: (input.clickCount as number) ?? 1,
+        });
+        return {
+          elementFound: true,
+          coordinates: box
+            ? { x: box.x, y: box.y, width: box.width, height: box.height }
+            : null,
+        };
+      }
+
+      // ─── Type ────────────────────────────────────────────────
+      case "browser_type": {
+        if (input.clear) {
+          await loc.fill("");
+        }
+        await loc.pressSequentially(input.text as string, {
+          delay: (input.delay as number) ?? 0,
+        });
+        const valueAfter = await loc.inputValue().catch(() => null);
+        return { elementFound: true, valueAfter };
+      }
+
+      // ─── Hover ───────────────────────────────────────────────
+      case "browser_hover": {
+        const box = await loc.boundingBox();
+        await loc.hover();
+        return {
+          coordinates: box
+            ? { x: box.x, y: box.y, width: box.width, height: box.height }
+            : null,
+        };
+      }
+
+      // ─── Focus ───────────────────────────────────────────────
+      case "browser_focus": {
+        await loc.focus();
+        return {};
+      }
+
+      // ─── Clear ───────────────────────────────────────────────
+      case "browser_clear": {
+        const previousValue = await loc.inputValue().catch(() => null);
+        await loc.fill("");
+        return { previousValue };
+      }
+
+      // ─── Select (dropdown) ───────────────────────────────────
+      case "browser_select": {
+        await loc.selectOption(input.value as string);
+        const allOptions = await page
+          .locator(`${fallback} option`)
+          .allTextContents()
+          .catch(() => []);
+        return { selectedValue: input.value, allOptions };
+      }
+
+      // ─── Wait for element ────────────────────────────────────
+      case "browser_wait_for_element": {
+        const state = (input.state as string) ?? "visible";
+        const timeout = (input.timeout as number) ?? 10000;
+        await page.waitForSelector(fallback, {
+          state: state as "attached" | "detached" | "visible" | "hidden",
+          timeout,
+        });
+        return { found: true, selector: fallback };
+      }
+
+      // ─── Get element info ────────────────────────────────────
+      case "browser_get_element_info": {
+        const [visible, enabled, box] = await Promise.all([
+          loc.isVisible().catch(() => false),
+          loc.isEnabled().catch(() => false),
+          loc.boundingBox().catch(() => null),
+        ]);
+        const tagName = await loc.evaluate((el: Element) => el.tagName.toLowerCase()).catch(() => "");
+        const text = await loc.evaluate((el: Element) => (el.textContent ?? "").trim()).catch(() => "");
+        return {
+          exists: true,
+          tagName,
+          text: text.slice(0, 500),
+          visible,
+          enabled,
+          boundingBox: box,
+        };
+      }
+
+      // ─── DOM snapshot (scoped to selector) ───────────────────
+      case "browser_get_dom_snapshot": {
+        // Inject a data attribute on the found element so evaluate can access it
+        const uniqueId = `fennec-recovered-${Date.now()}`;
+        await loc.evaluate((el: Element, id: string) => {
+          el.setAttribute("data-fennec-scope", id);
+        }, uniqueId);
+
+        const snapshot = await page.evaluate(
+          ({ scopeId }: { scopeId: string }) => {
+            const root = document.querySelector(`[data-fennec-scope="${scopeId}"]`)
+              ?? document.documentElement;
+
+            // Clean up the marker
+            root.removeAttribute("data-fennec-scope");
+
+            const elements: Array<{
+              tag: string;
+              id: string;
+              text: string;
+              class: string;
+              role: string;
+            }> = [];
+            const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+            let node: Node | null;
+            let count = 0;
+            while ((node = walker.nextNode()) && count < 100) {
+              const el = node as Element;
+              const tag = el.tagName.toLowerCase();
+              const text = (el.textContent ?? "").trim().slice(0, 120);
+              if (text || el.id) {
+                elements.push({
+                  tag,
+                  id: el.id,
+                  text,
+                  class: el.className.slice(0, 100),
+                  role: el.getAttribute("role") ?? "",
+                });
+              }
+              count++;
+            }
+            return elements;
+          },
+          { scopeId: uniqueId },
+        ).catch(() => []);
+
+        return { elementCount: snapshot.length, elements: snapshot.slice(0, 50) };
+      }
+
+      // ─── Get page text (scoped) ──────────────────────────────
+      case "browser_get_page_text": {
+        const text = await loc.evaluate((el: Element) => (el.textContent ?? "").trim()).catch(() => "");
+        return { text: text.slice(0, 5000), selector: fallback };
+      }
+
+      // ─── Scroll element into view ────────────────────────────
+      case "browser_scroll": {
+        await loc.evaluate((el: HTMLElement) => {
+          el.scrollIntoView({ behavior: "instant", block: "center" });
+        }).catch(() => {});
+        const scrollPos = await page.evaluate(() => ({
+          x: window.scrollX,
+          y: window.scrollY,
+        })).catch(() => ({ x: 0, y: 0 }));
+        return { scrollPosition: scrollPos };
+      }
+
+      default:
+        // For unknown tools, just report that we found the element
+        const exists = await loc.count().catch(() => 0);
+        if (exists > 0) {
+          return { elementFound: true, selector: fallback };
+        }
+        return null;
+    }
+  } catch (error) {
+    getLogger().warn(
+      { tool: ctx.toolName, error, fallbackSelector: fallback },
+      "SmartHook: recovery action failed",
+    );
+    return null;
+  }
+}
+
+// ─── Main SmartHook middleware ─────────────────────────────────
 
 export function createSmartHook(): MiddlewareFn {
   const logger = getLogger();
@@ -24,7 +283,7 @@ export function createSmartHook(): MiddlewareFn {
     logger.info(
       { tool: ctx.toolName, errorCode },
       "SmartHook: error detected, collecting context",
-    )
+    );
 
     // === StateManager Context ===
     // Inject current session context info so AI knows which session/context it's in
@@ -51,7 +310,6 @@ export function createSmartHook(): MiddlewareFn {
       }
     }
     // === End StateManager Context ===
-;
 
     // If session available, auto-collect debug evidence
     let enrichedContext: Record<string, unknown> = {};
@@ -102,14 +360,81 @@ export function createSmartHook(): MiddlewareFn {
         }
       }
 
-      // For ELEMENT_NOT_FOUND: inject URL + title prominently so AI knows current page
-      if (errorCode === "ELEMENT_NOT_FOUND") {
+      // ─── Auto‑recovery: ELEMENT_NOT_FOUND ────────────────────
+      // Try fallback selectors when the original selector failed.
+      // If a fallback finds the element AND the action succeeds,
+      // return a success response so the AI can continue uninterrupted.
+      if (errorCode === "ELEMENT_NOT_FOUND" && page && ctx.input?.selector) {
+        const originalSelector = String(ctx.input.selector);
+        const fallbacks = generateFallbackSelectors(originalSelector);
+
+        let recoveryAttempt: { strategy: string; selector: string } | null = null;
+
+        for (const fb of fallbacks) {
+          try {
+            const el = await page.$(fb.selector);
+            if (el) {
+              recoveryAttempt = { strategy: fb.strategy, selector: fb.selector };
+              break;
+            }
+          } catch {
+            continue;
+          }
+        }
+
+        if (recoveryAttempt) {
+          logger.info(
+            { tool: ctx.toolName, originalSelector, fallbackSelector: recoveryAttempt.selector, strategy: recoveryAttempt.strategy },
+            "SmartHook: found element via fallback selector, attempting recovery",
+          );
+
+          const actionResult = await tryRecoverAction(ctx, page, recoveryAttempt.selector);
+
+          if (actionResult) {
+            // ✅ Recovery succeeded — return a success response
+            logger.info(
+              { tool: ctx.toolName, originalSelector, fallbackSelector: recoveryAttempt.selector, strategy: recoveryAttempt.strategy },
+              "SmartHook: recovery succeeded",
+            );
+
+            return {
+              success: true,
+              data: {
+                ...actionResult,
+                recovered: true,
+                originalSelector,
+                recoveredSelector: recoveryAttempt.selector,
+                recoveryStrategy: recoveryAttempt.strategy,
+              },
+              meta: (resultObj.meta as Record<string, unknown>) ?? {},
+            };
+          } else {
+            // Element found but action failed — inject recovery info into error context
+            enrichedContext.recovery = {
+              attempted: true,
+              recoveredSelector: recoveryAttempt.selector,
+              recoveryStrategy: recoveryAttempt.strategy,
+              status: "action_failed",
+              message: `Found element via ${recoveryAttempt.strategy} but could not complete the action`,
+            };
+          }
+        } else {
+          // No fallback found — still helpful for AI to know what was tried
+          enrichedContext.recovery = {
+            attempted: true,
+            status: "no_fallback_found",
+            strategiesTried: fallbacks.length,
+            message: `Tried ${fallbacks.length} fallback strategies but none matched any element`,
+          };
+        }
+
         enrichedContext.url = enrichedContext.currentUrl ?? "unknown";
         enrichedContext.title = enrichedContext.pageTitle ?? "unknown";
         enrichedContext.message =
           `Element not found on page: ${enrichedContext.url} ("${enrichedContext.title}"). ` +
           `Use browser_get_dom_snapshot to see available elements.`;
       }
+      // ─── End Auto‑recovery ───────────────────────────────────
     }
 
     // === Scheduler Integration ===

@@ -1,6 +1,6 @@
 {
   "name": "@plumpslabs/fennec-cli",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "Fennec CLI — pipe, attach, watch, and start the Fennec MCP server",
   "keywords": [
     "mcp",
@@ -38,17 +38,22 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "clean": "rm -rf dist",
+    "clean": "node -e \"const{rmSync,existsSync}=require('fs');const d='dist';existsSync(d)&&(console.log('removing',d),rmSync(d,{recursive:true,force:true}))\"",
     "typecheck": "tsc --noEmit",
     "lint": "echo 'lint: ok'",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@clack/prompts": "^0.7.0",
-    "@plumpslabs/fennec-core": "workspace:*",
-    "pino": "^8.19.0",
+    "@plumpslabs/fennec-core": "workspace:*"
+  },
+  "peerDependencies": {
     "playwright": "^1.42.0"
+  },
+  "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
