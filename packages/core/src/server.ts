@@ -6,6 +6,10 @@ import { createServer, type Server as HttpServer } from 'node:http';
 import { ZodError } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { ToolRegistry, type ToolContext } from './tools/_registry.js';
+import { ModuleRegistry, type FennecModule, type ModuleContext } from './module/index.js';
+import { browserModule } from './modules/browser/index.js';
+import { processModule } from './modules/process/index.js';
+import { mobileModule } from './modules/mobile/index.js';
 import { SessionManager } from './session/SessionManager.js';
 import { SessionStore } from './session/SessionStore.js';
 import { ResponseBuilder } from './response/ResponseBuilder.js';
@@ -175,6 +179,7 @@ import {
 export class FennecServer {
   private server: Server;
   private toolRegistry: ToolRegistry;
+  private moduleRegistry: ModuleRegistry;
   private sessionManager: SessionManager;
   private responseBuilder: ResponseBuilder;
   private processManager: ProcessManager;
@@ -205,6 +210,7 @@ export class FennecServer {
     const logger = getLogger();
 
     this.toolRegistry = new ToolRegistry();
+    this.moduleRegistry = new ModuleRegistry();
     this.responseBuilder = new ResponseBuilder();
     this.sessionManager = new SessionManager(this.config);
     this.processManager = new ProcessManager(this.config.process);
@@ -247,9 +253,22 @@ export class FennecServer {
 
     this.server = new Server({ name: 'fennec', version: '1.9.0' }, { capabilities: { tools: {} } });
 
+    this.registerModules();
     this.registerAllTools();
     this.setupHandlers();
     logger.info({ config: this.config }, 'Fennec server initialized');
+  }
+
+  private registerModules(): void {
+    this.moduleRegistry.register(browserModule);
+    this.moduleRegistry.register(processModule);
+    this.moduleRegistry.register(mobileModule);
+
+    const logger = getLogger();
+    logger.info(
+      { modules: this.moduleRegistry.getAll().map((m) => `${m.name} (${m.tools.length} tools)`) },
+      'Fennec modules registered',
+    );
   }
 
   private registerAllTools(): void {
