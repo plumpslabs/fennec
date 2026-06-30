@@ -21,7 +21,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           registry-url: "https://registry.npmjs.org"
           cache: pnpm
 
@@ -58,16 +58,18 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           registry-url: "https://npm.pkg.github.com"
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
 
-      - name: Configure GPR registry
+      - name: Configure GPR scoped registry for pnpm
         run: |
-          npm config set @plumpslabs:registry https://npm.pkg.github.com
+          # pnpm config writes to ~/.npmrc (same file as setup-node), so pnpm reads it
+          pnpm config set @plumpslabs:registry "https://npm.pkg.github.com"
+        # Auth token is already configured by actions/setup-node@v4 with registry-url + NODE_AUTH_TOKEN
 
       - name: Publish @plumpslabs/fennec-core
         run: |
