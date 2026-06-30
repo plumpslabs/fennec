@@ -205,7 +205,7 @@ See [Security Model](docs/security-model.md) for details.
 ## Documentation
 
 - [Getting Started Guide](https://github.com/plumpslabs/fennec/blob/main/docs/getting-started.md)
-- [Full Tool Reference](https://github.com/plumpslabs/fennec/blob/main/docs/tools/README.md) — 90+ tools
+- [Full Tool Reference](https://github.com/plumpslabs/fennec/blob/main/docs/tools/README.md) — 123 tools across 16 categories (including Mobile)
 - [Configuration Reference](https://github.com/plumpslabs/fennec/blob/main/docs/configuration.md)
 - [Security Model](https://github.com/plumpslabs/fennec/blob/main/docs/security-model.md)
 - [Auth Flows Guide](https://github.com/plumpslabs/fennec/blob/main/docs/guides/auth-flows.md)

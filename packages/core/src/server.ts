@@ -150,6 +150,20 @@ import {
   diagnoseFullstack,
   diagnosePerformance,
 } from './tools/diagnostic/index.js';
+// ─── Mobile Tools ────────────────────────────────────────────
+import {
+  mobileListDevices,
+  mobileTap,
+  mobileType,
+  mobileSwipe,
+  mobileKeyevent,
+  mobileScreenshot,
+  mobileLogcat,
+  mobileInstallApk,
+  mobileLaunchApp,
+  mobileStopApp,
+  mobileDeviceInfo,
+} from './modules/mobile/index.js';
 import {
   schedulerGetStats,
   schedulerGetLastResult,
@@ -251,7 +265,7 @@ export class FennecServer {
     // Start self-monitoring
     this.performanceMetrics.startMemoryMonitoring();
 
-    this.server = new Server({ name: 'fennec', version: '1.9.0' }, { capabilities: { tools: {} } });
+    this.server = new Server({ name: 'fennec', version: '1.10.0' }, { capabilities: { tools: {} } });
 
     this.registerModules();
     this.registerAllTools();
@@ -385,6 +399,18 @@ export class FennecServer {
       plannerListPlans,
       plannerGetPlan,
       plannerCancelPlan,
+      // Mobile
+      mobileListDevices,
+      mobileTap,
+      mobileType,
+      mobileSwipe,
+      mobileKeyevent,
+      mobileScreenshot,
+      mobileLogcat,
+      mobileInstallApk,
+      mobileLaunchApp,
+      mobileStopApp,
+      mobileDeviceInfo,
     ];
 
     for (const tool of tools) {

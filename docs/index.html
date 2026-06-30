@@ -663,7 +663,7 @@
 
         <!-- ── Hero ── -->
         <section class="hero" id="overview">
-            <div class="hero-badge">🦊 v1.9.0 — MIT License</div>
+            <div class="hero-badge">🦊 v1.10.0 — MIT License</div>
             <h1>
                 <span class="highlight">Ears everywhere</span><br />
                 in your stack.
@@ -679,15 +679,15 @@
             </div>
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-number">90+</div>
+                    <div class="stat-number">123</div>
                     <div class="stat-label">MCP Tools</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">12</div>
-                    <div class="stat-label">Tool Groups</div>
+                    <div class="stat-number">16</div>
+                    <div class="stat-label">Categories</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">200+</div>
+                    <div class="stat-number">478</div>
                     <div class="stat-label">Tests</div>
                 </div>
                 <div class="stat-card">
@@ -794,9 +794,8 @@ npm run dev <span class="number">2</span>&gt;&amp;<span class="number">1</span> 
         <section id="features">
             <div class="section-tag">Capabilities</div>
             <h2 class="section-title">Core Features</h2>
-            <p class="section-desc">
-                Fennec packs 90+ MCP tools across 12 groups, covering everything from browser 
-                automation to full-stack diagnosis.
+            <p class="section-desc">Fennec packs 123 MCP tools across 16 categories, covering everything from browser 
+automation to Android device management.
             </p>
             <div class="features-grid">
                 <div class="feature-card">
@@ -853,6 +852,11 @@ npm run dev <span class="number">2</span>&gt;&amp;<span class="number">1</span> 
                     <div class="icon">🔍</div>
                     <h3>Diagnostic Tools</h3>
                     <p>Page diagnostics, element debugging, network health, auth checks, performance analysis.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon">📱</div>
+                    <h3>Android Mobile</h3>
+                    <p>Manage Android devices via ADB — list devices, tap, type, swipe, logcat, screenshot, install/launch apps.</p>
                 </div>
                 <div class="feature-card">
                     <div class="icon">🛡️</div>
@@ -928,9 +932,8 @@ npm run dev <span class="operator">|</span> fennec pipe <span class="operator">-
         <section id="tools">
             <div class="section-tag">MCP Tools</div>
             <h2 class="section-title">Tool Reference</h2>
-            <p class="section-desc">
-                90+ tools organized into 12 groups. Every tool follows MCP conventions with 
-                structured Zod schemas, descriptive error messages, and consistent response formats.
+            <p class="section-desc">123 tools organized into 16 categories. Every tool follows MCP conventions with 
+structured Zod schemas, descriptive error messages, and consistent response formats.
             </p>
 
             <div class="tool-grid">
@@ -1097,6 +1100,60 @@ npm run dev <span class="operator">|</span> fennec pipe <span class="operator">-
                         <li>diagnose_auth</li>
                         <li>diagnose_fullstack</li>
                         <li>diagnose_performance</li>
+                    </ul>
+                </div>
+                <div class="tool-group-card">
+                    <div class="group-name">⏰ Scheduler</div>
+                    <div class="tool-count">7 tools</div>
+                    <ul>
+                        <li>scheduler_get_stats</li>
+                        <li>scheduler_list_rules</li>
+                        <li>scheduler_trigger_rule</li>
+                        <li>scheduler_enable_rule</li>
+                        <li>scheduler_disable_rule</li>
+                        <li>scheduler_get_last_result</li>
+                        <li>scheduler_clear_history</li>
+                    </ul>
+                </div>
+                <div class="tool-group-card">
+                    <div class="group-name">🧠 Smart</div>
+                    <div class="tool-count">7 tools</div>
+                    <ul>
+                        <li>smart_wait</li>
+                        <li>smart_navigate</li>
+                        <li>smart_fill_form</li>
+                        <li>smart_validate_form</li>
+                        <li>browser_screenshot_annotated</li>
+                        <li>browser_screenshot_export</li>
+                        <li>browser_screenshot_diff</li>
+                    </ul>
+                </div>
+                <div class="tool-group-card">
+                    <div class="group-name">📋 Planner</div>
+                    <div class="tool-count">5 tools</div>
+                    <ul>
+                        <li>planner_execute_goal</li>
+                        <li>planner_create_plan</li>
+                        <li>planner_list_plans</li>
+                        <li>planner_get_plan</li>
+                        <li>planner_cancel_plan</li>
+                    </ul>
+                </div>
+                <div class="tool-group-card">
+                    <div class="group-name" style="color:#fb923c;">📱 Mobile <span style="font-size:10px;background:var(--accent-glow);padding:1px 6px;border-radius:4px;margin-left:4px;">NEW</span></div>
+                    <div class="tool-count">11 tools</div>
+                    <ul>
+                        <li>mobile_list_devices</li>
+                        <li>mobile_tap</li>
+                        <li>mobile_type</li>
+                        <li>mobile_swipe</li>
+                        <li>mobile_keyevent</li>
+                        <li>mobile_screenshot</li>
+                        <li>mobile_logcat</li>
+                        <li>mobile_install_apk</li>
+                        <li>mobile_launch_app</li>
+                        <li>mobile_stop_app</li>
+                        <li>mobile_device_info</li>
                     </ul>
                 </div>
             </div>

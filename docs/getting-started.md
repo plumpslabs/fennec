@@ -42,6 +42,21 @@ npm install playwright
 fennec install-browsers
 ```
 
+### Mobile (Android) Requirements
+
+To use Fennec's mobile module for Android device management, you need:
+
+- **ADB (Android Debug Bridge)** from [Android SDK Platform Tools](https://developer.android.com/tools/releases/platform-tools)
+- **USB debugging** enabled on your Android device
+
+Verify ADB is working:
+```bash
+adb devices
+# Should show: <device-id> device
+```
+
+Fennec uses ADB directly via `child_process` — no additional Node.js packages required.
+
 ## Quick Start
 
 ### 1. Start the MCP Server
@@ -159,7 +174,7 @@ planner_cancel_plan({ planId: "..." })
 
 ## Next Steps
 
-- Explore the full [Tool Reference](tools/README.md) — 112 MCP tools across 15 categories
+- Explore the full [Tool Reference](tools/README.md) — 123 MCP tools across 16 categories (including Mobile)
 - Learn about [Auth Flows](guides/auth-flows.md)
 - Try [Full-Stack Debugging](guides/fullstack-debugging.md)
 - Configure Fennec with `fennec init`

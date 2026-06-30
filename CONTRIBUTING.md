@@ -66,6 +66,17 @@ pnpm --filter @plumpslabs/fennec-core test --watch
 fennec/
 ├── packages/
 │   ├── core/              # MCP server — the heart of Fennec
+│   │   ├── src/
+│   │   │   ├── tools/          # 112 tools across 15 categories
+│   │   │   ├── modules/        # FennecModule system
+│   │   │   │   ├── browser/    # Browser module (existing tools)
+│   │   │   │   ├── process/    # Process module (existing tools)
+│   │   │   │   └── mobile/     # Mobile/Android module (11 tools via ADB)
+│   │   │   ├── module/         # FennecModule interface + ModuleRegistry
+│   │   │   ├── browser/        # BrowserEngine abstraction (BrowserSession)
+│   │   │   ├── session/        # Session manager + types
+│   │   │   ├── middleware/     # Pipeline middleware
+│   │   │   └── ...
 │   └── cli/               # CLI — pipe, attach, watch commands
 ├── docs/                  # Documentation
 ├── examples/              # Usage examples
@@ -74,86 +85,100 @@ fennec/
 
 For detailed structure, see the [README](README.md#project-structure).
 
-## Adding a New Tool
+## Options for Adding Tools
 
-Every tool follows a consistent pattern. Here's how to add one:
+Fennec supports two patterns for adding tools, depending on whether the tool belongs to an existing category or a new domain.
 
-### 1. Create the Tool File
+### Option A: Adding a Tool to an Existing Category
 
-Create a new file under the appropriate directory in `packages/core/src/tools/`:
+For small additions to an existing category like navigation or storage, add the tool directly to the existing file in `packages/core/src/tools/`.
+
+### Option B: Creating a New Module (Recommended for New Domains)
+
+For new domains (e.g., database, git, docker), create a **FennecModule** in `packages/core/src/modules/`:
+
+#### 1. Create the Module Directory
+
+```
+packages/core/src/modules/mymodule/
+├── index.ts       # Tools + Module export
+└── my-client.ts   # Client/wrapper (optional)
+```
+
+#### 2. Create Tools with `createTool`
 
 ```typescript
-// packages/core/src/tools/mygroup/my-tool.ts
+// packages/core/src/modules/mymodule/index.ts
 
 import { z } from "zod";
-import { createTool } from "../_registry";
-import type { ToolContext } from "../_registry";
+import type { FennecModule, ModuleContext } from "../../module/index.js";
+import type { ToolDefinition, ToolContext } from "../../tools/_registry.js";
+import { createTool } from "../../tools/_registry.js";
 
 export const myTool = createTool({
-  name: "mygroup_myaction",
-  description: `
-    One-line description for AI agents.
-    When to use: describe the use case.
-    Returns: describe what AI agent will get.
-  `,
+  name: "mymodule_action",
+  category: "mycategory",
+  description: "What this tool does for AI agents.",
   inputSchema: z.object({
-    sessionId: z.string().optional().describe("Session ID, uses default if omitted"),
-    myParam: z.string().describe("What this param does"),
+    param1: z.string().describe("What param1 does"),
   }),
-  handler: async (input, context: ToolContext) => {
-    const session = context.sessionManager.get(input.sessionId);
+  handler: async (input, { responseBuilder }: ToolContext) => {
     try {
-      // Implementation here
-      return context.responseBuilder.success({
-        data: { /* ... */ },
-        meta: context.sessionManager.buildMeta(session),
-      });
+      return responseBuilder.success({ done: true });
     } catch (error) {
-      return context.responseBuilder.error(error, {
-        suggestions: [
-          "Actionable hint for AI agent",
-          "Another hint",
-        ],
-      });
+      return responseBuilder.error(error);
     }
   },
 });
 ```
 
-### 2. Register the Tool
+#### 3. Export as a FennecModule
 
-The tool is auto-discovered via the registry pattern. Ensure the file is exported from the directory's `index.ts`.
+```typescript
+export const myModule: FennecModule = {
+  name: "mymodule",
+  description: "What my module does",
+  tools: [myTool],
+  capabilities: ["my-capability"],
+  initialize: async (context: ModuleContext) => {
+    // Check dependencies, start services
+  },
+};
+```
 
-### 3. Add Zod Schema
+#### 4. Register in server.ts
 
-All tool inputs must be validated with Zod schemas. Follow existing patterns for consistency.
+Import the module in `packages/core/src/server.ts` and it will be auto-registered:
 
-### 4. Write Tests
+```typescript
+import { myModule } from './modules/mymodule/index.js';
 
-Add unit tests in `packages/core/tests/unit/tools/mygroup/my-tool.test.ts`:
+// In registerModules():
+this.moduleRegistry.register(myModule);
+```
+
+### Tool Development Guidelines
+
+1. **Use `createTool`** — provides consistent typing and error handling
+2. **Use Zod schemas** — all tool inputs must be validated
+3. **Use `responseBuilder.success/error`** — consistent response format
+4. **Add actionable suggestions** — help the AI agent recover from errors
+5. **Register in server.ts** — add both to `registerAllTools()` and `registerModules()`
+6. **Export from core/index.ts** — make classes/types available programmatically
+
+### Writing Tests
+
+Add unit tests in `packages/core/tests/unit/`:
 
 ```typescript
 import { describe, it, expect } from "vitest";
-import { myTool } from "../../../src/tools/mygroup/my-tool";
 
-describe("mygroup_myaction", () => {
-  it("should return success with valid input", async () => {
+describe("mymodule_action", () => {
+  it("should handle valid input", async () => {
     // Test implementation
-  });
-
-  it("should handle errors gracefully", async () => {
-    // Error case test
   });
 });
 ```
-
-### 5. Document the Tool
-
-Add documentation in `docs/tools/mygroup.md` with:
-- Description and use cases
-- Input parameters
-- Example inputs and outputs
-- Error scenarios with suggestions
 
 ## Coding Standards
 

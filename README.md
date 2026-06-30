@@ -75,7 +75,7 @@ Fennec's signature feature correlates browser errors with server logs to identif
 
 > ✅ **The confidence scores above are derived from actual inference rules with unit-tested pattern matching**, not fabricated illustrations.
 
-### 🔧 112 MCP Tools Across 15 Categories
+### 🔧 123 MCP Tools Across 16 Categories
 
 | Category | Tools | What You Can Do |
 |----------|-------|----------------|
@@ -94,8 +94,9 @@ Fennec's signature feature correlates browser errors with server logs to identif
 | **Scheduler** | 7 | Auto-trigger workflows, manage rules, view history |
 | **Smart** | 7 | Smart wait, smart fill form, annotated screenshots, diff |
 | **Planner** | 5 | Execute multi-step goals, plan preview, plan management |
+| **Mobile** (NEW) | 11 | List devices, tap, type, swipe, logcat, screenshot, install APK, launch/stop apps via ADB |
 
-> 💡 **Token-Efficient**: Tools are categorized into 15 groups. MCP clients can request only specific categories to reduce context window usage. Use the `_categories` field in ListTools response to discover available categories.
+> 💡 **Token-Efficient**: Tools are categorized into 16 groups (including Mobile). MCP clients can request only specific categories to reduce context window usage. Use the `_categories` field in ListTools response to discover available categories.
 
 ### 🔐 Auth Session Persistence
 Save and load browser auth states across conversations:
@@ -192,7 +193,7 @@ The AI will automatically:
 ## Documentation
 
 - [Getting Started Guide](docs/getting-started.md)
-- [Full Tool Reference](docs/tools/README.md) — all 87 tools documented
+- [Full Tool Reference](docs/tools/README.md) — all 123 tools documented
 - [Configuration Reference](docs/configuration.md) — all options + env vars
 - [Security Model](docs/security-model.md) — sandbox, allowlists, best practices
 - [Auth Flows Guide](docs/guides/auth-flows.md) — login forms, session persistence

@@ -38,7 +38,9 @@
 |--------|-------------|
 | `session/` | Browser session manager — Playwright contexts, tabs, CDP integration, multi-browser (Chromium, Firefox, WebKit) |
 | `tools/` | 112 MCP tool definitions across 15 categories (navigation, interaction, dom, devtools console/network/performance, storage, auth, tabs, process, terminal, diagnostic, scheduler, smart, planner) |
+| `modules/` | Modular system with `FennecModule` interface + `ModuleRegistry`. Current modules: **browser** (tools registered via registry + module), **process**, **mobile** (Android/ADB: 11 tools). New modules implement `FennecModule` and auto-register. |
 | `process/` | Process spawner, log watcher, pipe watcher, port detector |
+| `browser/` | Browser engine abstraction layer — `BrowserSession` interface + `PlaywrightSession` implementation. Supports Chromium, Firefox, WebKit. Swap engine without touching tools. |
 | `cdp/` | Chrome DevTools Protocol collectors (console, network, performance) |
 | `correlation/` | Event bus, timeline builder, root cause inference engine with 6+ pattern rules |
 | `middleware/` | Pipeline with telemetry, permission guard, retry handler, smart hook, audit log |
