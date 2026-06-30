@@ -2,6 +2,24 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.10.0] - 2026-06-30
+
+### Added
+- **Mobile Module** — 11 ADB-based Android tools: `mobile_list_devices`, `mobile_tap`, `mobile_type`, `mobile_swipe`, `mobile_keyevent`, `mobile_screenshot`, `mobile_logcat`, `mobile_install_apk`, `mobile_launch_app`, `mobile_stop_app`, `mobile_device_info`
+- **Module System** — `FennecModule` interface + `ModuleRegistry` for plug-and-play module registration
+- **BrowserEngine Abstraction** — `BrowserSession` interface separates tools from Playwright; future engine swaps (Puppeteer, CDP Direct) without touching tool handlers
+- Tool count: 112 → **123 tools**, categories: 15 → **16 categories** (added Mobile)
+
+### Changed
+- **SessionManager** — Uses `BrowserSession` instead of Playwright `Page` directly
+- **All 90+ tool handlers** — Migrated from `session.page.*` to `session.browser.*`
+- **CDP Collectors** — Updated to use `BrowserCDPSession` instead of Playwright `CDPSession`
+- **StateMachine** — Uses `session.browser` for state detection
+- **Project structure** — Added `modules/` directory for domain modules, `module/` for module infrastructure
+
+### Removed
+- Direct Playwright imports from all tool files (accessible only via `browser/playwright-engine.ts`)
+
 ## [1.9.0] - 2026-06-30
 
 ### Added

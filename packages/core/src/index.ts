@@ -51,3 +51,7 @@ export { KnowledgeGraph } from "./knowledge/index.js";
 export type { GraphNode, GraphEdge, KnowledgeReport } from "./knowledge/index.js";
 export { WorkflowScheduler } from "./scheduler/index.js";
 export type { TriggerRule, TriggerCondition, TriggerPriority, TriggerEvent, SchedulerStats } from "./scheduler/index.js";
+
+// Mobile Module
+export { AdbClient } from "./modules/mobile/adb-client.js";
+export type { AdbDevice, AdbScreenshotResult, LogcatEntry } from "./modules/mobile/adb-client.js";

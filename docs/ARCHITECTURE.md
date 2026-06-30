@@ -251,6 +251,7 @@ graph TB
 | **🔌 Transport** | stdio, SSE | Two transport modes — stdio (default, for local CLI) and SSE (experimental, for HTTP) |
 | **🦊 MCP Server** | Tool Registry, Validation, Pipeline | Core server that registers 112 tools, validates input via Zod, and executes through middleware |
 | **⚙️ Services** | 11 core services | Session, process, planner, workflow, scheduler, event bus, resource, recorder, state, capability, metrics |
+| **📱 Mobile** | ADB via child_process | Android device management: device discovery, tap, type, swipe, logcat, screenshot, app install/launch/stop |
 | **🔗 Correlation** | Timeline, Root Cause Inferrer | Cross-layer event correlation with confidence scoring and suggested fixes |
 | **🌐 Browser** | Playwright + CDP | Full browser automation: Chromium/Firefox/WebKit, console, network, performance, DOM, storage |
 | **🖥️ Process** | child_process, watchers | Process management: spawn, kill, attach by PID/port, log watching, pipe monitoring |
@@ -292,5 +293,52 @@ All tool calls pass through the same middleware pipeline for consistent observab
 ### Event-Driven Auto-Diagnosis
 The EventBus connects browser events (console errors, network failures) and process events (log output, pipe data) to the WorkflowScheduler, which auto-triggers diagnostic workflows based on configurable rules.
 
+### Module System (FennecModule + ModuleRegistry)
+
+Fennec uses a modular architecture where each domain (browser, mobile, process) is encapsulated in a `FennecModule`:
+
+```typescript
+interface FennecModule {
+  name: string;
+  description: string;
+  tools: ToolDefinition[];
+  capabilities?: string[];
+  initialize?(context: ModuleContext): Promise<void>;
+  cleanup?(): Promise<void>;
+}
+```
+
+Modules are registered via `ModuleRegistry` and their tools are auto-discovered:
+
+```typescript
+const registry = new ModuleRegistry();
+registry.register(browserModule);
+registry.register(processModule);
+registry.register(mobileModule);
+
+// Register all tools from all modules
+registry.registerAllTools(toolRegistry);
+```
+
+New modules can be added by creating a class/object that implements `FennecModule` and registering it — no need to modify the core server.
+
+### BrowserEngine Abstraction
+
+All browser tools access the browser through the `BrowserSession` interface — not Playwright directly:
+
+```typescript
+// Before (tight coupling to Playwright)
+session.page.goto(url);
+session.page.click(selector);
+session.cdpSession.send(method);
+
+// After (abstracted)
+session.browser.navigate(url);
+session.browser.locator(selector).click();
+session.browser.cdp().send(method);
+```
+
+This allows swapping the browser engine (Playwright → Puppeteer → CDP Direct) without modifying any tool handlers.
+
 ### Modular Categories
-Tools are grouped into 15 categories that MCP clients can request individually to reduce context window usage. Each tool belongs to exactly one category.
+Tools are grouped into 16 categories that MCP clients can request individually to reduce context window usage. Each tool belongs to exactly one category.
