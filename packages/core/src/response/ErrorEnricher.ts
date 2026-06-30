@@ -1,4 +1,3 @@
-import type { Page } from "playwright";
 import type { FennecSession } from "../session/types.js";
 import { takeScreenshot } from "../utils/screenshot.js";
 
@@ -18,15 +17,15 @@ export class ErrorEnricher {
     if (!session) return context;
 
     try {
-      context.currentUrl = session.page.url();
-      context.pageTitle = await session.page.title();
-      context.readyState = await session.page.evaluate(() => document.readyState);
+      context.currentUrl = session.browser.url();
+      context.pageTitle = await session.browser.title();
+      context.readyState = await session.browser.evaluate(() => document.readyState);
     } catch {
       // Page might be closed
     }
 
     try {
-      const screenshot = await takeScreenshot(session.page);
+      const screenshot = await takeScreenshot(session.browser);
       context.screenshot = screenshot.base64;
     } catch {
       // Screenshot might fail

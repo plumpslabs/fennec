@@ -432,8 +432,8 @@ export class FennecServer {
         this.sessionManager.addNetworkEvent(session.id, event);
       });
 
-      await consoleCollector.enable(session.cdpSession);
-      await networkCollector.enable(session.cdpSession);
+      await consoleCollector.enable(session.browser.cdp());
+      await networkCollector.enable(session.browser.cdp());
 
       logger.info('CDP monitoring enabled for session');
     } catch (error) {

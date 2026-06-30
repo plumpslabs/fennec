@@ -21,26 +21,18 @@ export const browserNavigate = createTool({
     const startTime = Date.now();
 
     try {
-      await session.page.goto(input.url, {
+      const result = await session.browser.navigate(input.url, {
         waitUntil: input.waitUntil,
         timeout: input.timeout,
       });
 
-      const finalUrl = session.page.url();
-      const statusCode = await session.page.evaluate(() => {
-        const perf = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
-        return perf?.responseStatus ?? 200;
-      }).catch(() => 200);
-
-      const elapsed = Date.now() - startTime;
-
       return responseBuilder.success(
         {
-          finalUrl,
-          statusCode,
-          loadTime: elapsed,
+          finalUrl: result.finalUrl,
+          statusCode: result.statusCode,
+          loadTime: result.loadTimeMs,
         },
-        { ...sessionManager.buildMeta(session), elapsed },
+        { ...sessionManager.buildMeta(session), elapsed: result.loadTimeMs },
       );
     } catch (error) {
       const elapsed = Date.now() - startTime;
@@ -67,9 +59,9 @@ export const browserGoBack = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      await session.page.goBack();
+      await session.browser.goBack();
       return responseBuilder.success({
-        currentUrl: session.page.url(),
+        currentUrl: session.browser.url(),
       }, sessionManager.buildMeta(session));
     } catch (error) {
       return responseBuilder.error(error, {
@@ -90,9 +82,9 @@ export const browserGoForward = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      await session.page.goForward();
+      await session.browser.goForward();
       return responseBuilder.success({
-        currentUrl: session.page.url(),
+        currentUrl: session.browser.url(),
       }, sessionManager.buildMeta(session));
     } catch (error) {
       return responseBuilder.error(error, {
@@ -116,14 +108,9 @@ export const browserReload = createTool({
     const startTime = Date.now();
 
     try {
-      await session.page.reload({
-        waitUntil: "networkidle",
-      });
-
+      await session.browser.reload();
       return responseBuilder.success(
-        {
-          loadTime: Date.now() - startTime,
-        },
+        { loadTime: Date.now() - startTime },
         sessionManager.buildMeta(session),
       );
     } catch (error) {
@@ -144,9 +131,9 @@ export const browserGetCurrentUrl = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const url = session.page.url();
-      const title = await session.page.title();
-      const readyState = await session.page.evaluate(() => document.readyState);
+      const url = session.browser.url();
+      const title = await session.browser.title();
+      const readyState = await session.browser.readyState();
 
       return responseBuilder.success({
         url,
@@ -173,7 +160,7 @@ export const browserWaitForNavigation = createTool({
     const startTime = Date.now();
 
     try {
-      await session.page.waitForURL(
+      await session.browser.waitForURL(
         (url) => {
           if (!input.urlPattern) return true;
           return url.toString().includes(input.urlPattern);
@@ -182,7 +169,7 @@ export const browserWaitForNavigation = createTool({
       );
 
       return responseBuilder.success({
-        finalUrl: session.page.url(),
+        finalUrl: session.browser.url(),
         elapsed: Date.now() - startTime,
       }, sessionManager.buildMeta(session));
     } catch (error) {

@@ -16,7 +16,7 @@ export const browserScreenshot = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const result = await takeScreenshot(session.page, {
+      const result = await takeScreenshot(session.browser, {
         fullPage: input.fullPage,
         selector: input.selector,
         format: input.format,
@@ -45,7 +45,7 @@ export const browserGetDomSnapshot = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const result = await session.page.evaluate(
+      const result = await session.browser.evaluate(
         ({ selector, includeStyles, includeShadowDom }) => {
           function getRootElement(sel?: string): Element | null {
             if (!sel) return document.documentElement;
@@ -143,10 +143,26 @@ export const browserGetAccessibilityTree = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const tree = await (session.page as any).accessibility.snapshot({
-        interestingOnly: true,
-        root: input.selector ? await session.page.$(input.selector) : undefined,
-      });
+      const tree = await session.browser.evaluate((sel?: string) => {
+        // Build accessibility tree from the DOM
+        const root = sel ? document.querySelector(sel) : document.documentElement;
+        if (!root) return null;
+
+        function getAccessibleNode(el: Element): Record<string, unknown> | null {
+          const role = el.getAttribute('role') || el.tagName.toLowerCase();
+          const name = el.getAttribute('aria-label') || el.textContent?.trim() || '';
+          const children = Array.from(el.children)
+            .map((child) => getAccessibleNode(child))
+            .filter(Boolean) as Record<string, unknown>[];
+          return {
+            role,
+            name: name.slice(0, 100),
+            children: children.length > 0 ? children : undefined,
+          };
+        }
+
+        return getAccessibleNode(root);
+      }, input.selector);
 
       return responseBuilder.success({
         tree: tree ?? null,
@@ -174,7 +190,7 @@ export const browserFindElements = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const elements = await session.page.evaluate(
+      const elements = await session.browser.evaluate(
         ({ selector, attributes, includeShadowDom }) => {
           function queryAllDeep(root: Document | ShadowRoot, sel: string): Element[] {
             // Start with light DOM
@@ -260,7 +276,7 @@ export const browserGetElementInfo = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const resolved = await resolveSelector(session.page, input.selector);
+      const resolved = await resolveSelector(session.browser, input.selector);
       if (!resolved.found) {
         return responseBuilder.success({
           exists: false,
@@ -272,7 +288,7 @@ export const browserGetElementInfo = createTool({
         }, sessionManager.buildMeta(session));
       }
 
-      const locator = session.page.locator(resolved.selector);
+      const locator = session.browser.locator(resolved.selector);
       const [visible, enabled, text, attributes, box] = await Promise.all([
         locator.isVisible().catch(() => false),
         locator.isEnabled().catch(() => false),
@@ -320,7 +336,7 @@ export const browserWaitForElement = createTool({
     const startTime = Date.now();
 
     try {
-      await session.page.waitForSelector(input.selector, {
+      await session.browser.waitForSelector(input.selector, {
         state: input.state,
         timeout: input.timeout,
       });
@@ -354,8 +370,8 @@ export const browserGetPageText = createTool({
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
       const text = input.selector
-        ? await session.page.locator(input.selector).innerText()
-        : await session.page.evaluate(() => document.body?.innerText ?? "");
+        ? await session.browser.locator(input.selector).innerText()
+        : await session.browser.evaluate(() => document.body?.innerText ?? "");
 
       return responseBuilder.success({
         text,
@@ -377,7 +393,7 @@ export const browserGetPageTitle = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const title = await session.page.title();
+      const title = await session.browser.title();
       return responseBuilder.success({ title }, sessionManager.buildMeta(session));
     } catch (error) {
       return responseBuilder.error(error);
@@ -395,7 +411,7 @@ export const browserGetMeta = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const meta = await session.page.evaluate(() => {
+      const meta = await session.browser.evaluate(() => {
         const getMeta = (name: string): string | null => {
           const el = document.querySelector(`meta[name="${name}"], meta[property="${name}"]`);
           return el ? el.getAttribute("content") : null;

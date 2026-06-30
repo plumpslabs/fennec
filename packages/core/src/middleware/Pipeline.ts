@@ -92,7 +92,7 @@ export class Pipeline {
       if (ctx.session && toolContext.stateManager) {
         const sessionId = ctx.session.id;
         const switchEvent = toolContext.stateManager.setActiveSession(sessionId, {
-          url: ctx.session.page?.url() ?? undefined,
+          url: ctx.session.browser?.url() ?? undefined,
         });
 
         if (switchEvent) {

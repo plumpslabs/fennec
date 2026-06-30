@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createTool } from "../_registry.js";
 import { takeScreenshot } from "../../utils/screenshot.js";
 import { resolveSelector } from "../../utils/selector.js";
-import type { Page } from "playwright";
+import type { BrowserSession } from "../../browser/types.js";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -32,7 +32,7 @@ export const smartFillForm = createTool({
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
-    const page = session.page;
+    const page = session.browser;
 
     try {
       // Phase 1: Detect all form fields
@@ -126,7 +126,7 @@ export const smartFillForm = createTool({
  */
 /** @internal Exported for use by auth_fill_login_form */
 export async function findSubmitButton(
-  page: Page,
+  page: BrowserSession,
 ): Promise<{ click: () => Promise<void> } | null> {
   // Phase 1: Try text-based matching via resolveSelector (ARIA → testid → text → CSS → XPath)
   const buttonTexts = [
@@ -326,7 +326,7 @@ export function matchField(fields: DetectedField[], query: string): DetectedFiel
 
 /** @internal Exported for use by auth_fill_login_form */
 export async function fillField(
-  page: Page,
+  page: BrowserSession,
   field: DetectedField,
   value: string,
 ): Promise<boolean> {
@@ -364,7 +364,7 @@ export async function fillField(
  * Errors propagate naturally so the tool handler can report FORM_FILL_FAILED.
  */
 async function interactField(
-  page: Page,
+  page: BrowserSession,
   selector: string,
   field: DetectedField,
   value: string,
@@ -431,7 +431,7 @@ export const smartValidateForm = createTool({
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
-    const page = session.page;
+    const page = session.browser;
 
     try {
       // Phase 1: Detect all form fields with current values + HTML5 constraints (single evaluate)
@@ -695,7 +695,7 @@ export const browserScreenshotAnnotated = createTool({
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
-    const page = session.page;
+    const page = session.browser;
 
     try {
       // Phase 1: Inject numbered annotations on interactive elements
@@ -835,7 +835,7 @@ export const browserScreenshotExport = createTool({
   }),
   handler: async (input, { sessionManager, responseBuilder, config }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
-    const page = session.page;
+    const page = session.browser;
 
     try {
       // Phase 1: Take screenshot
@@ -1053,7 +1053,7 @@ export const browserScreenshotDiff = createTool({
   }),
   handler: async (input, { sessionManager, responseBuilder, config }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
-    const page = session.page;
+    const page = session.browser;
 
     try {
       // Phase 1: Take current screenshot + scan elements
@@ -1347,7 +1347,7 @@ export const smartWait = createTool({
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
-    const page = session.page;
+    const page = session.browser;
     const startTime = Date.now();
 
     // Phase 1: Check current page state BEFORE waiting
@@ -1536,10 +1536,10 @@ export const smartNavigate = createTool({
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
-    const page = session.page;
+    const page = session.browser;
 
     try {
-      await page.goto(input.url, {
+      await page.navigate(input.url, {
         waitUntil: input.waitUntil,
         timeout: input.timeout,
       });

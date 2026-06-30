@@ -22,7 +22,7 @@ export const authFillLoginForm = createTool({
   }),
   handler: async (input, { sessionManager, responseBuilder, sessionStore }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
-    const page = session.page;
+    const page = session.browser;
 
     try {
       // Phase 1: Smart-detect all form fields
@@ -49,9 +49,9 @@ export const authFillLoginForm = createTool({
           const submitBtn = await findSubmitButton(page);
           if (submitBtn) {
             if (input.saveAfterLogin) {
-              await Promise.all([
-                page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {}),
-                submitBtn.click(),
+            await Promise.all([
+              page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {}),
+              submitBtn.click(),
               ]);
             } else {
               await submitBtn.click();
@@ -116,7 +116,7 @@ export const authFillLoginForm = createTool({
           await page.waitForTimeout(2000);
         }
 
-        const cookies = await session.context.cookies();
+        const cookies = await session.browser.contextCookies();
         const hasAuthCookie = cookies.some((c) => /token|session|auth|jwt|sid|connect/i.test(c.name));
 
         if (hasAuthCookie) {
@@ -174,10 +174,10 @@ export const authSaveSession = createTool({
   handler: async (input, { sessionManager, responseBuilder, sessionStore }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const cookies = await session.context.cookies();
-      const origin = new URL(session.page.url()).origin;
+      const cookies = await session.browser.contextCookies();
+      const origin = new URL(session.browser.url()).origin;
 
-      const storage = await session.page.evaluate(() => {
+      const storage = await session.browser.evaluate(() => {
         const items: Record<string, string> = {};
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
@@ -225,7 +225,7 @@ export const authLoadSession = createTool({
         );
       }
 
-      await session.context.addCookies(saved.cookies.map((c) => ({
+      await session.browser.contextAddCookies(saved.cookies.map((c) => ({
         name: (c as Record<string, unknown>).name as string,
         value: (c as Record<string, unknown>).value as string,
         domain: (c as Record<string, unknown>).domain as string | undefined,
@@ -235,9 +235,9 @@ export const authLoadSession = createTool({
         sameSite: (c as Record<string, unknown>).sameSite as "Strict" | "Lax" | "None" | undefined,
       })));
 
-      await session.page.goto(saved.origin).catch(() => {});
+      await session.browser.navigate(saved.origin).catch(() => {});
       for (const [key, value] of Object.entries(saved.localStorage)) {
-        await session.page.evaluate(({ k, v }) => localStorage.setItem(k, v), { k: key, v: value }).catch(() => {});
+        await session.browser.evaluate(({ k, v }) => localStorage.setItem(k, v), { k: key, v: value }).catch(() => {});
       }
 
       return responseBuilder.success({
@@ -298,11 +298,11 @@ export const authCheckLoggedIn = createTool({
       ];
 
       const [hasLoggedOutLink, hasLoggedInLink] = await Promise.all([
-        Promise.any(loggedOutIndicators.map((sel) => session.page.$(sel).then((el) => el !== null))).catch(() => false),
-        Promise.any(loggedInIndicators.map((sel) => session.page.$(sel).then((el) => el !== null))).catch(() => false),
+        Promise.any(loggedOutIndicators.map((sel) => session.browser.$(sel).then((el) => el !== null))).catch(() => false),
+        Promise.any(loggedInIndicators.map((sel) => session.browser.$(sel).then((el) => el !== null))).catch(() => false),
       ]);
 
-      const cookies = await session.context.cookies();
+      const cookies = await session.browser.contextCookies();
       const hasAuthCookie = cookies.some((c) => /token|session|auth|jwt|sid|connect/i.test(c.name));
 
       const detectedIndicators: string[] = [];

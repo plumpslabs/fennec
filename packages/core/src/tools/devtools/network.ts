@@ -126,31 +126,29 @@ export const networkWaitForRequest = createTool({
     const startTime = Date.now();
     try {
       // Use Playwright's waitForRequest for reliable waiting
-      const [request] = await Promise.all([
-        session.page.waitForRequest(
-          (req) => {
-            const urlMatch = req.url().includes(input.urlPattern);
-            const methodMatch = input.method ? req.method().toUpperCase() === input.method.toUpperCase() : true;
-            return urlMatch && methodMatch;
-          },
-          { timeout: input.timeout },
-        ),
-      ]);
+      const request = await session.browser.waitForRequest(
+        (req) => {
+          const urlMatch = req.url().includes(input.urlPattern);
+          const methodMatch = input.method ? req.method().toUpperCase() === input.method.toUpperCase() : true;
+          return urlMatch && methodMatch;
+        },
+        { timeout: input.timeout },
+      );
 
       const response = await request.response();
       return responseBuilder.success({
         request: {
-          url: request.url(),
-          method: request.method(),
-          headers: request.headers(),
-          postData: request.postData(),
-          resourceType: request.resourceType(),
+          url: request.url,
+          method: request.method,
+          headers: request.headers,
+          postData: request.postData,
+          resourceType: request.resourceType,
         },
         response: response ? {
-          status: response.status(),
-          statusText: response.statusText(),
-          headers: response.headers(),
-          url: response.url(),
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+          url: response.url,
         } : null,
         elapsed: Date.now() - startTime,
       }, sessionManager.buildMeta(session));
@@ -229,7 +227,7 @@ export const networkIntercept = createTool({
       const handler = async (route: any) => {
         await route.continue();
       };
-      await session.page.route(input.urlPattern, handler);
+      await session.browser.route(input.urlPattern, handler);
       // Store handler reference for unrouting later via a WeakRef or keep in memory
       // For now, store on session metadata
       const meta = session.metadata as Record<string, any>;
@@ -265,7 +263,7 @@ export const networkRemoveIntercept = createTool({
       if (!intercept) {
         return responseBuilder.success({ removed: false, reason: "Interceptor not found" }, sessionManager.buildMeta(session));
       }
-      await session.page.unroute(intercept.urlPattern);
+      await session.browser.unroute(intercept.urlPattern);
       delete refs[input.interceptorId];
       return responseBuilder.success({ removed: true }, sessionManager.buildMeta(session));
     } catch (error) {
@@ -292,7 +290,7 @@ export const networkMockResponse = createTool({
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
       const mockId = `mock_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      await session.page.route(input.urlPattern, async (route) => {
+      await session.browser.route(input.urlPattern, async (route) => {
         await route.fulfill({
           status: input.statusCode,
           contentType: input.contentType,
