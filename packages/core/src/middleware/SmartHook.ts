@@ -1,4 +1,5 @@
 import type { MiddlewareFn, MiddlewareContext } from "./Pipeline.js";
+import type { BrowserSession } from "../browser/types.js";
 import { getLogger } from "../utils/logger.js";
 import { takeScreenshot } from "../utils/screenshot.js";
 
@@ -76,7 +77,7 @@ function generateFallbackSelectors(input: string): FallbackSelector[] {
  */
 async function tryRecoverAction(
   ctx: MiddlewareContext,
-  browser: NonNullable<NonNullable<typeof ctx.session>["browser"]>,
+  browser: BrowserSession,
   fallback: string,
 ): Promise<Record<string, unknown> | null> {
   const input = ctx.input as Record<string, string | number | boolean | string[] | undefined>;
