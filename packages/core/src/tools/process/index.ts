@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { createTool } from "../_registry.js";
 import { PortDetector } from "../../process/PortDetector.js";
-import { readTracked, addTracked, removeTracked, removeTrackedByPid } from "../../process/tracking.js";
+import { readTracked, addTracked, removeTracked, removeTrackedByPid, saveTracked } from "../../process/tracking.js";
+import { isProcessRunning } from "../../utils/system-process.js";
+import { existsSync, unlinkSync, renameSync, createWriteStream, mkdirSync } from "node:fs";
+import { resolve } from "node:path";
+import { homedir } from "node:os";
+import { spawn } from "node:child_process";
 
 export const processSpawn = createTool({
   name: "process_spawn",
@@ -139,6 +144,237 @@ export const processKill = createTool({
       return responseBuilder.success({ killed });
     } catch (error) {
       return responseBuilder.error(error, { code: "PROCESS_NOT_FOUND" });
+    }
+  },
+});
+
+export const processGetTracked = createTool({
+  name: "process_get_tracked",
+  category: "process",
+  description: "`<use_case>Process management</use_case> Get all CLI-tracked processes from tracked.json (same as fennec ps). Unlike process_list which only shows MCP-spawned processes, this includes everything started via CLI. Returns name, pid, status (running/stopped), port, command, cwd, uptime. Useful for AI agents to see the full picture of tracked applications.`",
+  inputSchema: z.object({}),
+  handler: async (input, { responseBuilder }) => {
+    const tracked = readTracked();
+    const processes = tracked.map((t) => {
+      const running = isProcessRunning(t.pid);
+      const uptime = running
+        ? Math.floor((Date.now() - new Date(t.startedAt).getTime()) / 1000)
+        : null;
+      return {
+        name: t.name,
+        pid: t.pid,
+        status: running ? "running" : "stopped",
+        port: t.port ?? null,
+        command: t.command,
+        cwd: t.cwd ?? null,
+        startedAt: t.startedAt,
+        uptime,
+      };
+    });
+
+    const runningCount = processes.filter((p) => p.status === "running").length;
+
+    return responseBuilder.success({
+      processes,
+      count: processes.length,
+      runningCount,
+      summary: `${runningCount}/${processes.length} processes running`,
+    });
+  },
+});
+
+// ─── Tracked Process Management (CLI parity) ─────────────────────
+// These tools mirror CLI commands (fennec stop, spawn, cleanup, rename, etc.)
+// so AI agents via MCP can do everything CLI users can do.
+
+export const processStopTracked = createTool({
+  name: "process_stop_tracked",
+  category: "process",
+  description: "`<use_case>Process management</use_case> Stop a tracked process without removing it from tracked.json (same as fennec stop). The process can be re-spawned later via process_spawn_tracked. Unlike process_kill which removes the entry entirely. Returns name, status.`",
+  inputSchema: z.object({
+    name: z.string().describe("Name of the tracked process to stop"),
+  }),
+  handler: async (input, { responseBuilder }) => {
+    const tracked = readTracked();
+    const match = tracked.find((t) => t.name === input.name);
+
+    if (!match) {
+      return responseBuilder.error(new Error(`No tracked process named "${input.name}"`), {
+        code: "PROCESS_NOT_FOUND", suggestions: ["Use process_get_tracked to see all tracked processes"],
+      });
+    }
+
+    if (!isProcessRunning(match.pid)) {
+      return responseBuilder.success({ name: input.name, status: "already_stopped", pid: match.pid });
+    }
+
+    try {
+      process.kill(match.pid, "SIGTERM");
+      // Don't remove from tracked.json (unlike process_kill)
+      return responseBuilder.success({ name: input.name, status: "stopped", pid: match.pid });
+    } catch (err) {
+      return responseBuilder.error(err, { code: "KILL_FAILED", suggestions: ["Try with a different signal", "Check permissions"] });
+    }
+  },
+});
+
+export const processSpawnTracked = createTool({
+  name: "process_spawn_tracked",
+  category: "process",
+  description: "`<use_case>Process management</use_case> Re-spawn a stopped tracked process from its saved command (same as fennec spawn). Looks up the process in tracked.json, checks it's stopped, then spawns it with the original command/cwd. Updates the PID in tracked.json. Returns new pid, status.`",
+  inputSchema: z.object({
+    name: z.string().describe("Name of the tracked process to re-spawn"),
+  }),
+  handler: async (input, { responseBuilder }) => {
+    const tracked = readTracked();
+    const match = tracked.find((t) => t.name === input.name);
+
+    if (!match) {
+      return responseBuilder.error(new Error(`No tracked process named "${input.name}"`), {
+        code: "PROCESS_NOT_FOUND", suggestions: ["Use process_get_tracked to see available processes"],
+      });
+    }
+
+    if (isProcessRunning(match.pid)) {
+      return responseBuilder.success({ name: input.name, status: "already_running", pid: match.pid });
+    }
+
+    if (!match.command) {
+      return responseBuilder.error(new Error(`"${input.name}" has no saved command and cannot be re-spawned`), {
+        code: "NO_COMMAND", suggestions: ["Use process_spawn to create a new process instead"],
+      });
+    }
+
+    const cmdParts = match.command.split(/\s+/);
+    const logDir = resolve(homedir(), ".fennec", "logs");
+    const logFilePath = resolve(logDir, `${match.name}.log`);
+
+    try {
+      const child = spawn(cmdParts[0]!, cmdParts.slice(1), {
+        cwd: match.cwd,
+        env: { ...process.env },
+        stdio: ["ignore", "pipe", "pipe"],
+        detached: true,
+      });
+
+      const newPid = child.pid ?? 0;
+
+      // Pipe logs to file (same as CLI fennec spawn)
+      mkdirSync(logDir, { recursive: true });
+      const logStream = createWriteStream(logFilePath, { flags: "a" });
+      if (child.stdout) child.stdout.pipe(logStream);
+      if (child.stderr) child.stderr.pipe(logStream);
+
+      child.unref();
+
+      // Update tracked.json with new PID
+      addTracked({
+        name: match.name,
+        pid: newPid,
+        command: match.command,
+        port: match.port,
+        cwd: match.cwd,
+        startedAt: new Date().toISOString(),
+      });
+
+      return responseBuilder.success({
+        name: input.name,
+        status: "spawned",
+        pid: newPid,
+        command: match.command,
+      });
+    } catch (err) {
+      return responseBuilder.error(err, { code: "SPAWN_FAILED", suggestions: ["Verify the saved command is valid"] });
+    }
+  },
+});
+
+export const processRenameTracked = createTool({
+  name: "process_rename_tracked",
+  category: "process",
+  description: "`<use_case>Process management</use_case> Rename a tracked process and its log file (same as fennec rename). oldName, newName. Log file is renamed if it exists. Returns success.`",
+  inputSchema: z.object({
+    oldName: z.string().describe("Current name of the tracked process"),
+    newName: z.string().describe("New name for the tracked process"),
+  }),
+  handler: async (input, { responseBuilder }) => {
+    const tracked = readTracked();
+    const match = tracked.find((t) => t.name === input.oldName);
+
+    if (!match) {
+      return responseBuilder.error(new Error(`No tracked process named "${input.oldName}"`), {
+        code: "PROCESS_NOT_FOUND",
+      });
+    }
+
+    if (tracked.some((t) => t.name === input.newName)) {
+      return responseBuilder.error(new Error(`A process named "${input.newName}" already exists`), {
+        code: "NAME_TAKEN",
+      });
+    }
+
+    // Rename log file if it exists
+    const logDir = resolve(homedir(), ".fennec", "logs");
+    const oldLog = resolve(logDir, `${input.oldName}.log`);
+    const newLog = resolve(logDir, `${input.newName}.log`);
+    if (existsSync(oldLog) && !existsSync(newLog)) {
+      try { renameSync(oldLog, newLog); } catch { /* best-effort */ }
+    }
+
+    // Update tracked.json
+    match.name = input.newName;
+    saveTracked(tracked);
+
+    return responseBuilder.success({ oldName: input.oldName, newName: input.newName });
+  },
+});
+
+export const processCleanupTracked = createTool({
+  name: "process_cleanup_tracked",
+  category: "process",
+  description: "`<use_case>Process management</use_case> Clean up dead tracked entries that have no saved command and cannot be re-spawned (same as fennec cleanup). Returns count of removed entries.`",
+  inputSchema: z.object({}),
+  handler: async (input, { responseBuilder }) => {
+    const tracked = readTracked();
+    const toRemove = tracked.filter((t) => !isProcessRunning(t.pid) && !t.command);
+
+    if (toRemove.length === 0) {
+      return responseBuilder.success({ removedCount: 0, message: "No dead entries without commands found" });
+    }
+
+    const remaining = tracked.filter((t) => !toRemove.includes(t));
+    saveTracked(remaining);
+
+    return responseBuilder.success({
+      removedCount: toRemove.length,
+      remainingCount: remaining.length,
+      removed: toRemove.map((t) => ({ name: t.name, pid: t.pid })),
+    });
+  },
+});
+
+export const processClearLogs = createTool({
+  name: "process_clear_logs",
+  category: "process",
+  description: "`<use_case>Process management</use_case> Clear/delete the log file for a tracked process (same as fennec log --clear). Returns success or error if no log file found.`",
+  inputSchema: z.object({
+    name: z.string().describe("Name of the tracked process whose log to clear"),
+  }),
+  handler: async (input, { responseBuilder }) => {
+    const logDir = resolve(homedir(), ".fennec", "logs");
+    const logPath = resolve(logDir, `${input.name}.log`);
+
+    if (!existsSync(logPath)) {
+      return responseBuilder.error(new Error(`No log file found for "${input.name}"`), {
+        code: "LOG_NOT_FOUND", suggestions: ["Verify the process name", "Log for this process may not exist yet"],
+      });
+    }
+
+    try {
+      unlinkSync(logPath);
+      return responseBuilder.success({ name: input.name, logCleared: true, path: logPath });
+    } catch (err) {
+      return responseBuilder.error(err, { code: "CLEAR_FAILED", suggestions: ["Check file permissions"] });
     }
   },
 });

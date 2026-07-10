@@ -1,17 +1,14 @@
 /**
- * Shared Process Tracking — Single source of truth for ~/.fennec/tracked.json
- *
- * Used by both:
- * - `packages/core/src/tools/process/index.ts` (AI agent tools)
- * - `packages/cli/src/commands/tracker.ts` (CLI commands)
- *
- * Prevents duplication and ensures both sides stay in sync.
+ * Process Tracking — Syncs CLI-tracked processes (tracked.json) with MCP tools.
+ * Used by process_spawn, process_kill, process_restart tools to maintain
+ * a persistent process registry accessible from both CLI (`fennec ps`)
+ * and MCP tools (`process_get_tracked`).
  */
 import { existsSync, writeFileSync, readFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { homedir } from "node:os";
 
-export interface TrackedProcess {
+export interface TrackedEntry {
   name: string;
   pid: number;
   command: string;
@@ -27,7 +24,7 @@ export function getTrackedPath(): string {
   return resolve(dir, "tracked.json");
 }
 
-export function readTracked(): TrackedProcess[] {
+export function readTracked(): TrackedEntry[] {
   try {
     const path = getTrackedPath();
     if (!existsSync(path)) return [];
@@ -37,7 +34,7 @@ export function readTracked(): TrackedProcess[] {
   }
 }
 
-export function saveTracked(processes: TrackedProcess[]): void {
+export function saveTracked(processes: TrackedEntry[]): void {
   try {
     const path = getTrackedPath();
     mkdirSync(dirname(path), { recursive: true });
@@ -47,7 +44,7 @@ export function saveTracked(processes: TrackedProcess[]): void {
   }
 }
 
-export function addTracked(proc: TrackedProcess): void {
+export function addTracked(proc: TrackedEntry): void {
   const tracked = readTracked();
   const filtered = tracked.filter((t) => t.name !== proc.name);
   filtered.push(proc);
