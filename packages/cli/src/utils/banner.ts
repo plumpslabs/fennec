@@ -1,15 +1,17 @@
 /**
  * Fennec CLI Banner
  *
- * Generates a big, pixel-style "FENNEC" logo using cfonts
- * with an orange-to-gold gradient. Falls back to a compact
- * fox icon for non-TTY environments.
+ * Pure-text ASCII art banner using picocolors only.
+ * No external font libraries — avoids ESM/CJS interop issues
+ * (cfonts uses dynamic require("os") which crashes in ESM bundles).
+ *
+ * Falls back to a compact fox icon for non-TTY environments.
+ * All picocolors-based, no additional dependencies.
  */
 
 import pc from "picocolors";
-import CFonts from "cfonts";
 
-// ─── Hex color helper (for fallback styling) ────────────────────
+// ─── Hex color helper ──────────────────────────────────────────
 
 export function hexColor(color: string): (s: string) => string {
   if (typeof (pc as any).hex === "function") {
@@ -23,7 +25,7 @@ const fennecGold = hexColor("#FFB347");
 
 // ─── Version ────────────────────────────────────────────────────
 
-export const VERSION = "1.11.2";
+export const VERSION = "1.12.2";
 
 // ─── Banner generation ──────────────────────────────────────────
 
@@ -31,28 +33,34 @@ let cachedBanner: string | null = null;
 let cachedCompact: string | null = null;
 
 /**
- * Generate the full FENNEC ASCII art banner using cfonts.
+ * Generate the full FENNEC ASCII art banner.
+ * Pure-text — no external font library needed.
  * Cached after first call.
  */
 function generateBanner(): string {
   if (cachedBanner) return cachedBanner;
 
-  const result = CFonts.render("FENNEC", {
-    font: "block",
-    align: "left",
-    gradient: ["#FF6432", "#FFB347", "#FFD700"],
-    independentGradient: false,
-    transitionGradient: true,
-    letterSpacing: 1,
-    lineHeight: 1,
-    space: true,
-    maxLength: "0",
-    env: "node",
-  });
+  const logo = [
+    "███████╗███████╗███╗   ██╗███╗   ██╗███████╗ ██████╗",
+    "██╔════╝██╔════╝████╗  ██║████╗  ██║██╔════╝██╔════╝",
+    "█████╗  █████╗  ██╔██╗ ██║██╔██╗ ██║█████╗  ██║     ",
+    "██╔══╝  ██╔══╝  ██║╚██╗██║██║╚██╗██║██╔══╝  ██║     ",
+    "██║     ███████╗██║ ╚████║██║ ╚████║███████╗╚██████╗",
+    "╚═╝     ╚══════╝╚═╝  ╚═══╝╚═╝  ╚═══╝╚══════╝ ╚═════╝",
+  ];
+
+  // Apply gradient: orange → gold
+  const gradientSteps = logo.length;
+  const bannerStr = logo
+    .map((line, i) => {
+      const ratio = i / (gradientSteps - 1);
+      const color = ratio < 0.5 ? fennecOrange : fennecGold;
+      return color(line);
+    })
+    .join("\n");
 
   const tagline = pc.dim("ears everywhere in your stack.") + pc.dim(` v${VERSION}`);
 
-  const bannerStr = typeof result !== "boolean" ? result.string : "🦊 Fennec";
   cachedBanner = `\n${bannerStr}\n  ${tagline}\n`;
   return cachedBanner;
 }
@@ -69,8 +77,8 @@ function generateCompactBanner(): string {
 // ─── Public API ─────────────────────────────────────────────────
 
 /**
- * Print the full FENNEC banner (pixel-art style) to stderr.
- * Uses full cfonts-generated logo in TTY mode, compact in non-TTY.
+ * Print the full FENNEC banner (ASCII art) to stderr.
+ * Uses full logo in TTY mode, compact in non-TTY.
  */
 export function printBanner(): void {
   if (process.stdout.isTTY) {
