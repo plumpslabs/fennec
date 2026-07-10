@@ -2,6 +2,8 @@
  * Command: start / run — Spawn a process as a detached daemon.
  * Includes auto-resurrect: on server start, re-spawns tracked processes
  * that died since last session (like PM2 resurrect).
+ *
+ * With --restart flag: auto-restarts the process if it crashes (like PM2 watch).
  */
 import { createWriteStream, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
@@ -29,7 +31,7 @@ export async function startServer(args: string[]): Promise<void> {
   try {
     const server = new FennecServer(configPath);
 
-    // 🔥 Auto-resurrect: re-spawn tracked processes that died since last session
+    // Auto-resurrect: re-spawn tracked processes that died since last session
     await resurrectTracked();
 
     await server.start();
@@ -57,6 +59,7 @@ export async function runCommand(args: string[]): Promise<void> {
   const port = portIndex !== -1 ? parseInt(args[portIndex + 1]!, 10) : undefined;
   const cwdIndex = args.indexOf("--cwd");
   const cwd = cwdIndex !== -1 ? args[cwdIndex + 1] : undefined;
+  const restartFlag = args.includes("--restart");
 
   const stopFlags = [nameIndex, portIndex, cwdIndex].filter((i) => i !== -1) as number[];
   const cmdEnd = Math.min(...stopFlags, Infinity);
@@ -64,7 +67,7 @@ export async function runCommand(args: string[]): Promise<void> {
   const cmd = cmdParts.join(" ");
 
   if (!cmd) {
-    console.error(renderError("Missing command", "Usage: fennec start|run <command> --name <name> [--port <port>] [--cwd <dir>]"));
+    console.error(renderError("Missing command", "Usage: fennec start|run <command> --name <name> [--port <port>] [--cwd <dir>] [--restart]"));
     process.exit(1);
   }
 
@@ -90,25 +93,26 @@ export async function runCommand(args: string[]): Promise<void> {
   console.error(`  ${renderKV("Command", cmd)}`);
   if (port) console.error(`  ${renderKV("Port", String(port))}`);
   if (cwd) console.error(`  ${renderKV("Directory", cwd)}`);
+  if (restartFlag) console.error(`  ${renderKV("Auto-restart", pc.green("enabled"))}`);
   console.error(`  ${divider()}`);
 
   try {
-    const child = spawn(cmdParts[0]!, cmdParts.slice(1), {
+    let currentChild = spawn(cmdParts[0]!, cmdParts.slice(1), {
       cwd,
       env: { ...process.env },
       stdio: ["ignore", "pipe", "pipe"],
       detached: true,
     });
 
-    const pid = child.pid ?? 0;
+    const pid = currentChild.pid ?? 0;
 
     // Rotate log if >10MB, then create write stream
     rotateLogFile(logFilePath);
     const logStream = createWriteStream(logFilePath, { flags: "a" });
-    if (child.stdout) child.stdout.pipe(logStream);
-    if (child.stderr) child.stderr.pipe(logStream);
+    if (currentChild.stdout) currentChild.stdout.pipe(logStream);
+    if (currentChild.stderr) currentChild.stderr.pipe(logStream);
 
-    child.unref();
+    currentChild.unref();
 
     addTracked({
       name: appName,
@@ -121,8 +125,51 @@ export async function runCommand(args: string[]): Promise<void> {
 
     console.error(`  ${pc.green("✓")} ${pc.bold(appName)} ${pc.dim(`started (PID: ${pid})`)}`);
 
-    // Show the process table instead of logs
-    await psCommand([]);
+    // If --restart flag is set, watch for crashes and auto-restart
+    if (restartFlag) {
+      console.error(`  ${pc.dim("Auto-restart enabled — watching for crashes...")}\n`);
+
+      // Shared handler to set up log rotation + exit watcher on a child
+      function setupRestartWatch(c: typeof currentChild): void {
+        c.on("exit", (code, signal) => {
+          if (code !== 0 && signal !== "SIGTERM" && signal !== "SIGKILL") {
+            console.error(`  ${pc.yellow("⚠")} ${pc.bold(appName)} ${pc.dim(`exited with code ${code}, restarting...`)}`);
+            const restarted = spawn(cmdParts[0]!, cmdParts.slice(1), {
+              cwd,
+              env: { ...process.env },
+              stdio: ["ignore", "pipe", "pipe"],
+              detached: true,
+            });
+            const newPid = restarted.pid ?? 0;
+            rotateLogFile(logFilePath);
+            const rs = createWriteStream(logFilePath, { flags: "a" });
+            if (restarted.stdout) restarted.stdout.pipe(rs);
+            if (restarted.stderr) restarted.stderr.pipe(rs);
+            restarted.unref();
+            addTracked({ name: appName, pid: newPid, command: cmd, port, cwd, startedAt: new Date().toISOString() });
+            console.error(`  ${pc.green("✓")} ${pc.bold(appName)} ${pc.dim(`restarted (PID: ${newPid})`)}`);
+            // Watch the new child too (continuous restart)
+            currentChild = restarted;
+            setupRestartWatch(restarted);
+          }
+        });
+      }
+
+      setupRestartWatch(currentChild);
+
+      // Keep the process alive to watch for crashes
+      await new Promise<void>((resolve) => {
+        process.once("SIGINT", () => {
+          currentChild.kill("SIGTERM");
+          resolve();
+        });
+      });
+    }
+
+    // Show the process table instead of logs (only if not in --restart mode)
+    if (!restartFlag) {
+      await psCommand([]);
+    }
   } catch (error) {
     console.error(renderError(`Failed to start ${appName}`, String(error)));
     process.exit(1);
@@ -130,7 +177,7 @@ export async function runCommand(args: string[]): Promise<void> {
 }
 
 /**
- * 🔥 PM2-like resurrect: Re-spawn tracked processes that died.
+ * PM2-like resurrect: Re-spawn tracked processes that died.
  * Called automatically during `fennec start` (server mode).
  * Reads tracked.json, checks each PID, re-spawns stopped ones.
  */

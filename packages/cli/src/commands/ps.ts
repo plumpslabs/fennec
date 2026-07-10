@@ -10,10 +10,16 @@ import { readTracked, formatUptime } from "./tracker.js";
 export async function psCommand(args: string[]): Promise<void> {
   const watchFlag = args.includes("-w") || args.includes("--watch");
   const systemFlag = args.includes("--system") || args.includes("-a") || args.includes("--all");
+  const jsonFlag = args.includes("--json");
   const nameFilter = args.includes("--name") ? args[args.indexOf("--name") + 1] : undefined;
   const sortBy = args.includes("--sort")
     ? (args[args.indexOf("--sort") + 1] as "cpu" | "mem" | "pid" | "name")
     : "name";
+
+  if (jsonFlag) {
+    await psJson();
+    return;
+  }
 
   if (watchFlag && systemFlag) {
     await watchSystemProcesses(sortBy, 15);
@@ -75,8 +81,31 @@ export async function psCommand(args: string[]): Promise<void> {
   console.error(renderTable(columns, rows));
   console.error(`  ${pc.dim("Use")} ${pc.cyan("fennec start <command> --name <name> --port <port>")} ${pc.dim("to add more apps.")}`);
   console.error(`  ${pc.dim("Use")} ${pc.cyan("fennec log <name>")} ${pc.dim("to view logs.")}`);
-  console.error(`  ${pc.dim("Use")} ${pc.cyan("fennec kill <name>")} ${pc.dim("to stop an app.")}`);
+  console.error(`  ${pc.dim("Use")} ${pc.cyan("fennec stop <name>")} ${pc.dim("to pause an app.")}`);
+  console.error(`  ${pc.dim("Use")} ${pc.cyan("fennec spawn <name>")} ${pc.dim("to resume a paused app.")}`);
+  console.error(`  ${pc.dim("Use")} ${pc.cyan("fennec kill <name>")} ${pc.dim("to permanently remove an app.")}`);
   console.error();
+}
+
+/**
+ * JSON output of tracked processes.
+ */
+async function psJson(): Promise<void> {
+  const tracked = readTracked();
+  const data = tracked.map((t) => {
+    const running = isProcessRunning(t.pid);
+    return {
+      name: t.name,
+      pid: t.pid,
+      status: running ? "running" : "stopped",
+      port: t.port ?? null,
+      command: t.command,
+      cwd: t.cwd ?? null,
+      startedAt: t.startedAt,
+      uptime: running ? Math.floor((Date.now() - new Date(t.startedAt).getTime()) / 1000) : null,
+    };
+  });
+  console.log(JSON.stringify(data, null, 2));
 }
 
 export async function statusCommand(_args: string[]): Promise<void> {

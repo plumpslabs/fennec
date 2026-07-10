@@ -10,6 +10,8 @@ import { watchCommand } from "./commands/watch.js";
 import { startServer, startCommand, runCommand } from "./commands/start.js";
 import { psCommand, statusCommand } from "./commands/ps.js";
 import { killCommand } from "./commands/kill.js";
+import { stopCommand } from "./commands/stop.js";
+import { spawnCommand } from "./commands/spawn.js";
 import { restartCommand } from "./commands/restart.js";
 import { logCommand } from "./commands/log.js";
 import { attachCommand } from "./commands/attach.js";
@@ -17,6 +19,10 @@ import { sessionsCommand } from "./commands/sessions.js";
 import { setupCommand } from "./commands/setup.js";
 import { installBrowsersCommand, initCommand } from "./commands/management.js";
 import { healthCommand } from "./commands/health.js";
+import { cleanupCommand } from "./commands/cleanup.js";
+import { infoCommand } from "./commands/info.js";
+import { renameCommand } from "./commands/rename.js";
+import { exportCommand, importCommand } from "./commands/export-import.js";
 
 const [, , command, ...args] = process.argv;
 
@@ -37,10 +43,26 @@ async function main(): Promise<void> {
     await statusCommand(args);
   } else if (command === "log") {
     await logCommand(args);
+  } else if (command === "spawn") {
+    await spawnCommand(args);
+  } else if (command === "stop") {
+    await stopCommand(args);
   } else if (command === "kill") {
     await killCommand(args);
   } else if (command === "restart") {
     await restartCommand(args);
+  } else if (command === "info") {
+    printBanner();
+    await infoCommand(args);
+  } else if (command === "cleanup") {
+    printBanner();
+    await cleanupCommand();
+  } else if (command === "rename") {
+    await renameCommand(args);
+  } else if (command === "export") {
+    await exportCommand(args);
+  } else if (command === "import") {
+    await importCommand(args);
   } else if (command === "attach") {
     await attachCommand(args);
   } else if (command === "pipe") {
