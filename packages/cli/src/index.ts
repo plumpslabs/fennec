@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
-import { existsSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, writeFileSync, readFileSync, mkdirSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { homedir } from "node:os";
 import { execSync } from "node:child_process";
 import { FennecServer, SessionStore, ProcessManager } from "@plumpslabs/fennec-core";
 import pc from "picocolors";
@@ -19,7 +20,6 @@ import {
   renderSuccess,
   renderCommand,
   renderAppName,
-  statusBadge,
   logLevel,
   timestamp,
   divider,
@@ -28,19 +28,88 @@ import {
   confirmPrompt,
   type Column,
   type Row,
-  type ProcessStatus,
 } from "./utils/format.js";
+import {
+  getSystemProcesses,
+  killProcess as sysKill,
+  isProcessRunning,
+  formatProcessState,
+} from "./utils/system-process.js";
 
 const [, , command, ...args] = process.argv;
+
+// ─── Process Tracking ────────────────────────────────────────────
+
+interface TrackedProcess {
+  name: string;
+  pid: number;
+  command: string;
+  port?: number;
+  cwd?: string;
+  startedAt: string;
+}
+
+function getTrackedPath(): string {
+  const dir = process.env.FENNEC_DATA_DIR
+    ? resolve(process.env.FENNEC_DATA_DIR)
+    : resolve(homedir(), ".fennec");
+  return resolve(dir, "tracked.json");
+}
+
+function readTracked(): TrackedProcess[] {
+  try {
+    const path = getTrackedPath();
+    if (!existsSync(path)) return [];
+    return JSON.parse(readFileSync(path, "utf-8"));
+  } catch {
+    return [];
+  }
+}
+
+function saveTracked(processes: TrackedProcess[]): void {
+  try {
+    const path = getTrackedPath();
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, JSON.stringify(processes, null, 2), "utf-8");
+  } catch {
+    // Best-effort
+  }
+}
+
+function addTracked(proc: TrackedProcess): void {
+  const tracked = readTracked();
+  // Remove old entry with same name
+  const filtered = tracked.filter((t) => t.name !== proc.name);
+  filtered.push(proc);
+  saveTracked(filtered);
+}
+
+function removeTracked(name: string): void {
+  const tracked = readTracked();
+  saveTracked(tracked.filter((t) => t.name !== name));
+}
+
+function removeTrackedByPid(pid: number): void {
+  const tracked = readTracked();
+  saveTracked(tracked.filter((t) => t.pid !== pid));
+}
 
 // ─── Main ────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
   if (!command || command === "start") {
-    await startServer(args);
+    // Dual-mode: if first arg is a flag (--), start MCP server.
+    // If first arg is a bare command (node, npm, etc.), start an app.
+    if (args.length === 0 || args[0]?.startsWith("--")) {
+      await startServer(args);
+    } else {
+      await startCommand(args);
+    }
   } else if (command === "run") {
     await runCommand(args);
-  } else if (command === "status" || command === "ps") {
+  } else if (command === "ps") {
+    await psCommand(args);
+  } else if (command === "status") {
     await statusCommand(args);
   } else if (command === "log") {
     await logCommand(args);
@@ -107,25 +176,33 @@ async function startServer(args: string[]): Promise<void> {
   }
 }
 
-// ─── Command: run ────────────────────────────────────────────────
+// ─── Command: start (App Mode) ───────────────────────────────────
+
+async function startCommand(args: string[]): Promise<void> {
+  printBanner();
+  console.error(`  ${pc.dim("Starting app...")}\n`);
+  await runCommand(args);
+}
+
+// ─── Shared: start/run a process ─────────────────────────────────
 
 async function runCommand(args: string[]): Promise<void> {
   const nameIndex = args.indexOf("--name");
   const name = nameIndex !== -1 ? args[nameIndex + 1] : undefined;
+  const portIndex = args.indexOf("--port");
+  const port = portIndex !== -1 ? parseInt(args[portIndex + 1]!, 10) : undefined;
   const cwdIndex = args.indexOf("--cwd");
   const cwd = cwdIndex !== -1 ? args[cwdIndex + 1] : undefined;
   const restartFlag = args.includes("--restart");
 
-  // Extract command (everything before --name or --cwd)
-  const cmdEnd = Math.min(
-    nameIndex !== -1 ? nameIndex : Infinity,
-    cwdIndex !== -1 ? cwdIndex : Infinity,
-  );
+  // Extract command (everything before --name, --port, or --cwd)
+  const stopFlags = [nameIndex, portIndex, cwdIndex].filter((i) => i !== -1) as number[];
+  const cmdEnd = Math.min(...stopFlags, Infinity);
   const cmdParts = args.slice(0, cmdEnd);
   const cmd = cmdParts.join(" ");
 
   if (!cmd) {
-    console.error(renderError("Missing command", "Usage: fennec run <command> --name <name>"));
+    console.error(renderError("Missing command", "Usage: fennec start|run <command> --name <name> [--port <port>] [--cwd <dir>] [--restart]"));
     process.exit(1);
   }
 
@@ -133,6 +210,7 @@ async function runCommand(args: string[]): Promise<void> {
 
   console.error(`\n  ${symbols.fox} ${pc.bold("Running")} ${renderAppName(appName)}\n`);
   console.error(`  ${renderKV("Command", cmd)}`);
+  if (port) console.error(`  ${renderKV("Port", String(port))}`);
   if (cwd) console.error(`  ${renderKV("Directory", cwd)}`);
   console.error(`  ${renderKV("Restart", restartFlag ? "on crash" : "off")}`);
   console.error(`  ${divider()}`);
@@ -148,7 +226,17 @@ async function runCommand(args: string[]): Promise<void> {
   try {
     const proc = pm.spawn(cmdParts[0]!, cmdParts.slice(1), cwd, undefined, appName);
 
-    console.error(`\n  ${pc.green("●")} ${pc.bold(appName)} ${pc.dim(`started (PID: ${proc.pid})`)}\n`);
+    // Save to tracked processes
+    addTracked({
+      name: appName,
+      pid: proc.pid,
+      command: cmd,
+      port,
+      cwd,
+      startedAt: new Date().toISOString(),
+    });
+
+    console.error(`\n  ${pc.green("●")} ${pc.bold(appName)} ${pc.dim(`started (PID: ${proc.pid})`)}${port ? pc.dim(` :${port}`) : ""}\n`);
 
     // Forward logs to console
     const stdout = proc.child.stdout;
@@ -181,6 +269,8 @@ async function runCommand(args: string[]): Promise<void> {
 
     // Handle process exit
     proc.child.on("exit", (code, signal) => {
+      // Auto-cleanup tracked process
+      removeTracked(appName);
       if (restartFlag && code !== 0) {
         console.error(`\n  ${pc.yellow("⚠")} ${appName} ${pc.dim(`exited (${code}), restarting...`)}`);
         pm.restart(appName).catch(() => {});
@@ -197,64 +287,158 @@ async function runCommand(args: string[]): Promise<void> {
   }
 }
 
-// ─── Command: status ─────────────────────────────────────────────
+// ─── Command: ps (List System Processes) ─────────────────────────
 
-async function statusCommand(_args: string[]): Promise<void> {
-  const watchFlag = _args.includes("-w") || _args.includes("--watch");
+async function psCommand(args: string[]): Promise<void> {
+  const watchFlag = args.includes("-w") || args.includes("--watch");
+  const nameFilter = args.includes("--name") ? args[args.indexOf("--name") + 1] : undefined;
+  const portFilter = args.includes("--port") ? parseInt(args[args.indexOf("--port") + 1]!, 10) : undefined;
+  const sortBy = args.includes("--sort")
+    ? (args[args.indexOf("--sort") + 1] as "cpu" | "mem" | "pid" | "name")
+    : args.includes("-m") ? "mem" : args.includes("-c") ? "cpu" : "cpu";
+  const limit = args.includes("-n") ? parseInt(args[args.indexOf("-n") + 1]!, 10) : 30;
+  const allFlag = args.includes("-a") || args.includes("--all");
 
   if (watchFlag) {
-    await watchStatus();
+    await watchProcesses(sortBy, limit);
     return;
   }
 
-  const columns: Column[] = [
-    { key: "name", label: "Name", format: (v) => pc.bold(String(v)) },
-    { key: "source", label: "Source" },
-    { key: "status", label: "Status", format: (v) => statusBadge(v as ProcessStatus) },
-    { key: "pid", label: "PID" },
-    { key: "uptime", label: "Uptime" },
-    { key: "error", label: "Last Error", format: (v) => v ? pc.red(String(v)) : pc.dim("-") },
-  ];
+  const spinner = createSpinner("Scanning system processes...");
 
-  // In a real scenario, this would connect to the Fennec server API
-  // For now, show a static example or basic process list
-  const rows: Row[] = [
-    { name: "backend", source: ":3000", status: "running", pid: "12345", uptime: "2h 15m", error: null },
-    { name: "frontend", source: ":5173", status: "running", pid: "12346", uptime: "2h 15m", error: null },
-    { name: "database", source: ":5432", status: "running", pid: "docker", uptime: "5h 30m", error: null },
-  ];
+  try {
+    const processes = getSystemProcesses({
+      name: nameFilter,
+      port: portFilter,
+      userOnly: !allFlag,
+      sortBy,
+      limit,
+    });
 
-  console.error(`\n  ${symbols.fox} ${pc.bold("Observed Processes")}\n`);
-  console.error(renderTable(columns, rows));
-  console.error();
+    spinner.stop();
+    process.stdout.write("\r\x1b[K"); // Clear spinner line
+
+    if (processes.length === 0) {
+      console.error(`\n  ${pc.dim("No processes found.")}\n`);
+      return;
+    }
+
+    const columns: Column[] = [
+      { key: "pid", label: "PID", align: "right", format: (v) => pc.dim(String(v).padStart(6)) },
+      { key: "name", label: "Name", format: (v) => pc.bold(String(v)) },
+      { key: "cpu", label: "CPU%", align: "right", format: (v) => {
+        const num = v as number;
+        return num > 10 ? pc.red(String(num)) : num > 5 ? pc.yellow(String(num)) : pc.dim(String(num));
+      }},
+      { key: "mem", label: "MEM%", align: "right", format: (v) => {
+        const num = v as number;
+        return num > 10 ? pc.red(String(num)) : num > 5 ? pc.yellow(String(num)) : pc.dim(String(num));
+      }},
+      { key: "state", label: "State", format: (v) => {
+        const s = String(v);
+        if (s === "R" || s === "Running") return pc.green(s);
+        if (s === "Z" || s === "Zombie") return pc.red(s);
+        if (s === "S" || s === "Sleeping") return pc.cyan(s);
+        return pc.dim(s);
+      }},
+      { key: "ports", label: "Ports", format: (v) => {
+        const ports = v as number[];
+        return ports.length > 0
+          ? ports.map((p) => pc.yellow(`:${p}`)).join(", ")
+          : pc.dim("-");
+      }},
+    ];
+
+    const rows: Row[] = processes.map((p) => ({
+      pid: p.pid,
+      name: p.name,
+      cpu: p.cpuPercent,
+      mem: p.memPercent,
+      state: formatProcessState(p.state),
+      ports: p.ports,
+    }));
+
+    // Check for tracked processes and add a "managed" indicator
+    const tracked = readTracked();
+    const managedPids = new Set(tracked.map((t) => t.pid));
+
+    // Add badge column showing managed vs system
+    const managedRows: Row[] = processes.map((p) => {
+      const isManaged = managedPids.has(p.pid);
+      const trackedInfo = tracked.find((t) => t.pid === p.pid);
+      return {
+        ...({
+          pid: p.pid,
+          name: p.name,
+          cpu: p.cpuPercent,
+          mem: p.memPercent,
+          state: formatProcessState(p.state),
+          ports: p.ports,
+        } as Row),
+        _managed: isManaged,
+        _trackedPort: trackedInfo?.port,
+      };
+    });
+
+    // Show tracked processes summary
+    if (tracked.length > 0) {
+      console.error(`  ${pc.green("●")} ${pc.bold("Managed:")} ${tracked.map((t) => {
+        const running = isProcessRunning(t.pid);
+        const status = running ? pc.green("running") : pc.red("stopped");
+        const portStr = t.port ? ` ${pc.yellow(`:${t.port}`)}` : "";
+        return `${pc.bold(t.name)}${portStr} (${status})`;
+      }).join(", ")}\n`);
+    }
+
+    console.error(`  ${symbols.fox} ${pc.bold("System Processes")} ${pc.dim(`(${processes.length} shown, sorted by ${sortBy})`)}\n`);
+    console.error(renderTable(columns, managedRows));
+    console.error();
+  } catch (error) {
+    spinner.fail("Failed to scan processes");
+    console.error(renderError("Process scan failed", String(error)));
+  }
 }
 
-async function watchStatus(): Promise<void> {
-  console.error(`\n  ${pc.bold("Watching status")} ${pc.dim("(Ctrl+C to stop)")}\n`);
+async function watchProcesses(sortBy: string, limit: number): Promise<void> {
+  console.error(`\n  ${pc.bold("Watching processes")} ${pc.dim("(Ctrl+C to stop, refreshes every 3s)")}\n`);
 
   const render = () => {
+    const processes = getSystemProcesses({
+      userOnly: true,
+      sortBy: sortBy as "cpu" | "mem" | "pid" | "name",
+      limit,
+    });
+
     const columns: Column[] = [
+      { key: "pid", label: "PID", align: "right", format: (v) => pc.dim(String(v).padStart(6)) },
       { key: "name", label: "Name", format: (v) => pc.bold(String(v)) },
-      { key: "status", label: "Status", format: (v) => statusBadge(v as ProcessStatus) },
-      { key: "pid", label: "PID" },
-      { key: "uptime", label: "Uptime" },
-      { key: "cpu", label: "CPU" },
-      { key: "mem", label: "Memory" },
+      { key: "cpu", label: "CPU%", align: "right", format: (v) => {
+        const num = v as number;
+        return num > 10 ? pc.red(String(num)) : num > 5 ? pc.yellow(String(num)) : pc.dim(String(num));
+      }},
+      { key: "mem", label: "MEM%", align: "right", format: (v) => {
+        const num = v as number;
+        return num > 10 ? pc.red(String(num)) : num > 5 ? pc.yellow(String(num)) : pc.dim(String(num));
+      }},
+      { key: "state", label: "S", align: "center" },
     ];
 
-    const rows: Row[] = [
-      { name: "backend", status: "running", pid: "12345", uptime: "2h 15m", cpu: "1.2%", mem: "128MB" },
-      { name: "frontend", status: "running", pid: "12346", uptime: "2h 15m", cpu: "0.8%", mem: "64MB" },
-    ];
+    const rows: Row[] = processes.map((p) => ({
+      pid: p.pid,
+      name: p.name,
+      cpu: p.cpuPercent,
+      mem: p.memPercent,
+      state: p.state,
+    }));
 
-    return renderTable(columns, rows, { compact: true });
+    return `  ${timestamp()} ${pc.dim(`${processes.length} processes`)}\n${renderTable(columns, rows, { compact: true })}`;
   };
 
   console.error(render());
   const interval = setInterval(() => {
-    process.stdout.write("\x1B[6A"); // Move cursor up
+    process.stdout.write("\x1B[J"); // Clear from cursor to end
     console.error(render());
-  }, 2000);
+  }, 3000);
 
   process.on("SIGINT", () => {
     clearInterval(interval);
@@ -264,64 +448,195 @@ async function watchStatus(): Promise<void> {
   await new Promise(() => {});
 }
 
-// ─── Command: log ────────────────────────────────────────────────
+// ─── Command: status ─────────────────────────────────────────────
 
-async function logCommand(args: string[]): Promise<void> {
-  const name = args[0];
-  if (!name) {
-    console.error(renderError("Missing process name", "Usage: fennec log <name> [options]"));
-    process.exit(1);
+async function statusCommand(_args: string[]): Promise<void> {
+  const watchFlag = _args.includes("-w") || _args.includes("--watch");
+
+  // Show a real-time system overview
+  const spinner = createSpinner("Gathering system status...");
+
+  try {
+    const topProcesses = getSystemProcesses({ userOnly: true, sortBy: "cpu", limit: 10 });
+    const totalProcesses = getSystemProcesses({ userOnly: true }).length;
+
+    // Detect common services
+    const services = [
+      { name: "node", label: "Node.js" },
+      { name: "npm", label: "npm" },
+      { name: "pnpm", label: "pnpm" },
+      { name: "vite", label: "Vite" },
+      { name: "next", label: "Next.js" },
+      { name: "webpack", label: "Webpack" },
+      { name: "tsc", label: "TypeScript" },
+      { name: "docker", label: "Docker" },
+      { name: "mysqld", label: "MySQL" },
+      { name: "postgres", label: "PostgreSQL" },
+      { name: "redis", label: "Redis" },
+      { name: "ollama", label: "Ollama" },
+    ];
+
+    spinner.stop();
+    process.stdout.write("\r\x1b[K");
+
+    console.error(`\n  ${symbols.fox} ${pc.bold("Fennec System Overview")}\n`);
+
+    // System summary
+    console.error(`  ${renderKV("User Processes", pc.bold(String(totalProcesses)))}`);
+    console.error(`  ${renderKV("Fennec Version", pc.dim("v1.11.1"))}`);
+
+    // Detected services
+    const activeServices = services
+      .filter((s) => topProcesses.some((p) => p.name.toLowerCase().includes(s.name)))
+      .slice(0, 5);
+
+    if (activeServices.length > 0) {
+      console.error(`  ${renderKV("Detected", activeServices.map((s) => pc.green(s.label)).join(", "))}`);
+    }
+
+    console.error();
+
+    // Top CPU processes
+    const columns: Column[] = [
+      { key: "pid", label: "PID", align: "right", format: (v) => pc.dim(String(v).padStart(6)) },
+      { key: "name", label: "Process", format: (v) => pc.bold(String(v)) },
+      { key: "cpu", label: "CPU%", align: "right" },
+      { key: "mem", label: "MEM%", align: "right" },
+    ];
+
+    const rows: Row[] = topProcesses.map((p) => ({
+      pid: p.pid,
+      name: p.name,
+      cpu: p.cpuPercent,
+      mem: p.memPercent,
+    }));
+
+    console.error(`  ${pc.bold("Top CPU Processes")}\n`);
+    console.error(renderTable(columns, rows));
+
+    if (watchFlag) {
+      await watchProcesses("cpu", 15);
+    }
+
+    console.error();
+  } catch (error) {
+    spinner.fail("Failed to gather system status");
+    console.error(renderError("Status check failed", String(error)));
   }
-
-  const linesIndex = args.indexOf("--lines");
-  const lines = linesIndex !== -1 ? parseInt(args[linesIndex + 1]!, 10) : 50;
-
-  const levelIndex = args.indexOf("--level");
-  const level = levelIndex !== -1 ? args[levelIndex + 1] : undefined;
-
-  const followFlag = args.includes("-f") || args.includes("--follow");
-
-  console.error(`\n  ${symbols.fox} ${pc.bold("Logs")} ${renderAppName(name)} ${pc.dim(`(last ${lines} lines)`)}\n`);
-
-  // Placeholder: in production, this would fetch from the server API
-  const mockLogs = [
-    { time: "12:00:00", level: "INFO" as const, msg: "Server started on port 3000" },
-    { time: "12:00:01", level: "INFO" as const, msg: "Database connected" },
-    { time: "12:00:02", level: "WARN" as const, msg: "Deprecation: use express@5" },
-    { time: "12:00:05", level: "ERROR" as const, msg: "POST /api/login → 500" },
-    { time: "12:00:06", level: "ERROR" as const, msg: "JWT_SECRET not set in environment" },
-  ];
-
-  for (const log of mockLogs) {
-    const time = pc.dim(`[${log.time}]`);
-    const lvl = logLevel(log.level);
-    const msg = log.level === "ERROR" ? pc.red(log.msg) : log.level === "WARN" ? pc.yellow(log.msg) : log.msg;
-    console.error(`  ${time} ${lvl} ${msg}`);
-  }
-
-  if (followFlag) {
-    console.error(`\n  ${pc.dim("Following... (Ctrl+C to stop)")}\n`);
-    await new Promise(() => {});
-  }
-
-  console.error();
 }
 
 // ─── Command: kill ───────────────────────────────────────────────
 
 async function killCommand(args: string[]): Promise<void> {
-  const name = args[0];
-  if (!name) {
-    console.error(renderError("Missing process name", "Usage: fennec kill <name>"));
-    process.exit(1);
-  }
-
+  const rawTarget = args[0];
   const signalIndex = args.indexOf("--signal");
   const signalRaw = signalIndex !== -1 ? args[signalIndex + 1] : "SIGTERM";
   const signal = (signalRaw ?? "SIGTERM") as NodeJS.Signals;
 
+  // ─── Kill All Mode ─────────────────────────────────────
+  if (rawTarget === "all" || args.includes("--all") || args.includes("-a")) {
+    const userProcs = getSystemProcesses({ userOnly: true, sortBy: "cpu", limit: 200 });
+    if (userProcs.length === 0) {
+      console.error(`  ${pc.dim("No user processes to kill.")}`);
+      return;
+    }
+
+    console.error(`\n  ${pc.bold(`Kill ${userProcs.length} user processes?`)}`);
+    console.error(`  ${pc.dim("This will stop ALL your running processes.")}`);
+    console.error(`  ${pc.yellow("⚠ System processes will not be affected.")}\n`);
+
+    const confirmed = await confirmPrompt(
+      `${pc.red("Are you sure?")} ${pc.dim("This cannot be undone")}`,
+      false,
+    );
+
+    if (!confirmed) {
+      console.error(`  ${pc.dim("Cancelled.")}`);
+      return;
+    }
+
+    const spinner = createSpinner(`Killing ${userProcs.length} processes...`);
+    let killed = 0;
+    let failed = 0;
+
+    for (const proc of userProcs) {
+      if (sysKill(proc.pid, signal)) {
+        killed++;
+        removeTrackedByPid(proc.pid);
+      } else {
+        failed++;
+      }
+      // Small delay to avoid overwhelming system
+      if (killed % 10 === 0) await new Promise((r) => setTimeout(r, 50));
+    }
+
+    await new Promise((r) => setTimeout(r, 500));
+
+    if (killed > 0) {
+      spinner.succeed(`${killed} process(es) killed`);
+    } else {
+      spinner.fail(`Failed to kill processes`);
+    }
+
+    if (failed > 0) {
+      console.error(`  ${pc.yellow(`${failed} process(es) could not be killed`)} ${pc.dim("(try with sudo)")}`);
+    }
+    return;
+  }
+
+  // ─── Single Kill Mode ─────────────────────────────────
+  if (!rawTarget) {
+    console.error(renderError("Missing target", "Usage: fennec kill <pid|name|all> [--signal SIGTERM|SIGKILL|SIGINT]"));
+    process.exit(1);
+  }
+
+  // Resolve target: numeric = PID, string = find by name
+  let targetPid: number;
+  let displayName: string;
+
+  const pid = parseInt(rawTarget, 10);
+  if (!isNaN(pid) && String(pid) === rawTarget) {
+    // Direct PID
+    if (!isProcessRunning(pid)) {
+      console.error(renderError("Process not found", `No process with PID ${pid} is running`));
+      process.exit(1);
+    }
+    targetPid = pid;
+    displayName = `PID ${pid}`;
+  } else {
+    // Find by name — show options if multiple matches
+    const matches = getSystemProcesses({ name: rawTarget, userOnly: true, sortBy: "cpu" });
+    if (matches.length === 0) {
+      console.error(renderError("Process not found", `No running process matching "${rawTarget}"`));
+      process.exit(1);
+    }
+
+    if (matches.length > 1) {
+      // Multiple matches — let user pick
+      console.error(`\n  ${pc.bold(`Multiple processes match "${rawTarget}":`)}`);
+      const selected = await selectPrompt(
+        `Select which to kill:`,
+        matches.map((p, i) => ({
+          value: String(i),
+          label: `${p.name} (PID ${p.pid})`,
+          description: `${p.command.slice(0, 80)} — CPU: ${p.cpuPercent}% MEM: ${p.memPercent}%`,
+        })),
+      );
+      if (selected === null) {
+        console.error(`  ${pc.dim("Cancelled")}`);
+        return;
+      }
+      const idx = parseInt(selected, 10);
+      targetPid = matches[idx]!.pid;
+      displayName = `${matches[idx]!.name} (PID ${targetPid})`;
+    } else {
+      targetPid = matches[0]!.pid;
+      displayName = `${matches[0]!.name} (PID ${targetPid})`;
+    }
+  }
+
   const confirmed = await confirmPrompt(
-    `Stop ${pc.bold(name)} with ${pc.yellow(signal)}?`,
+    `Kill ${pc.bold(displayName)} with ${pc.yellow(signal)}?`,
     false,
   );
 
@@ -330,8 +645,43 @@ async function killCommand(args: string[]): Promise<void> {
     return;
   }
 
-  // Placeholder: would connect to Fennec server API
-  console.error(`\n  ${pc.green("✓")} ${renderAppName(name)} ${pc.dim(`stopped (${signal})`)}\n`);
+  const spinner = createSpinner(`Sending ${signal} to ${displayName}...`);
+
+  const success = sysKill(targetPid, signal);
+
+  if (success) {
+    // Wait a moment to verify
+    await new Promise((r) => setTimeout(r, 200));
+    const stillRunning = isProcessRunning(targetPid);
+    if (stillRunning && signal !== "SIGKILL") {
+      spinner.warn(`${displayName} did not respond to ${signal}`);
+      const forceKill = await confirmPrompt(
+        `Send ${pc.red("SIGKILL")} to force stop?`,
+        true,
+      );
+      if (forceKill) {
+        const forceSpinner = createSpinner(`Sending SIGKILL to ${displayName}...`);
+        sysKill(targetPid, "SIGKILL");
+        await new Promise((r) => setTimeout(r, 300));
+        if (!isProcessRunning(targetPid)) {
+          forceSpinner.succeed(`${displayName} force stopped`);
+        } else {
+          forceSpinner.fail(`${displayName} could not be stopped (permission denied?)`);
+        }
+      } else {
+        console.error(`  ${pc.dim("Retrying with SIGTERM...")}`);
+        sysKill(targetPid, "SIGTERM");
+        console.error(`  ${pc.yellow("⚠")} ${displayName} ${pc.dim("may still be running")}`);
+      }
+    } else {
+      // Clean up tracked process
+      removeTrackedByPid(targetPid);
+      spinner.succeed(`${displayName} stopped`);
+    }
+  } else {
+    spinner.fail(`Failed to kill ${displayName}`);
+    console.error(renderError("Permission denied", `Try running with sudo or use a different signal.`));
+  }
 }
 
 // ─── Command: restart ────────────────────────────────────────────
@@ -339,16 +689,136 @@ async function killCommand(args: string[]): Promise<void> {
 async function restartCommand(args: string[]): Promise<void> {
   const name = args[0];
   if (!name) {
-    console.error(renderError("Missing process name", "Usage: fennec restart <name>"));
+    console.error(renderError("Missing process name/pid", "Usage: fennec restart <pid|name>"));
     process.exit(1);
   }
 
-  const spinner = createSpinner(`Restarting ${name}...`);
+  // Resolve PID
+  let targetPid: number;
+  const pid = parseInt(name, 10);
+  if (!isNaN(pid) && String(pid) === name) {
+    targetPid = pid;
+  } else {
+    const processes = getSystemProcesses({ name, userOnly: true, limit: 1 });
+    if (processes.length === 0) {
+      console.error(renderError("Process not found", `No process matching "${name}"`));
+      process.exit(1);
+    }
+    targetPid = processes[0]!.pid;
+  }
 
-  // Placeholder: would connect to Fennec server API
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  const confirmed = await confirmPrompt(
+    `Restart ${pc.bold(`${name} (PID ${targetPid})`)}?`,
+    false,
+  );
 
-  spinner.succeed(`${name} restarted`);
+  if (!confirmed) {
+    console.error(`  ${pc.dim("Cancelled")}`);
+    return;
+  }
+
+  const spinner = createSpinner(`Stopping PID ${targetPid}...`);
+
+  // Kill the process
+  const killed = sysKill(targetPid, "SIGTERM");
+  if (!killed) {
+    spinner.fail(`Failed to stop PID ${targetPid}`);
+    return;
+  }
+
+  // Wait for exit
+  await new Promise((r) => setTimeout(r, 1000));
+
+  const stillRunning = isProcessRunning(targetPid);
+  if (stillRunning) {
+    spinner.warn(`Process didn't stop, sending SIGKILL...`);
+    sysKill(targetPid, "SIGKILL");
+    await new Promise((r) => setTimeout(r, 500));
+  }
+
+  // Get the command from the process info to suggest restart command
+  const procInfo = getSystemProcesses({ pid: targetPid, limit: 1 })[0];
+  let suggestion = "";
+  if (procInfo) {
+    suggestion = `\n  ${pc.dim("Re-run:")} ${renderCommand(procInfo.command)}`;
+  }
+
+  spinner.succeed(`${name} stopped${suggestion}`);
+}
+
+// ─── Command: log ────────────────────────────────────────────────
+
+async function logCommand(args: string[]): Promise<void> {
+  const target = args[0];
+  if (!target) {
+    console.error(renderError("Missing process name/pid", "Usage: fennec log <pid|name> [--lines N] [--level LEVEL] [-f]"));
+    process.exit(1);
+  }
+
+  const linesIndex = args.indexOf("--lines");
+  const lines = linesIndex !== -1 ? parseInt(args[linesIndex + 1]!, 10) : 30;
+  const followFlag = args.includes("-f") || args.includes("--follow");
+
+  // Resolve PID
+  let targetPid: number;
+  let displayName: string;
+  const pid = parseInt(target, 10);
+  if (!isNaN(pid) && String(pid) === target) {
+    targetPid = pid;
+    displayName = `PID ${pid}`;
+  } else {
+    const processes = getSystemProcesses({ name: target, userOnly: true, limit: 1 });
+    if (processes.length === 0) {
+      console.error(renderError("Process not found", `No process matching "${target}"`));
+      process.exit(1);
+    }
+    targetPid = processes[0]!.pid;
+    displayName = `${processes[0]!.name} (PID ${targetPid})`;
+  }
+
+  const spinner = createSpinner(`Fetching logs for ${displayName}...`);
+
+  try {
+    // Try journalctl first (Linux systemd), then fall back to /proc/pid/fd
+    let logLines: string[] = [];
+
+    try {
+      const { execSync } = await import("node:child_process");
+      const output = execSync(
+        `journalctl --no-pager -n ${lines} _PID=${targetPid} 2>/dev/null || tail -n ${lines} /proc/${targetPid}/fd/1 2>/dev/null || echo "No logs available"`,
+        { encoding: "utf-8", timeout: 3000 },
+      );
+      logLines = output.trim().split("\n").filter(Boolean);
+    } catch {
+      logLines = [`  ${pc.dim("(no log access — process may not be managed by Fennec)")}`];
+    }
+
+    spinner.stop();
+    process.stdout.write("\r\x1b[K");
+
+    console.error(`\n  ${symbols.fox} ${pc.bold("Logs")} ${renderAppName(displayName)} ${pc.dim(`(last ${lines} lines)`)}\n`);
+
+    for (const line of logLines.slice(-lines)) {
+      const display = line.length > 200 ? line.slice(0, 200) + "…" : line;
+      if (line.toLowerCase().includes("error") || line.toLowerCase().includes("fail")) {
+        console.error(`  ${pc.red(display)}`);
+      } else if (line.toLowerCase().includes("warn")) {
+        console.error(`  ${pc.yellow(display)}`);
+      } else {
+        console.error(`  ${display}`);
+      }
+    }
+
+    if (followFlag) {
+      console.error(`\n  ${pc.dim("Following... (Ctrl+C to stop)")}\n`);
+      await new Promise(() => {});
+    }
+
+    console.error();
+  } catch (error) {
+    spinner.fail(`Failed to fetch logs for ${displayName}`);
+    console.error(renderError("Log fetch failed", String(error)));
+  }
 }
 
 // ─── Command: attach ─────────────────────────────────────────────
