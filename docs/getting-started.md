@@ -57,6 +57,129 @@ adb devices
 
 Fennec uses ADB directly via `child_process` — no additional Node.js packages required.
 
+### Mobile Development (Wireless ADB)
+
+**Sekali setup, selamanya wireless.** Colok USB cuma sekali buat pairing — setelah itu develop dari HP via WiFi tanpa kabel.
+
+#### Step 1: USB Pairing (SEKALI)
+
+```bash
+# 1. Colok HP ke PC via USB
+# 2. Pastikan USB Debugging ON di Developer Options HP
+# 3. Cek apakah HP terdeteksi
+adb devices
+# Output: <device-id> device
+
+# 4. Switch ADB ke mode TCP/IP (port 5555)
+adb tcpip 5555
+# Output: restarting in TCP mode port: 5555
+
+# 5. Catet IP WiFi HP (dari Settings > About > Status)
+#    Atau pake command:
+adb shell ip addr show wlan0 | grep -oP 'inet \K[\d.]+'
+# Output: 192.168.1.15 (contoh — ini IP HP lu)
+```
+
+#### Step 2: Lepas USB + Konek Wireless
+
+```bash
+# 6. LEPAS kabel USB dari HP
+# 7. Konek wireless pake IP HP (dari step 5)
+adb connect <IP_HP>:5555
+# Contoh: adb connect 192.168.1.15:5555
+# Output: connected to 192.168.1.15:5555
+
+# 8. Verifikasi — HP harus kedetect
+adb devices
+# Output: 192.168.1.15:5555 device
+```
+
+✅ **Selesai!** Sekarang HP wireless, gaperlu colok USB lagi.
+
+#### Besok-besok (Cukup Step 2)
+
+Kalo mau develop lagi, tinggal:
+```bash
+adb connect <IP_HP>:5555
+```
+
+> **Syarat:** HP dan PC harus dalam **WiFi yang sama**.
+> Kalo IP HP berubah, tinggal cek IP baru di Settings > About > Status.
+
+#### Koneksi dari Luar WiFi (Tunnel)
+
+Buat akses dari mana aja (pake data seluler), pake tunnel:
+```bash
+# Pake ngrok
+ngrok http 3000
+# Dapet URL: https://abc123.ngrok.io
+# Buka URL itu dari HP (bisa pake 4G/5G)
+
+# Atau pake cloudflared (cloudflare tunnel)
+cloudflared tunnel --url http://localhost:3000
+```
+
+### Mobile Development Workflow (React Native / Expo)
+
+#### Setup Wireless + Dev Server
+
+```bash
+# 1. Konek wireless ke HP
+adb connect <IP_HP>:5555
+
+# 2a. Kalo pake React Native CLI
+npx react-native start
+# Scan QR code dari HP via Expo Go atau Metro bundler
+
+# 2b. Kalo pake Expo
+npx expo start --tunnel
+# Scan QR code dari HP via Expo Go
+# --tunnel biar bisa akses dari luar jaringan lokal (pake data)
+
+# 2c. Kalo pake Vite (web app)
+npm run dev -- --host 0.0.0.0
+# Buka http://<IP_PC>:5173 dari browser HP
+```
+
+#### Pantau Pakai Fennec Mobile Tools
+
+Begitu dev server jalan, Fennec bisa monitor dari HP:
+```
+mobile_list_devices()           → liat device terdeteksi
+mobile_screenshot()             → screenshot layar HP
+mobile_logcat()                 → log Android realtime
+mobile_tap(x, y)                → tap di HP dari PC
+mobile_type("text")            → ketik di HP dari PC
+mobile_swipe(x1,y1,x2,y2)      → swipe di HP
+
+# Kalo app pake WebView:
+mobile_inspect_webview()        → inspect WebView
+mobile_get_webview_content()    → ambil konten WebView
+mobile_capture_webview_console()→ console.log dari WebView
+```
+
+#### Contoh Workflow Lengkap
+
+```bash
+# Terminal 1: Jalanin Fennec server
+fennec start
+
+# Terminal 2: Jalanin dev server
+expo start --tunnel
+
+# Di AI agent:
+# 1. mobile_list_devices()      → cek HP connected
+# 2. mobile_logcat()            → monitor log
+# 3. browser_navigate()         → buka app dari HP
+# 4. observe()                  → AI pantau semua status
+# 5. Kalo error → ai_diagnose() → AI cari root cause
+```
+
+> 💡 **Tips:**
+> - `adb kill-server` + `adb start-server` kalo koneksi wireless bermasalah
+> - `adb disconnect <IP>:5555` buat putusin koneksi
+> - Kalo pake Expo, QR code bisa discan dari HP tanpa USB
+
 ## Quick Start
 
 ### 1. Start the MCP Server
@@ -169,7 +292,6 @@ planner_create_plan({ goal: "debug login issue" })
 planner_list_plans()
 planner_get_plan({ planId: "..." })
 planner_cancel_plan({ planId: "..." })
-```
 ```
 
 ## Next Steps

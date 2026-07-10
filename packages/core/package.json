@@ -1,6 +1,6 @@
 {
   "name": "@plumpslabs/fennec-core",
-  "version": "1.13.3",
+  "version": "1.13.4",
   "description": "Fennec MCP server — AI-native browser, terminal, and process observability",
   "keywords": [
     "mcp",
@@ -11,10 +11,12 @@
     "observability"
   ],
   "homepage": "https://github.com/plumpslabs/fennec#readme",
-  "bugs": {      "url": "https://github.com/plumpslabs/fennec/issues"
+  "bugs": {
+    "url": "https://github.com/plumpslabs/fennec/issues"
   },
   "repository": {
-    "type": "git",      "url": "git+https://github.com/plumpslabs/fennec.git"
+    "type": "git",
+    "url": "git+https://github.com/plumpslabs/fennec.git"
   },
   "license": "MIT",
   "author": "Fennec Contributors",
@@ -49,6 +51,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "js-yaml": "^5.2.1",
     "zod": "^3.22.0",
     "zod-to-json-schema": "^3.23.2"
   },
@@ -61,6 +64,7 @@
     }
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.11.0",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",

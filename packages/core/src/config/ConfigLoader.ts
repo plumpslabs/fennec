@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { resolve, extname } from "node:path";
 import { defaultConfig, type FennecConfig } from "./defaults.js";
+import { load as parseYaml } from "js-yaml";
 
 export class ConfigLoader {
   private config: FennecConfig;
@@ -17,12 +18,19 @@ export class ConfigLoader {
       if (existsSync(resolvedPath)) {
         try {
           const content = readFileSync(resolvedPath, "utf-8");
-          if (configPath.endsWith(".json")) {
+          const ext = extname(configPath).toLowerCase();
+          
+          if (ext === ".json") {
             const partial = JSON.parse(content) as Partial<FennecConfig>;
             return this.deepMerge(merged, partial);
           }
+          
+          if (ext === ".yaml" || ext === ".yml") {
+            const partial = parseYaml(content) as Partial<FennecConfig>;
+            return this.deepMerge(merged, partial);
+          }
         } catch {
-          // Fall back to defaults
+          // Silently fall back to defaults + env vars
         }
       }
     }

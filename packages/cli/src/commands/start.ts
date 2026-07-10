@@ -27,6 +27,12 @@ export async function startServer(args: string[]): Promise<void> {
 
   const configIndex = args.indexOf("--config");
   const configPath = configIndex !== -1 ? args[configIndex + 1] : undefined;
+  const useSse = args.includes("--sse");
+
+  // Set env var so ConfigLoader picks it up (overrides config file)
+  if (useSse) {
+    process.env.FENNEC_TRANSPORT_TYPE = "sse";
+  }
 
   try {
     const server = new FennecServer(configPath);
@@ -36,10 +42,21 @@ export async function startServer(args: string[]): Promise<void> {
 
     await server.start();
 
-    console.error(`\n  ${pc.green("✓")} ${pc.bold("Fennec server is running")}`);
-    console.error(`  ${renderKV("Transport", "stdio")}`);
-    console.error(`  ${renderKV("AI Agent", "Connect via MCP protocol")}`);
-    console.error(`\n  ${pc.dim("Press Ctrl+C to stop")}\n`);
+    if (useSse) {
+      const port = server.getConfig().transport.port;
+      console.error(`\n  ${pc.green("✓")} ${pc.bold("Fennec server is running")}`);
+      console.error(`  ${renderKV("Transport", pc.cyan("SSE (HTTP)"))}`);
+      console.error(`  ${renderKV("URL", pc.cyan(`http://localhost:${port}/sse`))}`);
+      console.error(`  ${renderKV("MCP Config", pc.cyan(`{ \"type\": \"remote\", \"url\": \"http://localhost:${port}/sse\" }`))}`);
+      console.error(`  ${renderKV("OpenCode", pc.cyan(`type: remote, url: http://localhost:${port}/sse`))}`);
+      console.error(`\n  ${pc.dim("Press Ctrl+C to stop")}\n`);
+    } else {
+      console.error(`\n  ${pc.green("✓")} ${pc.bold("Fennec server is running")}`);
+      console.error(`  ${renderKV("Transport", "stdio")}`);
+      console.error(`  ${renderKV("AI Agent", "Connect via MCP protocol")}`);
+      console.error(`  ${renderKV("Tip", pc.dim("For SSE mode: fennec start --sse"))}`);
+      console.error(`\n  ${pc.dim("Press Ctrl+C to stop")}\n`);
+    }
   } catch (error) {
     console.error(renderError("Failed to start server", String(error)));
     process.exit(1);

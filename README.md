@@ -256,7 +256,7 @@ The AI will automatically:
 
 ## Documentation
 
-- [Getting Started Guide](docs/getting-started.md)
+- [Getting Started Guide](docs/getting-started.md) — includes mobile development (wireless ADB)
 - [Full Tool Reference](docs/tools/README.md) — all 123 tools documented
 - [Configuration Reference](docs/configuration.md) — all options + env vars
 - [Security Model](docs/security-model.md) — sandbox, allowlists, best practices

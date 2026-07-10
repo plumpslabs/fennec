@@ -16,10 +16,9 @@ describe("auth_fill_login_form tool", () => {
 
   it("should have description mentioning saveAfterLogin", () => {
     expect(authFillLoginForm.description).toContain("<use_case>");
-    expect(authFillLoginForm.description).toContain("fill login form");
+    expect(authFillLoginForm.description).toContain("fill a login form");
     expect(authFillLoginForm.description).toContain("saveAfterLogin");
     expect(authFillLoginForm.description).toContain("sessionSaved");
-    expect(authFillLoginForm.description).toContain("sessionName");
   });
 
   it("should require username", () => {

@@ -501,6 +501,11 @@ export class FennecServer {
     };
   }
 
+  /** Expose config for CLI flags like --sse */
+  getConfig(): FennecConfig {
+    return this.config;
+  }
+
   private async setupSessionCDPMonitoring(): Promise<void> {
     const logger = getLogger();
     try {
