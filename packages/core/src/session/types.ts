@@ -9,6 +9,8 @@ export interface ConsoleEvent {
 }
 
 export interface NetworkTiming {
+  /** CDP requestTime — base timestamp for all relative timing values (seconds since epoch) */
+  requestTime: number;
   /** DNS lookup duration (ms) */
   dns: number;
   /** TCP connection duration (ms) */
@@ -17,13 +19,13 @@ export interface NetworkTiming {
   ssl: number;
   /** Time to First Byte (ms) — from request start to first byte received */
   ttfb: number;
-  /** Content download duration (ms) */
+  /** Content download duration (ms) — calculated from loadingFinished */
   contentDownload: number;
-  /** Total request duration (ms) */
+  /** Total request duration (ms) — from request start to loading finished */
   total: number;
-  /** Connection queuing time (ms) */
+  /** Connection queuing time (ms) — before DNS starts */
   queuing: number;
-  /** Request sending time (ms) */
+  /** Request sending time (ms) — from sendStart to sendEnd */
   sending: number;
 }
 
