@@ -538,7 +538,9 @@ export class FennecServer {
 
       // Default categories when client doesn't specify: only load essential tool groups
       // This saves ~1000+ tokens vs loading all 90+ tools
-      const defaultCategories = ["navigation", "interaction", "dom", "smart", "ai", "diagnostic"];
+      // Default categories: essential tool groups for AI agents
+      // Includes process + terminal so agents can check running apps & logs without extra queries
+      const defaultCategories = ["navigation", "interaction", "dom", "smart", "ai", "diagnostic", "process", "terminal", "auth", "tabs", "devtools"];
       const selectedCategories = categories?.length ? categories : defaultCategories;
       const tools = this.toolRegistry.getByCategories(selectedCategories);
 
