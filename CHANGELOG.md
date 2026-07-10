@@ -2,6 +2,16 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.11.1] - 2026-07-10
+
+### Fixed
+- **Runtime crash on globally installed CLI** (`pc.hex is not a function`) — Added feature detection in `hexColor()` and `format.hex()` to gracefully fall back when picocolors `hex()` is undefined due to CJS/ESM interop on Node.js v24. Fixes `TypeError: pc.hex is not a function` on `fennec start`.
+- **Typecheck order** — Root `typecheck` script now builds core before running parallel `-r typecheck`, preventing TS7016 when `dist/` doesn't exist yet.
+- **Test mocks** — `Pipeline.test.ts` mock `ToolContext` now includes `lazyContext` property. All 478 tests pass.
+
+### Changed
+- Version bumped to **1.11.1**.
+
 ## [1.11.0] - 2026-07-10
 
 ### Added

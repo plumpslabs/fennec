@@ -69,7 +69,7 @@ async function main(): Promise<void> {
     printBanner();
     await initCommand();
   } else if (command === "version" || command === "--version" || command === "-v") {
-    console.log(`  ${symbols.fox} ${pc.bold("Fennec")} ${pc.dim("v1.11.0")}`);
+    console.log(`  ${symbols.fox} ${pc.bold("Fennec")} ${pc.dim("v1.11.1")}`);
   } else if (command === "help" || command === "--help" || command === "-h") {
     console.log(pc.dim("\n  Use 'fennec help' for more information.\n"));
     printBanner();

@@ -18,10 +18,14 @@ import pc from "picocolors";
 
 /**
  * Custom hex color formatter.
- * picocolors does have hex() at runtime but lacks TypeScript types for it.
+ * picocolors has hex() at runtime but can be undefined on some Node.js
+ * versions due to CJS/ESM interop issues. We detect and fall back.
  */
 function hex(color: string): (s: string) => string {
-  return (pc as any).hex(color);
+  if (typeof (pc as any).hex === "function") {
+    return (pc as any).hex(color);
+  }
+  return (s: string) => s;
 }
 
 // Brand colors (runtime-safe, bypass TypeScript limitations)
