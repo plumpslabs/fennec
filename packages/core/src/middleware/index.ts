@@ -9,6 +9,7 @@ export type { AuditEntry } from "./AuditLog.js";
 export { createStateMachineMiddleware } from "./StateMachineMiddleware.js";
 export { createPulseContext } from "./PulseContext.js";
 export type { Pulse } from "./PulseContext.js";
+export { createStabilityMiddleware } from "./StabilityMiddleware.js";
 export { createEventBusMiddleware } from "./EventBusMiddleware.js";
 export { LazyContext } from "./LazyContext.js";
 export type { L1Summary, L2Detail, L3Raw } from "./LazyContext.js";

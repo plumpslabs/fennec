@@ -73,6 +73,9 @@ export class ProcessManager {
       env: env ? { ...process.env, ...env } : process.env,
       stdio: ["pipe", "pipe", "pipe"],
       shell: process.platform === "win32",
+      // 🔥 DAEMON MODE: process survives after Fennec server exits
+      // (matching CLI's fennec start behavior)
+      detached: true,
     });
 
     const managed: ManagedProcess = {
@@ -87,6 +90,9 @@ export class ProcessManager {
       logBuffer: [],
       running: true,
     };
+
+    // Unref — lets the parent (Fennec server) exit without killing child
+    child.unref();
 
     // Collect stdout
     if (child.stdout) {
@@ -167,7 +173,8 @@ export class ProcessManager {
       proc.child.kill(signal);
       proc.running = false;
       return true;
-    } catch {
+    } catch (err) {
+      getLogger().warn({ processId, signal, error: err }, "ProcessManager: kill failed");
       return false;
     }
   }
@@ -258,7 +265,8 @@ export class ProcessManager {
 
       try {
         proc.child.kill("SIGTERM");
-      } catch {
+      } catch (err) {
+        getLogger().warn({ processId, error: err }, "ProcessManager: restart SIGTERM failed, forcing re-spawn");
         clearTimeout(timeout);
         resolve(doSpawn());
       }

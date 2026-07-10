@@ -34,11 +34,14 @@ export interface LazyLevel1Options {
   enabled: boolean;
   /** Attach summary on error responses even if not requested */
   autoOnError: boolean;
+  /** Max tokens for Level 1 summary (default: 100) */
+  maxTokens: number;
 }
 
 const DEFAULT_LEVEL1: LazyLevel1Options = {
   enabled: true,
   autoOnError: true,
+  maxTokens: 100,
 };
 
 /**
@@ -93,7 +96,7 @@ export function createLazyLevel1(
           : undefined;
 
         if (pulseObj) {
-          const summary = lazyContext.getSummary(ctx.session, pulseObj);
+          const summary = lazyContext.getSummary(ctx.session, pulseObj, opts.maxTokens);
 
           // Attach Level 1 to meta
           if (!resultObj.meta) {
@@ -115,10 +118,13 @@ export function createLazyLevel1(
 
 export interface LazyLevel2Options {
   enabled: boolean;
+  /** Max tokens for Level 2 detail (default: 500) */
+  maxTokens: number;
 }
 
 const DEFAULT_LEVEL2: LazyLevel2Options = {
   enabled: false,
+  maxTokens: 500,
 };
 
 /**
@@ -154,7 +160,7 @@ export function createLazyLevel2(
 
       if (shouldAttach) {
         const incidentId = parsedInput.incidentId as string | undefined;
-        const detailData = lazyContext.getDetail(ctx.session, incidentId);
+        const detailData = lazyContext.getDetail(ctx.session, incidentId, opts.maxTokens);
 
         const resultObj = result as Record<string, unknown>;
         if (!resultObj.meta) {
@@ -174,10 +180,13 @@ export function createLazyLevel2(
 
 export interface LazyLevel3Options {
   enabled: boolean;
+  /** Max tokens for Level 3 raw data (default: 2000) */
+  maxTokens: number;
 }
 
 const DEFAULT_LEVEL3: LazyLevel3Options = {
   enabled: false,
+  maxTokens: 2000,
 };
 
 /**
@@ -209,7 +218,7 @@ export function createLazyLevel3(
 
       // Level 3 only on explicit includeRaw=true
       if (includeRaw === true) {
-        const rawData = lazyContext.getRaw(ctx.session);
+        const rawData = lazyContext.getRaw(ctx.session, opts.maxTokens);
 
         const resultObj = result as Record<string, unknown>;
         if (!resultObj.meta) {

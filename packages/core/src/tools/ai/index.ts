@@ -252,7 +252,7 @@ export const aiDiagnose = createTool({
       .describe("Diagnostic focus area"),
     sessionId: z.string().optional().describe("Session ID"),
   }),
-  handler: async (input, { sessionManager, responseBuilder, processManager }) => {
+  handler: async (input, { sessionManager, responseBuilder, incidentEngine, processManager }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     const page = session.browser;
 
@@ -269,7 +269,7 @@ export const aiDiagnose = createTool({
         .filter((r) => r.status >= 400)
         .slice(-10);
 
-      // Server-side evidence
+      // Server-side evidence (if processId provided)
       let serverErrors: string[] = [];
       let processStatus: Record<string, any> | null = null;
 
@@ -291,59 +291,72 @@ export const aiDiagnose = createTool({
         }
       }
 
-      // Root cause inference
+      // ⚡ SINGLE SOURCE OF TRUTH: Use IncidentEngine instead of inline inference
+      // The IncidentEngine auto-detects patterns from EventBus events.
+      // We reuse its getActiveIncidents() for pre-detected issues.
+      const activeIncidents = incidentEngine.getActiveIncidents();
+
+      // Build evidence for the response
+      const evidence = {
+        page: { url, title },
+        consoleErrors: consoleErrors.map((e) => e.message).slice(0, 5),
+        networkFailures: networkFailures
+          .map((r) => `${r.method} ${r.url} → ${r.status}`)
+          .slice(0, 5),
+      };
+
+      // Use IncidentEngine incidents as the authoritative diagnosis
+      if (activeIncidents.length > 0) {
+        const topIncident = activeIncidents
+          .sort((a, b) => b.confidence - a.confidence)[0]!;
+
+        return responseBuilder.success(
+          {
+            diagnosis: {
+              rootCause: topIncident.rootCause,
+              confidence: topIncident.confidence,
+              fix: topIncident.fix,
+              category: topIncident.category,
+            },
+            evidence,
+            activeIncidents: activeIncidents.map((inc) => ({
+              id: inc.id,
+              severity: inc.severity,
+              category: inc.category,
+              rootCause: inc.rootCause,
+              confidence: inc.confidence,
+              fix: inc.fix,
+            })),
+            summary: `[${topIncident.category.toUpperCase()}] ${topIncident.rootCause} (${Math.round(topIncident.confidence * 100)}% confidence)`,
+          },
+          sessionManager.buildMeta(session),
+        );
+      }
+
+      // No incidents from engine — manual fallback using combined evidence
+      const combinedText = [
+        ...consoleErrors.map((e) => e.message),
+        ...networkFailures.map((r) => `${r.status} ${r.url}`),
+      ].join(" ").toLowerCase();
+
       let rootCause: string | null = null;
       let confidence = 0;
       let fix: string | null = null;
       let category = "unknown";
 
-      const combinedText = [
-        ...consoleErrors.map((e) => e.message),
-        ...serverErrors,
-        ...networkFailures.map((r) => `${r.status} ${r.url}`),
-      ]
-        .join(" ")
-        .toLowerCase();
-
-      if (
-        combinedText.includes("jwt") ||
-        combinedText.includes("token") ||
-        (combinedText.includes("401") && combinedText.includes("auth"))
-      ) {
+      if (combinedText.includes("jwt") || combinedText.includes("token")) {
         rootCause = "Authentication token issue";
-        confidence = 0.92;
+        confidence = 0.7;
         fix = "Verify JWT_SECRET is set and auth tokens are valid";
         category = "auth";
-      } else if (
-        combinedText.includes("env") ||
-        combinedText.includes("not found") ||
-        combinedText.includes("enoent")
-      ) {
-        rootCause = "Missing environment variable or file";
-        confidence = 0.88;
-        fix = "Check if required env vars and files exist";
+      } else if (combinedText.includes("not found") || combinedText.includes("enoent")) {
+        rootCause = "Missing file or resource";
+        confidence = 0.7;
+        fix = "Check if required files exist and paths are correct";
         category = "configuration";
-      } else if (
-        networkFailures.some((r) => r.status === 500) &&
-        serverErrors.length > 0
-      ) {
-        rootCause = "Server error caused network failure";
-        confidence = 0.9;
-        fix = "Check server logs for unhandled exceptions";
-        category = "network";
-      } else if (networkFailures.some((r) => r.status === 404)) {
-        rootCause = "API endpoint not found";
-        confidence = 0.9;
-        fix = "Verify the URL path matches the server's defined routes";
-        category = "network";
-      } else if (consoleErrors.length > 0 && networkFailures.length > 0) {
-        rootCause = "Network failure likely caused JavaScript error";
-        confidence = 0.85;
-        fix = "Ensure all API endpoints are reachable and returning valid data";
-        category = "network";
       } else if (consoleErrors.length > 0) {
         rootCause = "Client-side JavaScript error";
-        confidence = 0.7;
+        confidence = 0.6;
         fix = "Check the specific error message and trace in console";
         category = "runtime";
       }
@@ -351,16 +364,7 @@ export const aiDiagnose = createTool({
       return responseBuilder.success(
         {
           diagnosis: { rootCause, confidence, fix, category },
-          evidence: {
-            page: { url, title },
-            consoleErrors: consoleErrors.map((e) => e.message).slice(0, 5),
-            networkFailures: networkFailures
-              .map((r) => `${r.method} ${r.url} → ${r.status}`)
-              .slice(0, 5),
-            ...(serverErrors.length > 0
-              ? { serverErrors: serverErrors.slice(0, 5), processStatus }
-              : {}),
-          },
+          evidence,
           summary: rootCause
             ? `[${category.toUpperCase()}] ${rootCause} (${Math.round(confidence * 100)}% confidence)`
             : "No root cause identified — system appears healthy",

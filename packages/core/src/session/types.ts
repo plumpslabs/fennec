@@ -8,6 +8,25 @@ export interface ConsoleEvent {
   stackTrace?: string[];
 }
 
+export interface NetworkTiming {
+  /** DNS lookup duration (ms) */
+  dns: number;
+  /** TCP connection duration (ms) */
+  tcp: number;
+  /** SSL/TLS handshake duration (ms) */
+  ssl: number;
+  /** Time to First Byte (ms) — from request start to first byte received */
+  ttfb: number;
+  /** Content download duration (ms) */
+  contentDownload: number;
+  /** Total request duration (ms) */
+  total: number;
+  /** Connection queuing time (ms) */
+  queuing: number;
+  /** Request sending time (ms) */
+  sending: number;
+}
+
 export interface NetworkEvent {
   requestId: string;
   method: string;
@@ -21,6 +40,8 @@ export interface NetworkEvent {
   responseBody?: string;
   timestamp: string;
   type: "fetch" | "xhr" | "document" | "stylesheet" | "script" | "image" | "font" | "other";
+  /** Detailed timing breakdown (waterfall) — available when CDP timing data is captured */
+  timing?: NetworkTiming;
 }
 
 export interface FennecSession {

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createTool } from "../_registry.js";
 import { PortDetector } from "../../process/PortDetector.js";
+import { readTracked, addTracked, removeTracked, removeTrackedByPid } from "../../process/tracking.js";
 
 export const processSpawn = createTool({
   name: "process_spawn",
@@ -22,6 +23,16 @@ export const processSpawn = createTool({
     }
     try {
       const proc = processManager.spawn(input.command, input.args ?? [], input.cwd, input.env, input.name);
+
+      // Sync to tracked.json so CLI's `fennec ps` sees agent-spawned processes
+      addTracked({
+        name: proc.name,
+        pid: proc.pid,
+        command: `${input.command} ${(input.args ?? []).join(" ")}`,
+        cwd: input.cwd,
+        startedAt: proc.startedAt.toISOString(),
+      });
+
       return responseBuilder.success({
         processId: proc.processId,
         pid: proc.pid,
@@ -118,7 +129,14 @@ export const processKill = createTool({
       return responseBuilder.error(new Error("Process killing is disabled"), { code: "INVALID_INPUT" });
     }
     try {
-      return responseBuilder.success({ killed: processManager.kill(input.processId, input.signal) });
+      const killed = processManager.kill(input.processId, input.signal);
+
+      // Sync to tracked.json — remove by processId name
+      if (killed) {
+        removeTracked(input.processId);
+      }
+
+      return responseBuilder.success({ killed });
     } catch (error) {
       return responseBuilder.error(error, { code: "PROCESS_NOT_FOUND" });
     }
@@ -138,6 +156,16 @@ export const processRestart = createTool({
     }
     try {
       const newProc = await processManager.restart(input.processId);
+
+      // Sync to tracked.json — update with new PID
+      addTracked({
+        name: newProc.name,
+        pid: newProc.pid,
+        command: newProc.command,
+        cwd: newProc.cwd,
+        startedAt: newProc.startedAt.toISOString(),
+      });
+
       return responseBuilder.success({
         processId: newProc.processId,
         pid: newProc.pid,

@@ -13,6 +13,7 @@
 
 import { createInterface } from "node:readline";
 import pc from "picocolors";
+import CliTable3 from "cli-table3";
 
 // ─── Color Helpers ───────────────────────────────────────────────
 
@@ -108,7 +109,7 @@ export function logLevel(label: string): string {
   }
 }
 
-// ─── Table Renderer ──────────────────────────────────────────────
+// ─── Table Renderer (cli-table3 powered) ────────────────────────
 
 export interface Column {
   key: string;
@@ -124,90 +125,52 @@ export interface Row {
 
 export function renderTable(columns: Column[], rows: Row[], options?: { padding?: number; compact?: boolean }): string {
   const pad = options?.padding ?? 1;
-  const isCompact = options?.compact ?? false;
 
   if (rows.length === 0) {
     return pc.dim("  (no data)");
   }
 
-  // Calculate column widths
-  const widths: number[] = columns.map((col) => {
-    const headerLen = col.label.length;
-    const maxDataLen = rows.reduce((max, row) => {
-      const val = String(row[col.key] ?? "-");
-      return Math.max(max, val.length);
-    }, 0);
-    return Math.max(headerLen, maxDataLen, col.width ?? 0) + pad * 2;
+  // Build cli-table3 instance
+  const table = new CliTable3({
+    head: columns.map((c) => pc.bold(c.label)),
+    colAligns: columns.map((c) => c.align ?? "left"),
+    style: {
+      "padding-left": pad,
+      "padding-right": pad,
+      head: [], // reset default styles; our pc.bold is already applied
+      border: [],
+      compact: false,
+    },
+    chars: {
+      top: "─", "top-mid": "┬", "top-left": "┌", "top-right": "┐",
+      "bottom": "─", "bottom-mid": "┴", "bottom-left": "└", "bottom-right": "┘",
+      left: "│", "left-mid": "├", mid: "─", "mid-mid": "┼",
+      right: "│", "right-mid": "┤",
+      middle: "│",
+    },
+    truncate: "…",
   });
 
-  // ─── Helpers ────────────────────────────────────────
-  const hLine = (left: string, mid: string, right: string, fill = "─") => {
-    return pc.dim(
-      left + widths.map((w) => fill.repeat(w)).join(mid) + right,
-    );
-  };
-
-  const formatCell = (text: string, colIdx: number) => {
-    const col = columns[colIdx]!;
-    const w = widths[colIdx]!;
-
-    // Truncate if too long
-    const display = text.length > w ? text.slice(0, w - 1) + "…" : text;
-    const padded = display.padEnd(w);
-
-    const align = col.align ?? "left";
-    if (align === "right") return padded.padStart(w);
-    if (align === "center") {
-      const leftPad = Math.floor((w - display.length) / 2);
-      return " ".repeat(leftPad) + display + " ".repeat(w - display.length - leftPad);
-    }
-    return padded;
-  };
-
-  const renderRow = (row: Row): string => {
-    const cells = columns.map((col, i) => {
-      const raw = row[col.key];
-      const formatted = col.format ? col.format(raw) : String(raw ?? "-");
-      return formatCell(formatted, i);
-    });
-    return pc.dim("│") + cells.join(pc.dim("│")) + pc.dim("│");
-  };
-
-  // ─── Build table ────────────────────────────────────
-  const lines: string[] = [];
-
-  if (!isCompact) {
-    lines.push(hLine("┌", "┬", "┐"));
-  }
-
-  // Header row
-  const headerCells = columns.map((col, i) => {
-    return formatCell(pc.bold(col.label), i);
-  });
-  lines.push(pc.dim("│") + headerCells.join(pc.dim("│")) + pc.dim("│"));
-
-  if (!isCompact) {
-    lines.push(hLine("├", "┼", "┤"));
-  } else {
-    lines.push(pc.dim("├") + widths.map((w) => pc.dim("─").repeat(w)).join(pc.dim("┼")) + pc.dim("┤"));
-  }
-
-  // Data rows
   for (const row of rows) {
-    const rendered = renderRow(row);
-    // Highlight if row has an error
-    if (row._error) {
-      lines.push(colors.error(rendered));
-    } else {
-      lines.push(rendered);
+    const values = columns.map((col) => {
+      const raw = row[col.key];
+      return col.format ? col.format(raw) : String(raw ?? "-");
+    });
+    table.push(values);
+  }
+
+  const output = table.toString();
+
+  // Apply dim to all border lines (head, body, foot)
+  const lines = output.split("\n");
+  return lines.map((l) => {
+    // Only dim border chars (lines that start with box-drawing chars)
+    if (l.length > 0 && (l[0] === "┌" || l[0] === "│" || l[0] === "├" || l[0] === "└" || l[0] === "─")) {
+      // Dim the border characters but keep cell content bright
+      return l.replace(/^([│├└┌┐┤┴┬─]+)/, (m) => pc.dim(m));
     }
-  }
-
-  if (!isCompact) {
-    lines.push(hLine("└", "┴", "┘"));
-  }
-
-  return lines.join("\n");
+    return l;
+  }).join("\n");
 }
 
 // ─── Key-Value Display ───────────────────────────────────────────

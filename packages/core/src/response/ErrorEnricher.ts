@@ -1,11 +1,11 @@
 import type { FennecSession } from "../session/types.js";
-import { takeScreenshot } from "../utils/screenshot.js";
 
 export interface EnrichedContext {
   currentUrl?: string;
   pageTitle?: string;
   readyState?: string;
-  screenshot?: string;
+  /** Text summary instead of base64 screenshot (screenshots are 5000-10000+ tokens) */
+  visualSummary?: string;
   consoleLogs?: string[];
   serverLogs?: string[];
 }
@@ -24,25 +24,31 @@ export class ErrorEnricher {
       // Page might be closed
     }
 
+    // ⚡ NO SCREENSHOT — screenshots are 5000-10000+ tokens (too expensive per error)
+    // Replaced with lightweight text summary:
     try {
-      const screenshot = await takeScreenshot(session.browser);
-      context.screenshot = screenshot.base64;
+      const pageText = await session.browser
+        .evaluate(() => document.body?.innerText?.slice(0, 500) ?? "")
+        .catch(() => "");
+      if (pageText) {
+        context.visualSummary = `Page text preview: ${pageText.slice(0, 200)}`;
+      }
     } catch {
-      // Screenshot might fail
+      // Best-effort
     }
 
-    // Include console errors
+    // Include console errors (summary only, not full dump)
     const errors = session.consoleBuffer
       .filter((l) => l.level === "error")
-      .slice(-5)
-      .map((l) => `[${l.level}] ${l.message}`);
+      .slice(-3)
+      .map((l) => `[${l.level}] ${l.message.slice(0, 150)}`);
 
     if (errors.length > 0) {
       context.consoleLogs = errors;
     }
 
     if (extra?.serverLogs && extra.serverLogs.length > 0) {
-      context.serverLogs = extra.serverLogs.slice(-5);
+      context.serverLogs = extra.serverLogs.slice(-3).map((l) => l.slice(0, 200));
     }
 
     return context;

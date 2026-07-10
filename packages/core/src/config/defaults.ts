@@ -46,8 +46,19 @@ export interface FennecConfig {
     level2: boolean;
     level3: boolean;
   };
+  tokenBudget: {
+    /** Max tokens per tool response (default: 8000). Responses exceeding this are truncated. */
+    maxResponseTokens: number;
+    /** Max tokens for LazyContext Level 1 summary */
+    level1MaxTokens: number;
+    /** Max tokens for LazyContext Level 2 detail */
+    level2MaxTokens: number;
+    /** Max tokens for LazyContext Level 3 raw data */
+    level3MaxTokens: number;
+  };
   security: {
     sandbox: boolean;
+    readOnly: boolean;
     allowProcessSpawn: boolean;
     allowProcessKill: boolean;
     allowedDomains: string[];
@@ -118,8 +129,15 @@ export const defaultConfig: FennecConfig = {
     level2: false,
     level3: false,
   },
+  tokenBudget: {
+    maxResponseTokens: 8000,
+    level1MaxTokens: 100,
+    level2MaxTokens: 500,
+    level3MaxTokens: 2000,
+  },
   security: {
     sandbox: true,
+    readOnly: false,
     allowProcessSpawn: true,
     allowProcessKill: false,
     allowedDomains: [],

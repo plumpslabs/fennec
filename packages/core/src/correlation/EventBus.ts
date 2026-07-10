@@ -6,7 +6,10 @@ export type EventType =
   | "process:stderr"
   | "process:exit"
   | "terminal:log"
-  | "tool:executed";
+  | "tool:executed"
+  | "mobile:logcat"
+  | "mobile:screenshot"
+  | "mobile:ui-change";
 
 export interface BusEvent {
   type: EventType;

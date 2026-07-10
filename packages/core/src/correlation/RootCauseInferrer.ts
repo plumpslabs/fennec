@@ -1,5 +1,11 @@
+/**
+ * @deprecated Use IncidentEngine instead (packages/core/src/incident/IncidentEngine.ts).
+ * IncidentEngine provides richer inference with auto-subscription to EventBus,
+ * formal incident lifecycle, alert generation, and deduplication.
+ */
 import type { BusEvent } from "./EventBus.js";
 
+/** @deprecated */
 interface InferenceRule {
   pattern: string;
   rootCause: string;
@@ -7,6 +13,7 @@ interface InferenceRule {
   fix: string;
 }
 
+/** @deprecated */
 const INFERENCE_RULES: InferenceRule[] = [
   {
     pattern: "browser:network:500 + process:stderr:Error",
@@ -46,6 +53,7 @@ const INFERENCE_RULES: InferenceRule[] = [
   },
 ];
 
+/** @deprecated Use IncidentEngine */
 export class RootCauseInferrer {
   infer(
     trigger: BusEvent,

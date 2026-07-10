@@ -21,8 +21,60 @@ const SPAWN_RELATED_TOOLS = new Set([
 export function createPermissionGuard(): MiddlewareFn {
   const logger = getLogger();
 
+  const READ_ONLY_BLOCKED = new Set([
+    "process_kill",
+    "process_spawn",
+    "process_restart",
+    "process_send_input",
+    "devtools_evaluate",
+    "storage_set_local",
+    "storage_remove_local",
+    "storage_clear_local",
+    "storage_set_session",
+    "storage_set_cookie",
+    "storage_delete_cookie",
+    "storage_import_state",
+    "browser_type",
+    "browser_click",
+    "browser_select",
+    "browser_hover",
+    "browser_press_key",
+    "browser_focus",
+    "browser_clear",
+    "browser_upload_file",
+    "browser_drag_drop",
+    "tab_close",
+    "mobile_tap",
+    "mobile_type",
+    "mobile_swipe",
+    "mobile_keyevent",
+    "mobile_install_apk",
+    "mobile_long_press",
+    "mobile_pinch",
+    "network_intercept",
+    "network_mock_response",
+    "network_remove_intercept",
+  ]);
+
   return async (ctx: MiddlewareContext, next) => {
     const { config, toolName } = ctx;
+
+    // Read-only mode: block all mutation tools
+    if (config.security.readOnly) {
+      if (READ_ONLY_BLOCKED.has(toolName)) {
+        logger.warn({ tool: toolName }, "Permission denied: read-only mode");
+        return {
+          success: false,
+          error: {
+            code: "READ_ONLY_MODE",
+            message: `Tool '${toolName}' is blocked because Fennec is in read-only mode`,
+            suggestions: ["Set security.readOnly to false in config to allow mutations"],
+            context: {},
+          },
+          meta: { elapsed: Date.now() - ctx.startTime, sessionId: ctx.session?.id ?? "", timestamp: new Date().toISOString() },
+        };
+      }
+    }
 
     // Sandbox mode: block dangerous tools unless explicitly allowed
     if (config.security.sandbox) {

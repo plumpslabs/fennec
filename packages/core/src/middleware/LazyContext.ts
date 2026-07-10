@@ -16,6 +16,7 @@ import type { IncidentEngine } from "../incident/IncidentEngine.js";
 import type { EventBus } from "../correlation/EventBus.js";
 import type { Pulse } from "./PulseContext.js";
 import { getLogger } from "../utils/logger.js";
+import { truncateByTokens, estimateTokens } from "../utils/tokenCounter.js";
 
 // ─── Level 1: Summary ───────────────────────────────────────────
 
@@ -74,8 +75,9 @@ export class LazyContext {
   /**
    * Level 1: Return a compressed summary of all active incidents.
    * The AI can use this to decide whether to expand to Level 2.
+   * Budget: ~100 tokens max.
    */
-  getSummary(session: FennecSession, pulse: Pulse): L1Summary {
+  getSummary(session: FennecSession, pulse: Pulse, maxTokens = 100): L1Summary {
     const incidents = this.incidentEngine.getActiveIncidents();
     const critical = incidents.filter((i) => i.severity === "critical");
 
@@ -93,26 +95,33 @@ export class LazyContext {
       summaryParts.push(`[${inc.severity.toUpperCase()}] ${inc.rootCause}`);
     }
 
-    return {
+    const result: L1Summary = {
       level: 1,
-      incidents: incidents.map((i) => ({
+      incidents: incidents.slice(0, 5).map((i) => ({
         id: i.id,
         severity: i.severity,
         category: i.category,
-        rootCause: i.rootCause,
+        rootCause: i.rootCause.slice(0, 100),
         confidence: i.confidence,
-        fix: i.fix,
+        fix: i.fix?.slice(0, 100) ?? null,
       })),
       pulse,
-      summary: summaryParts.join(" | "),
+      summary: truncateByTokens(summaryParts.join(" | "), maxTokens),
     };
+
+    if (incidents.length > 5) {
+      result.summary += ` (+${incidents.length - 5} more incidents)`;
+    }
+
+    return result;
   }
 
   /**
    * Level 2: Return detailed timeline and evidence for an incident.
    * This is the "expand" level — more tokens but still compressed.
+   * Budget: ~500 tokens max.
    */
-  getDetail(session: FennecSession, incidentId?: string): L2Detail {
+  getDetail(session: FennecSession, incidentId?: string, maxTokens = 500): L2Detail {
     const logger = getLogger();
 
     // Get timeline from recent EventBus events
@@ -178,19 +187,30 @@ export class LazyContext {
       }
     }
 
-    return {
+    const result: L2Detail = {
       level: 2,
-      timeline,
+      timeline: timeline.slice(0, 15),
       evidence,
-      correlation,
+      correlation: correlation.slice(0, 3),
     };
+
+    // Truncate if over budget
+    const jsonStr = JSON.stringify(result);
+    if (estimateTokens(jsonStr) > maxTokens) {
+      // Aggressively trim timeline
+      result.timeline = timeline.slice(0, 8);
+      result.correlation = correlation.slice(0, 2);
+    }
+
+    return result;
   }
 
   /**
    * Level 3: Return raw data from the session.
    * Highest token cost — only on explicit "show raw" request.
+   * Budget: ~2000 tokens max.
    */
-  getRaw(session: FennecSession): L3Raw {
+  getRaw(session: FennecSession, maxTokens = 2000): L3Raw {
     const consoleLogs = session.consoleBuffer.slice(-20).map((l) => ({
       level: l.level,
       message: l.message.slice(0, 300),
@@ -216,9 +236,15 @@ export class LazyContext {
 
     return {
       level: 3,
-      consoleLogs,
-      networkRequests,
-      domSummary,
+      consoleLogs: consoleLogs.slice(0, 10).map((l) => ({
+        ...l,
+        message: truncateByTokens(l.message, 50),
+      })),
+      networkRequests: networkRequests.slice(0, 5).map((r) => ({
+        ...r,
+        url: truncateByTokens(r.url, 30),
+      })),
+      domSummary: truncateByTokens(domSummary, maxTokens * 0.3),
     };
   }
 }

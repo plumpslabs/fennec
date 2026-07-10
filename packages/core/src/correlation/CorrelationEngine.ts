@@ -1,3 +1,12 @@
+/**
+ * @deprecated Use IncidentEngine instead (packages/core/src/incident/IncidentEngine.ts).
+ * IncidentEngine provides:
+ * - Auto-subscription to EventBus for real-time detection
+ * - Formal incident lifecycle (active → resolved/dismissed)
+ * - Alert generation for Level 0 pulse system
+ * - Deduplication of similar incidents
+ * - Richer pattern matching with severity levels
+ */
 import { EventBus, type BusEvent } from "./EventBus.js";
 import { RootCauseInferrer } from "./RootCauseInferrer.js";
 
@@ -18,6 +27,7 @@ export interface CorrelatedTimeline {
   fix: string | null;
 }
 
+/** @deprecated Use IncidentEngine */
 export class CorrelationEngine {
   private eventBus: EventBus;
   private rootCauseInferrer: RootCauseInferrer;

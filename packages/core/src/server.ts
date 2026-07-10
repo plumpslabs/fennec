@@ -19,7 +19,10 @@ import { createLogger, getLogger } from './utils/logger.js';
 import { ProcessManager } from './process/ProcessManager.js';
 import { LogWatcher } from './process/LogWatcher.js';
 import type { FennecConfig } from './config/defaults.js';
-import { Pipeline, createPermissionGuard, createRetryHandler, createTelemetryMiddleware, createSmartHook, createAuditLog, createStateMachineMiddleware, createPulseContext, createEventBusMiddleware, LazyContext, createLazyLevel1, createLazyLevel2, createLazyLevel3 } from './middleware/index.js';
+import { Pipeline, createPermissionGuard, createRetryHandler, createTelemetryMiddleware, createSmartHook, createAuditLog, createStateMachineMiddleware,  createPulseContext,
+  createEventBusMiddleware, LazyContext, createLazyLevel1, createLazyLevel2, createLazyLevel3,
+  createStabilityMiddleware
+} from './middleware/index.js';
 import { ResourceManager } from './resource/ResourceManager.js';
 import { StateManager } from './state/index.js';
 import { PerformanceMetrics } from './utils/PerformanceMetrics.js';
@@ -33,6 +36,7 @@ import { IncidentEngine } from './incident/index.js';
 import { ConsoleCollector } from './cdp/ConsoleCollector.js';
 import { NetworkCollector } from './cdp/NetworkCollector.js';
 import { selectAdapter, createEngine } from './browser/index.js';
+import { ProgressReporter } from './utils/ProgressReporter.js';
 
 // Import all tools
 import {
@@ -165,6 +169,13 @@ import {
   mobileLaunchApp,
   mobileStopApp,
   mobileDeviceInfo,
+  mobileGetUiHierarchy,
+  mobileLongPress,
+  mobilePinch,
+  mobileGetCurrentActivity,
+  mobileInspectWebview,
+  mobileGetWebviewContent,
+  mobileCaptureWebviewConsole,
 } from './modules/mobile/index.js';
 import {
   schedulerGetStats,
@@ -200,6 +211,10 @@ import {
   investigate,
   predict,
 } from './tools/ai/index.js';
+import {
+  budgetCheckPage,
+  budgetGetSummary,
+} from './tools/budget/index.js';
 
 export class FennecServer {
   private server: Server;
@@ -422,6 +437,9 @@ export class FennecServer {
       explain,
       investigate,
       predict,
+      // Performance Budget
+      budgetCheckPage,
+      budgetGetSummary,
       // Mobile
       mobileListDevices,
       mobileTap,
@@ -434,6 +452,13 @@ export class FennecServer {
       mobileLaunchApp,
       mobileStopApp,
       mobileDeviceInfo,
+      mobileGetUiHierarchy,
+      mobileLongPress,
+      mobilePinch,
+      mobileGetCurrentActivity,
+      mobileInspectWebview,
+      mobileGetWebviewContent,
+      mobileCaptureWebviewConsole,
     ];
 
     for (const tool of tools) {
@@ -459,6 +484,8 @@ export class FennecServer {
       workflowScheduler: this.workflowScheduler,
       eventBus: this.eventBus,
       lazyContext: this.lazyContext,
+      incidentEngine: this.incidentEngine,
+      tokenBudget: { maxResponseTokens: this.config.tokenBudget.maxResponseTokens ?? 8000 },
     };
   }
 
@@ -496,7 +523,13 @@ export class FennecServer {
 
     this.server.setRequestHandler(ListToolsRequestSchema, async (request) => {
       const categories = (request.params as Record<string, unknown>)?.categories as string[] | undefined;
-      const tools = categories?.length ? this.toolRegistry.getByCategories(categories) : this.toolRegistry.getAll();
+
+      // Default categories when client doesn't specify: only load essential tool groups
+      // This saves ~1000+ tokens vs loading all 90+ tools
+      const defaultCategories = ["navigation", "interaction", "dom", "smart", "ai", "diagnostic"];
+      const selectedCategories = categories?.length ? categories : defaultCategories;
+      const tools = this.toolRegistry.getByCategories(selectedCategories);
+
       return {
         tools: tools.map((t) => {
           const { $schema, ...schema } = zodToJsonSchema(t.inputSchema) as any;
@@ -508,11 +541,15 @@ export class FennecServer {
           };
         }),
         _categories: this.toolRegistry.getCategories(),
+        _hint: "Use ?categories=[...] to load specific tool groups. Available categories: " +
+          this.toolRegistry.getCategories().join(", "),
       };
     });
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
+      const meta = (request.params as Record<string, unknown>)?._meta as Record<string, unknown> | undefined;
+      const progressToken = meta?.progressToken as string | number | undefined;
       const tool = this.toolRegistry.get(name);
 
       if (!tool) {
@@ -534,6 +571,13 @@ export class FennecServer {
       try {
         const parsed = tool.inputSchema.parse(args ?? {});
         const context = this.getToolContext();
+        if (progressToken) {
+          context.progressReporter = new ProgressReporter({
+            server: this.server,
+            progressToken,
+            toolName: name,
+          });
+        }
         const result = await this.pipeline.execute(tool, parsed, context);
 
         const isError =
@@ -557,8 +601,8 @@ export class FennecServer {
           const session = this.sessionManager.getOrDefault();
           const enricher = new ErrorEnricher();
           enrichedContext = (await enricher.enrich(session)) as unknown as Record<string, unknown>;
-        } catch {
-          // best-effort
+        } catch (err) {
+          logger.warn({ tool: name, error: err }, "Tool execution error enrichment failed (non-fatal)");
         }
 
         const errorResponse = this.responseBuilder.error(error, {
@@ -586,11 +630,13 @@ export class FennecServer {
     // Lazy Context levels: registered in reverse order (outer→inner) so post-processing runs 0→1→2→3
     // PulseContext (L0) must be registered AFTER L1-L3 so its post-processing (adding meta.pulse)
     // runs BEFORE L1-L3's post-processing (reading meta.pulse).
-    this.pipeline.use(createLazyLevel1(this.lazyContext, { enabled: this.config.lazyContext.level1 }));  // ← Lazy Context Level 1
-    this.pipeline.use(createLazyLevel2(this.lazyContext, { enabled: this.config.lazyContext.level2 }));  // ← Lazy Context Level 2
-    this.pipeline.use(createLazyLevel3(this.lazyContext, { enabled: this.config.lazyContext.level3 }));  // ← Lazy Context Level 3
+    const tb = this.config.tokenBudget;
+    this.pipeline.use(createLazyLevel1(this.lazyContext, { enabled: this.config.lazyContext.level1, maxTokens: tb.level1MaxTokens }));  // ← Lazy Context Level 1
+    this.pipeline.use(createLazyLevel2(this.lazyContext, { enabled: this.config.lazyContext.level2, maxTokens: tb.level2MaxTokens }));  // ← Lazy Context Level 2
+    this.pipeline.use(createLazyLevel3(this.lazyContext, { enabled: this.config.lazyContext.level3, maxTokens: tb.level3MaxTokens }));  // ← Lazy Context Level 3
     this.pipeline.use(createPulseContext());       // ← Lazy Context Level 0 (registers LAST so post-processing runs FIRST)
     this.pipeline.use(createEventBusMiddleware(this.eventBus));  // ← Route tools through EventBus
+    this.pipeline.use(createStabilityMiddleware());
     this.pipeline.use(createSmartHook());
     this.pipeline.use(createRetryHandler({ maxRetries: 2 }));
   }
