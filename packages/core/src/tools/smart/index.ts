@@ -12,7 +12,7 @@ export const smartFillForm = createTool({
   name: "smart_fill_form",
   category: "smart",
   description:
-    "`<use_case>Smart form filling</use_case> Auto-detect ALL form fields on the page and fill them with provided values. Accepts a map of field identifiers (label, name, placeholder, id, aria-label) to values. Handles inputs, selects, textareas, checkboxes. Optionally submits after filling. Returns fieldsDetected, fieldsFilled, unmatchedFields, availableFields, submitted.`",
+    "`<use_case>Smart</use_case> 🧠 Auto-detect ALL form fields on the page and fill them with provided values. Accepts a map of field identifiers (label, name, placeholder, id, aria-label, data-testid) to values. Handles inputs, selects, textareas, checkboxes, radio buttons. Optionally submits after filling. Returns fieldsFilled count, unmatchedFields (identifiers not found), availableFields (what was detected). Use for complex forms with many fields — smarter than manually calling browser_type for each field. For simple login forms, use auth_fill_login_form instead. For validating form data, use smart_validate_form after filling.`",
   inputSchema: z.object({
     fields: z
       .record(z.string())
@@ -408,7 +408,7 @@ export const smartValidateForm = createTool({
   name: "smart_validate_form",
   category: "smart",
   description:
-    "`<use_case>Smart form validation</use_case> Validate all form fields on the page against HTML5 constraints (required, email format, minlength, maxlength, pattern, type). Also checks for common issues like empty required fields, invalid email/URL/phone format. Returns valid (bool), fieldResults[], totalIssues (int).`",
+    "`<use_case>Smart</use_case> ✅ Validate ALL form fields against HTML5 constraints (required, email format, minlength, maxlength, pattern, type). Also validates email/URL/phone format with regex. Supports custom rules per field. Returns valid (bool), invalidFields with issues, and allFields summary. Use AFTER filling a form (smart_fill_form or browser_type) to check for errors before submitting. Catches: empty required fields, bad email format, length violations, pattern mismatches.`",
   inputSchema: z.object({
     customRules: z
       .record(
@@ -679,7 +679,7 @@ export const browserScreenshotAnnotated = createTool({
   name: "browser_screenshot_annotated",
   category: "smart",
   description:
-    "`<use_case>Visual capture</use_case> Take a screenshot with auto-numbered annotations on all interactive elements (buttons, links, inputs, selects, etc.). Each element gets a numbered badge in the screenshot + a data-ai-index attribute for easy clicking. Returns base64 screenshot, elements[ {index, tag, text, selector, boundingBox} ]. Use the index to click: browser_click(selector=\"[data-ai-index='3']\").`",
+    "`<use_case>Smart</use_case> 📸 Take a screenshot with auto-numbered badges on ALL interactive elements (buttons, links, inputs, selects, etc.). Each element gets a data-ai-index attribute and visual numbered overlay. Returns base64 screenshot + elements[] with index, tag, text, selector, boundingBox. Use when you need the AI to SEE the page layout visually — great for unfamiliar pages. Click elements by index: browser_click(selector=\"[data-ai-index='3']\"). For plain screenshots without annotations, use browser_screenshot.`",
   inputSchema: z.object({
     format: z
       .enum(["png", "jpeg"])
@@ -824,7 +824,7 @@ export const browserScreenshotExport = createTool({
   name: "browser_screenshot_export",
   category: "smart",
   description:
-    "`<use_case>Visual capture</use_case> Take a screenshot with bounding box highlights on all interactive elements and export as a standalone HTML file. The HTML file embeds the screenshot + interactive overlays so you can open it in any browser to visually inspect elements. Returns filePath, elementCount, elements[].`",
+    "`<use_case>Smart</use_case> 📄 Take a screenshot with bounding boxes on all interactive elements and export as a standalone HTML file with interactive overlays. Each element has a colored box with a number label — open the HTML in any browser to inspect. Returns filePath, elementCount, elements[]. Use when you need a VISUAL element map you can share or review later. More permanent than browser_screenshot_annotated which just returns base64. The baseline output can feed into browser_screenshot_diff for visual comparison.`",
   inputSchema: z.object({
     format: z
       .enum(["png", "jpeg"])
@@ -1016,7 +1016,7 @@ export const browserScreenshotDiff = createTool({
   name: "browser_screenshot_diff",
   category: "smart",
   description:
-    "`<use_case>Visual diff</use_case> Compare current page state against a baseline and generate a diff HTML report. Accepts baselineElements + baselineScreenshot from a previous browser_screenshot_export call. Detects added (green), removed (red), changed/moved/resized (orange), and unchanged (dimmed) elements. Returns filePath, summary stats.",
+    "`<use_case>Smart</use_case> 🔄 Compare current page state against a baseline and generate a visual diff HTML report. Accepts baseline data from a previous browser_screenshot_export call. Detects: added (green), removed (red), changed/moved/resized (orange), unchanged (dimmed) elements. Returns filePath to diff report + summary stats (added/removed/changed/unchanged). Use to visually verify that a page changed as expected after an action — like confirming a button was added or a text changed.`",
   inputSchema: z.object({
     baseline: z.object({
       elements: z.array(
@@ -1326,7 +1326,7 @@ export const smartWait = createTool({
   name: "smart_wait",
   category: "smart",
   description:
-    "`<use_case>Smart page interaction</use_case> Smart element wait with auto-diagnosis. Waits for an element by selector/text and if timeout occurs, automatically collects page context (URL, DOM snapshot, visible text, screenshot) so AI can diagnose what went wrong. Returns found (bool), elapsed (ms), and diagnosis info on failure.`",
+    "`<use_case>Smart</use_case> ⏳ Smart element wait with AUTO-DIAGNOSIS on failure. Waits for an element by selector (or text match). If timeout occurs, automatically collects: URL, title, visible text, DOM elements, and a screenshot — so the AI can diagnose what went wrong. Returns found, elapsed, and diagnosis info on failure. Use instead of browser_wait_for_element when you want automatic error diagnosis. Especially useful for dynamic SPAs where elements appear after loading.`",
   inputSchema: z.object({
     selector: z.string().describe("Element selector (CSS, text=, ARIA)"),
     text: z
@@ -1519,7 +1519,7 @@ export const smartNavigate = createTool({
   name: "smart_navigate",
   category: "smart",
   description:
-    "`<use_case>Smart page interaction</use_case> Navigate to a URL with smart waiting. After navigation, waits for the page to load AND collects DOM snapshot to help AI understand what's on the page. Returns url, title, elementCount, availableElements[].`",
+    "`<use_case>Smart</use_case> 🚀 Navigate to a URL with smart post-load analysis. After navigation, automatically collects: page title, visible text preview, DOM element snapshot (interactable elements), and element count. Returns url, title, textPreview, elementCount, availableElements[]. Use instead of browser_navigate when you want the AI to automatically understand the new page — saves an extra browser_get_dom_snapshot call.`",
   inputSchema: z.object({
     url: z.string().describe("URL to navigate to"),
     waitUntil: z

@@ -7,7 +7,7 @@ const collector = new PerformanceCollector();
 export const devtoolsGetPerformanceMetrics = createTool({
   name: "devtools_get_performance_metrics",
   category: "devtools",
-  description: "`<use_case>Performance analysis</use_case> Get core web vitals: FCP, LCP, TBT, CLS, TTI, and memory usage. metrics.`",
+  description: "`<use_case>Performance</use_case> 📊 Get core Web Vitals: FCP (First Contentful Paint), LCP (Largest Contentful Paint), TBT (Total Blocking Time), CLS (Cumulative Layout Shift), TTI (Time to Interactive), and memory usage. Use for performance auditing, checking if a page meets Core Web Vitals thresholds. More comprehensive than diagnose_performance which also adds recommendations.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
   }),
@@ -28,7 +28,7 @@ export const devtoolsGetPerformanceMetrics = createTool({
 export const devtoolsGetMemoryUsage = createTool({
   name: "devtools_get_memory_usage",
   category: "devtools",
-  description: "`<use_case>Performance analysis</use_case> Get JavaScript memory usage (jsHeapSize, totalSize, limit) and DOM node count. jsHeapSize, totalSize, limit, domNodes.`",
+  description: "`<use_case>Performance</use_case> 💾 Get JavaScript heap memory stats: jsHeapSize (used), totalSize (allocated), limit (max), plus DOM node count. Use for detecting memory leaks, checking memory pressure on SPAs, or monitoring DOM size growth over time.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
   }),
@@ -51,7 +51,7 @@ export const devtoolsGetMemoryUsage = createTool({
 export const devtoolsGetDomCounters = createTool({
   name: "devtools_get_dom_counters",
   category: "devtools",
-  description: "`<use_case>Performance analysis</use_case> Get DOM node counters: nodes, documents, frames. nodes, documents, frames.`",
+  description: "`<use_case>Performance</use_case> 🏗️ Get DOM node counters: nodes count, documents count, frames (iframes) count. Use for detecting DOM bloat — pages with thousands of nodes can lag. Simpler than devtools_get_memory_usage which also returns JS heap stats.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
   }),
@@ -69,7 +69,7 @@ export const devtoolsGetDomCounters = createTool({
 export const devtoolsStartProfiling = createTool({
   name: "devtools_start_profiling",
   category: "devtools",
-  description: "`<use_case>Performance analysis</use_case> Start CPU performance profiling via CDP. Returns a profileId for use with devtools_stop_profiling. Captures JavaScript stack traces and execution timing. profileId (string).`",
+  description: "`<use_case>Performance</use_case> ⏺️ Start CPU profiling via Chrome DevTools Protocol. Returns a profileId. Use BEFORE performing a slow operation — then call devtools_stop_profiling to get the profile data including top functions by execution time. Pair with devtools_stop_profiling — start before the action, stop after.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
   }),
@@ -96,7 +96,7 @@ export const devtoolsStartProfiling = createTool({
 export const devtoolsStopProfiling = createTool({
   name: "devtools_stop_profiling",
   category: "devtools",
-  description: "`<use_case>Performance analysis</use_case> Stop CPU profiling and return collected profile data. topFunctions[], duration (ms), totalSamples.`",
+  description: "`<use_case>Performance</use_case> ⏹️ Stop CPU profiling and get results. Returns topFunctions[] (most CPU-hungry JS functions sorted by hitCount), duration, totalSamples. Must have called devtools_start_profiling first. Use after performing a slow operation to identify which JavaScript functions are causing performance bottlenecks.`",
   inputSchema: z.object({
     profileId: z.string().describe("Profile ID from devtools_start_profiling"),
     sessionId: z.string().optional().describe("Session ID"),
@@ -148,7 +148,7 @@ export const devtoolsStopProfiling = createTool({
 export const devtoolsSimulateNetwork = createTool({
   name: "devtools_simulate_network",
   category: "devtools",
-  description: "`<use_case>Testing</use_case> Simulate network conditions: offline, slow-3g, fast-3g, 4g, or reset. applied (string).`",
+  description: "`<use_case>Performance</use_case> 🌍 Simulate network conditions to test app behavior under different speeds. Options: offline, slow-3g, fast-3g, 4g, reset. Returns the applied condition. Use for testing loading states, offline behavior, throttling analysis, or verifying your app works on slow connections. Call reset when done to restore normal speeds.`",
   inputSchema: z.object({
     condition: z.enum(["offline", "slow-3g", "fast-3g", "4g", "reset"]).describe("Network condition to simulate"),
     sessionId: z.string().optional().describe("Session ID"),

@@ -5,7 +5,7 @@ import type { ToolContext } from "../_registry.js";
 export const browserNavigate = createTool({
   name: "browser_navigate",
   category: "navigation",
-  description: "`<use_case>Page navigation</use_case> Navigate to a URL. finalUrl, statusCode (int), loadTime (ms).`",
+  description: "`<use_case>Navigation</use_case> 🚀 Navigate the browser to a URL. Supports waitUntil options: 'networkidle' (default, waits for no network activity), 'load', 'domcontentloaded', 'commit'. Returns finalUrl (in case of redirects), statusCode, loadTime. Use as the primary way to load pages. For smarter navigation with auto-DOM summary, use smart_navigate instead. For going back/forward in history, use browser_go_back / browser_go_forward.`",
   inputSchema: z.object({
     url: z.string().url().describe("The URL to navigate to"),
     waitUntil: z
@@ -52,7 +52,7 @@ export const browserNavigate = createTool({
 export const browserGoBack = createTool({
   name: "browser_go_back",
   category: "navigation",
-  description: "`<use_case>History navigation</use_case> Go back one page in browser history. currentUrl.`",
+  description: "`<use_case>Navigation</use_case> ⬅️ Go back one page in browser history. Returns currentUrl after navigation. Use after clicking a link or submitting a form that navigated to a new page — to return to the previous page. Like pressing the browser back button. For forward navigation, use browser_go_forward.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
   }),
@@ -75,7 +75,7 @@ export const browserGoBack = createTool({
 export const browserGoForward = createTool({
   name: "browser_go_forward",
   category: "navigation",
-  description: "`<use_case>History navigation</use_case> Go forward one page in browser history. currentUrl.`",
+  description: "`<use_case>Navigation</use_case> ➡️ Go forward one page in browser history (undo a browser_go_back). Returns currentUrl after navigation. Only works if you previously went back — no forward history if you just navigated normally. Like pressing the browser forward button.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
   }),
@@ -98,7 +98,7 @@ export const browserGoForward = createTool({
 export const browserReload = createTool({
   name: "browser_reload",
   category: "navigation",
-  description: "`<use_case>Page refresh</use_case> Reload the current page. Optionally bypass cache (hardReload). loadTime (ms).`",
+  description: "`<use_case>Navigation</use_case> 🔄 Reload the current page. Optionally hardReload (bypass browser cache) for fresh content. Returns loadTime. Use when you need to refresh page state, re-fetch data, or test initial load behavior. For navigation to a different URL, use browser_navigate instead.`",
   inputSchema: z.object({
     hardReload: z.boolean().optional().default(false).describe("If true, bypass cache"),
     sessionId: z.string().optional().describe("Session ID"),
@@ -124,7 +124,7 @@ export const browserReload = createTool({
 export const browserGetCurrentUrl = createTool({
   name: "browser_get_current_url",
   category: "navigation",
-  description: "`<use_case>Page state</use_case> Get current URL, page title, and document readyState. url, title, readyState.`",
+  description: "`<use_case>Navigation</use_case> ℹ️ Get current page info: URL, title, and document.readyState. Fast — no async waits needed for URL. Use to verify navigation succeeded, check what page you're on, or monitor page loading progress ('loading' → 'interactive' → 'complete'). Similar to tab_get_current but returns readyState which indicates page load status.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
   }),
@@ -149,7 +149,7 @@ export const browserGetCurrentUrl = createTool({
 export const browserWaitForNavigation = createTool({
   name: "browser_wait_for_navigation",
   category: "navigation",
-  description: "`<use_case>Page state</use_case> Wait for the page to navigate to a URL matching a pattern (glob or substring). finalUrl, elapsed (ms).`",
+  description: "`<use_case>Navigation</use_case> ⏳ Wait for the page to navigate to a URL matching a pattern (substring match). Has configurable timeout (default 30s). Returns finalUrl and elapsed time. Use AFTER triggering a navigation (clicking a link, submitting a form) to wait for the new page to load. Unlike browser_navigate which triggers navigation, this only WAITS for navigation to happen.`",
   inputSchema: z.object({
     urlPattern: z.string().optional().describe("URL pattern to wait for (glob or regex string)"),
     timeout: z.number().optional().default(30000).describe("Timeout in milliseconds"),

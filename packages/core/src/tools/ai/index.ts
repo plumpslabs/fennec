@@ -15,6 +15,8 @@
 import { z } from "zod";
 import { createTool } from "../_registry.js";
 import { getLogger } from "../../utils/logger.js";
+import { readTracked } from "../../process/tracking.js";
+import { isProcessRunning } from "../../utils/system-process.js";
 
 // ─── Helper: Build a DOM summary from the page ──────────────────
 
@@ -115,7 +117,7 @@ export const observe = createTool({
   name: "observe",
   category: "ai",
   description:
-    "`<use_case>Observation</use_case> Observe the current state of all connected sensors (browser, console, network) and return a summarized health overview. Returns a token-efficient Level 0 pulse plus optional Level 1 detail. This is the primary entry point for AI situational awareness.`",
+    "`<use_case>AI/Observation</use_case> 👁️ PRIMARY ENTRY POINT for AI situational awareness. Returns a token-efficient summary of all connected sensors: browser (URL/title), console (error/warning summary), network (healthy or failures), and tracked processes (name, PID, status, uptime). Detail levels: 'pulse' (~5 tokens), 'summary', 'full'. Sources: browser, console, network, process. Use FIRST before any other tool — it tells you the overall health and state of everything. For deeper inspection, follow up with specific tools like devtools_get_console_logs, network_get_logs, diagnose_page.`",
   inputSchema: z.object({
     detail: z
       .enum(["pulse", "summary", "full"])
@@ -127,7 +129,7 @@ export const observe = createTool({
     sources: z
       .array(z.enum(["browser", "console", "network", "process"]))
       .optional()
-      .default(["browser", "console", "network"])
+      .default(["browser", "console", "network", "process"])
       .describe("Which sensors to observe"),
     sessionId: z.string().optional().describe("Session ID"),
   }),
@@ -187,9 +189,22 @@ export const observe = createTool({
       }
     }
 
-    // Process observation
+    // Process observation — read tracked.json directly
     if (sources.includes("process")) {
-      result.process = { monitored: "via process_list tool" };
+      const tracked = readTracked();
+      if (tracked.length > 0) {
+        const running = tracked.filter((t) => isProcessRunning(t.pid));
+        const stopped = tracked.filter((t) => !isProcessRunning(t.pid));
+        result.process = {
+          tracked,
+          runningCount: running.length,
+          stoppedCount: stopped.length,
+          totalCount: tracked.length,
+          summary: `${running.length}/${tracked.length} apps running`,
+        };
+      } else {
+        result.process = { tracked: [], runningCount: 0, stoppedCount: 0, totalCount: 0, summary: "No tracked apps" };
+      }
     }
 
     // Count incidents
@@ -226,6 +241,10 @@ export const observe = createTool({
       const n = result.network as Record<string, any>;
       summaryParts.push(`Network: ${n.summary ?? "ok"}`);
     }
+    if (result.process && typeof result.process === "object") {
+      const p = result.process as Record<string, any>;
+      summaryParts.push(`Tracked: ${p.summary ?? "none"}`);
+    }
     result._summary = summaryParts.join(" | ");
 
     return responseBuilder.success(result, sessionManager.buildMeta(session));
@@ -239,7 +258,7 @@ export const aiDiagnose = createTool({
   name: "ai_diagnose",
   category: "ai",
   description:
-    "`<use_case>Diagnosis</use_case> Full-stack diagnosis with correlation. Collects evidence from all sensors, correlates events, identifies root cause with confidence score, and suggests fixes. Returns a structured incident report.`",
+    "`<use_case>AI/Diagnosis</use_case> 🩺 Full-stack diagnosis with correlation. Collects evidence from browser (console errors, network failures) + optionally server process (if processId provided). Uses IncidentEngine for pattern detection. Returns: rootCause, confidence score (0-1), suggested fix, category (auth/network/runtime). More comprehensive than diagnose_fullstack — uses event correlation engine. Use when observe() detects issues and you need to find the root cause. Categories detected: auth tokens, missing files, client JS errors, 500+server crashes.`",
   inputSchema: z.object({
     processId: z
       .string()
@@ -383,7 +402,7 @@ export const correlate = createTool({
   name: "correlate",
   category: "ai",
   description:
-    "`<use_case>Correlation</use_case> Correlate events across browser, server, and network layers. Returns a timeline with root cause analysis. Useful when aiDiagnose() finds partial information and you need deeper cross-layer analysis.`",
+    "`<use_case>AI/Correlation</use_case> 🔗 Deep event correlation across browser, server, and network. Builds a timeline from EventBus events + optional server logs (if processId provided). Detects cross-layer patterns like 'browser error + server error' or 'network failure + server error'. Returns timeline, correlations with confidence scores. Use after aiDiagnose() if you need deeper cross-layer analysis — connects frontend errors to backend causes.`",
   inputSchema: z.object({
     timeWindowMs: z
       .number()
@@ -491,7 +510,7 @@ export const summarize = createTool({
   name: "summarize",
   category: "ai",
   description:
-    "`<use_case>Summarization</use_case> Compress raw data (logs, events, DOM) into concise insight. Returns only the essential information — errors, warnings, and key state changes. Token-efficient replacement for dumping raw logs.`",
+    "`<use_case>AI/Summarization</use_case> 📝 Compress raw data into concise insight. Sources: 'console' (logs by level + errors), 'network' (requests, failed, slow + failures), 'dom' (page element summary), 'session' (session metadata). Returns token-efficient summaries — use instead of dumping raw logs. For example, instead of devtools_get_console_logs(limit=100), use summarize(source='console') to get a compressed view.`",
   inputSchema: z.object({
     source: z
       .enum(["console", "network", "dom", "session"])
@@ -591,7 +610,7 @@ export const explain = createTool({
   name: "explain",
   category: "ai",
   description:
-    "`<use_case>Explanation</use_case> Explain the current state or a specific incident in plain language. Uses Lazy Context Level 1-2 to generate a token-efficient, human-readable explanation of what's happening in the stack.`",
+    "`<use_case>AI/Explanation</use_case> 💬 Explain the current state or a specific incident in plain language. Focus options: 'current' (overall state), 'incident' (needs incidentId), 'error' (latest console errors), 'state' (session + URL info). Detail levels: pulse, summary, detail. Returns human-readable explanation. Use after observe() or aiDiagnose() to get a plain-English interpretation of what's happening. Good for generating reports or understanding complex issues.`",
   inputSchema: z.object({
     focus: z
       .enum(["current", "incident", "error", "state"])
@@ -732,7 +751,7 @@ export const investigate = createTool({
   name: "investigate",
   category: "ai",
   description:
-    "`<use_case>Investigation</use_case> Deep dive into a specific incident or error. Expands the evidence chain using Lazy Context Level 2-3, showing correlated events, timeline, and raw data. Use this when explain() reveals something suspicious and you need more detail.`",
+    "`<use_case>AI/Investigation</use_case> 🔎 Deep dive into a specific incident or error. Expands evidence with Level 2-3 data: correlated events, timeline, event chains across layers. Optionally include raw Level 3 data (raw logs, network, DOM). Use when explain() reveals something suspicious and you need to investigate further — like tracing a 500 error from API response back to server crash. For quick overviews, use explain() first, then investigate() for deeper detail.`",
   inputSchema: z.object({
     incidentId: z.string().optional().describe("Incident ID to investigate"),
     followChain: z
@@ -795,7 +814,7 @@ export const predict = createTool({
   name: "predict",
   category: "ai",
   description:
-    "`<use_case>Prediction</use_case> Predict likely failures based on current patterns and historical events. Analyzes EventBus history, console trends, and network error patterns to identify potential issues before they become critical.`",
+    "`<use_case>AI/Prediction</use_case> 🔮 Predict likely failures based on current patterns. Analyzes: browser error trends, network failures, server process errors, and tool execution failures. Returns predictions[] with type (degradation/network/server/tool/healthy), confidence, signal, prediction text, and recommended action. Use for proactive monitoring — catch issues before they become critical. If errors > threshold, predicts degradation. If no errors, predicts healthy with 90% confidence.`",
   inputSchema: z.object({
     horizon: z
       .enum(["short", "medium", "long"])

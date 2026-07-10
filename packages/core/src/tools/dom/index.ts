@@ -6,7 +6,7 @@ import { takeScreenshot } from "../../utils/screenshot.js";
 export const browserScreenshot = createTool({
   name: "browser_screenshot",
   category: "dom",
-  description: "`<use_case>Visual capture</use_case> Take a screenshot. Supports fullPage, selector-scoped capture, and png/jpeg format. base64, width, height, timestamp.`",
+  description: "`<use_case>DOM/Visual</use_case> 📸 Take a screenshot of the current page. Supports fullPage (scrollable content), selector-scoped (specific element), and png/jpeg format. Returns base64 image, dimensions, timestamp. For annotated screenshots with numbered elements, use browser_screenshot_annotated. For visual diffs, use browser_screenshot_diff.`",
   inputSchema: z.object({
     fullPage: z.boolean().optional().default(false).describe("Capture full page (including scrollable content)"),
     selector: z.string().optional().describe("Element selector to capture (instead of viewport)"),
@@ -35,7 +35,7 @@ export const browserScreenshot = createTool({
 export const browserGetDomSnapshot = createTool({
   name: "browser_get_dom_snapshot",
   category: "dom",
-  description: "`<use_case>DOM inspection</use_case> Get DOM summary (not full HTML) — interactable elements, forms, buttons, links, headings, inputs with their attributes. Returns a tree that summarizes the page structure without the overhead of serializing the entire DOM. elementCount, depth, structure[]. For full raw HTML, use browser_evaluate with document.documentElement.outerHTML instead.",
+  description: "`<use_case>DOM inspection</use_case> 🌳 Get a summarized DOM tree — interactable elements, forms, buttons, links, headings, inputs with their attributes. Much lighter than dumping full HTML. Returns elementCount, interactableCount, depth, structure[] (tree), tagBreakdown. Use as your FIRST step on any new page to understand what's there. For full raw HTML, use devtools_evaluate with document.documentElement.outerHTML. For finding specific elements by CSS, use browser_find_elements.`",
   inputSchema: z.object({
     selector: z.string().optional().describe("Optional selector to scope the summary"),
     includeAllElements: z.boolean().optional().default(false).describe("Include all elements (not just interactable ones)"),
@@ -175,7 +175,7 @@ export const browserGetDomSnapshot = createTool({
 export const browserGetAccessibilityTree = createTool({
   name: "browser_get_accessibility_tree",
   category: "dom",
-  description: "`<use_case>Accessibility</use_case> Get the accessibility tree — interactable elements with ARIA attributes. Optionally scope to a selector. tree.`",
+  description: "`<use_case>DOM inspection</use_case> ♿ Get the accessibility tree with ARIA roles, labels, and nested structure. Optionally scope to a CSS selector. Returns a tree of accessible nodes with role and name. Use for accessibility auditing, finding elements by their ARIA role, or understanding how screen readers will interpret the page. Also works well for finding elements that browser_get_dom_snapshot might miss.`",
   inputSchema: z.object({
     selector: z.string().optional().describe("Optional selector to scope the tree"),
     sessionId: z.string().optional().describe("Session ID"),
@@ -216,7 +216,7 @@ export const browserGetAccessibilityTree = createTool({
 export const browserFindElements = createTool({
   name: "browser_find_elements",
   category: "dom",
-  description: "`<use_case>DOM inspection</use_case> Find all elements matching a CSS selector and return specified attributes. Supports Shadow DOM piercing. elements[], count.`",
+  description: "`<use_case>DOM inspection</use_case> 🔎 Find ALL elements matching a CSS selector. Returns specified attributes for each element (default: id, class, textContent, tagName). Supports Shadow DOM piercing (automatically searches within shadow roots if standard querySelector finds nothing). Use when you know the CSS selector and need specific elements. For exploring the whole page structure, use browser_get_dom_snapshot first.`",
   inputSchema: z.object({
     selector: z.string().describe("CSS selector to find elements"),
     returnAttributes: z
@@ -308,7 +308,7 @@ export const browserFindElements = createTool({
 export const browserGetElementInfo = createTool({
   name: "browser_get_element_info",
   category: "dom",
-  description: "`<use_case>Element inspection</use_case> Get element details: visibility, enabled state, text content, attributes, and bounding box. exists, visible, enabled, text, attributes, boundingBox.`",
+  description: "`<use_case>DOM inspection</use_case> 🔍 Get detailed info about a specific element: exists, visible (isVisible), enabled (isEnabled), text (textContent), attributes (all), boundingBox (x, y, width, height). Use BEFORE clicking or typing to verify the element is in the right state. For quicker existence checks without details, use diagnose_element. For finding elements by attributes, use browser_find_elements.`",
   inputSchema: z.object({
     selector: z.string().describe("Element selector"),
     sessionId: z.string().optional().describe("Session ID"),
@@ -360,7 +360,7 @@ export const browserGetElementInfo = createTool({
 export const browserWaitForElement = createTool({
   name: "browser_wait_for_element",
   category: "dom",
-  description: "`<use_case>Page state</use_case> Wait for an element to reach a state: attached, detached, visible, or hidden. elapsed (ms), finalState.`",
+  description: "`<use_case>Page state</use_case> ⏳ Wait for an element to reach a specific state. States: attached (in DOM), detached (removed), visible (displayed), hidden (not displayed). Configurable timeout (default 30s). Returns elapsed time. Use before interacting with dynamic elements that appear after loading. For smarter waiting with auto-diagnosis on failure, use smart_wait instead.`",
   inputSchema: z.object({
     selector: z.string().describe("Element selector"),
     state: z
@@ -401,7 +401,7 @@ export const browserWaitForElement = createTool({
 export const browserGetPageText = createTool({
   name: "browser_get_page_text",
   category: "dom",
-  description: "`<use_case>Content extraction</use_case> Get visible text from the page or a scoped element. text, wordCount.`",
+  description: "`<use_case>DOM inspection</use_case> 📝 Get visible (rendered) text from the full page or a scoped element. Returns text content and wordCount. Use to extract page content, read article text, or verify text appears on the page. Unlike browser_get_dom_snapshot which returns structure, this returns raw readable text. For page metadata (title, description, OG tags), use browser_get_meta.`",
   inputSchema: z.object({
     selector: z.string().optional().describe("Optional selector to scope text extraction"),
     sessionId: z.string().optional().describe("Session ID"),
@@ -426,7 +426,7 @@ export const browserGetPageText = createTool({
 export const browserGetPageTitle = createTool({
   name: "browser_get_page_title",
   category: "dom",
-  description: "`<use_case>Page state</use_case> Get the current page title. title.`",
+  description: "`<use_case>Page state</use_case> 📌 Get just the page title (document.title). Fast — no full DOM scan needed. Returns title string. Use for quick page identification, verifying navigation success, or checking if the page loaded correctly. For more details including URL and readyState, use tab_get_current or browser_get_current_url.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
   }),
@@ -444,7 +444,7 @@ export const browserGetPageTitle = createTool({
 export const browserGetMeta = createTool({
   name: "browser_get_meta",
   category: "dom",
-  description: "`<use_case>SEO/Meta inspection</use_case> Get page metadata: title, description, Open Graph tags, Twitter cards, canonical URL, favicon, and viewport info. title, description, ogTags, twitterTags, canonical, favicon, viewport, metaTags.`",
+  description: "`<use_case>DOM inspection</use_case> 🏷️ Get comprehensive page metadata: title, description, Open Graph tags (og:*), Twitter cards (twitter:*), canonical URL, favicon, viewport, and ALL meta tags. Use for SEO analysis, link preview verification, social sharing checks, or extracting structured page info. More complete than browser_get_page_title which only returns the title.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
   }),

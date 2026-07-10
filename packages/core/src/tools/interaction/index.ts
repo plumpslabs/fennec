@@ -6,7 +6,7 @@ import { resolveSelector } from "../../utils/selector.js";
 export const browserClick = createTool({
   name: "browser_click",
   category: "interaction",
-  description: "`<use_case>Element interaction</use_case> Click an element. Supports left/right/middle buttons and clickCount for double-click. elementFound (bool), coordinates.`",
+  description: "`<use_case>Interaction</use_case> 🖱️ Click on a page element. Supports left/right/middle buttons and clickCount (single/double click). Returns elementFound and click coordinates. Uses smart selector resolution (ARIA label, data-testid, text content, CSS, XPath). Use for clicking buttons, links, checkboxes — the primary way AI agents interact with pages. For keyboard input, use browser_type. For hovering, use browser_hover.`",
   inputSchema: z.object({
     selector: z.string().describe("Element selector (ARIA, testid, text, CSS, or XPath)"),
     button: z.enum(["left", "right", "middle"]).optional().default("left").describe("Mouse button"),
@@ -59,7 +59,7 @@ export const browserClick = createTool({
 export const browserType = createTool({
   name: "browser_type",
   category: "interaction",
-  description: "`<use_case>Form input</use_case> Type text into an input field. Optionally clear the field first. elementFound (bool), valueAfter.`",
+  description: "`<use_case>Interaction</use_case> ⌨️ Type text into an input field (or any focusable element). Optionally clear the field first. Returns valueAfter (the field's value after typing). Use for filling out forms, search boxes, text areas. For dropdown/select elements, use browser_select instead. For just clearing without typing, use browser_clear. For key combinations (Ctrl+C, Enter), use browser_press_key.`",
   inputSchema: z.object({
     selector: z.string().describe("Element selector"),
     text: z.string().describe("Text to type"),
@@ -107,7 +107,7 @@ export const browserType = createTool({
 export const browserSelect = createTool({
   name: "browser_select",
   category: "interaction",
-  description: "`<use_case>Form input</use_case> Select an option from a <select> dropdown element. selectedValue, allOptions[].`",
+  description: "`<use_case>Interaction</use_case> 📋 Select an option from a <select> dropdown element by value. Returns selectedValue and all available options. Use specifically for native HTML <select> elements — not for custom dropdowns built with divs/buttons. For filling text inputs, use browser_type. For custom dropdowns, use browser_click on the option.`",
   inputSchema: z.object({
     selector: z.string().describe("Select element selector"),
     value: z.string().describe("Option value to select"),
@@ -141,7 +141,7 @@ export const browserSelect = createTool({
 export const browserHover = createTool({
   name: "browser_hover",
   category: "interaction",
-  description: "`<use_case>Element interaction</use_case> Hover over an element to trigger hover states or tooltips. coordinates.`",
+  description: "`<use_case>Interaction</use_case> 👆 Hover over an element to trigger CSS :hover states, tooltips, or dropdown menus that appear on hover. Returns element coordinates. Use for triggering hover-dependent UI elements before clicking them, inspecting tooltip content, or activating nested menus. Follow up with browser_get_element_info to check what appeared.`",
   inputSchema: z.object({
     selector: z.string().describe("Element selector"),
     sessionId: z.string().optional().describe("Session ID"),
@@ -171,7 +171,7 @@ export const browserHover = createTool({
 export const browserScroll = createTool({
   name: "browser_scroll",
   category: "interaction",
-  description: "`<use_case>Page navigation</use_case> Scroll the page or a specific element. Supports pixel position, selector-based, or directional (up/down/left/right) scrolling. scrollPosition {x, y}.`",
+  description: "`<use_case>Interaction</use_case> 📜 Scroll the page or a specific scrollable element. Supports: exact position (x, y), selector-based targeting, or directional scrolling (up/down/left/right by 200px). Returns new scrollPosition {x, y}. Use when content is below the fold, infinite scroll pages, or scrollable containers. For page navigation (URL changes), use browser_navigate or browser_scroll instead.`",
   inputSchema: z.object({
     x: z.number().optional().describe("Horizontal scroll position"),
     y: z.number().optional().describe("Vertical scroll position"),
@@ -229,7 +229,7 @@ export const browserScroll = createTool({
 export const browserPressKey = createTool({
   name: "browser_press_key",
   category: "interaction",
-  description: "`<use_case>Keyboard input</use_case> Press a keyboard key with optional modifier keys (Control, Shift, Alt, Meta). success.`",
+  description: "`<use_case>Interaction</use_case> 🔑 Press keyboard keys with optional modifiers (Control/Shift/Alt/Meta). Use for keyboard shortcuts (Ctrl+S, Ctrl+C/V), special keys (Enter, Escape, Tab, ArrowDown), or combo inputs. For typing text into inputs, use browser_type instead. For focusing elements, use browser_focus. Examples: key='Enter' to submit, key='Escape' to close modals, key='Tab' modifiers=['Shift'] to go backwards.`",
   inputSchema: z.object({
     key: z.string().describe("Key to press (e.g., 'Enter', 'Escape', 'Tab', 'ArrowDown')"),
     modifiers: z.array(z.enum(["Alt", "Control", "Meta", "Shift"])).optional().describe("Modifier keys"),
@@ -250,7 +250,7 @@ export const browserPressKey = createTool({
 export const browserFocus = createTool({
   name: "browser_focus",
   category: "interaction",
-  description: "`<use_case>Element interaction</use_case> Focus on an element by selector. success.`",
+  description: "`<use_case>Interaction</use_case> 🎯 Set focus on an element by selector. Use before typing into a field that requires explicit focus, or triggering focus-dependent UI changes (like showing a cursor, activating input styles). Less common than browser_click which naturally focuses elements — use only when clicking would cause unwanted side effects.`",
   inputSchema: z.object({
     selector: z.string().describe("Element selector"),
     sessionId: z.string().optional().describe("Session ID"),
@@ -274,7 +274,7 @@ export const browserFocus = createTool({
 export const browserClear = createTool({
   name: "browser_clear",
   category: "interaction",
-  description: "`<use_case>Form input</use_case> Clear the content of an input field. previousValue.`",
+  description: "`<use_case>Interaction</use_case> 🧹 Clear the content of an input field without typing new text. Returns previousValue (the text that was cleared). Use when you want to empty a field without replacing it — e.g., clearing a search box before a new query. For clear + type in one step, use browser_type with clear=true instead.`",
   inputSchema: z.object({
     selector: z.string().describe("Element selector"),
     sessionId: z.string().optional().describe("Session ID"),
@@ -304,7 +304,7 @@ export const browserClear = createTool({
 export const browserUploadFile = createTool({
   name: "browser_upload_file",
   category: "interaction",
-  description: "`<use_case>File upload</use_case> Upload a file to a file input element. Supports single or multiple files by path. fileName, fileSize.`",
+  description: "`<use_case>Interaction</use_case> 📎 Upload a file to a <input type='file'> element. Provide absolute file paths (supports multiple files). Returns fileCount and fileName. Use for uploading images, documents, or any file via a web form. The files must exist on the server filesystem. For non-file inputs, use browser_type instead.`",
   inputSchema: z.object({
     selector: z.string().describe("File input element selector"),
     filePaths: z.array(z.string()).describe("Absolute file paths to upload"),
@@ -339,7 +339,7 @@ export const browserUploadFile = createTool({
 export const browserDragDrop = createTool({
   name: "browser_drag_drop",
   category: "interaction",
-  description: "`<use_case>Drag and drop</use_case> Drag an element to a target element. Uses Playwright's built-in dragTo() for reliable mouse-based DnD. Returns: success.`",
+  description: "`<use_case>Interaction</use_case> 🔄 Drag a source element and drop it onto a target element. Uses Playwright's dragTo() for reliable mouse-based drag-and-drop. Returns success. Use for reordering lists, moving elements in builders, or any drag-and-drop interaction. For scrolling to make elements visible before drag, use browser_scroll first.`",
   inputSchema: z.object({
     sourceSelector: z.string().describe("Source element selector to drag"),
     targetSelector: z.string().describe("Target element selector to drop onto"),

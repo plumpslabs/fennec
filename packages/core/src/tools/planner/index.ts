@@ -7,7 +7,7 @@ export const plannerExecuteGoal = createTool({
   name: "planner_execute_goal",
   category: "planner",
   description:
-    "`<use_case>Automation</use_case> AI-powered multi-step plan execution. Describe a goal in natural language and Fennec will create an execution plan, convert it to a workflow, and execute every step automatically. Supports login flows, form filling, checkout, debugging/diagnosis, and screenshot capture. Returns step-by-step execution results with status per step.`",
+    "`<use_case>Planner</use_case> 🤖 AI-powered multi-step plan EXECUTION. Describe a goal in plain English and Fennec automatically: creates an execution plan → converts to workflow → executes every step. Supports: login flows, form filling, checkout, debugging, screenshots. Returns step-by-step results with per-step status (completed/failed/skipped). Use for complex multi-step tasks — like 'login to my app', 'debug the error on the page', 'fill the checkout form'. To review the plan before executing, use planner_create_plan first.`",
   inputSchema: z.object({
     goal: z
       .string()
@@ -115,7 +115,7 @@ export const plannerCreatePlan = createTool({
   name: "planner_create_plan",
   category: "planner",
   description:
-    "`<use_case>Planning</use_case> Generate a multi-step execution plan from a goal WITHOUT executing it. Returns the plan steps so you can review before executing. Use planner_execute_goal to plan + execute in one call.`",
+    "`<use_case>Planner</use_case> 📋 Generate a multi-step execution plan from a goal WITHOUT executing it. Returns plan steps with descriptions and tool assignments. Use to review what the planner WILL do before committing — safer than planner_execute_goal which plans AND executes. After reviewing, use planner_execute_goal with the same goal to run it.`",
   inputSchema: z.object({
     goal: z
       .string()
@@ -159,7 +159,8 @@ export const plannerCreatePlan = createTool({
 export const plannerListPlans = createTool({
   name: "planner_list_plans",
   category: "planner",
-  description: "List all previously created plans and their execution status.",
+  description:
+    "`<use_case>Planner</use_case> 📚 List all plans that have been created with their execution status. Returns totalPlans, each with id, goal, status, steps count, timestamps. Use to track plan history, check previous execution results, or find a planId for planner_get_plan. Plans persist within the session.`",
   inputSchema: z.object({}),
   handler: async (_input, { planner, responseBuilder }) => {
     const plans = planner.listPlans();
@@ -183,7 +184,8 @@ export const plannerListPlans = createTool({
 export const plannerGetPlan = createTool({
   name: "planner_get_plan",
   category: "planner",
-  description: "Get detailed info about a specific plan by ID.",
+  description:
+    "`<use_case>Planner</use_case> 🔍 Get detailed info about a specific plan by ID. Returns full plan details: goal, all steps with their status and errors, timestamps, and current execution progress. Use after planner_execute_goal to see per-step results, or after planner_create_plan to review the full plan. Get planId from planner_list_plans.`",
   inputSchema: z.object({
     planId: z.string().describe("Plan ID to retrieve"),
   }),
@@ -220,7 +222,8 @@ export const plannerGetPlan = createTool({
 export const plannerCancelPlan = createTool({
   name: "planner_cancel_plan",
   category: "planner",
-  description: "Cancel a running plan execution.",
+  description:
+    "`<use_case>Planner</use_case> ⏹️ Cancel a running plan execution by plan ID. Returns cancelled=true/false. Use when a plan is taking too long, stuck on a step, or you want to abort mid-execution. Only works on plans with status 'running'. Get planId from planner_list_plans. After cancellation, use planner_get_plan to see partial results.`",
   inputSchema: z.object({
     planId: z.string().describe("Plan ID to cancel"),
   }),

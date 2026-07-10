@@ -8,7 +8,7 @@ const perfCollector = new PerformanceCollector();
 export const diagnosePage = createTool({
   name: "diagnose_page",
   category: "diagnostic",
-  description: "`<use_case>Debugging</use_case> Comprehensive page diagnostic: console errors, network failures, performance metrics, and page state. page, consoleErrors[], networkFailures[], performance, summary.`",
+  description: "`<use_case>Diagnostic</use_case> 🩺 Comprehensive one-shot page health check. Collects: page URL/title/state, console errors, network failures (>=400), and performance metrics. Returns summary with errorCount and failedRequests. Use as your first diagnostic step when something seems wrong. More complete than diagnose_network (network only) or devtools_get_js_errors (console only). For full-stack diagnosis including server processes, use diagnose_fullstack.`",
   inputSchema: z.object({
     focus: z.enum(["errors", "performance", "network", "all"]).optional().default("all").describe("Diagnostic focus area"),
     sessionId: z.string().optional().describe("Session ID"),
@@ -39,7 +39,7 @@ export const diagnosePage = createTool({
 export const diagnoseElement = createTool({
   name: "diagnose_element",
   category: "diagnostic",
-  description: "`<use_case>Debugging</use_case> Debug an element: check existence, visibility, interactability, and get actionable suggestions. exists, visible, enabled, interactable, reason, suggestions[].`",
+  description: "`<use_case>Diagnostic</use_case> 🔍 Debug a specific element: checks existence (in DOM), visibility (isVisible), enablement (isEnabled), and overall interactability. Returns reason and actionable suggestions if the element can't be interacted with. Use when browser_click or browser_type fails — this tells you WHY (not visible? disabled? not in DOM?). For full element details including attributes and bounding box, use browser_get_element_info instead.`",
   inputSchema: z.object({
     selector: z.string().describe("Element selector to diagnose"),
     sessionId: z.string().optional().describe("Session ID"),
@@ -79,7 +79,7 @@ export const diagnoseElement = createTool({
 export const diagnoseNetwork = createTool({
   name: "diagnose_network",
   category: "diagnostic",
-  description: "`<use_case>Debugging</use_case> Network diagnostic: failed requests, slow requests, CORS issues, and summary. failedRequests[], slowRequests[], corsIssues[], summary.`",
+  description: "`<use_case>Diagnostic</use_case> 🌐 Network-only diagnostic: failed requests (>=400), slow requests (>1s), CORS issues, and summary with total/failed/slow/cors counts. More focused than diagnose_page which also checks console and performance. Use for quick network health checks — e.g., after an API call fails. For detailed request inspection, use network_get_logs or network_get_request_detail.`",
   inputSchema: z.object({ since: z.string().optional().describe("ISO timestamp filter"), sessionId: z.string().optional().describe("Session ID") }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
@@ -98,7 +98,7 @@ export const diagnoseNetwork = createTool({
 export const diagnoseAuth = createTool({
   name: "diagnose_auth",
   category: "diagnostic",
-  description: "`<use_case>Debugging</use_case> Check authentication state: auth cookies, token presence, expiry info. isAuthenticated, tokenFound, cookiesPresent, expiryInfo.`",
+  description: "`<use_case>Diagnostic</use_case> 🔐 Check authentication state: analyzes cookies for auth tokens (session, jwt, token, auth, sid, connect). Returns isAuthenticated, tokenFound, cookiesPresent, authCookiesCount, expiryInfo. Use to quickly verify if you're logged in on a site, check token expiry, or diagnose login issues. More detailed than auth_check_logged_in which also checks page elements. For saving/loading auth, use auth_save_session / auth_load_session.`",
   inputSchema: z.object({ sessionId: z.string().optional().describe("Session ID") }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
@@ -121,7 +121,7 @@ export const diagnoseAuth = createTool({
 export const diagnoseFullstack = createTool({
   name: "diagnose_fullstack",
   category: "diagnostic",
-  description: "`<use_case>Debugging</use_case> Unified browser + server diagnostic with correlated timeline and root cause analysis. Links browser console + network with server process logs. browser, server, correlation {rootCause, confidence, fix}.`",
+  description: "`<use_case>Diagnostic</use_case> 🏥 Full-stack diagnostic: correlates browser-side errors (console + network) with server-side process logs. Returns: browser state, server errors (if processId provided), and correlation analysis with rootCause, confidence score, and suggested fix. Use when debugging full-stack apps — provides unified view of frontend + backend issues. Detects patterns: auth tokens, missing env vars, 500 errors + server crashes. Simpler: diagnose_page for just browser side.`",
   inputSchema: z.object({
     processId: z.string().optional().describe("Server process ID to correlate with browser state"),
     sessionId: z.string().optional().describe("Session ID"),
@@ -178,7 +178,7 @@ export const diagnoseFullstack = createTool({
 export const diagnosePerformance = createTool({
   name: "diagnose_performance",
   category: "diagnostic",
-  description: "`<use_case>Debugging</use_case> Performance diagnostic: metrics (FCP, LCP, CLS), issues found, optimization recommendations, and score (0-100). metrics, score, issues[], recommendations[].`",
+  description: "`<use_case>Diagnostic</use_case> ⚡ Performance diagnostic: checks Web Vitals (FCP, LCP, CLS, memory) and returns score (0-100), issues[], and optimization recommendations[]. More actionable than devtools_get_performance_metrics which just returns raw metrics. Use for performance auditing — tells you what's wrong AND how to fix it. Includes memory leak detection (JS heap > 100MB).`",
   inputSchema: z.object({ sessionId: z.string().optional().describe("Session ID") }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);

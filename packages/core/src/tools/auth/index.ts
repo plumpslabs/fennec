@@ -12,7 +12,7 @@ const LOGIN_SELECTORS = {
 export const authFillLoginForm = createTool({
   name: "auth_fill_login_form",
   category: "auth",
-  description: "`<use_case>Authentication</use_case> Auto-detect and fill login form (username/email + password). Uses smart field detection for robust matching (label, name, id, placeholder, aria-label, data-testid). Optionally submit after filling. When saveAfterLogin is true, automatically saves session on successful login detection. formFound, fieldsDetected, submitted (bool), sessionSaved (bool), sessionName (str).`",
+  description: "`<use_case>Auth</use_case> 🔑 Auto-detect and fill a login form (username/email + password). Smart field detection matches by label, name, id, placeholder, aria-label, data-testid. Options: submitAfter (submit form after filling), saveAfterLogin (auto-save auth session on success). Returns formFound, fieldsDetected, submitted, sessionSaved. Use as the PRIMARY way to log into sites — smarter than manually finding fields with browser_type. For non-login forms, use smart_fill_form instead. For checking auth state, use auth_check_logged_in or diagnose_auth.`",
   inputSchema: z.object({
     username: z.string().describe("Username or email to fill"),
     password: z.string().describe("Password to fill"),
@@ -166,7 +166,7 @@ export const authFillLoginForm = createTool({
 export const authSaveSession = createTool({
   name: "auth_save_session",
   category: "auth",
-  description: "`<use_case>Authentication</use_case> Save current auth state (cookies + localStorage) to a named session for later reuse. sessionId, savedAt.`",
+  description: "`<use_case>Auth</use_case> 💾 Save the current auth state (cookies + localStorage) to a named session for later reuse. Returns sessionId and savedAt timestamp. Use AFTER successful login to persist the session — next time you can use auth_load_session to restore auth instantly without re-entering credentials. List saved sessions with auth_list_sessions. Delete with auth_delete_session.`",
   inputSchema: z.object({
     name: z.string().describe("Session name to save as"),
     sessionId: z.string().optional().describe("Browser session ID"),
@@ -209,7 +209,7 @@ export const authSaveSession = createTool({
 export const authLoadSession = createTool({
   name: "auth_load_session",
   category: "auth",
-  description: "`<use_case>Authentication</use_case> Load a saved auth session (cookies + localStorage) into the browser. cookiesLoaded (int), storageLoaded (int).`",
+  description: "`<use_case>Auth</use_case> 🔓 Load a previously saved auth session (from auth_save_session) into the browser. Restores cookies + localStorage + navigates to origin. Returns cookiesLoaded and storageLoaded counts. Use to quickly restore authenticated state without re-logging in. Get available session names from auth_list_sessions. For one-off cookie setting, use storage_set_cookie instead.`",
   inputSchema: z.object({
     name: z.string().describe("Session name to load"),
     sessionId: z.string().optional().describe("Browser session ID"),
@@ -253,7 +253,7 @@ export const authLoadSession = createTool({
 export const authListSessions = createTool({
   name: "auth_list_sessions",
   category: "auth",
-  description: "`<use_case>Authentication</use_case> List all saved authentication sessions. sessions[], count.`",
+  description: "`<use_case>Auth</use_case> 📋 List all saved auth sessions with their names, origins, and save dates. Returns sessions[] and count. Use to discover available sessions before loading one with auth_load_session or deleting with auth_delete_session. Sessions are persisted on disk, so they survive browser restarts.`",
   inputSchema: z.object({}),
   handler: async (input, { responseBuilder, sessionStore }) => {
     const sessions = sessionStore.list();
@@ -267,7 +267,7 @@ export const authListSessions = createTool({
 export const authDeleteSession = createTool({
   name: "auth_delete_session",
   category: "auth",
-  description: "`<use_case>Authentication</use_case> Delete a saved auth session by name. deleted (bool).`",
+  description: "`<use_case>Auth</use_case> 🗑️ Delete a saved auth session by name. Returns deleted=true/false. Use to clean up old or expired sessions. Get session names from auth_list_sessions. Deleting doesn't affect the current browser state — only removes the saved snapshot.`",
   inputSchema: z.object({
     name: z.string().describe("Session name to delete"),
   }),
@@ -280,7 +280,7 @@ export const authDeleteSession = createTool({
 export const authCheckLoggedIn = createTool({
   name: "auth_check_logged_in",
   category: "auth",
-  description: "`<use_case>Authentication</use_case> Check login state via auth indicators (cookies, logout/profile links). Custom indicators supported. loggedIn (bool), confidence (0-1), detectedIndicators[].`",
+  description: "`<use_case>Auth</use_case> ✅ Check login state by detecting auth indicators: auth cookies (token/session/jwt/sid/connect), logout/profile links, and login links. Returns loggedIn, confidence (0-1), detectedIndicators[]. Supports custom CSS selectors for site-specific indicators. Use to verify login succeeded, check auth state before performing actions, or detect unexpected logouts. More comprehensive than diagnose_auth which only checks cookies.`",
   inputSchema: z.object({
     indicators: z.array(z.string()).optional().describe("Custom CSS selectors to check for login state"),
     sessionId: z.string().optional().describe("Session ID"),

@@ -38,7 +38,7 @@ function buildLogSummary(errorCount: number, warnCount: number, infoCount: numbe
 export const devtoolsGetConsoleLogs = createTool({
   name: "devtools_get_console_logs",
   category: "devtools",
-  description: "`<use_case>Debugging</use_case> Get browser console logs. Filterable by level, keyword, and recency (since). logs[], errorCount, warnCount, summary.`",
+  description: "`<use_case>Console inspector</use_case> 🔍 Get browser console logs from the current page. Filter by level (log/info/warn/error/debug), keyword, or time range. Returns errorCount, warnCount, infoCount, and a readable summary. Use when you need to see app logs, find warnings, or trace console output. More focused than observe() — use this for raw log inspection.`",
   inputSchema: z.object({
     level: z.enum(["log", "info", "warn", "error", "debug"]).optional().describe("Filter by log level"),
     limit: z.number().optional().default(50).describe("Maximum number of logs to return"),
@@ -77,7 +77,7 @@ export const devtoolsGetConsoleLogs = createTool({
 export const devtoolsClearConsole = createTool({
   name: "devtools_clear_console",
   category: "devtools",
-  description: "`<use_case>Debugging</use_case> Clear all console logs from the buffer. cleared (bool), previousCount.`",
+  description: "`<use_case>Console inspector</use_case> 🧹 Clear all console logs from the buffer. Returns previousCount of how many entries were removed. Use when you want a fresh log state before performing an action — like clearing logs before clicking a button so you can see only new errors.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
   }),
@@ -94,7 +94,7 @@ export const devtoolsClearConsole = createTool({
 export const devtoolsEvaluate = createTool({
   name: "devtools_evaluate",
   category: "devtools",
-  description: "`<use_case>Code execution</use_case> Execute JavaScript in the browser context (requires security.allowJSEvaluation). result, type (typeof).`",
+  description: "`<use_case>Code execution</use_case> ⚡ Execute JavaScript code directly in the browser page context. Returns the result and its type. Requires security.allowJSEvaluation to be enabled. Use for advanced DOM manipulation, reading page variables, or calling JS functions that aren't exposed via other tools. Safer alternatives: browser_get_dom_snapshot for DOM, storage_get_local for localStorage.`",
   inputSchema: z.object({
     expression: z.string().describe("JavaScript expression to evaluate"),
     awaitResult: z.boolean().optional().default(true).describe("Wait for promise resolution"),
@@ -130,7 +130,7 @@ export const devtoolsEvaluate = createTool({
 export const devtoolsGetJsErrors = createTool({
   name: "devtools_get_js_errors",
   category: "devtools",
-  description: "`<use_case>Debugging</use_case> Get only JavaScript errors from the console buffer. errors[], count, lastError.`",
+  description: "`<use_case>Console inspector</use_case> 🐛 Get ONLY JavaScript errors from the console — filters out info/warn/debug logs. Returns grouped errors by pattern, lastError, and count. More focused than devtools_get_console_logs(level=error) because it also groups similar errors and shows the most recent one. Use for quick error triage.`",
   inputSchema: z.object({
     since: z.string().optional().describe("ISO timestamp to filter errors after"),
     limit: z.number().optional().default(20).describe("Maximum number of errors to return"),
@@ -171,7 +171,7 @@ export const devtoolsGetJsErrors = createTool({
 export const devtoolsWatchConsole = createTool({
   name: "devtools_watch_console",
   category: "devtools",
-  description: "`<use_case>Debugging</use_case> Watch console logs for a specified duration (ms). Collects all logs emitted during the window. logs[], summary.`",
+  description: "`<use_case>Console inspector</use_case> ⏱️ Watch console logs in real-time for a specified duration (ms). Captures all logs emitted during the window — useful for catching startup errors, tracking log output during a specific interaction, or monitoring short-lived processes. Unlike devtools_get_console_logs which shows historical logs, this captures a live window.`",
   inputSchema: z.object({
     durationMs: z.number().describe("Duration in milliseconds to watch console"),
     level: z.enum(["log", "info", "warn", "error", "debug"]).optional().describe("Filter by log level"),

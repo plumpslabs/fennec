@@ -5,7 +5,7 @@ import type { NetworkEvent } from "../../session/types.js";
 export const networkGetLogs = createTool({
   name: "network_get_logs",
   category: "devtools",
-  description: "`<use_case>Network debugging</use_case> Get network request logs. Filterable by status, method, URL pattern. requests[], count, failedCount, slowCount.`",
+  description: "`<use_case>Network inspector</use_case> 🌐 Get all network request logs from the page. Filter by HTTP status code, method (GET/POST/etc), or URL pattern. Returns requests[], failedCount (>=400), slowCount (>1s). Use when you need to inspect API calls, check request/response patterns, or monitor network activity. More comprehensive than diagnose_network which only shows failures.`",
   inputSchema: z.object({
     status: z.number().optional().describe("Filter by HTTP status code"),
     method: z.string().optional().describe("Filter by HTTP method (GET, POST, etc.)"),
@@ -49,7 +49,7 @@ export const networkGetLogs = createTool({
 export const networkGetFailedRequests = createTool({
   name: "network_get_failed_requests",
   category: "devtools",
-  description: "`<use_case>Network debugging</use_case> Get all failed network requests (status >= 400). requests[], count.`",
+  description: "`<use_case>Network inspector</use_case> ❌ Get ONLY failed network requests (HTTP status >= 400). Returns requests[] with their URLs, methods, and status codes. Faster than network_get_logs when you only care about failures. Use for quick error checking — like after form submission or API call.`",
   inputSchema: z.object({
     since: z.string().optional().describe("ISO timestamp filter"),
     sessionId: z.string().optional().describe("Session ID"),
@@ -68,7 +68,7 @@ export const networkGetFailedRequests = createTool({
 export const networkGetCorsIssues = createTool({
   name: "network_get_cors_issues",
   category: "devtools",
-  description: "`<use_case>Network debugging</use_case> Detect CORS-related issues from network logs. issues[], count.`",
+  description: "`<use_case>Network inspector</use_case> 🔒 Detect CORS-related issues from network logs. Returns issues[] with affected URLs, methods, and reason. Use when you see blocked requests in console or cross-origin errors. CORS errors show as status=0 or missing access-control-allow-origin headers.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
   }),
@@ -100,7 +100,7 @@ export const networkGetCorsIssues = createTool({
 export const networkClearLogs = createTool({
   name: "network_clear_logs",
   category: "devtools",
-  description: "`<use_case>Network debugging</use_case> Clear all network request logs from the buffer. cleared (bool).`",
+  description: "`<use_case>Network inspector</use_case> 🧹 Clear the network request log buffer. Returns cleared=true. Use before performing an action (like clicking a button or submitting a form) so you can see only the new network requests that result from that action.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
   }),
@@ -114,7 +114,7 @@ export const networkClearLogs = createTool({
 export const networkWaitForRequest = createTool({
   name: "network_wait_for_request",
   category: "devtools",
-  description: "`<use_case>Network debugging</use_case> Wait for a network request matching a URL pattern and method. Returns full request and response details once captured. request, response, elapsed (ms).`",
+  description: "`<use_case>Network inspector</use_case> ⏳ Wait for a specific network request to happen. Provide a URL pattern (glob or substring) and optional HTTP method. Returns full request/response details including headers, status, postData. Use when you need to capture API responses, intercept form submissions, or verify that a specific request was made. Has timeout (default 30s).`",
   inputSchema: z.object({
     urlPattern: z.string().describe("URL or pattern to wait for (glob or substring)"),
     method: z.string().optional().describe("HTTP method filter (GET, POST, etc.)"),
@@ -168,7 +168,7 @@ export const networkWaitForRequest = createTool({
 export const networkGetRequestDetail = createTool({
   name: "network_get_request_detail",
   category: "devtools",
-  description: "`<use_case>Network debugging</use_case> Get full detail of a network request by URL or requestId from the buffer. Provide either url or requestId. request, response, timing, size.`",
+  description: "`<use_case>Network inspector</use_case> 🔎 Get FULL details of a network request including request/response headers, body, timing, and size. Provide either exact URL or requestId (from network_get_logs). More detailed than network_get_logs which only shows summary. Use when you need to inspect response bodies, request payloads, or timing breakdown.`",
   inputSchema: z.object({
     url: z.string().optional().describe("URL of the request to get detail for"),
     requestId: z.string().optional().describe("Request ID from the buffer"),
@@ -215,7 +215,7 @@ export const networkGetRequestDetail = createTool({
 export const networkIntercept = createTool({
   name: "network_intercept",
   category: "devtools",
-  description: "`<use_case>Network mocking</use_case> Intercept network requests matching a URL pattern. Returns an interceptorId that can be used to remove the intercept later. interceptorId (string).`",
+  description: "`<use_case>Network mocking</use_case> 🚦 Intercept network requests matching a URL pattern. Returns an interceptorId for later removal. Use when you want to log, modify, or block specific requests. Unlike network_mock_response which replaces responses, this just intercepts and allows the request to continue. Combine with network_remove_intercept to stop intercepting.`",
   inputSchema: z.object({
     urlPattern: z.string().describe("URL pattern to intercept (glob or substring)"),
     sessionId: z.string().optional().describe("Session ID"),
@@ -250,7 +250,7 @@ export const networkIntercept = createTool({
 export const networkRemoveIntercept = createTool({
   name: "network_remove_intercept",
   category: "devtools",
-  description: "`<use_case>Network mocking</use_case> Remove a previously set network intercept by interceptorId. success (bool).`",
+  description: "`<use_case>Network mocking</use_case> 🗑️ Remove a network intercept or mock that was previously set by network_intercept or network_mock_response. Provide the interceptorId or mockId. Returns removed=true/false. Use after you're done intercepting to restore normal network behavior.`",
   inputSchema: z.object({
     interceptorId: z.string().describe("Interceptor ID to remove"),
     sessionId: z.string().optional().describe("Session ID"),
@@ -277,7 +277,7 @@ export const networkRemoveIntercept = createTool({
 export const networkMockResponse = createTool({
   name: "network_mock_response",
   category: "devtools",
-  description: "`<use_case>Network mocking</use_case> Mock a response for a URL pattern. Intercept and fulfill with custom status, body, and headers. mockId (string).`",
+  description: "`<use_case>Network mocking</use_case> 🎭 Mock a response for a URL pattern — intercept matching requests and fulfill them with a custom status, body, and headers. Returns a mockId for later removal. Use for testing error states, simulating API responses, or testing without a real backend. More powerful than network_intercept because it replaces the response entirely.`",
   inputSchema: z.object({
     urlPattern: z.string().describe("URL pattern to mock (glob or substring)"),
     statusCode: z.number().optional().default(200).describe("HTTP status code"),

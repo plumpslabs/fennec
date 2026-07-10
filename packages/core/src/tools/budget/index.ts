@@ -18,7 +18,7 @@ const collector = new PerformanceCollector();
 export const budgetCheckPage = createTool({
   name: "budget_check_page",
   category: "devtools",
-  description: "`<use_case>Performance budgeting</use_case> Benchmark the current page against performance budgets. Define max LCP, DOM nodes, requests, and JS heap size. Returns PASS/FAIL for each budget with actual measured values. Perfect for CI gates and performance regression detection.`",
+  description: "`<use_case>Performance</use_case> 📊 Benchmark the page against performance budgets. Define max: LCP (default 2500ms), DOM nodes (1500), requests (100), JS heap (50MB). Returns PASS/FAIL for each metric with actual values. Use for CI gates, performance regression detection, or checking if a page meets performance SLAs. For a simpler overview without thresholds, use budget_get_summary. For raw Web Vitals, use devtools_get_performance_metrics.`",
   inputSchema: z.object({
     maxLCP: z.number().optional().describe("Max Largest Contentful Paint in ms (default: 2500)"),
     maxDOMNodes: z.number().optional().describe("Max DOM node count (default: 1500)"),
@@ -119,7 +119,7 @@ export const budgetCheckPage = createTool({
 export const budgetGetSummary = createTool({
   name: "budget_get_summary",
   category: "devtools",
-  description: "`<use_case>Performance budgeting</use_case> Get a comprehensive performance summary of the current page — FCP, LCP, DOM count, request count, memory usage, and timing breakdown. One-shot overview without budget thresholds.`",
+  description: "`<use_case>Performance</use_case> 📈 Get a comprehensive one-shot performance overview: FCP, LCP, DOM nodes, request count, failed requests, memory usage (MB), navigation timing breakdown (TTFB, DNS, TCP, TLS, DOM), and quality scores. No thresholds — just raw data + quality ratings (good/needs-improvement/poor). Use for quick performance assessment without setting budgets. For budget-based checks, use budget_check_page instead. For basic Web Vitals, use devtools_get_performance_metrics.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
   }),

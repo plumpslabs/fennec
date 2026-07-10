@@ -4,7 +4,7 @@ import { createTool } from "../_registry.js";
 export const storageGetLocal = createTool({
   name: "storage_get_local",
   category: "storage",
-  description: "`<use_case>Storage management</use_case> Get localStorage value by key or all items (if no key). value (str) or allItems (obj), size.`",
+  description: "`<use_case>Browser storage</use_case> 💽 Get a localStorage value by key. If no key provided, returns ALL localStorage items as an object. Also returns size (number of items or value length). Use to read stored app data, configs, tokens in localStorage. For session-only data, use storage_get_session instead.`",
   inputSchema: z.object({
     key: z.string().optional().describe("localStorage key to retrieve"),
     sessionId: z.string().optional().describe("Session ID"),
@@ -39,7 +39,7 @@ export const storageGetLocal = createTool({
 export const storageSetLocal = createTool({
   name: "storage_set_local",
   category: "storage",
-  description: "`<use_case>Storage management</use_case> Set a localStorage value. previousValue.`",
+  description: "`<use_case>Browser storage</use_case> ✏️ Set a localStorage value by key. Returns the previous value (if any). Use to modify app state, inject configs, or set auth tokens. Be careful — changing localStorage can affect app behavior. For removing keys, use storage_remove_local; for wiping all, use storage_clear_local.`",
   inputSchema: z.object({
     key: z.string().describe("localStorage key"),
     value: z.string().describe("Value to store"),
@@ -66,7 +66,7 @@ export const storageSetLocal = createTool({
 export const storageRemoveLocal = createTool({
   name: "storage_remove_local",
   category: "storage",
-  description: "`<use_case>Storage management</use_case> Remove a localStorage key. success.`",
+  description: "`<use_case>Browser storage</use_case> 🗑️ Remove a specific localStorage key and its value. Returns success. Use to clean up specific stored data without affecting other keys. For bulk clearing, use storage_clear_local instead.`",
   inputSchema: z.object({
     key: z.string().describe("localStorage key to remove"),
     sessionId: z.string().optional().describe("Session ID"),
@@ -85,7 +85,7 @@ export const storageRemoveLocal = createTool({
 export const storageClearLocal = createTool({
   name: "storage_clear_local",
   category: "storage",
-  description: "`<use_case>Storage management</use_case> Clear all localStorage data. clearedCount (int).`",
+  description: "`<use_case>Browser storage</use_case> 🧹 Clear ALL localStorage data for the current origin. Returns clearedCount (number of items removed). Use when you need a completely fresh storage state — e.g., after logout, before testing, or to reset app state. Warning: This removes ALL keys, not just specific ones. Use storage_remove_local for selective removal.`",
   inputSchema: z.object({
     sessionId: z.string().optional().describe("Session ID"),
   }),
@@ -108,7 +108,7 @@ export const storageClearLocal = createTool({
 export const storageGetSession = createTool({
   name: "storage_get_session",
   category: "storage",
-  description: "`<use_case>Storage management</use_case> Get sessionStorage value by key or all items (if no key). value (str) or allItems (obj).`",
+  description: "`<use_case>Browser storage</use_case> 🔄 Get a sessionStorage value by key (or all items if no key). sessionStorage is per-tab and cleared when the tab closes. Use for tab-specific data that doesn't persist. Same behavior as storage_get_local but for session-only storage.`",
   inputSchema: z.object({
     key: z.string().optional().describe("sessionStorage key to retrieve"),
     sessionId: z.string().optional().describe("Session ID"),
@@ -140,7 +140,7 @@ export const storageGetSession = createTool({
 export const storageSetSession = createTool({
   name: "storage_set_session",
   category: "storage",
-  description: "`<use_case>Storage management</use_case> Set a sessionStorage value. success.`",
+  description: "`<use_case>Browser storage</use_case> ✏️ Set a sessionStorage value by key. Session data is per-tab and cleared when the tab closes. Use for temporary tab-specific data that shouldn't persist across sessions. Similar to storage_set_local but data only lives as long as the tab.`",
   inputSchema: z.object({
     key: z.string().describe("sessionStorage key"),
     value: z.string().describe("Value to store"),
@@ -163,7 +163,7 @@ export const storageSetSession = createTool({
 export const storageGetCookies = createTool({
   name: "storage_get_cookies",
   category: "storage",
-  description: "`<use_case>Storage management</use_case> Get browser cookies, filterable by name or domain. cookies[], count.`",
+  description: "`<use_case>Browser storage</use_case> 🍪 Get browser cookies for the current context. Filter by cookie name or domain. Returns cookies[] with name, value, domain, path, httpOnly, secure, sameSite, expiry. Use to inspect auth cookies, session tokens, or any cookie set by the page. For auth-specific cookie checking, use auth_check_logged_in or diagnose_auth instead.`",
   inputSchema: z.object({
     name: z.string().optional().describe("Filter by cookie name"),
     domain: z.string().optional().describe("Filter by cookie domain"),
@@ -198,7 +198,7 @@ export const storageGetCookies = createTool({
 export const storageSetCookie = createTool({
   name: "storage_set_cookie",
   category: "storage",
-  description: "`<use_case>Storage management</use_case> Set a browser cookie with name, value, domain, path, httpOnly, secure, sameSite. success.`",
+  description: "`<use_case>Browser storage</use_case> 🍪➕ Set a browser cookie with full control: name, value, domain, path, httpOnly, secure, sameSite flags. Use for manually injecting auth state, setting session cookies, or configuring cookies for testing. For saving/loading complete auth states, use auth_save_session / auth_load_session instead.`",
   inputSchema: z.object({
     name: z.string().describe("Cookie name"),
     value: z.string().describe("Cookie value"),
@@ -232,7 +232,7 @@ export const storageSetCookie = createTool({
 export const storageDeleteCookie = createTool({
   name: "storage_delete_cookie",
   category: "storage",
-  description: "`<use_case>Storage management</use_case> Delete a browser cookie by name. success.`",
+  description: "`<use_case>Browser storage</use_case> 🍪🗑️ Delete a browser cookie by name and optional domain. Returns success. Use to remove specific cookies (like forcing a logout by deleting the session cookie). For bulk cookie management, use storage_get_cookies to list first.`",
   inputSchema: z.object({
     name: z.string().describe("Cookie name to delete"),
     domain: z.string().optional().describe("Cookie domain"),
@@ -267,7 +267,7 @@ export const storageDeleteCookie = createTool({
 export const storageGetIndexedDB = createTool({
   name: "storage_get_indexeddb",
   category: "storage",
-  description: "`<use_case>Storage management</use_case> Get IndexedDB database names and optionally records from a specific object store. databases[], records (optional).`",
+  description: "`<use_case>Browser storage</use_case> 🗄️ Get IndexedDB database info. Lists all databases, their object stores, and optionally records from a specific store (if dbName + storeName provided). Use for inspecting offline-first apps, cache storage, or any app using IndexedDB for client-side data persistence. More complex than localStorage — use storage_get_local first for simpler storage.`",
   inputSchema: z.object({
     dbName: z.string().optional().describe("Database name"),
     storeName: z.string().optional().describe("Object store name (requires dbName)"),
@@ -347,7 +347,7 @@ export const storageGetIndexedDB = createTool({
 export const storageExportState = createTool({
   name: "storage_export_state",
   category: "storage",
-  description: "`<use_case>Storage management</use_case> Export all browser state (cookies, localStorage, sessionStorage) to a JSON object or file. cookies, localStorage, sessionStorage, savedAt.`",
+  description: "`<use_case>Browser storage</use_case> 📦 Export ALL browser state (cookies, localStorage, sessionStorage) to a JSON object. Optionally save to a file on disk. Returns cookies[], localStorage, sessionStorage, origin, savedAt. Use for snapshotting auth state before logout, backing up form data, or capturing state for debugging. Can be re-imported with storage_import_state.`",
   inputSchema: z.object({
     filePath: z.string().optional().describe("Optional file path to save the state to"),
     sessionId: z.string().optional().describe("Session ID"),
@@ -411,7 +411,7 @@ export const storageExportState = createTool({
 export const storageImportState = createTool({
   name: "storage_import_state",
   category: "storage",
-  description: "`<use_case>Storage management</use_case> Import previously exported browser state from a state object or file. Restores cookies, localStorage, and sessionStorage. cookiesRestored, itemsRestored.`",
+  description: "`<use_case>Browser storage</use_case> 📥 Import browser state previously exported with storage_export_state. Takes either a JSON file path or a JSON string object. Restores cookies, localStorage, and sessionStorage. Returns cookiesRestored and itemsRestored counts. Use to restore auth sessions, replay test scenarios, or migrate state between browsers.`",
   inputSchema: z.object({
     filePath: z.string().optional().describe("File path to load state from"),
     stateObject: z.string().optional().describe("JSON string of state object (alternative to filePath)"),
