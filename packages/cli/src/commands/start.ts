@@ -3,7 +3,7 @@
  * Includes auto-resurrect: on server start, re-spawns tracked processes
  * that died since last session (like PM2 resurrect).
  */
-import { createWriteStream, readFileSync, mkdirSync } from "node:fs";
+import { createWriteStream, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { homedir } from "node:os";
 import { spawn } from "node:child_process";
@@ -13,6 +13,7 @@ import { printBanner } from "../utils/banner.js";
 import { symbols, renderKV, renderAppName, renderError, divider, createSpinner } from "../utils/format.js";
 import { readTracked, addTracked, removeTracked, rotateLogFile } from "./tracker.js";
 import { isProcessRunning } from "../utils/system-process.js";
+import { psCommand } from "./ps.js";
 import type { TrackedProcess } from "./tracker.js";
 
 // Re-export from tracker for backward compat
@@ -118,35 +119,10 @@ export async function runCommand(args: string[]): Promise<void> {
       startedAt: new Date().toISOString(),
     });
 
-    console.error(`\n  ${pc.green("●")} ${pc.bold(appName)} ${pc.dim(`started (PID: ${pid})`)}${port ? pc.dim(` :${port}`) : ""}\n`);
+    console.error(`  ${pc.green("✓")} ${pc.bold(appName)} ${pc.dim(`started (PID: ${pid})`)}`);
 
-    await new Promise((r) => setTimeout(r, 1500));
-
-    try {
-      const initialLogs = readFileSync(logFilePath, "utf-8")
-        .split("\n")
-        .filter(Boolean)
-        .slice(-8);
-      if (initialLogs.length > 0) {
-        for (const line of initialLogs) {
-          const truncated = line.length > 150 ? line.slice(0, 150) + "\u2026" : line;
-          if (line.toLowerCase().includes("error")) {
-            console.error(`  ${pc.dim("│")} ${pc.red(truncated)}`);
-          } else if (line.toLowerCase().includes("warn")) {
-            console.error(`  ${pc.dim("│")} ${pc.yellow(truncated)}`);
-          } else {
-            console.error(`  ${pc.dim("│")} ${truncated}`);
-          }
-        }
-      }
-    } catch { /* initial log peek is best-effort */ }
-
-    console.error();
-    console.error(`  ${pc.green("✓")} ${pc.bold(appName)} running in background`);
-    console.error(`  ${renderKV("Logs", pc.cyan(`fennec log ${appName}`))}`);
-    console.error(`  ${renderKV("Status", pc.cyan("fennec ps"))}`);
-    console.error(`  ${renderKV("Stop", pc.cyan(`fennec kill ${appName}`))}`);
-    console.error();
+    // Show the process table instead of logs
+    await psCommand([]);
   } catch (error) {
     console.error(renderError(`Failed to start ${appName}`, String(error)));
     process.exit(1);

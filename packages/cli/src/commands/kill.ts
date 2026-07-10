@@ -2,9 +2,9 @@
  * Command: kill — Kill process by PID, name, or kill all user processes.
  */
 import pc from "picocolors";
-import { renderError, renderCommand, createSpinner, selectPrompt, confirmPrompt } from "../utils/format.js";
+import { renderError, createSpinner, selectPrompt, confirmPrompt } from "../utils/format.js";
 import { getSystemProcesses, killProcess as sysKill, isProcessRunning } from "../utils/system-process.js";
-import { removeTrackedByPid } from "./tracker.js";
+import { readTracked, removeTrackedByPid } from "./tracker.js";
 
 export async function killCommand(args: string[]): Promise<void> {
   const rawTarget = args[0];
@@ -31,18 +31,26 @@ export async function killCommand(args: string[]): Promise<void> {
     targetPid = pid;
     displayName = `PID ${pid}`;
   } else {
-    const matches = getSystemProcesses({ name: rawTarget, userOnly: true, sortBy: "cpu" });
-    if (matches.length === 0) { console.error(renderError("Process not found", `No running process matching "${rawTarget}"`)); process.exit(1); }
-    if (matches.length > 1) {
-      console.error(`\n  ${pc.bold(`Multiple processes match "${rawTarget}":`)}`);
-      const selected = await selectPrompt("Select which to kill:", matches.map((p, i) => ({ value: String(i), label: `${p.name} (PID ${p.pid})`, description: `${p.command.slice(0, 80)} — CPU: ${p.cpuPercent}% MEM: ${p.memPercent}%` })));
-      if (selected === null) { console.error(`  ${pc.dim("Cancelled")}`); return; }
-      const idx = parseInt(selected, 10);
-      targetPid = matches[idx]!.pid;
-      displayName = `${matches[idx]!.name} (PID ${targetPid})`;
+    // First check tracked processes (from fennec start / tracked.json)
+    const tracked = readTracked();
+    const trackedMatch = tracked.find((t) => t.name === rawTarget);
+    if (trackedMatch && isProcessRunning(trackedMatch.pid)) {
+      targetPid = trackedMatch.pid;
+      displayName = `${trackedMatch.name} (PID ${targetPid})`;
     } else {
-      targetPid = matches[0]!.pid;
-      displayName = `${matches[0]!.name} (PID ${targetPid})`;
+      const matches = getSystemProcesses({ name: rawTarget, userOnly: true, sortBy: "cpu" });
+      if (matches.length === 0) { console.error(renderError("Process not found", `No running process matching "${rawTarget}"`)); process.exit(1); }
+      if (matches.length > 1) {
+        console.error(`\n  ${pc.bold(`Multiple processes match "${rawTarget}":`)}`);
+        const selected = await selectPrompt("Select which to kill:", matches.map((p, i) => ({ value: String(i), label: `${p.name} (PID ${p.pid})`, description: `${p.command.slice(0, 80)} — CPU: ${p.cpuPercent}% MEM: ${p.memPercent}%` })));
+        if (selected === null) { console.error(`  ${pc.dim("Cancelled")}`); return; }
+        const idx = parseInt(selected, 10);
+        targetPid = matches[idx]!.pid;
+        displayName = `${matches[idx]!.name} (PID ${targetPid})`;
+      } else {
+        targetPid = matches[0]!.pid;
+        displayName = `${matches[0]!.name} (PID ${targetPid})`;
+      }
     }
   }
 

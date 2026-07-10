@@ -2,7 +2,7 @@
  * Command: health — Check Fennec system health
  * Returns system status, tracked processes, and resource info.
  */
-import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { resolve } from "node:path";
 import { homedir } from "node:os";

@@ -65,8 +65,14 @@ export async function logCommand(args: string[]): Promise<void> {
     if (followFlag && logFilePath) {
       console.error(`\n  ${pc.dim("Following... (Ctrl+C to stop)")}\n`);
       const tail = spawn("tail", ["-n", "0", "-f", logFilePath], { stdio: "inherit" });
-      tail.on("exit", () => process.exit(0));
-      await new Promise(() => {});
+      // Use SIGINT resolve pattern (same fix as ps.ts watch mode)
+      await new Promise<void>((resolve) => {
+        tail.on("exit", () => resolve());
+        process.once("SIGINT", () => {
+          tail.kill("SIGTERM");
+          resolve();
+        });
+      });
     }
     console.error();
   } catch (error) {

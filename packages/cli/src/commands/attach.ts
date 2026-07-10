@@ -1,6 +1,7 @@
 /**
  * Command: attach — Attach to a process by port.
  */
+import { PortDetector } from "@plumpslabs/fennec-core";
 import pc from "picocolors";
 import { renderError, renderKV, renderAppName, createSpinner } from "../utils/format.js";
 
@@ -14,7 +15,6 @@ export async function attachCommand(args: string[]): Promise<void> {
 
   const spinner = createSpinner(`Attaching to :${port}...`);
   try {
-    const { PortDetector } = await import("@plumpslabs/fennec-core");
     const detector = new PortDetector();
     const info = detector.detectByPort(port);
     if (info) {

@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { LogWatcher } from "@plumpslabs/fennec-core";
 
 export async function watchCommand(args: string[]): Promise<void> {
   const fileIndex = args.indexOf("--file");
@@ -15,7 +16,6 @@ export async function watchCommand(args: string[]): Promise<void> {
     console.error(`Error: File not found: ${resolvedPath}`);
     process.exit(1);
   }
-  const { LogWatcher } = await import("@plumpslabs/fennec-core");
   const watcher = new LogWatcher();
   const watcherId = watcher.watchFile(resolvedPath, name);
   console.log(`Watching file: ${resolvedPath}`);

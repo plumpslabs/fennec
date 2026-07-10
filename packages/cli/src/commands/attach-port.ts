@@ -1,10 +1,11 @@
+import { PortDetector } from "@plumpslabs/fennec-core";
+
 export async function attachPortCommand(args: string[]): Promise<void> {
   const port = parseInt(args[0]!, 10);
   if (isNaN(port)) {
     console.error("Error: valid port number is required");
     process.exit(1);
   }
-  const { PortDetector } = await import("@plumpslabs/fennec-core");
   const detector = new PortDetector();
   const info = detector.detectByPort(port);
   if (info) {
