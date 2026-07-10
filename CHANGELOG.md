@@ -2,6 +2,21 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.11.2] - 2026-07-10
+
+### Added
+- **`fennec ps` — PM2-like app list** — Shows only Fennec-tracked apps (App, PID, Status, Port, Command, Uptime). Use `-a`/`--system` to see all system processes.
+- **`fennec start <command>` — Dual-mode** — `fennec start` starts MCP server, `fennec start <command>` starts an app. Supports `--name`, `--port`, `--cwd`, `--restart`.
+- **Process Tracking** (`~/.fennec/tracked.json`) — Started apps are auto-saved. Tracked in `ps`, `status`, `log`, `kill` commands. Auto-cleanup on exit.
+- **`fennec kill all` / `fennec kill --all`** — Kill all user processes with confirmation. Shows killed/failed count. Auto-cleans tracked processes.
+- **`fennec kill <name>` with multi-match picker** — If multiple processes match, shows interactive selection.
+- **`fennec status` — Managed apps dashboard** — Shows tracked apps first (name, port, PID, uptime), then system summary (top 5 CPU processes).
+- **`fennec log <name>` — Real journalctl logs** — Fetches logs via journalctl or /proc/pid/fd. Colorizes error/warn lines.
+
+### Changed
+- Version bumped to **1.11.2**.
+- Port detection removed from `/proc` (was showing incorrect namespace-wide ports). Tracked port comes from `--port` flag.
+
 ## [1.11.1] - 2026-07-10
 
 ### Fixed

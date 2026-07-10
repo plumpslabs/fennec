@@ -29,13 +29,10 @@ export function showHelp(): void {
   ${pc.bold("Process Management")}
   ${sep}
 
-    ${pc.cyan("ps")} ${pc.dim("[options]")}          ${pc.dim("List real system processes")}
-                     ${pc.dim("--name")}    Filter by process name
-                     ${pc.dim("--port")}    Filter by port
-                     ${pc.dim("--sort")}    Sort by ${pc.dim("(cpu | mem | pid | name) [default: cpu]")}
-                     ${pc.dim("-n")}        Max results ${pc.dim("[default: 30]")}
-                     ${pc.dim("-w, --watch")}  Watch mode ${pc.dim("(refresh every 3s)")}
-                     ${pc.dim("-a, --all")}   Show all processes ${pc.dim("(not just user)")}
+    ${pc.cyan("ps")} ${pc.dim("[options]")}          ${pc.dim("List Fennec-tracked apps (like PM2)")}
+                     ${pc.dim("--system, -a")}  Show all system processes
+                     ${pc.dim("--name")}    Filter by app name
+                     ${pc.dim("-w, --watch")}  Watch mode ${pc.dim("(system processes refresh every 3s)")}
 
     ${pc.cyan("run")} ${pc.dim("<command>")}        ${pc.dim("Run a command under Fennec observation")}
                      ${pc.dim("--name")}    Process name ${pc.dim("(required)")}

@@ -203,59 +203,13 @@ function mapBsdState(s: string): string {
 }
 
 // ─── Port Scanner ────────────────────────────────────────────────
+// NOTE: Per-process port detection via /proc/[pid]/net/tcp is unreliable
+// because it shows network namespace ports, not per-process ports.
+// Fennec tracks ports via the --port flag when starting apps.
+// We keep the field for API compatibility but always return empty.
 
-function detectListeningPorts(pid: number): number[] {
-  try {
-    // Read per-process /proc/[pid]/net/tcp to find ports owned by this process
-    // This is only available on Linux and only readable by the process owner or root
-    const tcpFile = `/proc/${pid}/net/tcp`;
-    const tcp6File = `/proc/${pid}/net/tcp6`;
-    const ports: number[] = [];
-
-    for (const f of [tcpFile, tcp6File]) {
-      try {
-        const data = readSafe(f);
-        if (data) {
-          for (const port of parseProcNetTcp(data)) {
-            if (!ports.includes(port)) ports.push(port);
-          }
-        }
-      } catch {
-        continue;
-      }
-    }
-
-    return ports.sort((a, b) => a - b);
-  } catch {
-    return [];
-  }
-}
-
-function parseProcNetTcp(data: string): number[] {
-  const ports: number[] = [];
-  const lines = data.split("\n").slice(1); // Skip header
-
-  for (const line of lines) {
-    const parts = line.trim().split(/\s+/);
-    if (parts.length < 3) continue;
-
-    const localAddr = parts[1] ?? "";
-    const state = parts[3] ?? "";
-
-    // Only LISTEN state (0x0A)
-    if (state !== "0A") continue;
-
-    // Format: 00000000:0050 (hex IP:hex port)
-    const portMatch = localAddr.match(/:([0-9a-fA-F]+)$/);
-    if (portMatch) {
-      const port = parseInt(portMatch[1]!, 16);
-      if (port > 0 && port <= 65535) {
-        ports.push(port);
-      }
-    }
-  }
-
-  return ports;
+function detectListeningPorts(_pid: number): number[] {
+  return [];
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────

@@ -16,12 +16,12 @@ const fennecYellow = hexColor("#FFB347");
 
 const FOX = `
       ${fennecOrange("/\\\\   /\\\\")}
-     ${fennecOrange("(")} ${fennecYellow("o o")} ${fennecOrange(")       ") + pc.bold("Fennec")} ${pc.dim("v1.11.1")}
+     ${fennecOrange("(")} ${fennecYellow("o o")} ${fennecOrange(")       ") + pc.bold("Fennec")} ${pc.dim("v1.11.2")}
      ${fennecOrange("=(")} ${fennecYellow(" Y ")} ${fennecOrange(")=")}       ${pc.dim("ears everywhere in your stack.")}
        ${fennecOrange(")   (")}
 `;
 
-const FOX_COMPACT = `${pc.redBright("  🦊")} ${pc.bold("Fennec")} ${pc.dim("v1.11.1")}`;
+const FOX_COMPACT = `${pc.redBright("  🦊")} ${pc.bold("Fennec")} ${pc.dim("v1.11.2")}`;
 
 export function printBanner(): void {
   if (process.stdout.isTTY) {

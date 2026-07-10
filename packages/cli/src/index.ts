@@ -138,7 +138,7 @@ async function main(): Promise<void> {
     printBanner();
     await initCommand();
   } else if (command === "version" || command === "--version" || command === "-v") {
-    console.log(`  ${symbols.fox} ${pc.bold("Fennec")} ${pc.dim("v1.11.1")}`);
+    console.log(`  ${symbols.fox} ${pc.bold("Fennec")} ${pc.dim("v1.11.2")}`);
   } else if (command === "help" || command === "--help" || command === "-h") {
     console.log(pc.dim("\n  Use 'fennec help' for more information.\n"));
     printBanner();
@@ -287,120 +287,146 @@ async function runCommand(args: string[]): Promise<void> {
   }
 }
 
-// ─── Command: ps (List System Processes) ─────────────────────────
+// ─── Command: ps (List Managed / Tracked Processes) ───────────────
+// Like PM2: by default shows only Fennec-tracked apps.
+// Use --system or -a to see all system processes.
 
 async function psCommand(args: string[]): Promise<void> {
   const watchFlag = args.includes("-w") || args.includes("--watch");
+  const systemFlag = args.includes("--system") || args.includes("-a") || args.includes("--all");
   const nameFilter = args.includes("--name") ? args[args.indexOf("--name") + 1] : undefined;
-  const portFilter = args.includes("--port") ? parseInt(args[args.indexOf("--port") + 1]!, 10) : undefined;
   const sortBy = args.includes("--sort")
     ? (args[args.indexOf("--sort") + 1] as "cpu" | "mem" | "pid" | "name")
-    : args.includes("-m") ? "mem" : args.includes("-c") ? "cpu" : "cpu";
-  const limit = args.includes("-n") ? parseInt(args[args.indexOf("-n") + 1]!, 10) : 30;
-  const allFlag = args.includes("-a") || args.includes("--all");
+    : "name";
 
-  if (watchFlag) {
-    await watchProcesses(sortBy, limit);
+  if (watchFlag && systemFlag) {
+    await watchSystemProcesses(sortBy, 15);
     return;
   }
 
-  const spinner = createSpinner("Scanning system processes...");
+  // ─── Mode 1: Show all system processes (--system / -a) ──
+  if (systemFlag) {
+    const spinner = createSpinner("Scanning system processes...");
+    try {
+      const processes = getSystemProcesses({
+        name: nameFilter,
+        userOnly: true,
+        sortBy,
+        limit: 30,
+      });
+      spinner.stop();
+      process.stdout.write("\r\x1b[K");
 
-  try {
-    const processes = getSystemProcesses({
-      name: nameFilter,
-      port: portFilter,
-      userOnly: !allFlag,
-      sortBy,
-      limit,
-    });
+      if (processes.length === 0) {
+        console.error(`\n  ${pc.dim("No system processes found.")}\n`);
+        return;
+      }
 
-    spinner.stop();
-    process.stdout.write("\r\x1b[K"); // Clear spinner line
+      const columns: Column[] = [
+        { key: "pid", label: "PID", align: "right", format: (v) => pc.dim(String(v).padStart(6)) },
+        { key: "name", label: "Name", format: (v) => pc.bold(String(v)) },
+        { key: "cpu", label: "CPU%", align: "right", format: (v) => {
+          const num = v as number;
+          return num > 10 ? pc.red(String(num)) : num > 5 ? pc.yellow(String(num)) : pc.dim(String(num));
+        }},
+        { key: "mem", label: "MEM%", align: "right", format: (v) => {
+          const num = v as number;
+          return num > 10 ? pc.red(String(num)) : num > 5 ? pc.yellow(String(num)) : pc.dim(String(num));
+        }},
+        { key: "state", label: "State", format: (v) => {
+          const s = String(v);
+          if (s === "R" || s === "Running") return pc.green(s);
+          if (s === "Z" || s === "Zombie") return pc.red(s);
+          if (s === "S" || s === "Sleeping") return pc.cyan(s);
+          return pc.dim(s);
+        }},
+      ];
 
-    if (processes.length === 0) {
-      console.error(`\n  ${pc.dim("No processes found.")}\n`);
-      return;
+      const rows: Row[] = processes.map((p) => ({
+        pid: p.pid,
+        name: p.name,
+        cpu: p.cpuPercent,
+        mem: p.memPercent,
+        state: formatProcessState(p.state),
+      }));
+
+      console.error(`\n  ${symbols.fox} ${pc.bold("System Processes")} ${pc.dim(`(top ${processes.length} by ${sortBy})`)}\n`);
+      console.error(renderTable(columns, rows));
+      console.error();
+    } catch (error) {
+      spinner.fail("Failed to scan processes");
+      console.error(renderError("Process scan failed", String(error)));
     }
-
-    const columns: Column[] = [
-      { key: "pid", label: "PID", align: "right", format: (v) => pc.dim(String(v).padStart(6)) },
-      { key: "name", label: "Name", format: (v) => pc.bold(String(v)) },
-      { key: "cpu", label: "CPU%", align: "right", format: (v) => {
-        const num = v as number;
-        return num > 10 ? pc.red(String(num)) : num > 5 ? pc.yellow(String(num)) : pc.dim(String(num));
-      }},
-      { key: "mem", label: "MEM%", align: "right", format: (v) => {
-        const num = v as number;
-        return num > 10 ? pc.red(String(num)) : num > 5 ? pc.yellow(String(num)) : pc.dim(String(num));
-      }},
-      { key: "state", label: "State", format: (v) => {
-        const s = String(v);
-        if (s === "R" || s === "Running") return pc.green(s);
-        if (s === "Z" || s === "Zombie") return pc.red(s);
-        if (s === "S" || s === "Sleeping") return pc.cyan(s);
-        return pc.dim(s);
-      }},
-      { key: "ports", label: "Ports", format: (v) => {
-        const ports = v as number[];
-        return ports.length > 0
-          ? ports.map((p) => pc.yellow(`:${p}`)).join(", ")
-          : pc.dim("-");
-      }},
-    ];
-
-    const rows: Row[] = processes.map((p) => ({
-      pid: p.pid,
-      name: p.name,
-      cpu: p.cpuPercent,
-      mem: p.memPercent,
-      state: formatProcessState(p.state),
-      ports: p.ports,
-    }));
-
-    // Check for tracked processes and add a "managed" indicator
-    const tracked = readTracked();
-    const managedPids = new Set(tracked.map((t) => t.pid));
-
-    // Add badge column showing managed vs system
-    const managedRows: Row[] = processes.map((p) => {
-      const isManaged = managedPids.has(p.pid);
-      const trackedInfo = tracked.find((t) => t.pid === p.pid);
-      return {
-        ...({
-          pid: p.pid,
-          name: p.name,
-          cpu: p.cpuPercent,
-          mem: p.memPercent,
-          state: formatProcessState(p.state),
-          ports: p.ports,
-        } as Row),
-        _managed: isManaged,
-        _trackedPort: trackedInfo?.port,
-      };
-    });
-
-    // Show tracked processes summary
-    if (tracked.length > 0) {
-      console.error(`  ${pc.green("●")} ${pc.bold("Managed:")} ${tracked.map((t) => {
-        const running = isProcessRunning(t.pid);
-        const status = running ? pc.green("running") : pc.red("stopped");
-        const portStr = t.port ? ` ${pc.yellow(`:${t.port}`)}` : "";
-        return `${pc.bold(t.name)}${portStr} (${status})`;
-      }).join(", ")}\n`);
-    }
-
-    console.error(`  ${symbols.fox} ${pc.bold("System Processes")} ${pc.dim(`(${processes.length} shown, sorted by ${sortBy})`)}\n`);
-    console.error(renderTable(columns, managedRows));
-    console.error();
-  } catch (error) {
-    spinner.fail("Failed to scan processes");
-    console.error(renderError("Process scan failed", String(error)));
+    return;
   }
+
+  // ─── Mode 2: Show only Fennec-tracked processes (default) ─
+  const tracked = readTracked();
+
+  if (tracked.length === 0) {
+    console.error(`\n  ${pc.dim("No tracked processes.")}`);
+    console.error(`  ${pc.dim("Start an app with:")} ${pc.cyan("fennec start <command> --name <name>")}\n`);
+    return;
+  }
+
+  const columns: Column[] = [
+    { key: "name", label: "App", format: (v) => pc.bold(String(v)) },
+    { key: "pid", label: "PID", align: "right" },
+    { key: "status", label: "Status", format: (v) => {
+      const s = v as string;
+      if (s === "running") return pc.green("● running");
+      return pc.red("○ stopped");
+    }},
+    { key: "port", label: "Port", format: (v) => {
+      const p = v as number | null;
+      return p ? pc.yellow(`:${p}`) : pc.dim("-");
+    }},
+    { key: "command", label: "Command", format: (v) => {
+      const c = String(v);
+      return c.length > 50 ? c.slice(0, 50) + "…" : c;
+    }},
+    { key: "uptime", label: "Uptime", format: (v) => pc.dim(String(v)) },
+  ];
+
+  const rows: Row[] = tracked.map((t) => {
+    const running = isProcessRunning(t.pid);
+    const uptime = running
+      ? formatUptime(Math.floor((Date.now() - new Date(t.startedAt).getTime()) / 1000))
+      : "-";
+    return {
+      name: t.name,
+      pid: running ? String(t.pid) : pc.dim(String(t.pid)),
+      status: running ? "running" : "stopped",
+      port: t.port ?? null,
+      command: t.command,
+      uptime,
+    };
+  });
+
+  const runningCount = tracked.filter((t) => isProcessRunning(t.pid)).length;
+
+  console.error(`\n  ${symbols.fox} ${pc.bold("Fennec Apps")} ${pc.dim(`(${runningCount}/${tracked.length} running)`)}\n`);
+  console.error(renderTable(columns, rows));
+  console.error(`  ${pc.dim("Use")} ${pc.cyan("fennec start <command> --name <name> --port <port>")} ${pc.dim("to add more apps.")}`);
+  console.error(`  ${pc.dim("Use")} ${pc.cyan("fennec log <name>")} ${pc.dim("to view logs.")}`);
+  console.error(`  ${pc.dim("Use")} ${pc.cyan("fennec kill <name>")} ${pc.dim("to stop an app.")}`);
+  console.error();
 }
 
-async function watchProcesses(sortBy: string, limit: number): Promise<void> {
-  console.error(`\n  ${pc.bold("Watching processes")} ${pc.dim("(Ctrl+C to stop, refreshes every 3s)")}\n`);
+function formatUptime(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h >= 24) {
+    const d = Math.floor(h / 24);
+    return `${d}d ${h % 24}h ${m}m`;
+  }
+  return `${h}h ${m}m`;
+}
+
+async function watchSystemProcesses(sortBy: string, limit: number): Promise<void> {
+  console.error(`\n  ${pc.bold("Watching system processes")} ${pc.dim("(Ctrl+C to stop, refreshes every 3s)")}\n`);
 
   const render = () => {
     const processes = getSystemProcesses({
@@ -453,76 +479,46 @@ async function watchProcesses(sortBy: string, limit: number): Promise<void> {
 async function statusCommand(_args: string[]): Promise<void> {
   const watchFlag = _args.includes("-w") || _args.includes("--watch");
 
-  // Show a real-time system overview
-  const spinner = createSpinner("Gathering system status...");
+  // Show tracked processes + system overview
+  const tracked = readTracked();
+  const topSystem = getSystemProcesses({ userOnly: true, sortBy: "cpu", limit: 5 });
+  const totalUserProcs = getSystemProcesses({ userOnly: true }).length;
 
-  try {
-    const topProcesses = getSystemProcesses({ userOnly: true, sortBy: "cpu", limit: 10 });
-    const totalProcesses = getSystemProcesses({ userOnly: true }).length;
+  console.error(`\n  ${symbols.fox} ${pc.bold("Fennec Status")}\n`);
 
-    // Detect common services
-    const services = [
-      { name: "node", label: "Node.js" },
-      { name: "npm", label: "npm" },
-      { name: "pnpm", label: "pnpm" },
-      { name: "vite", label: "Vite" },
-      { name: "next", label: "Next.js" },
-      { name: "webpack", label: "Webpack" },
-      { name: "tsc", label: "TypeScript" },
-      { name: "docker", label: "Docker" },
-      { name: "mysqld", label: "MySQL" },
-      { name: "postgres", label: "PostgreSQL" },
-      { name: "redis", label: "Redis" },
-      { name: "ollama", label: "Ollama" },
-    ];
+  // ─── Tracked Apps Section ────────────────────────
+  if (tracked.length > 0) {
+    const runningCount = tracked.filter((t) => isProcessRunning(t.pid)).length;
+    console.error(`  ${pc.bold("Managed Apps")} ${pc.dim(`(${runningCount}/${tracked.length} running)`)}\n`);
 
-    spinner.stop();
-    process.stdout.write("\r\x1b[K");
-
-    console.error(`\n  ${symbols.fox} ${pc.bold("Fennec System Overview")}\n`);
-
-    // System summary
-    console.error(`  ${renderKV("User Processes", pc.bold(String(totalProcesses)))}`);
-    console.error(`  ${renderKV("Fennec Version", pc.dim("v1.11.1"))}`);
-
-    // Detected services
-    const activeServices = services
-      .filter((s) => topProcesses.some((p) => p.name.toLowerCase().includes(s.name)))
-      .slice(0, 5);
-
-    if (activeServices.length > 0) {
-      console.error(`  ${renderKV("Detected", activeServices.map((s) => pc.green(s.label)).join(", "))}`);
+    for (const t of tracked) {
+      const running = isProcessRunning(t.pid);
+      const statusIcon = running ? pc.green("●") : pc.red("○");
+      const portStr = t.port ? ` ${pc.yellow(`:${t.port}`)}` : "";
+      const uptime = running
+        ? pc.dim(formatUptime(Math.floor((Date.now() - new Date(t.startedAt).getTime()) / 1000)))
+        : pc.red("stopped");
+      console.error(`  ${statusIcon} ${pc.bold(t.name)}${portStr} ${pc.dim(`(PID ${t.pid})`)} — ${uptime}`);
     }
-
     console.error();
-
-    // Top CPU processes
-    const columns: Column[] = [
-      { key: "pid", label: "PID", align: "right", format: (v) => pc.dim(String(v).padStart(6)) },
-      { key: "name", label: "Process", format: (v) => pc.bold(String(v)) },
-      { key: "cpu", label: "CPU%", align: "right" },
-      { key: "mem", label: "MEM%", align: "right" },
-    ];
-
-    const rows: Row[] = topProcesses.map((p) => ({
-      pid: p.pid,
-      name: p.name,
-      cpu: p.cpuPercent,
-      mem: p.memPercent,
-    }));
-
-    console.error(`  ${pc.bold("Top CPU Processes")}\n`);
-    console.error(renderTable(columns, rows));
-
-    if (watchFlag) {
-      await watchProcesses("cpu", 15);
-    }
-
-    console.error();
-  } catch (error) {
-    spinner.fail("Failed to gather system status");
-    console.error(renderError("Status check failed", String(error)));
+  } else {
+    console.error(`  ${pc.dim("No managed apps.")} ${pc.cyan("fennec start <command> --name <name>")}\n`);
   }
+
+  // ─── System Summary ──────────────────────────────
+  console.error(`  ${pc.bold("System")} ${pc.dim(`(${totalUserProcs} user processes)`)}`);
+
+  for (const p of topSystem) {
+    const cpuStr = p.cpuPercent > 10 ? pc.red(`${p.cpuPercent}%`) : p.cpuPercent > 5 ? pc.yellow(`${p.cpuPercent}%`) : pc.dim(`${p.cpuPercent}%`);
+    const memStr = p.memPercent > 10 ? pc.red(`${p.memPercent}%`) : p.memPercent > 5 ? pc.yellow(`${p.memPercent}%`) : pc.dim(`${p.memPercent}%`);
+    console.error(`  ${pc.dim(`PID ${p.pid}`)} ${pc.bold(p.name)} — CPU: ${cpuStr} MEM: ${memStr}`);
+  }
+
+  if (watchFlag) {
+    await watchSystemProcesses("cpu", 15);
+  }
+
+  console.error();
 }
 
 // ─── Command: kill ───────────────────────────────────────────────
