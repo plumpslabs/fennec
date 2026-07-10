@@ -1,6 +1,6 @@
 {
   "name": "@plumpslabs/fennec-cli",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "description": "Fennec CLI — pipe, attach, watch, and start the Fennec MCP server",
   "keywords": [
     "mcp",
@@ -10,10 +10,12 @@
     "developer-tools"
   ],
   "homepage": "https://github.com/plumpslabs/fennec#readme",
-  "bugs": {      "url": "https://github.com/plumpslabs/fennec/issues"
+  "bugs": {
+    "url": "https://github.com/plumpslabs/fennec/issues"
   },
   "repository": {
-    "type": "git",      "url": "git+https://github.com/plumpslabs/fennec.git"
+    "type": "git",
+    "url": "git+https://github.com/plumpslabs/fennec.git"
   },
   "license": "MIT",
   "author": "Fennec Contributors",
@@ -45,7 +47,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@plumpslabs/fennec-core": "workspace:*"
+    "@plumpslabs/fennec-core": "workspace:*",
+    "picocolors": "^1.1.1"
   },
   "peerDependencies": {
     "playwright": "^1.42.0"

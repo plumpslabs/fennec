@@ -1,6 +1,40 @@
 import { z } from "zod";
 import { createTool } from "../_registry.js";
 
+/**
+ * Build a human-readable summary of console logs grouped by level.
+ * This is the token-efficient alternative to dumping all raw logs.
+ */
+function buildLogSummary(errorCount: number, warnCount: number, infoCount: number, logs: Array<{ level: string; message: string }>): string {
+  const parts: string[] = [];
+
+  if (errorCount > 0) {
+    // Extract unique error messages (truncated) for the summary
+    const uniqueErrors = new Set<string>();
+    for (const log of logs) {
+      if (log.level === "error") {
+        uniqueErrors.add(log.message.replace(/\d+/g, 'N').slice(0, 80));
+      }
+    }
+    const errorsSummary = Array.from(uniqueErrors).slice(0, 3).join("; ");
+    parts.push(`${errorCount} error(s): ${errorsSummary}`);
+  }
+
+  if (warnCount > 0) {
+    parts.push(`${warnCount} warning(s)`);
+  }
+
+  if (infoCount > 0) {
+    parts.push(`${infoCount} info log(s)`);
+  }
+
+  if (parts.length === 0) {
+    return "No console logs";
+  }
+
+  return parts.join(". ");
+}
+
 export const devtoolsGetConsoleLogs = createTool({
   name: "devtools_get_console_logs",
   category: "devtools",
@@ -23,16 +57,19 @@ export const devtoolsGetConsoleLogs = createTool({
 
     const errorCount = logs.filter((l) => l.level === "error").length;
     const warnCount = logs.filter((l) => l.level === "warn").length;
+    const infoCount = logs.filter((l) => l.level === "info").length;
+
+    // Level-based summary: return raw logs only for error level, summary for others
+    const isHighDetail = input.level === "error" || (errorCount > 0 && input.limit && input.limit <= 20);
 
     return responseBuilder.success({
-      logs,
+      // Only return full logs when explicitly asked for errors
+      logs: isHighDetail ? logs : [],
       errorCount,
       warnCount,
-      summary: errorCount > 0
-        ? `${errorCount} JS error(s) detected`
-        : warnCount > 0
-          ? `${warnCount} warning(s) detected`
-          : "No errors or warnings",
+      infoCount,
+      // Level-based summary string
+      summary: buildLogSummary(errorCount, warnCount, infoCount, logs),
     }, sessionManager.buildMeta(session));
   },
 });
@@ -107,9 +144,25 @@ export const devtoolsGetJsErrors = createTool({
       since: input.since,
     });
 
+    // Summarize errors: group by message pattern
+    const errorGroups = new Map<string, number>();
+    for (const e of errors) {
+      // Normalize: remove timestamps, numbers to group similar errors
+      const key = e.message.replace(/\d+/g, 'N').slice(0, 100);
+      errorGroups.set(key, (errorGroups.get(key) ?? 0) + 1);
+    }
+
+    const grouped = Array.from(errorGroups.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([msg, count]) => ({ message: msg, count }));
+
     return responseBuilder.success({
-      errors,
+      errors: errors.slice(-5), // Only return last 5 raw errors
       count: errors.length,
+      grouped,                   // Grouped by pattern
+      summary: errors.length > 0
+        ? `${errors.length} error(s): ${grouped.map(g => `${g.message.slice(0, 60)} (${g.count}x)`).join("; ")}`
+        : "No errors",
       lastError: errors.length > 0 ? errors[errors.length - 1] : null,
     }, sessionManager.buildMeta(session));
   },

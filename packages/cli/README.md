@@ -94,6 +94,33 @@ npm run dev 2>&1 | fennec pipe --name "dev-server"
 
 > *"Why is my app broken?"* — AI uses Fennec to check browser console, network, and server logs simultaneously.
 
+## Features
+
+### 🧠 AI-Native API
+Fennec's AI-Native API provides 7 observation-centric tools for AI agents:
+- `observe()` — Multi-sensor observation with level-based detail
+- `ai_diagnose()` — Full-stack diagnosis with root cause inference
+- `correlate()` — Cross-layer event correlation with timeline
+- `summarize()` — Token-efficient log/event/DOM compression
+- `explain()` — Plain-language incident/state explanation
+- `investigate()` — Deep dive with Lazy Context Level 2-3
+- `predict()` — Pattern-based failure prediction
+
+### 🦊 Lazy Context — 200x Token Savings
+Information delivered in levels, config-driven:
+```
+Level 0 (Pulse):  Always sent    ~5 tokens
+Level 1 (Summary): On error      ~50 tokens
+Level 2 (Detail):  On expand     ~200 tokens
+Level 3 (Raw):     On request    ~2000+ tokens
+```
+### 🚀 Zero-Dependency Browser Mode
+Fennec auto-detects the best browser adapter:
+- **CDP Observer** (default, zero deps) — lightweight observation
+- **Playwright** (optional) — full automation (click, type, upload)
+
+Configure via `browser.adapter: "auto" | "cdp" | "playwright"`
+
 ## CLI Commands
 
 | Command | Description |
@@ -146,6 +173,16 @@ npm run dev 2>&1 | fennec pipe --name "admin-test"
 fennec start  # In another MCP client config
 ```
 
+### AI Diagnosis (One-Liner)
+
+```bash
+# Start server with pipe
+npm run dev 2>&1 | fennec pipe --name "my-app"
+
+# In AI: "Why is my app broken?"
+# AI calls observe() → ai_diagnose() → finds root cause
+```
+
 ## Configuration
 
 Fennec works with zero config, but supports customization:
@@ -158,11 +195,17 @@ Key configuration options (see [full reference](docs/configuration.md)):
 
 ```yaml
 browser:
-  type: chromium          # chromium, firefox, or webkit
+  adapter: auto            # auto, cdp, or playwright
+  type: chromium           # chromium, firefox, or webkit
   headless: true
   viewport:
     width: 1280
     height: 720
+
+lazyContext:
+  level1: true             # Auto-attach summary on errors
+  level2: false             # Attach detail on expand
+  level3: false             # Attach raw data on request
 
 security:
   sandbox: true

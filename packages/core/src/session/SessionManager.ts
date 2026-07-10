@@ -4,7 +4,6 @@ import type { FennecSession, ConsoleEvent, NetworkEvent, SessionMeta } from "./t
 import { SessionStore } from "./SessionStore.js";
 import type { FennecConfig } from "../config/defaults.js";
 import type { EventBus } from "../correlation/EventBus.js";
-import { PlaywrightEngineFactory } from "../browser/playwright-engine.js";
 import type { BrowserEngine, BrowserInstance } from "../browser/types.js";
 
 export class SessionManager {
@@ -36,12 +35,24 @@ export class SessionManager {
     this.eventBus = eventBus;
   }
 
+  /**
+   * Set a custom browser engine (used by server.ts to inject CDP/Playwright selector result).
+   * If not called, defaults to PlaywrightEngineFactory on initialize().
+   */
+  setEngine(engine: BrowserEngine): void {
+    this.engine = engine;
+  }
+
   async initialize(): Promise<void> {
     const logger = getLogger();
     logger.info("Initializing Fennec session manager");
 
-    const factory = new PlaywrightEngineFactory();
-    this.engine = factory.create(this.config.browser.type);
+    // Create engine if not already set (backward compat: default to Playwright)
+    if (!this.engine) {
+      const { PlaywrightEngineFactory } = await import("../browser/playwright-engine.js");
+      const factory = new PlaywrightEngineFactory();
+      this.engine = factory.create(this.config.browser.type);
+    }
 
     this.browserInstance = await this.engine.launch({
       headless: this.config.browser.headless,

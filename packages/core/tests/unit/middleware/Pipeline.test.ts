@@ -44,6 +44,7 @@ function createMockToolContext(): ToolContext {
     recorder: {} as any,
     workflowScheduler: {} as any,
     eventBus: {} as any,
+    lazyContext: {} as any,
   };
 }
 

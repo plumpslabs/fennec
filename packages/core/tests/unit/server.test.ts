@@ -57,6 +57,7 @@ vi.mock('../../src/config/ConfigLoader.js', () => ({
       network: { bufferSize: 1000, captureRequestBody: true, captureResponseBody: true, captureHeaders: true, slowRequestThresholdMs: 1000 },
       console: { bufferSize: 500, levels: ['log', 'info', 'warn', 'error', 'debug'] },
       correlation: { windowMs: 500, enableRootCauseInference: true, minConfidence: 0.7 },
+      lazyContext: { level1: true, level2: false, level3: false },
       security: { sandbox: true, allowProcessSpawn: true, allowProcessKill: false, allowedDomains: [], blockedDomains: [], allowFileProtocol: false, allowCDPRawAccess: false, allowJSEvaluation: true, exportPath: './.fennec/exports', maxExportSizeMB: 10 },
       transport: { type: 'stdio', port: 3333, host: '127.0.0.1' },
       logging: { level: 'info', format: 'pretty', file: null },

@@ -19,7 +19,7 @@ import { createLogger, getLogger } from './utils/logger.js';
 import { ProcessManager } from './process/ProcessManager.js';
 import { LogWatcher } from './process/LogWatcher.js';
 import type { FennecConfig } from './config/defaults.js';
-import { Pipeline, createPermissionGuard, createRetryHandler, createTelemetryMiddleware, createSmartHook, createAuditLog, createStateMachineMiddleware } from './middleware/index.js';
+import { Pipeline, createPermissionGuard, createRetryHandler, createTelemetryMiddleware, createSmartHook, createAuditLog, createStateMachineMiddleware, createPulseContext, createEventBusMiddleware, LazyContext, createLazyLevel1, createLazyLevel2, createLazyLevel3 } from './middleware/index.js';
 import { ResourceManager } from './resource/ResourceManager.js';
 import { StateManager } from './state/index.js';
 import { PerformanceMetrics } from './utils/PerformanceMetrics.js';
@@ -29,8 +29,10 @@ import { WorkflowEngine } from './workflow/WorkflowEngine.js';
 import { Recorder } from './recorder/Recorder.js';
 import { WorkflowScheduler } from './scheduler/WorkflowScheduler.js';
 import { EventBus } from './correlation/EventBus.js';
+import { IncidentEngine } from './incident/index.js';
 import { ConsoleCollector } from './cdp/ConsoleCollector.js';
 import { NetworkCollector } from './cdp/NetworkCollector.js';
+import { selectAdapter, createEngine } from './browser/index.js';
 
 // Import all tools
 import {
@@ -189,6 +191,15 @@ import {
   plannerGetPlan,
   plannerCancelPlan,
 } from './tools/planner/index.js';
+import {
+  observe,
+  aiDiagnose,
+  correlate,
+  summarize,
+  explain,
+  investigate,
+  predict,
+} from './tools/ai/index.js';
 
 export class FennecServer {
   private server: Server;
@@ -209,8 +220,10 @@ export class FennecServer {
   private recorder: Recorder;
   private workflowScheduler: WorkflowScheduler;
   private eventBus: EventBus;
+  private incidentEngine: IncidentEngine;
   private performanceMetrics: PerformanceMetrics;
   private auditLog: ReturnType<typeof createAuditLog>;
+  private lazyContext: LazyContext;
 
   // SSE transport fields
   private sseTransport: SSEServerTransport | null = null;
@@ -239,8 +252,10 @@ export class FennecServer {
     this.recorder = new Recorder();
     this.eventBus = new EventBus();
     this.workflowScheduler = new WorkflowScheduler(this.eventBus, this.workflowEngine);
+    this.incidentEngine = new IncidentEngine(this.eventBus);
     this.performanceMetrics = new PerformanceMetrics();
     this.auditLog = createAuditLog({ logToConsole: true });
+    this.lazyContext = new LazyContext(this.incidentEngine, this.eventBus);
 
     // Wire EventBus to modules for auto-trigger events
     this.sessionManager.setEventBus(this.eventBus);
@@ -265,7 +280,7 @@ export class FennecServer {
     // Start self-monitoring
     this.performanceMetrics.startMemoryMonitoring();
 
-    this.server = new Server({ name: 'fennec', version: '1.10.0' }, { capabilities: { tools: {} } });
+    this.server = new Server({ name: 'fennec', version: '1.11.0' }, { capabilities: { tools: {} } });
 
     this.registerModules();
     this.registerAllTools();
@@ -399,6 +414,14 @@ export class FennecServer {
       plannerListPlans,
       plannerGetPlan,
       plannerCancelPlan,
+      // AI-Native API
+      observe,
+      aiDiagnose,
+      correlate,
+      summarize,
+      explain,
+      investigate,
+      predict,
       // Mobile
       mobileListDevices,
       mobileTap,
@@ -435,6 +458,7 @@ export class FennecServer {
       recorder: this.recorder,
       workflowScheduler: this.workflowScheduler,
       eventBus: this.eventBus,
+      lazyContext: this.lazyContext,
     };
   }
 
@@ -559,6 +583,14 @@ export class FennecServer {
     this.pipeline.use(this.auditLog.middleware);
     this.pipeline.use(createPermissionGuard());
     this.pipeline.use(createStateMachineMiddleware());
+    // Lazy Context levels: registered in reverse order (outer→inner) so post-processing runs 0→1→2→3
+    // PulseContext (L0) must be registered AFTER L1-L3 so its post-processing (adding meta.pulse)
+    // runs BEFORE L1-L3's post-processing (reading meta.pulse).
+    this.pipeline.use(createLazyLevel1(this.lazyContext, { enabled: this.config.lazyContext.level1 }));  // ← Lazy Context Level 1
+    this.pipeline.use(createLazyLevel2(this.lazyContext, { enabled: this.config.lazyContext.level2 }));  // ← Lazy Context Level 2
+    this.pipeline.use(createLazyLevel3(this.lazyContext, { enabled: this.config.lazyContext.level3 }));  // ← Lazy Context Level 3
+    this.pipeline.use(createPulseContext());       // ← Lazy Context Level 0 (registers LAST so post-processing runs FIRST)
+    this.pipeline.use(createEventBusMiddleware(this.eventBus));  // ← Route tools through EventBus
     this.pipeline.use(createSmartHook());
     this.pipeline.use(createRetryHandler({ maxRetries: 2 }));
   }
@@ -652,6 +684,20 @@ export class FennecServer {
 
   async start(): Promise<void> {
     const logger = getLogger();
+
+    // Auto-detect browser adapter and inject the right engine
+    try {
+      const adapter = await selectAdapter(this.config.browser.adapter);
+      logger.info({ adapter: adapter.adapter, reason: adapter.reason }, 'Browser adapter selected');
+
+      // Create the selected engine and inject it into SessionManager
+      const engine = await createEngine(adapter.adapter, this.config.browser.type);
+      this.sessionManager.setEngine(engine);
+      logger.info({ engine: adapter.adapter }, 'Engine injected into SessionManager');
+    } catch {
+      logger.warn('Browser adapter detection failed — using default Playwright');
+    }
+
     await this.sessionManager.initialize();
 
     await this.setupSessionCDPMonitoring();

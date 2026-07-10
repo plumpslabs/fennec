@@ -35,97 +35,137 @@ export const browserScreenshot = createTool({
 export const browserGetDomSnapshot = createTool({
   name: "browser_get_dom_snapshot",
   category: "dom",
-  description: "`<use_case>DOM inspection</use_case> Get DOM snapshot as HTML with element count and tree depth. Optionally scope to a selector or include computed styles. Supports Shadow DOM traversal. html, elementCount, depth.`",
+  description: "`<use_case>DOM inspection</use_case> Get DOM summary (not full HTML) — interactable elements, forms, buttons, links, headings, inputs with their attributes. Returns a tree that summarizes the page structure without the overhead of serializing the entire DOM. elementCount, depth, structure[]. For full raw HTML, use browser_evaluate with document.documentElement.outerHTML instead.",
   inputSchema: z.object({
-    selector: z.string().optional().describe("Optional selector to scope the snapshot"),
-    includeStyles: z.boolean().optional().default(false).describe("Include computed styles in output"),
-    includeShadowDom: z.boolean().optional().default(true).describe("Include Shadow DOM content in traversal"),
+    selector: z.string().optional().describe("Optional selector to scope the summary"),
+    includeAllElements: z.boolean().optional().default(false).describe("Include all elements (not just interactable ones)"),
     sessionId: z.string().optional().describe("Session ID"),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
       const result = await session.browser.evaluate(
-        ({ selector, includeStyles, includeShadowDom }) => {
-          function getRootElement(sel?: string): Element | null {
+        function evaluateSnapshot({ selector, includeAll }: { selector?: string; includeAll?: boolean }): Record<string, unknown> {
+          function getRoot(sel?: string): Element | null {
             if (!sel) return document.documentElement;
-            // Try standard querySelector first
             const el = document.querySelector(sel);
-            if (el) return el;
-            // If not found, try piercing shadow DOM
-            const allHosts = document.querySelectorAll('*');
-            for (const host of Array.from(allHosts)) {
-              const shadow = (host as Element & { shadowRoot: ShadowRoot | null }).shadowRoot;
-              if (shadow) {
-                const found = shadow.querySelector(sel);
-                if (found) return found;
-              }
-            }
-            return null;
+            return el;
           }
 
-          const root = getRootElement(selector);
-          if (!root) return { html: "", elementCount: 0, depth: 0 };
+          const root = getRoot(selector);
+          if (!root) return { elementCount: 0, summary: "", structure: [] };
 
-          let elementCount = 0;
-          let maxDepth = 0;
+          // ─── Summary counters ────────────────────────
+          let totalElements = 0;
+          let interactableCount = 0;
+          const tagCounts: Record<string, number> = {};
+          let depth = 0;
 
-          function traverseNode(node: Node, depth: number): void {
-            if (node.nodeType === Node.ELEMENT_NODE) {
-              elementCount++;
-              if (depth > maxDepth) maxDepth = depth;
-              const el = node as Element;
-              // Traverse light DOM children
-              for (const child of Array.from(el.children)) {
-                traverseNode(child, depth + 1);
+          const INTERACTABLE_TAGS = new Set([
+            "a", "button", "input", "select", "textarea",
+            "form", "label", "option",
+            "details", "summary",
+            "video", "audio", "img",
+          ]);
+
+          const INTERACTABLE_ROLES = new Set([
+            "button", "link", "textbox", "combobox", "listbox",
+            "checkbox", "radio", "switch", "slider", "tab",
+            "menuitem", "option", "searchbox", "spinbutton",
+          ]);
+
+          function buildTree(node: Element, currentDepth: number): Record<string, unknown> | null {
+            totalElements++;
+            const tag = node.tagName.toLowerCase();
+            tagCounts[tag] = (tagCounts[tag] ?? 0) + 1;
+            if (currentDepth > depth) depth = currentDepth;
+
+            const role = node.getAttribute("role") ?? "";
+            const isInteractable =
+              INTERACTABLE_TAGS.has(tag) ||
+              INTERACTABLE_ROLES.has(role) ||
+              node.hasAttribute("onclick") ||
+              node.getAttribute("tabindex") !== null ||
+              node.getAttribute("contenteditable") === "true" ||
+              (tag === "div" && role !== "");
+
+            if (isInteractable) interactableCount++;
+
+            if (!isInteractable && !includeAll) {
+              for (const child of Array.from(node.children)) {
+                buildTree(child, currentDepth + 1);
               }
-              // Traverse shadow DOM if present and requested
-              if (includeShadowDom) {
-                const shadowRoot = (el as Element & { shadowRoot: ShadowRoot | null }).shadowRoot;
-                if (shadowRoot) {
-                  for (const child of Array.from(shadowRoot.children)) {
-                    traverseNode(child, depth + 1);
-                  }
-                }
-              }
+              return null;
             }
+
+            const children: Record<string, unknown>[] = [];
+            for (const child of Array.from(node.children)) {
+              const built = buildTree(child, currentDepth + 1);
+              if (built) children.push(built);
+            }
+
+            const text = (node.textContent ?? "").trim().slice(0, 120);
+
+            return {
+              tag,
+              text,
+              id: node.id || undefined,
+              class: node.className.slice(0, 100) || undefined,
+              role: role || undefined,
+              type: (node as HTMLInputElement).type || undefined,
+              name: (node as HTMLInputElement).name || node.getAttribute("name") || undefined,
+              href: (node as HTMLAnchorElement).href || undefined,
+              src: (node as HTMLImageElement).src || undefined,
+              alt: node.getAttribute("alt") || undefined,
+              placeholder: node.getAttribute("placeholder") || undefined,
+              checked: (node as HTMLInputElement).checked || undefined,
+              disabled: (node as HTMLInputElement).disabled || undefined,
+              required: node.hasAttribute("required") || undefined,
+              children,
+            };
           }
 
-          traverseNode(root, 0);
+          const structure = buildTree(root, 0);
 
-          // Serialize with Shadow DOM content
-          function serializeNode(node: Node): string {
-            if (node.nodeType !== Node.ELEMENT_NODE) return (node as Text).textContent ?? "";
-            const el = node as Element;
-            const tag = el.tagName.toLowerCase();
-            const attrs = Array.from(el.attributes)
-              .map((a) => ` ${a.name}${a.value ? `="${a.value.replace(/"/g, '&quot;')}"` : ""}`)
-              .join("");
-            let inner = "";
-            for (const child of Array.from(el.childNodes)) {
-              inner += serializeNode(child);
-            }
-            // Include shadow DOM if present
-            if (includeShadowDom) {
-              const shadowRoot = (el as Element & { shadowRoot: ShadowRoot | null }).shadowRoot;
-              if (shadowRoot) {
-                let shadowInner = "";
-                for (const child of Array.from(shadowRoot.childNodes)) {
-                  shadowInner += serializeNode(child);
-                }
-                inner += `<!--shadow-root-->${shadowInner}<!--/shadow-root-->`;
-              }
-            }
-            return `<${tag}${attrs}>${inner}</${tag}>`;
+          const summaryParts: string[] = [];
+          summaryParts.push(`Page has ${totalElements} elements (${interactableCount} interactable) in ${depth + 1} levels`);
+
+          const sortedTags = Object.entries(tagCounts)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10);
+          if (sortedTags.length > 0) {
+            summaryParts.push("Elements: " + sortedTags.map(([t, c]) => `${t}:${c}`).join(", "));
           }
 
-          const html = serializeNode(root);
-          return { html, elementCount, depth: maxDepth + 1 };
+          const buttons = tagCounts["button"] ?? 0;
+          const inputs = tagCounts["input"] ?? 0;
+          const links = tagCounts["a"] ?? 0;
+          const forms = tagCounts["form"] ?? 0;
+          const headings = ["h1", "h2", "h3", "h4", "h5", "h6"]
+            .reduce((sum, h) => sum + (tagCounts[h] ?? 0), 0);
+
+          if (buttons > 0) summaryParts.push(`${buttons} button(s)`);
+          if (inputs > 0) summaryParts.push(`${inputs} input(s)`);
+          if (links > 0) summaryParts.push(`${links} link(s)`);
+          if (forms > 0) summaryParts.push(`${forms} form(s)`);
+          if (headings > 0) summaryParts.push(`${headings} heading(s)`);
+
+          return {
+            elementCount: totalElements,
+            interactableCount,
+            depth: depth + 1,
+            summary: summaryParts.join(". "),
+            tagBreakdown: sortedTags.map(([tag, count]) => ({ tag, count })),
+            structure: structure ? [structure] : [],
+          };
         },
-        { selector: input.selector, includeStyles: input.includeStyles, includeShadowDom: input.includeShadowDom },
+        {
+          selector: input.selector,
+          includeAll: input.includeAllElements ?? false,
+        },
       );
 
-      return responseBuilder.success(result, sessionManager.buildMeta(session));
+      return responseBuilder.success(result as Record<string, unknown>, sessionManager.buildMeta(session));
     } catch (error) {
       return responseBuilder.error(error);
     }

@@ -36,21 +36,25 @@
 
 | Module | Description |
 |--------|-------------|
-| `session/` | Browser session manager — Playwright contexts, tabs, CDP integration, multi-browser (Chromium, Firefox, WebKit) |
-| `tools/` | 112 MCP tool definitions across 15 categories (navigation, interaction, dom, devtools console/network/performance, storage, auth, tabs, process, terminal, diagnostic, scheduler, smart, planner) |
-| `modules/` | Modular system with `FennecModule` interface + `ModuleRegistry`. Current modules: **browser** (tools registered via registry + module), **process**, **mobile** (Android/ADB: 11 tools). New modules implement `FennecModule` and auto-register. |
+| `session/` | Browser session manager — CDP or Playwright engine, tabs, multi-session, CDP monitoring |
+| `tools/` | 130+ MCP tool definitions across 17 categories (navigation, interaction, dom, devtools console/network/performance, storage, auth, tabs, process, terminal, diagnostic, scheduler, smart, planner, mobile, **ai**) |
+| `tools/ai/` | **AI-Native API** — `observe()`, `ai_diagnose()`, `correlate()`, `summarize()`, `explain()`, `investigate()`, `predict()` |
+| `incident/` | **Incident Engine** — formal incident type, lifecycle management, confidence scoring, auto-detection via EventBus |
+| `modules/` | Modular system with `FennecModule` interface + `ModuleRegistry`. Modules: **browser**, **process**, **mobile** (Android/ADB: 11 tools) |
 | `process/` | Process spawner, log watcher, pipe watcher, port detector |
-| `browser/` | Browser engine abstraction layer — `BrowserSession` interface + `PlaywrightSession` implementation. Supports Chromium, Firefox, WebKit. Swap engine without touching tools. |
+| `browser/` | Browser engine abstraction — `BrowserSession` interface + 2 implementations: **Playwright** (full automation) + **CDP Observer** (zero-deps). Auto-switch via `EngineSelector` + `AdapterSelector` |
 | `cdp/` | Chrome DevTools Protocol collectors (console, network, performance) |
-| `correlation/` | Event bus, timeline builder, root cause inference engine with 6+ pattern rules |
-| `middleware/` | Pipeline with telemetry, permission guard, retry handler, smart hook, audit log |
-| `response/` | Response builder and error enricher with screenshots + context |
+| `correlation/` | Event bus, timeline builder, root cause inference engine, **Event Normalizer** |
+| `middleware/` | Pipeline with telemetry, permission guard, retry handler, smart hook, audit log, **PulseContext** (Lazy Context L0), **LazyLevels L1-L3**, **EventBusMiddleware** |
+| `middleware/LazyContext.ts` | **Lazy Context** — Levels 1 (Summary), 2 (Detail), 3 (Raw). Config-driven conditional middleware |
+| `response/` | Response builder and error enricher with context (no auto-screenshots) |
 | `config/` | Configuration loader with defaults, JSON/YAML support, and env var overrides |
 | `state/` | State machine with context switch detection and session state tracking |
 | `resource/` | Resource manager with health checks, auto-cleanup, and memory estimation |
 | `capability/` | Project framework detector (Next.js, React, Vue, Laravel, etc.) |
 | `recorder/` | Session recording and replay engine |
 | `planner/` | Action planning and execution |
+| `scheduler/` | Workflow scheduler with auto-trigger rules |
 
 ## Installation
 
@@ -68,7 +72,7 @@ Playwright is an **optional peer dependency** — only needed if you use browser
 npm install playwright
 ```
 
-Browserless features (terminal watching, process management, correlation engine) work without Playwright.
+Browserless features (terminal watching, process management, correlation engine) work without Playwright. Fennec's **CDP Observer** engine uses zero external dependencies (Node.js built-ins only).
 
 ## Quick Start (Programmatic Usage)
 
@@ -82,35 +86,66 @@ await server.start();
 ## Architecture
 
 ```
-┌───────────────────────────────────────────────┐
-│                AI Agent / LLM                  │
-└───────────────────────┬───────────────────────┘
-                        │ MCP Protocol (stdio/SSE)
-                        ▼
-┌───────────────────────────────────────────────┐
-│              Fennec MCP Server                 │
-├───────────────────────────────────────────────┤
-│  Tool Registry (112 tools, 15 categories)     │
-│  Input Validation (Zod schemas)               │
-│  Middleware Pipeline: Telemetry → Audit →     │
-│    PermissionGuard → SmartHook → RetryHandler │
-│  Performance Metrics (self-observability)      │
-├───────────────────────────────────────────────┤
-│         Cross-Layer Correlation Engine         │
-└──────────┬──────────────────┬─────────────────┘
-           │                  │
-           ▼                  ▼
-┌──────────────────┐  ┌──────────────────┐
-│  Browser Layer   │  │  Process Layer   │
-│  (Playwright +   │  │  (child_process, │
-│   CDPSession)    │  │   attach, pipe)  │
-└──────────────────┘  └──────────────────┘
+                    ┌─────────────┐
+                    │     AI      │
+                    │   (LLM)     │
+                    └──────┬──────┘
+                           │ MCP Protocol
+                    ┌──────▼──────┐
+                    │  Fennec     │
+                    │  MCP Server │
+                    └──────┬──────┘
+                    ┌──────▼──────┐
+                    │  Lazy       │ ← Context Compression (L0-L3)
+                    │  Context    │
+                    └──────┬──────┘
+                    ┌──────▼──────┐
+                    │  Incident   │ ← Correlated, scored, explained
+                    │   Engine    │
+                    └──────┬──────┘
+                    ┌──────▼──────┐
+                    │ Correlation │ ← Cross-layer dot connector
+                    │   Engine    │
+                    └──────┬──────┘
+                    ┌──────▼──────┐
+                    │   Event     │ ← Normalize, enrich, route
+                    │  Bus + MW   │
+                    └──────┬──────┘
+          ┌─────────────────┼─────────────────┐
+          │                 │                  │
+  ┌───────▼───────┐ ┌──────▼──────┐ ┌─────────▼────────┐
+  │   Browser     │ │  Terminal   │ │    Process       │
+  │   Adapter     │ │  Adapter    │ │    Adapter        │
+  └───────┬───────┘ └──────┬──────┘ └──────────┬────────┘
+          │                │                    │
+    ┌─────▼─────┐    ┌────▼────┐         ┌─────▼──────┐
+    │ CDP / PW  │    │  tail   │         │ child_proc │
+    │ (auto)    │    │ / pipe  │         │ / attach   │
+    └───────────┘    └─────────┘         └────────────┘
 ```
 
 ## Features
 
-### Token-Efficient Tool Registry
-Tools are grouped into 15 categories. MCP clients can request specific categories to reduce context window usage.
+### 🦊 Lazy Context — 200x Token Savings
+Information delivered in levels, config-driven:
+- **Level 0** (Pulse): Always sent — `"healthy | 3 warnings | 1 critical"`
+- **Level 1** (Summary): Auto-attached on errors — `"Critical: DB timeout"`
+- **Level 2** (Detail): On expand — timeline + correlation
+- **Level 3** (Raw): On explicit request — raw logs + DOM
+
+### 🧠 AI-Native API (7 Tools)
+`observe()`, `ai_diagnose()`, `correlate()`, `summarize()`, `explain()`, `investigate()`, `predict()` — designed for **AI consumption first**.
+
+### 🚀 Dual Browser Engine
+- **CDP Observer** (default, zero deps) — lightweight observation via Chrome DevTools Protocol
+- **Playwright** (optional) — full automation (click, type, upload, drag-drop)
+- **Auto-switch**: Config-driven via `browser.adapter: "auto" | "cdp" | "playwright"`
+
+### 🔗 Event Bus Centralization
+All tool executions publish `tool:executed` events to the EventBus. The Incident Engine auto-subscribes for real-time pattern matching and root cause inference.
+
+### 📊 Token-Efficient Tool Registry
+Tools are grouped into 17 categories. MCP clients can request specific categories to reduce context window usage.
 
 ### Self-Observability
 Track Fennec's own performance metrics: tool call durations, memory usage, error rates. Access via the PerformanceMetrics API.
@@ -118,7 +153,7 @@ Track Fennec's own performance metrics: tool call durations, memory usage, error
 ### Audit Logging
 Every tool call is recorded with timestamp, session ID, input, result, and duration for security auditing and debugging.
 
-### Cross-Browser Support
+### Cross-Browser Support (Playwright Mode)
 Full support for Chromium, Firefox, and WebKit via Playwright. Configure via `browser.type` in config or `FENNEC_BROWSER_TYPE` env var.
 
 ## Security Features

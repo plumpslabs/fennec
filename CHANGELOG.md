@@ -2,6 +2,31 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.11.0] - 2026-07-10
+
+### Added
+- **AI-Native API (7 tools)** — `observe()`, `ai_diagnose()`, `correlate()`, `summarize()`, `explain()`, `investigate()`, `predict()`. Observation-centric API designed for AI consumption first, 100x fewer tokens than browser-centric tools.
+- **Lazy Context Levels 1-3** — Config-driven middleware layers: Level 1 (Summary, ~50 tokens, auto on errors), Level 2 (Detail, ~200 tokens, on expand), Level 3 (Raw, ~2000+ tokens, on explicit request). 200x token savings.
+- **CDP Observer Engine** (`browser/cdp-engine.ts`) — Zero-dependency browser engine using Chrome DevTools Protocol directly. Navigate, screenshot, evaluate JS, monitor console/network without Playwright.
+- **Engine Auto-Switch** (`browser/EngineSelector.ts`) — `createEngine()` dynamically selects CDP (zero-deps) or Playwright (full automation) based on config or runtime detection. Config via `browser.adapter: "auto" | "cdp" | "playwright"`.
+- **EventBusMiddleware** — Auto-publishes `tool:executed` events to EventBus for every tool call, enabling real-time incident correlation.
+- **Event Normalizer** (`correlation/EventNormalizer.ts`) — Standardizes event format across all sensors.
+- **Formal Incident types** (`incident/types.ts`, `incident/IncidentEngine.ts`) — Full incident lifecycle management with confidence scoring, inference rules, and auto-detection.
+- **PulseContext Middleware** (Lazy Context Level 0) — Health pulse (`~5 tokens`) attached to every response automatically.
+
+### Changed
+- **Token Efficiency** — DOM Summary replaces full HTML (500K → 2K tokens), Log Summarizer replaces raw dumps (10K → 200 tokens), SmartHook no longer auto-sends screenshots (25K → 0). Estimated 200x token savings.
+- **SessionManager** — Now accepts external engine via `setEngine()`. Falls back to Playwright if no engine injected.
+- **Pipeline** — Enhanced with Lazy Context middleware chain (L1 → L2 → L3 → PulseContext → EventBus). Correct onion-order: PulseContext registered last so `meta.pulse` is available to LazyLevels.
+- **ToolContext** — Added `lazyContext: LazyContext` field for AI tools to access Lazy Context service.
+- **server.ts** — Auto-detects browser adapter at startup, injects engine into SessionManager.
+- **READMEs** — Updated root, CLI, core with AI-Native API, Lazy Context, CDP engine docs.
+- **Tool count** — 123 → **130+ tools**, categories: 16 → **17 categories** (added AI-Native API).
+
+### Fixed
+- Pipeline middleware ordering: PulseContext registered after LazyLevels so `meta.pulse` is available when Level 1 middleware reads it.
+- Test mocks: `server.test.ts` and `Pipeline.test.ts` now include missing `lazyContext` field.
+
 ## [1.10.0] - 2026-06-30
 
 ### Added

@@ -5,7 +5,8 @@ export type EventType =
   | "process:stdout"
   | "process:stderr"
   | "process:exit"
-  | "terminal:log";
+  | "terminal:log"
+  | "tool:executed";
 
 export interface BusEvent {
   type: EventType;

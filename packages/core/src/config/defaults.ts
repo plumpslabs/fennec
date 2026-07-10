@@ -1,5 +1,6 @@
 export interface FennecConfig {
   browser: {
+    adapter: "auto" | "cdp" | "playwright";
     type: "chromium" | "firefox" | "webkit";
     headless: boolean;
     slowMo: number;
@@ -40,6 +41,11 @@ export interface FennecConfig {
     enableRootCauseInference: boolean;
     minConfidence: number;
   };
+  lazyContext: {
+    level1: boolean;
+    level2: boolean;
+    level3: boolean;
+  };
   security: {
     sandbox: boolean;
     allowProcessSpawn: boolean;
@@ -66,6 +72,7 @@ export interface FennecConfig {
 
 export const defaultConfig: FennecConfig = {
   browser: {
+    adapter: "auto",
     type: "chromium",
     headless: true,
     slowMo: 0,
@@ -105,6 +112,11 @@ export const defaultConfig: FennecConfig = {
     windowMs: 500,
     enableRootCauseInference: true,
     minConfidence: 0.7,
+  },
+  lazyContext: {
+    level1: true,
+    level2: false,
+    level3: false,
   },
   security: {
     sandbox: true,

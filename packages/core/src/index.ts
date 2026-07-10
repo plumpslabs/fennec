@@ -10,9 +10,8 @@ export { ErrorEnricher } from "./response/ErrorEnricher.js";
 export { ConfigLoader } from "./config/ConfigLoader.js";
 export { defaultConfig } from "./config/defaults.js";
 export type { FennecConfig } from "./config/defaults.js";
-export { EventBus } from "./correlation/EventBus.js";
-export { CorrelationEngine } from "./correlation/CorrelationEngine.js";
-export { RootCauseInferrer } from "./correlation/RootCauseInferrer.js";
+export { EventBus, CorrelationEngine, RootCauseInferrer, EventNormalizer } from "./correlation/index.js";
+export type { NormalizedEvent, EventSource, EventSeverity } from "./correlation/index.js";
 export { ProcessManager } from "./process/ProcessManager.js";
 export { LogWatcher } from "./process/LogWatcher.js";
 export { PipeWatcher } from "./process/PipeWatcher.js";
@@ -30,8 +29,12 @@ export type { SavedSession } from "./session/SessionStore.js";
 export type { ManagedProcess } from "./process/ProcessManager.js";
 export type { WatcherLogEntry } from "./process/LogWatcher.js";
 
+// Incident Engine
+export { IncidentEngine } from "./incident/index.js";
+export type { Incident, IncidentSeverity, IncidentStatus, Alert } from "./incident/index.js";
+
 // New Architecture Modules
-export { Pipeline, createPermissionGuard, createRetryHandler, createTelemetryMiddleware, createSmartHook } from "./middleware/index.js";
+export { Pipeline, createPermissionGuard, createRetryHandler, createTelemetryMiddleware, createSmartHook, createPulseContext } from "./middleware/index.js";
 export type { MiddlewareFn, MiddlewareContext } from "./middleware/index.js";
 export { ResourceManager } from "./resource/index.js";
 export type { Resource, ResourceType, ResourceLimits, HealthReport } from "./resource/index.js";

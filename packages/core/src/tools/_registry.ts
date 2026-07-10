@@ -13,6 +13,7 @@ import type { WorkflowEngine } from "../workflow/WorkflowEngine.js";
 import type { Recorder } from "../recorder/Recorder.js";
 import type { WorkflowScheduler } from "../scheduler/WorkflowScheduler.js";
 import type { EventBus } from "../correlation/EventBus.js";
+import type { LazyContext } from "../middleware/LazyContext.js";
 import type { FennecLogger } from "../utils/logger.js";
 
 export interface ToolContext {
@@ -32,6 +33,7 @@ export interface ToolContext {
   recorder: Recorder;
   workflowScheduler: WorkflowScheduler;
   eventBus: EventBus;
+  lazyContext: LazyContext;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

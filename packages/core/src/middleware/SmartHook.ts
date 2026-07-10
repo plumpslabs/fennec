@@ -1,7 +1,6 @@
 import type { MiddlewareFn, MiddlewareContext } from "./Pipeline.js";
 import type { BrowserSession } from "../browser/types.js";
 import { getLogger } from "../utils/logger.js";
-import { takeScreenshot } from "../utils/screenshot.js";
 
 /**
  * Generate alternative selectors for auto-recovery.
@@ -319,17 +318,13 @@ export function createSmartHook(): MiddlewareFn {
       const browser = ctx.session.browser;
       if (browser) {
         try {
-          // Collect evidence in parallel (no isClosed guard — try regardless)
-          const [url, screenshot] = await Promise.allSettled([
+          // Collect only essential context — NO SCREENSHOT (too expensive token-wise)
+          const [url] = await Promise.allSettled([
             browser.url(),
-            takeScreenshot(browser).catch(() => null),
           ]);
 
           if (url.status === "fulfilled") {
             enrichedContext.currentUrl = url.value;
-          }
-          if (screenshot.status === "fulfilled" && screenshot.value) {
-            enrichedContext.screenshot = screenshot.value.base64;
           }
 
           // Get page title
@@ -337,24 +332,23 @@ export function createSmartHook(): MiddlewareFn {
             enrichedContext.pageTitle = await browser.title();
           } catch { /* ignore */ }
 
-          // Get console errors from session buffer
+          // Summarize console errors (just count + unique messages, not full logs)
           const errors = ctx.session.consoleBuffer
             .filter((l) => l.level === "error")
-            .slice(-5)
-            .map((l) => `[${l.level}] ${l.message}`);
+            .slice(-3);
 
           if (errors.length > 0) {
-            enrichedContext.consoleLogs = errors;
+            const uniqueErrors = [...new Set(errors.map(e => e.message.replace(/\d+/g, 'N').slice(0, 80)))];
+            enrichedContext.consoleSummary = `${errors.length} error(s): ${uniqueErrors.slice(0, 3).join("; ")}`;
           }
 
-          // Get recent network failures
+          // Summarize network failures (just count + endpoints)
           const networkFailures = ctx.session.networkBuffer
             .filter((r) => r.status >= 400)
-            .slice(-5)
-            .map((r) => `${r.method} ${r.url} -> ${r.status}`);
+            .slice(-3);
 
           if (networkFailures.length > 0) {
-            enrichedContext.networkFailures = networkFailures;
+            enrichedContext.networkSummary = `${networkFailures.length} failed request(s): ${networkFailures.map(r => `${r.method} ${new URL(r.url).pathname}`).join(", ")}`;
           }
         } catch {
           // Enrichment is best-effort
