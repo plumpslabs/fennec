@@ -1,6 +1,6 @@
 {
   "name": "@plumpslabs/fennec-cli",
-  "version": "1.13.5",
+  "version": "1.13.6",
   "description": "Fennec CLI — pipe, attach, watch, and start the Fennec MCP server",
   "keywords": [
     "mcp",

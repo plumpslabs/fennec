@@ -2,6 +2,15 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.13.6] - 2026-07-11
+
+### Fixed
+- **CRITICAL: `fennec kill -all` / `kill all` no longer kills every process owned by the user.** It now scopes strictly to Fennec-tracked running apps (`tracked.json`), so unrelated processes (your terminal, editor, browser, other user processes) are never touched. Previously `killAll` called `getSystemProcesses({ userOnly: true })` and terminated the entire user session.
+- **`fennec kill -all -y` / `--yes` is now honored** in `killAll`. The `-y` flag was only checked in the single-target path, so `kill all -y` silently fell through to the interactive confirm prompt (which cancels with no TTY) and killed nothing. It is now threaded into `killAll`.
+
+### Added
+- Regression test: `kill all` only stops Fennec-tracked apps — an external untracked process must survive (CLI E2E suite, 9 tests).
+
 ## [1.13.5] - 2026-07-11
 
 ### Added

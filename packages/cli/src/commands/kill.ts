@@ -1,5 +1,5 @@
 /**
- * Command: kill — Kill process by PID, name, or kill all user processes.
+ * Command: kill — Kill process by PID, name, or kill all Fennec-tracked apps.
  */
 import pc from "picocolors";
 import { renderError, createSpinner, selectPrompt, confirmPrompt } from "../utils/format.js";
@@ -11,9 +11,10 @@ export async function killCommand(args: string[]): Promise<void> {
   const signalIndex = args.indexOf("--signal");
   const signalRaw = signalIndex !== -1 ? args[signalIndex + 1] : "SIGTERM";
   const signal = (signalRaw ?? "SIGTERM") as NodeJS.Signals;
+  const force = args.includes("-y") || args.includes("--yes");
 
   if (rawTarget === "all" || args.includes("--all") || args.includes("-a")) {
-    await killAll(signal);
+    await killAll(signal, force);
     return;
   }
 
@@ -62,7 +63,6 @@ export async function killCommand(args: string[]): Promise<void> {
     }
   }
 
-  const force = args.includes("-y") || args.includes("--yes");
   const confirmed = force || (await confirmPrompt(`Kill ${pc.bold(displayName)} with ${pc.yellow(signal)}?`, false));
   if (!confirmed) { console.error(`  ${pc.dim("Cancelled")}`); return; }
 
@@ -95,24 +95,24 @@ export async function killCommand(args: string[]): Promise<void> {
   }
 }
 
-async function killAll(signal: NodeJS.Signals): Promise<void> {
-  const userProcs = getSystemProcesses({ userOnly: true, sortBy: "cpu", limit: 200 });
-  if (userProcs.length === 0) { console.error(`  ${pc.dim("No user processes to kill.")}`); return; }
+async function killAll(signal: NodeJS.Signals, force: boolean): Promise<void> {
+  // Scope strictly to Fennec-tracked apps — NEVER all user processes.
+  const tracked = readTracked();
+  const running = tracked.filter((t) => isTrackedRunning(t));
+  if (running.length === 0) { console.error(`  ${pc.dim("No running tracked apps to kill.")}`); return; }
 
-  console.error(`\n  ${pc.bold(`Kill ${userProcs.length} user processes?`)}`);
-  console.error(`  ${pc.dim("This will stop ALL your running processes.")}`);
-  console.error(`  ${pc.yellow("⚠ System processes will not be affected.")}\n`);
+  console.error(`\n  ${pc.bold(`Kill ${running.length} tracked app(s)?`)}`);
+  console.error(`  ${pc.dim("This stops every Fennec-tracked running process only — other processes are untouched.")}\n`);
 
-  const confirmed = await confirmPrompt(`${pc.red("Are you sure?")} ${pc.dim("This cannot be undone")}`, false);
+  const confirmed = force || (await confirmPrompt(`${pc.red("Are you sure?")} ${pc.dim("This cannot be undone")}`, false));
   if (!confirmed) { console.error(`  ${pc.dim("Cancelled.")}`); return; }
 
-  const spinner = createSpinner(`Killing ${userProcs.length} processes...`);
+  const spinner = createSpinner(`Killing ${running.length} tracked app(s)...`);
   let killed = 0, failed = 0;
-  for (const proc of userProcs) {
-    if (sysKill(proc.pid, signal)) { killed++; removeTrackedByPid(proc.pid); } else { failed++; }
-    if (killed % 10 === 0) await new Promise((r) => setTimeout(r, 50));
+  for (const t of running) {
+    if (sysKill(t.pid, signal)) { killed++; removeTrackedByPid(t.pid); } else { failed++; }
   }
-  await new Promise((r) => setTimeout(r, 500));
-  killed > 0 ? spinner.succeed(`${killed} process(es) killed`) : spinner.fail("Failed to kill processes");
-  if (failed > 0) console.error(`  ${pc.yellow(`${failed} process(es) could not be killed`)} ${pc.dim("(try with sudo)")}`);
+  await new Promise((r) => setTimeout(r, 300));
+  killed > 0 ? spinner.succeed(`${killed} tracked app(s) killed`) : spinner.fail("Failed to kill apps");
+  if (failed > 0) console.error(`  ${pc.yellow(`${failed} app(s) could not be killed`)}`);
 }

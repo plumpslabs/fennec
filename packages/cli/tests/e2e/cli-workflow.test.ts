@@ -269,4 +269,41 @@ describe.skipIf(!BUILT)("CLI E2E: process control plane", () => {
     expect(r.out.toLowerCase()).not.toContain("starting fennec mcp server");
     expect(findApp("guard")?.status).toBe("running");
   });
+
+  it("kill all only stops Fennec-tracked apps — never other user processes", async () => {
+    const port = P(5);
+    expect(run(["start", "node", "-e", HTTP(port), "--name", "killme", "--port", String(port)]).code).toBe(0);
+    expect(await waitFor(() => findApp("killme")?.status === "running", 5000)).toBe(true);
+
+    // An external, UNtracked process that MUST survive `kill all`.
+    const extPort = P(6);
+    const ext = bgNode(HTTP(extPort));
+    const bound = await waitFor(() => {
+      try {
+        execFileSync("node", ["-e", `require('http').get('http://127.0.0.1:${extPort}',r=>process.exit(0)).on('error',()=>process.exit(1))`], { stdio: "ignore", timeout: 3000 });
+        return true;
+      } catch {
+        return false;
+      }
+    }, 5000);
+    expect(bound, "external server should bind before kill all").toBe(true);
+
+    // The critical regression guard: kill all must only target tracked apps.
+    expect(run(["kill", "all", "-y"]).code).toBe(0);
+
+    // Tracked app is gone.
+    expect(await waitFor(() => !findApp("killme"), 5000)).toBe(true);
+
+    // External untracked process is STILL alive (proves it was never scoped-in).
+    const stillUp = await waitFor(() => {
+      try {
+        execFileSync("node", ["-e", `require('http').get('http://127.0.0.1:${extPort}',r=>process.exit(0)).on('error',()=>process.exit(1))`], { stdio: "ignore", timeout: 3000 });
+        return true;
+      } catch {
+        return false;
+      }
+    }, 5000);
+    expect(stillUp, "external untracked process must survive `kill all`").toBe(true);
+    ext.kill();
+  }, 30000);
 });
