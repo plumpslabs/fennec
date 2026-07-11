@@ -2,6 +2,14 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.13.8] - 2026-07-11
+
+### Fixed
+- **`fennec kill <name>` now removes an already-stopped tracked app from the registry.** Previously it printed "already stopped" and exited, leaving a zombie entry the user could not delete (no `rm` command exists, and `cleanup` only drops entries without a saved command). `kill` means "permanently remove", so a stopped app is now deregistered immediately.
+
+### Added
+- Regression test: `kill` on a stopped tracked app removes it from `ps` (CLI E2E suite now 11 tests).
+
 ## [1.13.7] - 2026-07-11
 
 ### Fixed (process-scoping hardening — same class as the `kill -all` incident)

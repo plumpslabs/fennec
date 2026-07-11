@@ -262,6 +262,19 @@ describe.skipIf(!BUILT)("CLI E2E: process control plane", () => {
     expect(health.code).toBe(0);
   });
 
+  it("kill removes an already-stopped tracked app from the registry", async () => {
+    const port = P(9);
+    expect(run(["start", "node", "-e", HTTP(port), "--name", "killstop", "--port", String(port)]).code).toBe(0);
+    expect(await waitFor(() => findApp("killstop")?.status === "running", 5000)).toBe(true);
+
+    expect(run(["stop", "killstop", "-y"]).code).toBe(0);
+    expect(await waitFor(() => findApp("killstop")?.status === "stopped", 5000)).toBe(true);
+
+    // `kill` on a stopped app must deregister it (no zombie entry left behind).
+    expect(run(["kill", "killstop"]).code).toBe(0);
+    expect(await waitFor(() => !findApp("killstop"), 5000)).toBe(true);
+  }, 30000);
+
   it("routing guard: `start <cmd>` spawns (does not launch the MCP server)", () => {
     const port = P(4);
     const r = run(["start", "node", "-e", HTTP(port), "--name", "guard", "--port", String(port)]);

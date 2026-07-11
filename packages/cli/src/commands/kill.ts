@@ -37,9 +37,13 @@ export async function killCommand(args: string[]): Promise<void> {
     const trackedMatch = tracked.find((t) => t.name === rawTarget);
     if (trackedMatch) {
       if (!isTrackedRunning(trackedMatch)) {
-        console.error(`\n  ${pc.yellow("⚠")} ${pc.bold(rawTarget)} ${pc.dim("is already stopped (no running process to kill)")}`);
-        console.error(`  ${pc.dim("Use")} ${pc.cyan("fennec spawn")} ${pc.dim("to resume")}`);
-        process.exit(0);
+        // Already stopped — nothing to signal. `kill` means "permanently
+        // remove", so just deregister it from tracked.json (don't leave a
+        // zombie entry the user can't get rid of).
+        removeTrackedByPid(trackedMatch.pid);
+        console.error(`\n  ${pc.green("✓")} ${pc.bold(rawTarget)} ${pc.dim("removed from tracked apps (was already stopped)")}`);
+        console.error();
+        return;
       }
       targetPid = trackedMatch.pid;
       displayName = `${trackedMatch.name} (PID ${targetPid})`;
