@@ -306,4 +306,50 @@ describe.skipIf(!BUILT)("CLI E2E: process control plane", () => {
     expect(stillUp, "external untracked process must survive `kill all`").toBe(true);
     ext.kill();
   }, 30000);
+
+  it("kill/restart by name are scoped to tracked apps (no system-wide kill)", async () => {
+    const port = P(7);
+    expect(run(["start", "node", "-e", HTTP(port), "--name", "rt", "--port", String(port)]).code).toBe(0);
+    expect(await waitFor(() => findApp("rt")?.status === "running", 5000)).toBe(true);
+
+    // External, UNtracked process that must survive kill/restart by an unknown name.
+    const extPort = P(8);
+    const ext = bgNode(HTTP(extPort));
+    const bound = await waitFor(() => {
+      try {
+        execFileSync("node", ["-e", `require('http').get('http://127.0.0.1:${extPort}',r=>process.exit(0)).on('error',()=>process.exit(1))`], { stdio: "ignore", timeout: 3000 });
+        return true;
+      } catch {
+        return false;
+      }
+    }, 5000);
+    expect(bound, "external server should bind").toBe(true);
+
+    // Unknown name to `kill` must error — NOT hunt & kill system processes by name.
+    expect(run(["kill", "definitely-not-tracked"]).code).not.toBe(0);
+    // Unknown name to `restart` must error — NOT SIGKILL a system process by name.
+    expect(run(["restart", "definitely-not-tracked"]).code).not.toBe(0);
+
+    // External untracked process is STILL alive (proves no system-wide kill happened).
+    const stillUp = await waitFor(() => {
+      try {
+        execFileSync("node", ["-e", `require('http').get('http://127.0.0.1:${extPort}',r=>process.exit(0)).on('error',()=>process.exit(1))`], { stdio: "ignore", timeout: 3000 });
+        return true;
+      } catch {
+        return false;
+      }
+    }, 5000);
+    expect(stillUp, "external untracked process must survive kill/restart by unknown name").toBe(true);
+
+    // `restart rt` (tracked) actually re-spawns from saved config.
+    const rp = run(["restart", "rt", "-y"]);
+    expect(rp.code).toBe(0);
+    const after = await waitFor(() => {
+      const a = findApp("rt");
+      return a && a.status === "running" ? a : false;
+    }, 8000);
+    expect(after, "rt should be running after restart").toBeTruthy();
+
+    ext.kill();
+  }, 30000);
 });

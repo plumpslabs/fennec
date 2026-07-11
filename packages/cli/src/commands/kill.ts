@@ -3,7 +3,7 @@
  */
 import pc from "picocolors";
 import { renderError, createSpinner, selectPrompt, confirmPrompt } from "../utils/format.js";
-import { getSystemProcesses, killProcess as sysKill, isProcessRunning } from "../utils/system-process.js";
+import { killProcess as sysKill, isProcessRunning } from "../utils/system-process.js";
 import { readTracked, removeTrackedByPid, isTrackedRunning } from "./tracker.js";
 
 export async function killCommand(args: string[]): Promise<void> {
@@ -44,22 +44,11 @@ export async function killCommand(args: string[]): Promise<void> {
       targetPid = trackedMatch.pid;
       displayName = `${trackedMatch.name} (PID ${targetPid})`;
     } else {
-      const currentPid = process.pid;
-      let matches = getSystemProcesses({ name: rawTarget, userOnly: true, sortBy: "cpu" });
-      // Filter out current process (self-kill protection)
-      matches = matches.filter((m) => m.pid !== currentPid);
-      if (matches.length === 0) { console.error(renderError("Process not found", `No running process matching "${rawTarget}"`)); process.exit(1); }
-      if (matches.length > 1) {
-        console.error(`\n  ${pc.bold(`Multiple processes match "${rawTarget}":`)}`);
-        const selected = await selectPrompt("Select which to kill:", matches.map((p, i) => ({ value: String(i), label: `${p.name} (PID ${p.pid})`, description: `${p.command.slice(0, 80)} — CPU: ${p.cpuPercent}% MEM: ${p.memPercent}%` })));
-        if (selected === null) { console.error(`  ${pc.dim("Cancelled")}`); return; }
-        const idx = parseInt(selected, 10);
-        targetPid = matches[idx]!.pid;
-        displayName = `${matches[idx]!.name} (PID ${targetPid})`;
-      } else {
-        targetPid = matches[0]!.pid;
-        displayName = `${matches[0]!.name} (PID ${targetPid})`;
-      }
+      // Scope to Fennec-tracked apps only. Killing arbitrary user processes by
+      // name (e.g. `fennec kill node`) is a footgun — an explicit PID is the
+      // supported way to target a system process.
+      console.error(renderError("Not tracked", `No tracked process named "${rawTarget}".\nUse ${pc.cyan(`fennec kill <pid>`)} to kill a system process by its PID.`));
+      process.exit(1);
     }
   }
 

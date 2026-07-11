@@ -133,13 +133,14 @@ export const COMMANDS: Record<string, CommandDoc> = {
   kill: {
     name: "kill",
     usage: "kill <pid|name|all>",
-    summary: "Kill a process by PID, name, or kill all user processes",
-    description: "Permanently removes a tracked app (unlike `stop`, which keeps it). Prompts before killing.",
+    summary: "Kill a Fennec-tracked process (by PID, tracked name, or all tracked)",
+    description: "Permanently removes a tracked app (unlike `stop`, which keeps it). By NAME it only matches Fennec-tracked apps — use an explicit PID to kill a system process. Prompts before killing.",
     options: [
       ["--signal <sig>", "Signal to send (default: SIGTERM). e.g. SIGKILL, SIGINT"],
-      ["--all, -a", "Kill all user processes (asks for confirmation)"],
+      ["--all, -a", "Kill ALL tracked apps (asks for confirmation)"],
+      ["-y, --yes", "Skip the confirmation prompt"],
     ],
-    examples: ["kill web", "kill 12345 --signal SIGKILL", "kill all"],
+    examples: ["kill web", "kill 12345 --signal SIGKILL", "kill all -y"],
   },
   supervisor: {
     name: "supervisor",

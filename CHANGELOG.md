@@ -2,6 +2,18 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.13.7] - 2026-07-11
+
+### Fixed (process-scoping hardening — same class as the `kill -all` incident)
+- **`fennec restart <name>` no longer hunts & SIGKILLs system processes by name.** It was calling `getSystemProcesses({ name, userOnly: true })` and killing the first system match with no re-spawn. `restart` is now **tracked-only** (resolves by tracked name or tracked PID and re-spawns from saved config). Unknown names error out instead of killing arbitrary processes.
+- **`fennec kill <name>` no longer targets arbitrary user processes by name** (e.g. `fennec kill node` previously matched every node process). It now only matches Fennec-tracked apps; use an explicit PID to target a system process. Killing by explicit PID still works.
+- **`fennec restart <pid>` of a tracked app now actually re-spawns** (previously lookup was name-only, so a PID restarted the process but never re-spawned it).
+- **`-y` / `--yes` added to `restart`** for non-interactive use (consistent with `stop` / `kill`).
+- **`help` for `kill`** corrected: `--all` now documented as "Kill ALL tracked apps" (was incorrectly "Kill all user processes").
+
+### Added
+- Regression tests: `kill`/`restart` by an unknown name must NOT kill an external untracked process; `restart <tracked>` re-spawns correctly (CLI E2E suite now 10 tests).
+
 ## [1.13.6] - 2026-07-11
 
 ### Fixed
