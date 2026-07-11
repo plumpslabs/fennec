@@ -2,6 +2,14 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.13.9] - 2026-07-11
+
+### Fixed
+- **`fennec kill --all` now removes stopped tracked apps too.** It previously only deregistered *running* tracked apps, leaving `stopped` entries behind ("No running tracked apps to kill."). `kill` means "permanently remove", so `kill --all` now kills running apps and deregisters every tracked entry (running + stopped), matching the `kill <name>` behavior fixed in v1.13.8.
+
+### Changed
+- `kill --all` prompt now shows `Kill <n> running + remove <m> stopped tracked app(s)?`.
+
 ## [1.13.8] - 2026-07-11
 
 ### Fixed

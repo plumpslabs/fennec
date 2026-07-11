@@ -91,21 +91,29 @@ export async function killCommand(args: string[]): Promise<void> {
 async function killAll(signal: NodeJS.Signals, force: boolean): Promise<void> {
   // Scope strictly to Fennec-tracked apps — NEVER all user processes.
   const tracked = readTracked();
-  const running = tracked.filter((t) => isTrackedRunning(t));
-  if (running.length === 0) { console.error(`  ${pc.dim("No running tracked apps to kill.")}`); return; }
+  if (tracked.length === 0) { console.error(`  ${pc.dim("No tracked apps to kill.")}`); return; }
 
-  console.error(`\n  ${pc.bold(`Kill ${running.length} tracked app(s)?`)}`);
-  console.error(`  ${pc.dim("This stops every Fennec-tracked running process only — other processes are untouched.")}\n`);
+  const running = tracked.filter((t) => isTrackedRunning(t));
+  const stopped = tracked.filter((t) => !isTrackedRunning(t));
+
+  console.error(`\n  ${pc.bold(`Kill ${running.length} running + remove ${stopped.length} stopped tracked app(s)?`)}`);
+  console.error(`  ${pc.dim("Permanently removes every Fennec-tracked app — other processes are untouched.")}\n`);
 
   const confirmed = force || (await confirmPrompt(`${pc.red("Are you sure?")} ${pc.dim("This cannot be undone")}`, false));
   if (!confirmed) { console.error(`  ${pc.dim("Cancelled.")}`); return; }
 
-  const spinner = createSpinner(`Killing ${running.length} tracked app(s)...`);
+  const spinner = createSpinner(`Killing ${running.length} + removing ${stopped.length} tracked app(s)...`);
   let killed = 0, failed = 0;
   for (const t of running) {
-    if (sysKill(t.pid, signal)) { killed++; removeTrackedByPid(t.pid); } else { failed++; }
+    if (sysKill(t.pid, signal)) { killed++; } else { failed++; }
+    removeTrackedByPid(t.pid);
+  }
+  // Stopped entries have nothing to signal — just deregister them.
+  for (const t of stopped) {
+    removeTrackedByPid(t.pid);
   }
   await new Promise((r) => setTimeout(r, 300));
-  killed > 0 ? spinner.succeed(`${killed} tracked app(s) killed`) : spinner.fail("Failed to kill apps");
-  if (failed > 0) console.error(`  ${pc.yellow(`${failed} app(s) could not be killed`)}`);
+  const total = running.length + stopped.length;
+  total > 0 ? spinner.succeed(`${killed} killed, ${stopped.length} stopped entr${stopped.length === 1 ? "y" : "ies"} removed`) : spinner.fail("Failed to kill apps");
+  if (failed > 0) console.error(`  ${pc.yellow(`${failed} running app(s) could not be killed`)}`);
 }

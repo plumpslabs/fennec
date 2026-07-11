@@ -301,11 +301,20 @@ describe.skipIf(!BUILT)("CLI E2E: process control plane", () => {
     }, 5000);
     expect(bound, "external server should bind before kill all").toBe(true);
 
-    // The critical regression guard: kill all must only target tracked apps.
+    // A STOPPED tracked app that `kill all` must ALSO deregister.
+    const stopPort = P(7);
+    expect(run(["start", "node", "-e", HTTP(stopPort), "--name", "stoppedtoo", "--port", String(stopPort)]).code).toBe(0);
+    expect(await waitFor(() => findApp("stoppedtoo")?.status === "running", 5000)).toBe(true);
+    expect(run(["stop", "stoppedtoo", "-y"]).code).toBe(0);
+    expect(await waitFor(() => findApp("stoppedtoo")?.status === "stopped", 5000)).toBe(true);
+
+    // The critical regression guard: kill all must only target tracked apps,
+    // but it MUST remove BOTH running and stopped tracked entries.
     expect(run(["kill", "all", "-y"]).code).toBe(0);
 
-    // Tracked app is gone.
+    // Both tracked apps are gone (running killme + stopped stoppedtoo).
     expect(await waitFor(() => !findApp("killme"), 5000)).toBe(true);
+    expect(await waitFor(() => !findApp("stoppedtoo"), 5000)).toBe(true);
 
     // External untracked process is STILL alive (proves it was never scoped-in).
     const stillUp = await waitFor(() => {
