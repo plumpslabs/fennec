@@ -26,7 +26,7 @@
 - **🌐 Browser automation** — Playwright-based session management with Chromium, Firefox, and WebKit
 - **📋 DevTools integration** — Console log collection, network monitoring, performance metrics, storage access
 - **🔐 Auth & sessions** — Login form auto-detection, session persistence (cookies + localStorage), multi-session
-- **⚙️ Process management** — Spawn, monitor, attach to processes by PID or port
+- **⚙️ Process management** — Spawn (idempotent: adopts an existing process on the same port instead of double-starting), monitor, attach by PID/port, auto-restart, supervise, adopt external processes, health checks, and log rotation
 - **📡 Terminal watching** — Log file and pipe watchers with level detection
 - **🔗 Full-stack correlation** — Cross-layer root cause inference with configurable confidence thresholds
 - **🛡️ Security middleware** — Sandbox mode, permission guards, domain allowlists, audit logging
@@ -41,7 +41,7 @@
 | `tools/ai/` | **AI-Native API** — `observe()`, `ai_diagnose()`, `correlate()`, `summarize()`, `explain()`, `investigate()`, `predict()` |
 | `incident/` | **Incident Engine** — formal incident type, lifecycle management, confidence scoring, auto-detection via EventBus |
 | `modules/` | Modular system with `FennecModule` interface + `ModuleRegistry`. Modules: **browser**, **process**, **mobile** (Android/ADB: 11 tools) |
-| `process/` | Process spawner, log watcher, pipe watcher, port detector |
+| `process/` | Process spawner (idempotent adopt-by-port), supervisor (auto-restart + flapping detection), log watcher, pipe watcher, **cross-platform** port detector (`/proc` on Linux, `lsof` on macOS, `netstat`/`wmic` on Windows) |
 | `browser/` | Browser engine abstraction — `BrowserSession` interface + 2 implementations: **Playwright** (full automation) + **CDP Observer** (zero-deps). Auto-switch via `EngineSelector` + `AdapterSelector` |
 | `cdp/` | Chrome DevTools Protocol collectors (console, network, performance) |
 | `correlation/` | Event bus, timeline builder, root cause inference engine, **Event Normalizer** |
@@ -155,6 +155,9 @@ Every tool call is recorded with timestamp, session ID, input, result, and durat
 
 ### Cross-Browser Support (Playwright Mode)
 Full support for Chromium, Firefox, and WebKit via Playwright. Configure via `browser.type` in config or `FENNEC_BROWSER_TYPE` env var.
+
+### Cross-Platform Process Management
+Process introspection and port discovery are platform-aware: Linux uses `/proc`, macOS uses `lsof`/`ps`, and Windows uses `netstat`/`tasklist`/`wmic`. `fennec start` adopts an existing process already holding the requested port (idempotent), so agents never spawn conflicting duplicates. On Windows an app's `cwd` isn't readable via built-ins and shows as empty.
 
 ## Security Features
 

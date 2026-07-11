@@ -2,10 +2,25 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.13.5] - 2026-07-11
+
+### Added
+- **Cross-platform process management** — CLI process introspection now works on macOS and Windows (was Linux-only `/proc`). `findPidOnPort` uses `lsof` (macOS) / `netstat` (Windows); `getProcessCmdline` uses `ps` (macOS) / `wmic` (Windows); `getProcessCwd` uses `lsof` (macOS); `ps` uses `tasklist` (Windows). `attach-*` already cross-platform via core `PortDetector`.
+- **`-y` / `--yes` flag** for `stop` and `kill` — non-interactive / automation-friendly (no confirmation prompt).
+- **Security env vars now honored** — `FENNEC_SECURITY_ALLOW_PROCESS_SPAWN`, `FENNEC_SECURITY_ALLOW_PROCESS_KILL`, and `FENNEC_SECURITY_ALLOW_JS_EVALUATION` are now read from the environment (previously no-ops).
+- **CLI E2E test suite** (`packages/cli/tests/e2e`) — covers daemon lifecycle, adopt-by-port idempotency, supervisor auto-restart after kill, `dev up` idempotency, `dev restart`/`dev down`, `log`/`inspect`/`ps`, and command routing. 8 tests, stable.
+
+### Fixed
+- `inspect` log path now respects `FENNEC_DATA_DIR` (was hardcoded to `~/.fennec`).
+- README accuracy (root / cli / core): real MCP client config (`stdio` and `--sse` + permission env vars), full command reference, AI-native process control-plane docs, env-var tables, and a cross-platform note.
+
+### Changed
+- Version bumped to **1.13.5**.
+
 ## [1.11.2] - 2026-07-10
 
 ### Added
-- **`fennec ps` — PM2-like app list** — Shows only Fennec-tracked apps (App, PID, Status, Port, Command, Uptime). Use `-a`/`--system` to see all system processes.
+- **`fennec ps` — show app list** — Shows only Fennec-tracked apps (App, PID, Status, Port, Command, Uptime). Use `-a`/`--system` to see all system processes.
 - **`fennec start <command>` — Dual-mode** — `fennec start` starts MCP server, `fennec start <command>` starts an app. Supports `--name`, `--port`, `--cwd`, `--restart`.
 - **Process Tracking** (`~/.fennec/tracked.json`) — Started apps are auto-saved. Tracked in `ps`, `status`, `log`, `kill` commands. Auto-cleanup on exit.
 - **`fennec kill all` / `fennec kill --all`** — Kill all user processes with confirmation. Shows killed/failed count. Auto-cleans tracked processes.

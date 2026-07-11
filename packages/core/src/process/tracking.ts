@@ -12,9 +12,22 @@ export interface TrackedEntry {
   name: string;
   pid: number;
   command: string;
+  /**
+   * Raw argv for re-spawning (spawn-safe). Mirrors the CLI's tracked.json
+   * shape so `fennec spawn` and the supervisor can re-launch correctly.
+   */
+  args?: string[];
   port?: number;
   cwd?: string;
+  /**
+   * Environment captured at start time. Re-applied on re-spawn so the app
+   * keeps its variables (DB URL, nvm PATH, ...) regardless of where the
+   * supervisor/MCP server runs from.
+   */
+  env?: Record<string, string>;
   startedAt: string;
+  /** When true, the supervisor daemon auto-restarts this app if it dies. */
+  autoRestart?: boolean;
 }
 
 export function getTrackedPath(): string {
@@ -22,6 +35,16 @@ export function getTrackedPath(): string {
     ? resolve(process.env.FENNEC_DATA_DIR)
     : resolve(homedir(), ".fennec");
   return resolve(dir, "tracked.json");
+}
+
+/** Absolute path to an app's on-disk log file. MUST match the CLI's
+ *  `logFilePathFor` (same data-dir resolution) so logs written by an
+ *  MCP-spawned/adopted process are exactly where `fennec log` reads them. */
+export function logPathFor(name: string): string {
+  const dir = process.env.FENNEC_DATA_DIR
+    ? resolve(process.env.FENNEC_DATA_DIR)
+    : resolve(homedir(), ".fennec");
+  return resolve(dir, "logs", `${name}.log`);
 }
 
 export function readTracked(): TrackedEntry[] {

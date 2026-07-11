@@ -7,7 +7,7 @@
 <p align="center">
   <strong><em>Ears everywhere in your stack.</em></strong>
   <br />
-  AI-native developer observability MCP — browser, terminal, and process, all in one.
+  AI-native developer observability MCP — browser, terminal, and <strong>processes</strong>, all in one.
 </p>
 
 <p align="center">
@@ -24,7 +24,7 @@
 
 ## What is Fennec?
 
-**Fennec** is an MCP (Model Context Protocol) server that bridges the gap between AI agents and your development environment. Instead of you copy-pasting errors between terminal, browser, and AI, Fennec gives your AI agent **direct access** to all three simultaneously.
+**Fennec** is an MCP (Model Context Protocol) server that bridges the gap between AI agents and your development environment. Instead of you copy-pasting errors between terminal, browser, and AI, Fennec gives your AI agent **direct access** to all three simultaneously — and lets it **run and supervise** your apps, not just observe them.
 
 ### The Problem It Solves
 
@@ -34,13 +34,13 @@ When a developer asks an AI agent "why is my login broken?", the agent is essent
 What agent sees:          What developer sees:
 ─────────────────         ──────────────────────────────────
 "I can't access           Browser Console:
- your terminal"             ✗ TypeError: jwt.sign is undefined
+  your terminal"             ✗ TypeError: jwt.sign is undefined
 
 "Please paste the         Terminal:
- error message"             ✗ Error: JWT_SECRET not set in env
+  error message"             ✗ Error: JWT_SECRET not set in env
 
 "I don't have            Network Tab:
- browser access"            ✗ POST /api/login -> 500
+  browser access"            ✗ POST /api/login -> 500
 ```
 
 The developer ends up being a **copy-paste bridge** between their tools and the AI. Fennec eliminates this bottleneck.
@@ -75,6 +75,20 @@ Fennec's signature feature correlates browser errors with server logs to identif
 
 > ✅ **The confidence scores above are derived from actual inference rules with unit-tested pattern matching**, not fabricated illustrations.
 
+### 🖥️ Process & App Management — the AI-Native Control Plane
+This is what makes Fennec more than an observer. Your AI agent can **run, supervise, and recover** your apps exactly like a senior engineer would — without you pasting logs or running commands by hand:
+
+- **`start` / `run`** — launch any app as a detached, supervised daemon (PM2-like). Logs stream to `~/.fennec/logs/<name>.log`.
+- **`--restart`** — auto-restart on crash **or** when the app's port stops answering. The supervisor survives your terminal closing.
+- **`dev up`** — idempotent stack orchestration from `fennec.config.yaml`: skips apps already running with unchanged config, restarts ones whose config changed, and **adopts** a process that's already holding a port instead of spawning a conflicting duplicate.
+- **`adopt`** — take ownership of a process an AI agent (or you) launched via raw bash, so it's tracked instead of orphaned.
+- **Health checks** — HTTP `/health` probes and port liveliness drive restarts; crash-looping apps are flagged as **flapping** instead of spinning forever.
+- **`inspect` / `log`** — bounded, redacted, machine-readable views purpose-built for AI consumption.
+- **`persist`** — auto-start your stack after reboot/login (systemd user service + linger on Linux, launchd on macOS, startup on Windows).
+- **Periodic log rotation** so long-running daemons don't fill your disk.
+
+> 🤖 **Why this matters for agents:** when an agent runs `npm run dev` through raw bash, the process is invisible to Fennec and easy to orphan. With Fennec the agent uses `process_spawn` (idempotent — it adopts an existing process on the same port) or `process_adopt`, and gets structured status, logs, and health back. One tool call instead of five, with no double-starts.
+
 ### 🔧 130+ MCP Tools Across 17 Categories
 
 | Category | Tools | What You Can Do |
@@ -88,7 +102,7 @@ Fennec's signature feature correlates browser errors with server logs to identif
 | **Storage** | 12 | localStorage, cookies, IndexedDB, session export/import |
 | **Auth** | 6 | Auto-fill login, save/load sessions, check auth state |
 | **Tabs** | 7 | Multi-tab, multi-context, tab switching |
-| **Process** | 10 | Spawn, monitor, attach by PID/port, kill, restart |
+| **Process** | 25 | Spawn (idempotent/adopt), monitor, attach by PID/port, kill, restart, adopt, supervise, persist, inspect, rename, dev-orchestrate |
 | **Terminal** | 7 | Watch files/pipes, filter logs by level/keyword |
 | **Diagnostic** | 6 | diagnose_page, diagnose_fullstack, diagnose_auth, etc. |
 | **Scheduler** | 7 | Auto-trigger workflows, manage rules, view history |
@@ -114,18 +128,6 @@ Fennec's AI-Native API replaces browser-centric tools with observation-centric o
 | `predict()` | Pattern-based failure prediction | ~100 tokens |
 
 **1 tool call instead of 5. 100x less tokens.**
-
-### 🏆 Full-Stack Correlation (Proven)
-Fennec's signature feature correlates browser errors with server logs to identify root causes automatically. The correlation engine has been tested with **7 integration scenarios** covering real-world patterns:
-
-| Pattern | Example | Confidence |
-|---------|---------|------------|
-| Server 500 + stderr Error | POST /api/login → 500 + DB timeout | 0.90 |
-| Auth token issue | 401 + JWT verification failed | 0.92 |
-| Missing file/env | ENOENT + .env not found | 0.88 |
-| Network failure + TypeError | request failed + JS TypeError | 0.85 |
-
-> ✅ **The confidence scores above are derived from actual inference rules with unit-tested pattern matching**, not fabricated illustrations.
 
 ### 🦊 Lazy Context System — 200x Token Savings
 
@@ -173,19 +175,6 @@ AI: auth_save_session("myapp-prod")
 AI: auth_load_session("myapp-prod")  # skip login entirely!
 ```
 
-### 🖥️ Process & Terminal Monitoring
-Three ways to connect:
-```bash
-# 1. Pipe output (recommended)
-npm run dev 2>&1 | fennec pipe --name "dev-server"
-
-# 2. Attach by PID
-fennec attach-pid 12345
-
-# 3. Attach by port
-fennec attach-port 3000
-```
-
 ### 🔍 Self-Observability
 Fennec monitors its own performance — track tool call durations, memory usage, error rates. Use the `PerformanceMetrics` API to check Fennec's health:
 ```
@@ -224,6 +213,7 @@ fennec init
 ### Configure Your MCP Client
 
 Add to your MCP client config:
+
 ```json
 {
   "mcpServers": {
@@ -235,7 +225,42 @@ Add to your MCP client config:
 }
 ```
 
-Supported clients: Claude Desktop, Claude Code, Cline, Cursor, Windsurf, Continue.dev
+That's enough for **observation** (browser, terminal, logs). For **AI-driven process
+control** (start/restart/stop apps), add the permission env vars:
+
+```json
+{
+  "mcpServers": {
+    "fennec": {
+      "command": "fennec",
+      "args": ["start"],
+      "env": {
+        "FENNEC_SECURITY_ALLOW_PROCESS_SPAWN": "true",
+        "FENNEC_SECURITY_ALLOW_PROCESS_KILL": "true"
+      }
+    }
+  }
+}
+```
+
+For **SSE transport** (HTTP-based remote MCP) instead of stdio:
+
+```json
+{
+  "mcpServers": {
+    "fennec": {
+      "command": "fennec",
+      "args": ["start", "--sse"],
+      "env": {
+        "FENNEC_SECURITY_ALLOW_PROCESS_SPAWN": "true",
+        "FENNEC_SECURITY_ALLOW_PROCESS_KILL": "true"
+      }
+    }
+  }
+}
+```
+
+Supported clients: Claude Desktop, Claude Code, Cline, Cursor, Windsurf, Continue.dev, OpenCode.
 
 ### Your First Diagnosis
 
@@ -253,6 +278,17 @@ The AI will automatically:
 3. Inspect failed network requests
 4. Correlate with server logs
 5. Report the root cause
+
+### Run an app under Fennec supervision
+
+```bash
+# Launch as a supervised daemon (logs to ~/.fennec/logs/api.log)
+fennec start node server.js --name api --port 8080 --restart
+
+# Or bring up a whole stack from fennec.config.yaml (idempotent)
+fennec dev up
+fennec dev status
+```
 
 ## Documentation
 
@@ -274,6 +310,30 @@ The AI will automatically:
 | **npm / pnpm / yarn** | Latest stable |
 | **OS** | macOS, Linux, Windows (native + WSL2) |
 | **Browser** | Chromium (auto-installed), Firefox/WebKit (optional) |
+
+> **Cross-platform note:** Process management (start, ps, adopt, supervisor, `dev up`,
+> port discovery) works on Linux, macOS, and Windows. Linux reads `/proc`; macOS uses
+> `lsof`/`ps`; Windows uses `netstat`/`tasklist`/`wmic`. On Windows an app's `cwd` isn't
+> readable via built-ins, so it shows as empty.
+
+## Environment Variables
+
+| Variable | Effect |
+|----------|--------|
+| `FENNEC_DATA_DIR` | Override Fennec state/log directory (default `~/.fennec`). |
+| `FENNEC_SANDBOX` | `false` disables the sandbox. |
+| `FENNEC_SECURITY_ALLOW_PROCESS_SPAWN` | `true` lets the AI spawn processes. |
+| `FENNEC_SECURITY_ALLOW_PROCESS_KILL` | `true` lets the AI kill processes (off by default). |
+| `FENNEC_SECURITY_ALLOW_JS_EVALUATION` | `true` allows in-page JS evaluation. |
+| `FENNEC_TRANSPORT_TYPE` | `stdio` (default) or `sse`. |
+| `FENNEC_PORT` | SSE port (default `3333`). |
+| `FENNEC_BROWSER_TYPE` | `chromium` \| `firefox` \| `webkit`. |
+| `FENNEC_HEADLESS` | `false` to run headed. |
+| `FENNEC_DEFAULT_TIMEOUT` | Browser default timeout (ms). |
+| `FENNEC_VIEWPORT_WIDTH` / `FENNEC_VIEWPORT_HEIGHT` | Viewport size. |
+| `FENNEC_LOG_LEVEL` | `debug` \| `info` \| `warn` \| `error`. |
+
+See the [CLI README](packages/cli/README.md) for the full command reference.
 
 ## Contributing
 

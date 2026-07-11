@@ -1,23 +1,34 @@
 import { z } from "zod";
 import { createTool } from "../_registry.js";
 import { PortDetector } from "../../process/PortDetector.js";
-import { readTracked, addTracked, removeTracked, removeTrackedByPid, saveTracked } from "../../process/tracking.js";
-import { isProcessRunning } from "../../utils/system-process.js";
+import { readTracked, addTracked, removeTracked, removeTrackedByPid, saveTracked, logPathFor } from "../../process/tracking.js";
+import { isProcessRunning, getProcessCmdline, getProcessCwd } from "../../utils/system-process.js";
+import { detectLogLevel } from "../../utils/levelDetector.js";
 import { existsSync, unlinkSync, renameSync, createWriteStream, mkdirSync } from "node:fs";
-import { resolve } from "node:path";
-import { homedir } from "node:os";
+import { dirname } from "node:path";
 import { spawn } from "node:child_process";
+import { readLogLines, readLogLinesFromOffset, clampLineCount, HARD_LOG_CAP } from "../../process/redact.js";
+
+/** Resolve an app name for log-file lookup (works for CLI-started apps too). */
+function resolveLogName(processId: string): string | undefined {
+  // Tracked.json is keyed by name; try a direct name match first.
+  const tracked = readTracked();
+  const byName = tracked.find((t) => t.name === processId);
+  if (byName) return byName.name;
+  return undefined;
+}
 
 export const processSpawn = createTool({
   name: "process_spawn",
   category: "process",
-  description: "`<use_case>STARTING a new app</use_case> Spawn a NEW process (dev server, build tool, etc.). Use this for first-time starts. For re-spawning a previously stopped process, use process_spawn_tracked instead. Syncs to tracked.json so fennec ps sees it. Requires security.allowProcessSpawn. Returns: processId, pid, name, startedAt.`",
+  description: "`<use_case>STARTING a new app</use_case> Spawn a NEW process (dev server, build tool, etc.). IDEMPOTENT: if a process is ALREADY serving the requested port (e.g. you or another agent started it via raw bash), fennec ADOPTS that existing process instead of spawning a duplicate — so you never get orphaned double-starts. Also returns the existing one if the name is already tracked & running. Prefer this over running commands via bash. For re-spawning a stopped process, use process_spawn_tracked. Syncs to tracked.json so fennec ps sees it. Requires security.allowProcessSpawn. Returns: processId, pid, name, startedAt, adopted (bool).`",
   inputSchema: z.object({
     command: z.string().describe("Command to run (e.g., 'npm', 'node')"),
     args: z.array(z.string()).optional().default([]).describe("Command arguments"),
     cwd: z.string().optional().describe("Working directory"),
     env: z.record(z.string(), z.string()).optional().describe("Environment variables"),
     name: z.string().optional().describe("Process name for identification"),
+    port: z.number().optional().describe("Port the app listens on. If already occupied by a running process, fennec adopts it instead of spawning a duplicate."),
   }),
   handler: async (input, { config, responseBuilder, processManager }) => {
     if (!config.security.allowProcessSpawn) {
@@ -27,15 +38,62 @@ export const processSpawn = createTool({
       );
     }
     try {
+      const cmdLine = `${input.command} ${(input.args ?? []).join(" ")}`;
+
+      // ── Idempotency: adopt an already-running process instead of
+      //    spawning a duplicate. This is the fix for AI agents that fire
+      //    `node server.js` via raw bash without checking tracked state.
+      if (input.port) {
+        const occupant = new PortDetector().detectByPort(input.port);
+        if (occupant && isProcessRunning(occupant.pid)) {
+          const name = input.name ?? `port_${input.port}`;
+          addTracked({
+            name,
+            pid: occupant.pid,
+            command: occupant.command || cmdLine,
+            port: input.port,
+            cwd: input.cwd,
+            env: input.env,
+            startedAt: new Date().toISOString(),
+            autoRestart: true,
+          });
+          return responseBuilder.success({
+            processId: name,
+            pid: occupant.pid,
+            name,
+            startedAt: new Date().toISOString(),
+            adopted: true,
+          }, { elapsed: 0, sessionId: "", timestamp: new Date().toISOString() });
+        }
+      }
+      // Idempotent by name: if the same tracked name is already running, reuse it.
+      if (input.name) {
+        const existing = readTracked().find((t) => t.name === input.name && isProcessRunning(t.pid));
+        if (existing) {
+          return responseBuilder.success({
+            processId: existing.name,
+            pid: existing.pid,
+            name: existing.name,
+            startedAt: existing.startedAt,
+            adopted: false,
+            alreadyRunning: true,
+          }, { elapsed: 0, sessionId: "", timestamp: new Date().toISOString() });
+        }
+      }
+
       const proc = processManager.spawn(input.command, input.args ?? [], input.cwd, input.env, input.name);
 
       // Sync to tracked.json so CLI's `fennec ps` sees agent-spawned processes
       addTracked({
         name: proc.name,
         pid: proc.pid,
-        command: `${input.command} ${(input.args ?? []).join(" ")}`,
+        command: cmdLine,
+        args: input.args && input.args.length ? input.args : undefined,
+        port: input.port,
         cwd: input.cwd,
+        env: input.env,
         startedAt: proc.startedAt.toISOString(),
+        autoRestart: true,
       });
 
       return responseBuilder.success({
@@ -43,6 +101,7 @@ export const processSpawn = createTool({
         pid: proc.pid,
         name: proc.name,
         startedAt: proc.startedAt.toISOString(),
+        adopted: false,
       }, { elapsed: 0, sessionId: "", timestamp: new Date().toISOString() });
     } catch (error) {
       return responseBuilder.error(error, {
@@ -72,17 +131,42 @@ export const processList = createTool({
 export const processGetLogs = createTool({
   name: "process_get_logs",
   category: "process",
-  description: "`<use_case>READING app logs</use_case> Get logs from an MCP-managed process. Filter by level (error/warn/info/debug), limit lines, or filter by timestamp (since). To clear/delete log files, use process_clear_logs. Returns: logs[], count, errorCount.`",
+  description: "`<use_case>READING app logs</use_case> Get logs from a process (MCP-spawned OR CLI-started via fennec start — reads the same on-disk log file). Filter by level (error/warn/info/debug), limit lines, or filter by timestamp (since). LINE COUNT IS HARD-CAPPED (≤500, tightened by the AI token budget) so it never fills the context window. Supports AI watch mode via `sinceOffset` (watermark) to stream only NEW lines (no duplicates, no full re-read). Secrets (API keys, tokens, connection strings, private keys) are REDACTED before returning — safe for AI context. Prefer sinceOffset/watch over large snapshots. To clear/delete log files, use process_clear_logs. Returns: logs[], count, errorCount.`",
   inputSchema: z.object({
     processId: z.string().describe("Process ID to get logs from"),
     lines: z.number().optional().default(50).describe("Number of recent lines to return"),
     level: z.enum(["error", "warn", "info", "debug"]).optional().describe("Filter by log level"),
     since: z.string().optional().describe("ISO timestamp filter"),
+    sinceOffset: z.number().optional().describe("AI watch mode: byte offset (watermark) — return only lines written after it, plus a new watermark"),
   }),
-  handler: async (input, { responseBuilder, processManager }) => {
+  handler: async (input, { responseBuilder, processManager, tokenBudget }) => {
     try {
-      const logs = processManager.getLogs(input.processId, { lines: input.lines, level: input.level, since: input.since });
-      return responseBuilder.success({ logs, count: logs.length, errorCount: logs.filter((l) => l.level === "error").length });
+      // Resolve the app name (MCP-managed or CLI-tracked) so we can read the
+      // on-disk log file. This makes logs work for BOTH MCP-spawned and
+      // CLI-started processes (e.g. `fennec start`) consistently.
+      const name = resolveLogName(input.processId) ?? input.processId;
+      // HARD-CAPPED line count (token-safe; tightened by the AI token budget).
+      const cap = clampLineCount(input.lines, 50, HARD_LOG_CAP, tokenBudget);
+      if (input.sinceOffset !== undefined) {
+        const { lines, watermark } = readLogLinesFromOffset(logPathFor(name), input.sinceOffset, cap);
+        const sliced = lines.slice(-cap);
+        return responseBuilder.success({
+          logs: sliced.map((line) => ({ line, level: detectLogLevel(line), timestamp: new Date().toISOString() })),
+          count: sliced.length,
+          capped: lines.length > sliced.length,
+          watermark,
+          redacted: true,
+        });
+      }
+      const logs = processManager.getLogs(input.processId, { lines: cap, level: input.level, since: input.since });
+      // Fallback to the file when the in-memory buffer is empty (CLI-started
+      // processes aren't in the MCP process manager's buffer).
+      if (logs.length === 0 && existsSync(logPathFor(name))) {
+        const fileLines = readLogLines(logPathFor(name), { tail: cap });
+        const mapped = fileLines.map((line) => ({ line, level: detectLogLevel(line), timestamp: new Date().toISOString() }));
+        return responseBuilder.success({ logs: mapped, count: mapped.length, errorCount: mapped.filter((l) => l.level === "error").length, redacted: true });
+      }
+      return responseBuilder.success({ logs, count: logs.length, errorCount: logs.filter((l) => l.level === "error").length, redacted: true });
     } catch (error) {
       return responseBuilder.error(error, { code: "PROCESS_NOT_FOUND", suggestions: ["Use process_list to see available processes"] });
     }
@@ -246,8 +330,7 @@ export const processSpawnTracked = createTool({
     }
 
     const cmdParts = match.command.split(/\s+/);
-    const logDir = resolve(homedir(), ".fennec", "logs");
-    const logFilePath = resolve(logDir, `${match.name}.log`);
+    const logFilePath = logPathFor(match.name);
 
     try {
       const child = spawn(cmdParts[0]!, cmdParts.slice(1), {
@@ -260,7 +343,7 @@ export const processSpawnTracked = createTool({
       const newPid = child.pid ?? 0;
 
       // Pipe logs to file (same as CLI fennec spawn)
-      mkdirSync(logDir, { recursive: true });
+      mkdirSync(dirname(logFilePath), { recursive: true });
       const logStream = createWriteStream(logFilePath, { flags: "a" });
       if (child.stdout) child.stdout.pipe(logStream);
       if (child.stderr) child.stderr.pipe(logStream);
@@ -314,9 +397,8 @@ export const processRenameTracked = createTool({
     }
 
     // Rename log file if it exists
-    const logDir = resolve(homedir(), ".fennec", "logs");
-    const oldLog = resolve(logDir, `${input.oldName}.log`);
-    const newLog = resolve(logDir, `${input.newName}.log`);
+    const oldLog = logPathFor(input.oldName);
+    const newLog = logPathFor(input.newName);
     if (existsSync(oldLog) && !existsSync(newLog)) {
       try { renameSync(oldLog, newLog); } catch { /* best-effort */ }
     }
@@ -361,8 +443,7 @@ export const processClearLogs = createTool({
     name: z.string().describe("Name of the tracked process whose log to clear"),
   }),
   handler: async (input, { responseBuilder }) => {
-    const logDir = resolve(homedir(), ".fennec", "logs");
-    const logPath = resolve(logDir, `${input.name}.log`);
+    const logPath = logPathFor(input.name);
 
     if (!existsSync(logPath)) {
       return responseBuilder.error(new Error(`No log file found for "${input.name}"`), {
@@ -518,6 +599,70 @@ export const processAttachPort = createTool({
       return responseBuilder.error(error, {
         code: "ATTACH_FAILED",
         suggestions: ["Verify the port number is correct", "Ensure a process is listening on this port"],
+      });
+    }
+  },
+});
+
+// ─── Adopt externally-started processes ───────────────────────────
+// The whole point of idempotent spawning: an AI agent (or a human) may have
+// launched an app via raw bash (`node server.js`) without fennec knowing.
+// process_adopt brings that orphan under fennec control (supervised, logged,
+// inspectable) instead of starting a duplicate. Pair with process_attach_pid /
+// process_attach_port to discover the PID first.
+
+export const processAdopt = createTool({
+  name: "process_adopt",
+  category: "process",
+  description: "`<use_case>TAKING CONTROL of an external process</use_case> Register an ALREADY-RUNNING process (started via raw bash, another tool, or a previous session) into fennec so it becomes tracked, supervised, logged, and inspectable — without restarting it. Use this when process_attach_pid / process_attach_port found a process you want to manage, or when you mistakenly started a server with bash and now want fennec to own it (prevents duplicate/orphan starts). Returns: processId, pid, name, command, port, adopted (bool).`",
+  inputSchema: z.object({
+    pid: z.number().describe("PID of the running process to adopt"),
+    name: z.string().optional().describe("Name to give the adopted process (defaults to pid_<pid>)"),
+    port: z.number().optional().describe("Port the process listens on (helps health-checks)"),
+    command: z.string().optional().describe("Command line (auto-detected from /proc if omitted)"),
+    cwd: z.string().optional().describe("Working directory (auto-detected from /proc if omitted)"),
+    env: z.record(z.string(), z.string()).optional().describe("Environment variables to record"),
+    autoRestart: z.boolean().optional().default(true).describe("Let the supervisor restart it if it dies"),
+  }),
+  handler: async (input, { responseBuilder }) => {
+    if (!isProcessRunning(input.pid)) {
+      return responseBuilder.error(
+        new Error(`No running process with PID ${input.pid}`),
+        { code: "PROCESS_NOT_FOUND", suggestions: ["Verify the PID is correct", "Use process_attach_port to discover the PID"] },
+      );
+    }
+    try {
+      const detector = new PortDetector();
+      const byPid = detector.detectByPid(input.pid);
+      const name = input.name ?? `pid_${input.pid}`;
+      const command = input.command ?? byPid?.command ?? getProcessCmdline(input.pid) ?? `pid ${input.pid}`;
+      const cwd = input.cwd ?? getProcessCwd(input.pid) ?? undefined;
+      const port = input.port ?? byPid?.port;
+
+      addTracked({
+        name,
+        pid: input.pid,
+        command,
+        port,
+        cwd,
+        env: input.env,
+        startedAt: new Date().toISOString(),
+        autoRestart: input.autoRestart,
+      });
+
+      return responseBuilder.success({
+        processId: name,
+        pid: input.pid,
+        name,
+        command,
+        port: port ?? null,
+        cwd: cwd ?? null,
+        adopted: true,
+      }, { elapsed: 0, sessionId: "", timestamp: new Date().toISOString() });
+    } catch (error) {
+      return responseBuilder.error(error, {
+        code: "ADOPT_FAILED",
+        suggestions: ["Verify the PID is running", "Check permissions"],
       });
     }
   },

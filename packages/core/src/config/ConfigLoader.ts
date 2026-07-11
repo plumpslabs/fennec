@@ -63,6 +63,15 @@ export class ConfigLoader {
     if (process.env.FENNEC_SANDBOX) {
       merged.security.sandbox = process.env.FENNEC_SANDBOX !== "false";
     }
+    if (process.env.FENNEC_SECURITY_ALLOW_PROCESS_SPAWN) {
+      merged.security.allowProcessSpawn = process.env.FENNEC_SECURITY_ALLOW_PROCESS_SPAWN !== "false";
+    }
+    if (process.env.FENNEC_SECURITY_ALLOW_PROCESS_KILL) {
+      merged.security.allowProcessKill = process.env.FENNEC_SECURITY_ALLOW_PROCESS_KILL !== "false";
+    }
+    if (process.env.FENNEC_SECURITY_ALLOW_JS_EVALUATION) {
+      merged.security.allowJSEvaluation = process.env.FENNEC_SECURITY_ALLOW_JS_EVALUATION !== "false";
+    }
 
     return merged;
   }

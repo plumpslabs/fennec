@@ -9,13 +9,14 @@
  * `fennec spawn` revives a previously stopped process.
  */
 import pc from "picocolors";
-import { createWriteStream, mkdirSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { homedir } from "node:os";
-import { spawn } from "node:child_process";
 import { symbols, renderError, renderKV, renderAppName, createSpinner, selectPrompt } from "../utils/format.js";
-import { readTracked, addTracked, rotateLogFile } from "./tracker.js";
-import { isProcessRunning } from "../utils/system-process.js";
+import { readTracked, addTracked, spawnDaemon, resolveArgs, isTrackedRunning, buildSpawnEnv } from "./tracker.js";
+import type { TrackedProcess } from "./tracker.js";
+import { ensureSupervisorRunning } from "./supervisor.js";
+import { ensurePersistEnabled } from "./persist.js";
 import { psCommand } from "./ps.js";
 
 export async function spawnCommand(args: string[]): Promise<void> {
@@ -42,7 +43,7 @@ export async function spawnCommand(args: string[]): Promise<void> {
     process.exit(1);
   }
 
-  if (isProcessRunning(match.pid)) {
+  if (isTrackedRunning(match)) {
     console.error(`\n  ${pc.yellow("⚠")} ${pc.bold(name)} ${pc.dim("is already running (PID:")} ${match.pid}${pc.dim(")")}`);
     console.error(`  ${pc.dim("Use")} ${pc.cyan(`fennec stop ${name}`)} ${pc.dim("to stop it first.")}`);
     console.error();
@@ -62,7 +63,7 @@ export async function spawnCommand(args: string[]): Promise<void> {
  */
 async function spawnAllStopped(): Promise<void> {
   const tracked = readTracked();
-  const toSpawn = tracked.filter((t) => !isProcessRunning(t.pid) && t.command);
+  const toSpawn = tracked.filter((t) => !isTrackedRunning(t) && t.command);
 
   if (toSpawn.length === 0) {
     console.error(`\n  ${pc.dim("No stopped processes with saved commands to spawn.")}\n`);
@@ -81,33 +82,27 @@ async function spawnAllStopped(): Promise<void> {
 
   for (const proc of toSpawn) {
     try {
-      const cmdParts = proc.command.split(/\s+/);
+      const cmdParts = resolveArgs(proc);
       const logDir = resolve(homedir(), ".fennec", "logs");
       mkdirSync(logDir, { recursive: true });
       const logFilePath = resolve(logDir, `${proc.name}.log`);
 
-      const child = spawn(cmdParts[0]!, cmdParts.slice(1), {
-        cwd: proc.cwd,
-        env: { ...process.env },
-        stdio: ["ignore", "pipe", "pipe"],
-        detached: true,
-      });
-
+      const child = spawnDaemon({ cmdParts, name: proc.name, cwd: proc.cwd, logFilePath, env: buildSpawnEnv(proc.env), logMode: proc.logMode });
       const pid = child.pid ?? 0;
-      rotateLogFile(logFilePath);
-      const logStream = createWriteStream(logFilePath, { flags: "a" });
-      if (child.stdout) child.stdout.pipe(logStream);
-      if (child.stderr) child.stderr.pipe(logStream);
-      child.unref();
 
       addTracked({
         name: proc.name,
         pid,
         command: proc.command,
+        args: cmdParts,
         port: proc.port,
         cwd: proc.cwd,
+        env: proc.env,
         startedAt: new Date().toISOString(),
+        autoRestart: proc.autoRestart,
+        logMode: proc.logMode,
       });
+      if (proc.autoRestart) { ensureSupervisorRunning(); ensurePersistEnabled(); }
 
       spawned++;
     } catch {
@@ -142,8 +137,8 @@ async function spawnList(): Promise<void> {
     return;
   }
 
-  const stopped = tracked.filter((t) => !isProcessRunning(t.pid));
-  const running = tracked.filter((t) => isProcessRunning(t.pid));
+  const stopped = tracked.filter((t) => !isTrackedRunning(t));
+  const running = tracked.filter((t) => isTrackedRunning(t));
 
   if (stopped.length === 0) {
     console.error(`\n  ${pc.dim("All tracked processes are running. Nothing to spawn.")}`);
@@ -183,8 +178,8 @@ async function spawnList(): Promise<void> {
 /**
  * Re-spawn a stopped tracked process from its saved command/cwd.
  */
-async function respawnProcess(proc: { name: string; command: string; cwd?: string; port?: number }): Promise<void> {
-  const cmdParts = proc.command.split(/\s+/);
+async function respawnProcess(proc: TrackedProcess): Promise<void> {
+  const cmdParts = resolveArgs(proc);
   const logDir = resolve(homedir(), ".fennec", "logs");
   mkdirSync(logDir, { recursive: true });
   const logFilePath = resolve(logDir, `${proc.name}.log`);
@@ -195,32 +190,24 @@ async function respawnProcess(proc: { name: string; command: string; cwd?: strin
   if (proc.port) console.error(`  ${renderKV("Port", String(proc.port))}`);
 
   try {
-    const child = spawn(cmdParts[0]!, cmdParts.slice(1), {
-      cwd: proc.cwd,
-      env: { ...process.env },
-      stdio: ["ignore", "pipe", "pipe"],
-      detached: true,
-    });
-
+    const child = spawnDaemon({ cmdParts, name: proc.name, cwd: proc.cwd, logFilePath, env: buildSpawnEnv(proc.env), logMode: proc.logMode });
     const pid = child.pid ?? 0;
-
-    // Rotate log if >10MB, then create write stream
-    rotateLogFile(logFilePath);
-    const logStream = createWriteStream(logFilePath, { flags: "a" });
-    if (child.stdout) child.stdout.pipe(logStream);
-    if (child.stderr) child.stderr.pipe(logStream);
-
-    child.unref();
 
     // Update tracked.json with new PID
     addTracked({
       name: proc.name,
       pid,
       command: proc.command,
+      args: cmdParts,
       port: proc.port,
       cwd: proc.cwd,
+      env: proc.env,
       startedAt: new Date().toISOString(),
+      autoRestart: proc.autoRestart,
+      logMode: proc.logMode,
     });
+
+    if (proc.autoRestart) { ensureSupervisorRunning(); ensurePersistEnabled(); }
 
     console.error(`  ${pc.green("✓")} ${pc.bold(proc.name)} ${pc.dim(`spawned (PID: ${pid})`)}`);
 

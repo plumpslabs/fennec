@@ -37,6 +37,26 @@ describe("ConfigLoader", () => {
     expect(config.security.sandbox).toBe(false);
   });
 
+  it("should override security process permissions via environment variables", () => {
+    process.env.FENNEC_SECURITY_ALLOW_PROCESS_SPAWN = "true";
+    process.env.FENNEC_SECURITY_ALLOW_PROCESS_KILL = "true";
+    process.env.FENNEC_SECURITY_ALLOW_JS_EVALUATION = "false";
+
+    const loader = new ConfigLoader();
+    const config = loader.getConfig();
+
+    expect(config.security.allowProcessSpawn).toBe(true);
+    expect(config.security.allowProcessKill).toBe(true);
+    expect(config.security.allowJSEvaluation).toBe(false);
+  });
+
+  it("should treat non-'false' security env values as enabled", () => {
+    process.env.FENNEC_SECURITY_ALLOW_PROCESS_KILL = "1";
+
+    const loader = new ConfigLoader();
+    expect(loader.getConfig().security.allowProcessKill).toBe(true);
+  });
+
   it("should handle viewport env variables", () => {
     process.env.FENNEC_VIEWPORT_WIDTH = "1920";
     process.env.FENNEC_VIEWPORT_HEIGHT = "1080";

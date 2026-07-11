@@ -1,6 +1,6 @@
 {
   "name": "fennec",
-  "version": "1.13.4",
+  "version": "1.13.5",
   "private": true,
   "description": "AI-native developer observability MCP — browser, terminal, and process, all in one.",
   "keywords": [
@@ -14,10 +14,12 @@
     "debugging"
   ],
   "homepage": "https://github.com/plumpslabs/fennec#readme",
-  "bugs": {      "url": "https://github.com/plumpslabs/fennec/issues"
+  "bugs": {
+    "url": "https://github.com/plumpslabs/fennec/issues"
   },
   "repository": {
-    "type": "git",      "url": "git+https://github.com/plumpslabs/fennec.git"
+    "type": "git",
+    "url": "git+https://github.com/plumpslabs/fennec.git"
   },
   "license": "MIT",
   "author": "Fennec Contributors",
@@ -48,7 +50,6 @@
     "node": ">=20.0.0",
     "pnpm": ">=8.0.0"
   },
-
   "publishConfig": {
     "access": "public"
   }

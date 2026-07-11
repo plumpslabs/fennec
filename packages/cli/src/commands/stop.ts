@@ -6,14 +6,14 @@
 import pc from "picocolors";
 import { renderError, createSpinner, confirmPrompt } from "../utils/format.js";
 import { killProcess as sysKill, isProcessRunning } from "../utils/system-process.js";
-import { readTracked } from "./tracker.js";
+import { readTracked, isTrackedRunning, setAutoRestart } from "./tracker.js";
 import { psCommand } from "./ps.js";
 
 export async function stopCommand(args: string[]): Promise<void> {
   const stopAll = args.includes("--all") || args.includes("-a");
 
   if (stopAll) {
-    await stopAllTracked();
+    await stopAllTracked(args);
     return;
   }
 
@@ -33,25 +33,28 @@ export async function stopCommand(args: string[]): Promise<void> {
     process.exit(1);
   }
 
-  if (!isProcessRunning(trackedMatch.pid)) {
+  if (!isTrackedRunning(trackedMatch)) {
     console.error(`\n  ${pc.yellow("⚠")} ${pc.bold(rawTarget)} ${pc.dim("is already stopped")}`);
     console.error();
     process.exit(0);
   }
 
   const displayName = `${trackedMatch.name} (PID ${trackedMatch.pid})`;
-  const confirmed = await confirmPrompt(`Stop ${pc.bold(displayName)}? ${pc.dim("It can be re-spawned later via fennec spawn")}`, false);
+  const force = args.includes("-y") || args.includes("--yes");
+  const confirmed = force || (await confirmPrompt(`Stop ${pc.bold(displayName)}? ${pc.dim("It can be re-spawned later via fennec spawn")}`, false));
   if (!confirmed) { console.error(`  ${pc.dim("Cancelled")}`); return; }
 
+  // Disable auto-restart first so the supervisor doesn't immediately revive it.
+  setAutoRestart(trackedMatch.name, false);
   await stopSingleProcess(trackedMatch.pid, trackedMatch.name);
 }
 
 /**
  * Stop all running tracked processes (keep them in tracked.json).
  */
-async function stopAllTracked(): Promise<void> {
+async function stopAllTracked(args: string[]): Promise<void> {
   const tracked = readTracked();
-  const running = tracked.filter((t) => isProcessRunning(t.pid));
+  const running = tracked.filter((t) => isTrackedRunning(t));
 
   if (running.length === 0) {
     console.error(`\n  ${pc.dim("No running tracked processes to stop.")}\n`);
@@ -64,7 +67,8 @@ async function stopAllTracked(): Promise<void> {
   }
   console.error();
 
-  const confirmed = await confirmPrompt("Stop all?", false);
+  const forceAll = args.includes("-y") || args.includes("--yes");
+  const confirmed = forceAll || (await confirmPrompt("Stop all?", false));
   if (!confirmed) { console.error(`  ${pc.dim("Cancelled")}\n`); return; }
 
   const spinner = createSpinner(`Stopping ${running.length} process(es)...`);
@@ -72,6 +76,7 @@ async function stopAllTracked(): Promise<void> {
   let failed = 0;
 
   for (const t of running) {
+    setAutoRestart(t.name, false);
     if (sysKill(t.pid, "SIGTERM")) {
       stopped++;
     } else {

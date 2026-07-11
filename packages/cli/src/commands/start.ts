@@ -1,22 +1,53 @@
 /**
  * Command: start / run — Spawn a process as a detached daemon.
  * Includes auto-resurrect: on server start, re-spawns tracked processes
- * that died since last session (like PM2 resurrect).
+ * that died since last session (like resurrect).
  *
- * With --restart flag: auto-restarts the process if it crashes (like PM2 watch).
+ * With --restart flag: auto-restarts the process if it crashes (watch).
  */
-import { createWriteStream, mkdirSync } from "node:fs";
-import { resolve } from "node:path";
-import { homedir } from "node:os";
-import { spawn } from "node:child_process";
+import { mkdirSync } from "node:fs";
+import { resolve, dirname } from "node:path";
 import { FennecServer } from "@plumpslabs/fennec-core";
 import pc from "picocolors";
 import { printBanner } from "../utils/banner.js";
 import { symbols, renderKV, renderAppName, renderError, divider, createSpinner } from "../utils/format.js";
-import { readTracked, addTracked, removeTracked, rotateLogFile } from "./tracker.js";
-import { isProcessRunning } from "../utils/system-process.js";
+import { readTracked, addTracked, removeTracked, spawnDaemon, resolveArgs, isTrackedRunning, buildSpawnEnv, logFilePathFor, adoptExternalOnPort } from "./tracker.js";
+import { ensureSupervisorRunning } from "./supervisor.js";
+import { ensurePersistEnabled } from "./persist.js";
+import { isProcessRunning, checkPort } from "../utils/system-process.js";
 import { psCommand } from "./ps.js";
 import type { TrackedProcess } from "./tracker.js";
+
+/** Sleep helper */
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Wait until a freshly spawned daemon is confirmed "ready":
+ * - If a port is provided, wait until the port accepts connections.
+ * - Otherwise, wait a short grace period and confirm the PID is still alive
+ *   (catches commands that crash immediately, e.g. "No rule to make target").
+ */
+async function waitForReady(
+  pid: number,
+  port: number | undefined,
+  timeoutMs = 8000,
+): Promise<{ running: boolean; portReady: boolean }> {
+  const start = Date.now();
+  const graceMs = 700;
+
+  while (Date.now() - start < timeoutMs) {
+    if (!isProcessRunning(pid)) return { running: false, portReady: false };
+    if (port !== undefined) {
+      if (await checkPort(port)) return { running: true, portReady: true };
+      await sleep(250);
+      continue;
+    }
+    // No port to probe: just make sure it survives the grace window.
+    if (Date.now() - start >= graceMs) return { running: true, portReady: false };
+    await sleep(150);
+  }
+  return { running: isProcessRunning(pid), portReady: port === undefined ? false : false };
+}
 
 // Re-export from tracker for backward compat
 export type { TrackedProcess };
@@ -75,8 +106,12 @@ export async function runCommand(args: string[]): Promise<void> {
   const portIndex = args.indexOf("--port");
   const port = portIndex !== -1 ? parseInt(args[portIndex + 1]!, 10) : undefined;
   const cwdIndex = args.indexOf("--cwd");
-  const cwd = cwdIndex !== -1 ? args[cwdIndex + 1] : undefined;
+  // Always record a working directory so the app can be re-spawned from
+  // ANY terminal/path later (spawn/restart/supervisor). Defaults to the
+  // directory where `fennec start` was run.
+  const cwd = cwdIndex !== -1 ? resolve(args[cwdIndex + 1]!) : process.cwd();
   const restartFlag = args.includes("--restart");
+  const jsonlFlag = args.includes("--jsonl");
 
   const stopFlags = [nameIndex, portIndex, cwdIndex].filter((i) => i !== -1) as number[];
   const cmdEnd = Math.min(...stopFlags, Infinity);
@@ -90,10 +125,23 @@ export async function runCommand(args: string[]): Promise<void> {
 
   const appName = name ?? cmdParts[0] ?? "app";
 
+  // Idempotent-by-port: if an EXTERNAL process is already listening on our
+  // declared port (e.g. an AI agent launched it via raw bash), adopt it
+  // instead of starting a duplicate that fails with EADDRINUSE.
+  if (port !== undefined) {
+    const adopted = adoptExternalOnPort(port, appName);
+    if (adopted) {
+      console.error(`\n  ${pc.green("✓")} ${pc.bold("Adopted")} ${pc.bold(adopted.name)} ${pc.dim(`(PID ${adopted.pid}) — already listening on :${port}`)}`);
+      console.error(`  ${renderKV("Logs", pc.cyan(`fennec log ${adopted.name}`))}`);
+      console.error();
+      return;
+    }
+  }
+
   // Duplicate Prevention
   const tracked = readTracked();
   const existing = tracked.find((t) => t.name === appName);
-  if (existing && isProcessRunning(existing.pid)) {
+  if (existing && isTrackedRunning(existing)) {
     console.error();
     console.error(`  ${pc.yellow("⚠")} ${pc.bold(appName)} ${pc.dim(`is already running (PID: ${existing.pid})`)}`);
     console.error(`  ${renderKV("Logs", pc.cyan(`fennec log ${appName}`))}`);
@@ -102,9 +150,9 @@ export async function runCommand(args: string[]): Promise<void> {
     process.exit(0);
   }
 
-  const logDir = resolve(homedir(), ".fennec", "logs");
+  const logDir = dirname(logFilePathFor(appName));
   mkdirSync(logDir, { recursive: true });
-  const logFilePath = resolve(logDir, `${appName}.log`);
+  const logFilePath = logFilePathFor(appName);
 
   console.error(`\n  ${symbols.fox} ${pc.bold("Starting")} ${renderAppName(appName)} ${pc.dim("(daemon)")}\n`);
   console.error(`  ${renderKV("Command", cmd)}`);
@@ -114,79 +162,69 @@ export async function runCommand(args: string[]): Promise<void> {
   console.error(`  ${divider()}`);
 
   try {
-    let currentChild = spawn(cmdParts[0]!, cmdParts.slice(1), {
-      cwd,
-      env: { ...process.env },
-      stdio: ["ignore", "pipe", "pipe"],
-      detached: true,
-    });
+    // Snapshot the environment at start time so this app keeps its
+    // variables (DB URL, nvm PATH, NODE_ENV, ...) even when later
+    // spawned/restarted from a different terminal or the supervisor.
+    const startEnv: Record<string, string> = {};
+    for (const [k, v] of Object.entries(process.env)) {
+      if (v !== undefined) startEnv[k] = v;
+    }
+
+    const currentChild = spawnDaemon({ cmdParts, name: appName, cwd, logFilePath, env: buildSpawnEnv(startEnv), logMode: jsonlFlag ? "jsonl" : "text" });
 
     const pid = currentChild.pid ?? 0;
-
-    // Rotate log if >10MB, then create write stream
-    rotateLogFile(logFilePath);
-    const logStream = createWriteStream(logFilePath, { flags: "a" });
-    if (currentChild.stdout) currentChild.stdout.pipe(logStream);
-    if (currentChild.stderr) currentChild.stderr.pipe(logStream);
-
-    currentChild.unref();
 
     addTracked({
       name: appName,
       pid,
       command: cmd,
+      args: cmdParts,
       port,
       cwd,
+      env: startEnv,
       startedAt: new Date().toISOString(),
+      autoRestart: restartFlag,
+      logMode: jsonlFlag ? "jsonl" : "text",
     });
 
     console.error(`  ${pc.green("✓")} ${pc.bold(appName)} ${pc.dim(`started (PID: ${pid})`)}`);
 
-    // If --restart flag is set, watch for crashes and auto-restart
-    if (restartFlag) {
-      console.error(`  ${pc.dim("Auto-restart enabled — watching for crashes...")}\n`);
+    // Verify the app actually came up before we hand back control.
+    const spinner = createSpinner(port ? `Waiting for ${appName} on port ${port}...` : `Confirming ${appName} is running...`);
+    const ready = await waitForReady(pid, port);
+    spinner.stop();
+    process.stdout.write("\r\x1b[K");
 
-      // Shared handler to set up log rotation + exit watcher on a child
-      function setupRestartWatch(c: typeof currentChild): void {
-        c.on("exit", (code, signal) => {
-          if (code !== 0 && signal !== "SIGTERM" && signal !== "SIGKILL") {
-            console.error(`  ${pc.yellow("⚠")} ${pc.bold(appName)} ${pc.dim(`exited with code ${code}, restarting...`)}`);
-            const restarted = spawn(cmdParts[0]!, cmdParts.slice(1), {
-              cwd,
-              env: { ...process.env },
-              stdio: ["ignore", "pipe", "pipe"],
-              detached: true,
-            });
-            const newPid = restarted.pid ?? 0;
-            rotateLogFile(logFilePath);
-            const rs = createWriteStream(logFilePath, { flags: "a" });
-            if (restarted.stdout) restarted.stdout.pipe(rs);
-            if (restarted.stderr) restarted.stderr.pipe(rs);
-            restarted.unref();
-            addTracked({ name: appName, pid: newPid, command: cmd, port, cwd, startedAt: new Date().toISOString() });
-            console.error(`  ${pc.green("✓")} ${pc.bold(appName)} ${pc.dim(`restarted (PID: ${newPid})`)}`);
-            // Watch the new child too (continuous restart)
-            currentChild = restarted;
-            setupRestartWatch(restarted);
-          }
-        });
+    if (!ready.running) {
+      // Crashed almost immediately (bad command, missing target, etc.)
+      removeTracked(appName);
+      console.error(`  ${pc.red("✗")} ${pc.bold(appName)} ${pc.dim("exited immediately after start")}`);
+      console.error(`  ${renderKV("Logs", pc.cyan(`fennec log ${appName}`))}`);
+      console.error();
+      process.exit(1);
+    }
+
+    if (port) {
+      if (ready.portReady) {
+        console.error(`  ${pc.green("✓")} ${pc.bold(appName)} ${pc.dim(`is listening on port ${port}`)}`);
+      } else {
+        console.error(`  ${pc.yellow("⚠")} ${pc.bold(appName)} ${pc.dim(`is running but port ${port} is not accepting connections yet`)}`);
       }
-
-      setupRestartWatch(currentChild);
-
-      // Keep the process alive to watch for crashes
-      await new Promise<void>((resolve) => {
-        process.once("SIGINT", () => {
-          currentChild.kill("SIGTERM");
-          resolve();
-        });
-      });
     }
 
-    // Show the process table instead of logs (only if not in --restart mode)
-    if (!restartFlag) {
-      await psCommand([]);
+    // If --restart is set, hand crash-watching to the detached supervisor
+    // daemon so it survives this terminal closing (no foreground Ctrl+C).
+    if (restartFlag) {
+      const supPid = ensureSupervisorRunning();
+      ensurePersistEnabled();
+      console.error(`  ${pc.green("✓")} ${pc.bold("Auto-restart")} ${pc.dim(`managed by supervisor (PID ${supPid}) — survives terminal close`)}`);
+      console.error(`  ${renderKV("Supervisor", pc.cyan("fennec supervisor status"))}`);
     }
+
+    // Show the process table and exit cleanly. Because the daemon logs
+    // directly to its own file, we no longer hold any pipes — the event
+    // loop drains and the CLI returns immediately without needing Ctrl+C.
+    await psCommand([]);
   } catch (error) {
     console.error(renderError(`Failed to start ${appName}`, String(error)));
     process.exit(1);
@@ -194,7 +232,7 @@ export async function runCommand(args: string[]): Promise<void> {
 }
 
 /**
- * PM2-like resurrect: Re-spawn tracked processes that died.
+ * like resurrect: Re-spawn tracked processes that died.
  * Called automatically during `fennec start` (server mode).
  * Reads tracked.json, checks each PID, re-spawns stopped ones.
  */
@@ -202,7 +240,7 @@ export async function resurrectTracked(): Promise<void> {
   const tracked = readTracked();
   if (tracked.length === 0) return;
 
-  const dead = tracked.filter((t) => !isProcessRunning(t.pid));
+  const dead = tracked.filter((t) => !isTrackedRunning(t));
   if (dead.length === 0) return;
 
   const spinner = createSpinner(`Resurrecting ${dead.length} stopped process(es)...`);
@@ -217,32 +255,25 @@ export async function resurrectTracked(): Promise<void> {
     }
 
     try {
-      const cmdParts = proc.command.split(/\s+/);
-      const logDir = resolve(homedir(), ".fennec", "logs");
-      mkdirSync(logDir, { recursive: true });
-      const logFilePath = resolve(logDir, `${proc.name}.log`);
+      const cmdParts = resolveArgs(proc);
+      const logFilePath = logFilePathFor(proc.name);
 
-      const child = spawn(cmdParts[0]!, cmdParts.slice(1), {
-        cwd: proc.cwd,
-        env: { ...process.env },
-        stdio: ["ignore", "pipe", "pipe"],
-        detached: true,
-      });
+      const child = spawnDaemon({ cmdParts, name: proc.name, cwd: proc.cwd, logFilePath, env: buildSpawnEnv(proc.env), logMode: proc.logMode });
 
-      rotateLogFile(logFilePath);
-      const logStream = createWriteStream(logFilePath, { flags: "a" });
-      if (child.stdout) child.stdout.pipe(logStream);
-      if (child.stderr) child.stderr.pipe(logStream);
-      child.unref();
-
-      // Update PID in tracked.json
+      // Update PID in tracked.json — preserve autoRestart so the supervisor
+      // keeps managing it, and carry restartCause forward.
       addTracked({
         name: proc.name,
         pid: child.pid ?? 0,
         command: proc.command,
+        args: cmdParts,
         port: proc.port,
         cwd: proc.cwd,
+        env: proc.env,
         startedAt: new Date().toISOString(),
+        autoRestart: proc.autoRestart,
+        restartCause: proc.restartCause,
+        logMode: proc.logMode,
       });
 
       resurrected++;

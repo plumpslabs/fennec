@@ -3,13 +3,12 @@
  * Fixed: now actually re-spawns (instead of just killing + suggesting manual re-run).
  */
 import pc from "picocolors";
-import { mkdirSync, createWriteStream } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { homedir } from "node:os";
-import { spawn } from "node:child_process";
 import { renderError, renderCommand, createSpinner, confirmPrompt } from "../utils/format.js";
 import { getSystemProcesses, killProcess as sysKill, isProcessRunning } from "../utils/system-process.js";
-import { readTracked, addTracked, removeTrackedByPid, rotateLogFile } from "./tracker.js";
+import { readTracked, addTracked, removeTrackedByPid, spawnDaemon, resolveArgs, buildSpawnEnv } from "./tracker.js";
 
 export async function restartCommand(args: string[]): Promise<void> {
   const name = args[0];
@@ -51,24 +50,12 @@ export async function restartCommand(args: string[]): Promise<void> {
   if (trackedEntry) {
     const respawnSpinner = createSpinner(`Re-spawning ${trackedEntry.name}...`);
     try {
-      const cmdParts = trackedEntry.command.split(" ");
+      const cmdParts = resolveArgs(trackedEntry);
       const logDir = resolve(homedir(), ".fennec", "logs");
       mkdirSync(logDir, { recursive: true });
       const logFilePath = resolve(logDir, `${trackedEntry.name}.log`);
 
-      const child = spawn(cmdParts[0]!, cmdParts.slice(1), {
-        cwd: trackedEntry.cwd,
-        env: { ...process.env },
-        stdio: ["ignore", "pipe", "pipe"],
-        detached: true,
-      });
-
-      // Rotate log if >10MB, then create write stream
-      rotateLogFile(logFilePath);
-      const logStream = createWriteStream(logFilePath, { flags: "a" });
-      if (child.stdout) child.stdout.pipe(logStream);
-      if (child.stderr) child.stderr.pipe(logStream);
-      child.unref();
+      const child = spawnDaemon({ cmdParts, name: trackedEntry.name, cwd: trackedEntry.cwd, logFilePath, env: buildSpawnEnv(trackedEntry.env), logMode: trackedEntry.logMode });
 
       // Remove old PID entry, add new one (only after successful spawn)
       removeTrackedByPid(targetPid);
@@ -76,9 +63,13 @@ export async function restartCommand(args: string[]): Promise<void> {
         name: trackedEntry.name,
         pid: child.pid ?? 0,
         command: trackedEntry.command,
+        args: cmdParts,
         port: trackedEntry.port,
         cwd: trackedEntry.cwd,
+        env: trackedEntry.env,
         startedAt: new Date().toISOString(),
+        autoRestart: trackedEntry.autoRestart,
+        logMode: trackedEntry.logMode,
       });
 
       respawnSpinner.succeed(`${trackedEntry.name} restarted (PID: ${child.pid})`);

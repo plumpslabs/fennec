@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { getLogger } from "../utils/logger.js";
 import { detectLogLevel, type LogLevel } from "../utils/levelDetector.js";
+import { redactLogLine } from "./redact.js";
 import type { EventBus } from "../correlation/EventBus.js";
 
 export interface ManagedProcess {
@@ -197,7 +198,8 @@ export class ProcessManager {
       logs = logs.slice(-options.lines);
     }
 
-    return logs;
+    // Redact secrets before returning — AI-safe (mirrors CLI behavior).
+    return logs.map((l) => ({ ...l, line: redactLogLine(l.line) }));
   }
 
   getStatus(processId: string): { running: boolean; pid: number; uptime: number } {

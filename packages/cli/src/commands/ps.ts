@@ -4,8 +4,8 @@
 import pc from "picocolors";
 import { printBanner } from "../utils/banner.js";
 import { symbols, renderTable, renderError, renderCommand, createSpinner, timestamp, type Column, type Row } from "../utils/format.js";
-import { getSystemProcesses, isProcessRunning, formatProcessState } from "../utils/system-process.js";
-import { readTracked, formatUptime } from "./tracker.js";
+import { getSystemProcesses, formatProcessState } from "../utils/system-process.js";
+import { readTracked, formatUptime, isTrackedRunning } from "./tracker.js";
 
 export async function psCommand(args: string[]): Promise<void> {
   const watchFlag = args.includes("-w") || args.includes("--watch");
@@ -71,12 +71,12 @@ export async function psCommand(args: string[]): Promise<void> {
   ];
 
   const rows: Row[] = tracked.map((t) => {
-    const running = isProcessRunning(t.pid);
+    const running = isTrackedRunning(t);
     const uptime = running ? formatUptime(Math.floor((Date.now() - new Date(t.startedAt).getTime()) / 1000)) : "-";
     return { name: t.name, pid: running ? String(t.pid) : pc.dim(String(t.pid)), status: running ? "running" : "stopped", port: t.port ?? null, command: t.command, uptime };
   });
 
-  const runningCount = tracked.filter((t) => isProcessRunning(t.pid)).length;
+  const runningCount = tracked.filter((t) => isTrackedRunning(t)).length;
   console.error(`\n  ${symbols.fox} ${pc.bold("Fennec Apps")} ${pc.dim(`(${runningCount}/${tracked.length} running)`)}\n`);
   console.error(renderTable(columns, rows));
   console.error(`  ${pc.dim("Use")} ${pc.cyan("fennec start <command> --name <name> --port <port>")} ${pc.dim("to add more apps.")}`);
@@ -93,7 +93,7 @@ export async function psCommand(args: string[]): Promise<void> {
 async function psJson(): Promise<void> {
   const tracked = readTracked();
   const data = tracked.map((t) => {
-    const running = isProcessRunning(t.pid);
+    const running = isTrackedRunning(t);
     return {
       name: t.name,
       pid: t.pid,
@@ -117,10 +117,10 @@ export async function statusCommand(_args: string[]): Promise<void> {
   console.error(`\n  ${symbols.fox} ${pc.bold("Fennec Status")}\n`);
 
   if (tracked.length > 0) {
-    const runningCount = tracked.filter((t) => isProcessRunning(t.pid)).length;
+    const runningCount = tracked.filter((t) => isTrackedRunning(t)).length;
     console.error(`  ${pc.bold("Managed Apps")} ${pc.dim(`(${runningCount}/${tracked.length} running)`)}\n`);
     for (const t of tracked) {
-      const running = isProcessRunning(t.pid);
+      const running = isTrackedRunning(t);
       const statusIcon = running ? pc.green("●") : pc.red("○");
       const portStr = t.port ? ` ${pc.yellow(`:${t.port}`)}` : "";
       const uptime = running ? pc.dim(formatUptime(Math.floor((Date.now() - new Date(t.startedAt).getTime()) / 1000))) : pc.red("stopped");

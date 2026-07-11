@@ -4,7 +4,7 @@
 import pc from "picocolors";
 import { renderError, createSpinner, selectPrompt, confirmPrompt } from "../utils/format.js";
 import { getSystemProcesses, killProcess as sysKill, isProcessRunning } from "../utils/system-process.js";
-import { readTracked, removeTrackedByPid } from "./tracker.js";
+import { readTracked, removeTrackedByPid, isTrackedRunning } from "./tracker.js";
 
 export async function killCommand(args: string[]): Promise<void> {
   const rawTarget = args[0];
@@ -34,11 +34,19 @@ export async function killCommand(args: string[]): Promise<void> {
     // First check tracked processes (from fennec start / tracked.json)
     const tracked = readTracked();
     const trackedMatch = tracked.find((t) => t.name === rawTarget);
-    if (trackedMatch && isProcessRunning(trackedMatch.pid)) {
+    if (trackedMatch) {
+      if (!isTrackedRunning(trackedMatch)) {
+        console.error(`\n  ${pc.yellow("⚠")} ${pc.bold(rawTarget)} ${pc.dim("is already stopped (no running process to kill)")}`);
+        console.error(`  ${pc.dim("Use")} ${pc.cyan("fennec spawn")} ${pc.dim("to resume")}`);
+        process.exit(0);
+      }
       targetPid = trackedMatch.pid;
       displayName = `${trackedMatch.name} (PID ${targetPid})`;
     } else {
-      const matches = getSystemProcesses({ name: rawTarget, userOnly: true, sortBy: "cpu" });
+      const currentPid = process.pid;
+      let matches = getSystemProcesses({ name: rawTarget, userOnly: true, sortBy: "cpu" });
+      // Filter out current process (self-kill protection)
+      matches = matches.filter((m) => m.pid !== currentPid);
       if (matches.length === 0) { console.error(renderError("Process not found", `No running process matching "${rawTarget}"`)); process.exit(1); }
       if (matches.length > 1) {
         console.error(`\n  ${pc.bold(`Multiple processes match "${rawTarget}":`)}`);
@@ -54,7 +62,8 @@ export async function killCommand(args: string[]): Promise<void> {
     }
   }
 
-  const confirmed = await confirmPrompt(`Kill ${pc.bold(displayName)} with ${pc.yellow(signal)}?`, false);
+  const force = args.includes("-y") || args.includes("--yes");
+  const confirmed = force || (await confirmPrompt(`Kill ${pc.bold(displayName)} with ${pc.yellow(signal)}?`, false));
   if (!confirmed) { console.error(`  ${pc.dim("Cancelled")}`); return; }
 
   const spinner = createSpinner(`Sending ${signal} to ${displayName}...`);
@@ -65,7 +74,7 @@ export async function killCommand(args: string[]): Promise<void> {
     const stillRunning = isProcessRunning(targetPid);
     if (stillRunning && signal !== "SIGKILL") {
       spinner.warn(`${displayName} did not respond to ${signal}`);
-      const forceKill = await confirmPrompt(`Send ${pc.red("SIGKILL")} to force stop?`, true);
+      const forceKill = force || (await confirmPrompt(`Send ${pc.red("SIGKILL")} to force stop?`, true));
       if (forceKill) {
         const forceSpinner = createSpinner(`Sending SIGKILL to ${displayName}...`);
         sysKill(targetPid, "SIGKILL");

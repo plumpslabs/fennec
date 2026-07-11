@@ -21,14 +21,15 @@
 
 ## What is Fennec?
 
-**Fennec** is an MCP (Model Context Protocol) server that bridges the gap between AI agents and your development environment. It gives your AI full-stack visibility:
+**Fennec** is an MCP (Model Context Protocol) server that bridges the gap between AI agents and your development environment. It gives your AI full-stack visibility — and, crucially, **full-stack control**:
 
 - 🔍 **Observe** browser console logs, network requests, and performance metrics in real-time
-- 🖥️ **Watch** terminal output and server logs without changing your workflow
-- 🎮 **Control** browser sessions — navigate, click, type, screenshot, annotate, diff
+- 🖥️ **Run & watch** your apps as supervised background daemons (PM2-like) — logs, restart, health
+- 🤝 **Adopt** processes an AI agent (or you) started via raw bash, so they're tracked instead of orphaned
 - 🔐 **Persist** authentication sessions across conversations
 - 🔗 **Correlate** events across layers to identify root causes automatically
 - 🌐 **Cross-browser** support: Chromium, Firefox, WebKit
+- 🪟 **Cross-platform**: Linux, macOS, and Windows
 
 ## Installation
 
@@ -63,15 +64,9 @@ npx playwright install chromium
 
 ## Quick Start
 
-### 1. Start the MCP server
+### 1. Configure your MCP client
 
-```bash
-fennec start
-```
-
-### 2. Configure your MCP client
-
-Add this to your MCP client's config file:
+Add this to your MCP client's config file (e.g. `claude_desktop_config.json`, `~/.config/opencode/opencode.json`, Cline/Cursor settings):
 
 ```json
 {
@@ -84,103 +79,185 @@ Add this to your MCP client's config file:
 }
 ```
 
-### 3. Pipe your server output (optional)
+That's it — Fennec speaks **stdio** by default and needs no extra permissions to observe.
 
-```bash
-npm run dev 2>&1 | fennec pipe --name "dev-server"
+### 2. (Optional) Let the AI control processes
+
+If you want your AI agent to **start, restart, and stop** apps for you, enable process
+permissions. The recommended way is via environment variables in the MCP config:
+
+```json
+{
+  "mcpServers": {
+    "fennec": {
+      "command": "fennec",
+      "args": ["start"],
+      "env": {
+        "FENNEC_SECURITY_ALLOW_PROCESS_SPAWN": "true",
+        "FENNEC_SECURITY_ALLOW_PROCESS_KILL": "true"
+      }
+    }
+  }
+}
 ```
+
+> Spawn is enabled by default; kill is off by default (safer). Set both to `true`
+> only in trusted, local dev environments. See [Security & Environment Variables](#security--environment-variables).
+
+### 3. (Optional) Run the server over SSE instead of stdio
+
+```json
+{
+  "mcpServers": {
+    "fennec": {
+      "command": "fennec",
+      "args": ["start", "--sse"],
+      "env": {
+        "FENNEC_SECURITY_ALLOW_PROCESS_SPAWN": "true",
+        "FENNEC_SECURITY_ALLOW_PROCESS_KILL": "true"
+      }
+    }
+  }
+}
+```
+
+With `--sse`, Fennec starts an HTTP+SSE endpoint (default `http://127.0.0.1:3333/sse`).
+Connect remote MCP clients with `{ "type": "remote", "url": "http://127.0.0.1:3333/sse" }`.
 
 ### 4. Ask your AI to diagnose issues
 
 > *"Why is my app broken?"* — AI uses Fennec to check browser console, network, and server logs simultaneously.
 
-## Features
-
-### 🧠 AI-Native API
-Fennec's AI-Native API provides 7 observation-centric tools for AI agents:
-- `observe()` — Multi-sensor observation with level-based detail
-- `ai_diagnose()` — Full-stack diagnosis with root cause inference
-- `correlate()` — Cross-layer event correlation with timeline
-- `summarize()` — Token-efficient log/event/DOM compression
-- `explain()` — Plain-language incident/state explanation
-- `investigate()` — Deep dive with Lazy Context Level 2-3
-- `predict()` — Pattern-based failure prediction
-
-### 🦊 Lazy Context — 200x Token Savings
-Information delivered in levels, config-driven:
-```
-Level 0 (Pulse):  Always sent    ~5 tokens
-Level 1 (Summary): On error      ~50 tokens
-Level 2 (Detail):  On expand     ~200 tokens
-Level 3 (Raw):     On request    ~2000+ tokens
-```
-### 🚀 Zero-Dependency Browser Mode
-Fennec auto-detects the best browser adapter:
-- **CDP Observer** (default, zero deps) — lightweight observation
-- **Playwright** (optional) — full automation (click, type, upload)
-
-Configure via `browser.adapter: "auto" | "cdp" | "playwright"`
-
 ## CLI Commands
+
+Fennec is both an MCP server **and** a CLI you can use directly in your terminal.
+
+### Server
 
 | Command | Description |
 |---------|-------------|
-| `fennec start` | Start the Fennec MCP server (stdio transport) |
-| `fennec start --transport sse` | Start with SSE transport (experimental) |
-| `fennec pipe --name <name>` | Pipe process output to Fennec for log watching |
-| `fennec attach-pid <pid>` | Attach to a running process by PID |
-| `fennec attach-port <port>` | Discover and attach to a process by port |
-| `fennec watch <path>` | Watch a log file for changes |
-| `fennec sessions` | List saved authentication sessions |
-| `fennec setup` | Guided setup for your MCP client |
-| `fennec init` | Generate a configuration file |
-| `fennec install-browsers` | Install Playwright browser engines |
-| `fennec help` | Show help information |
+| `fennec start` | Start the MCP server (stdio transport). Default when no app command is given. |
+| `fennec start --sse` | Start the MCP server over HTTP+SSE (experimental). |
+| `fennec start --transport sse` | Alias of `--sse`. |
+
+### Apps & Processes (PM2-like control plane)
+
+| Command | Description |
+|---------|-------------|
+| `fennec start <command> --name <name> [options]` | Launch an app as a supervised background daemon. Alias: `run`. |
+| `fennec ps [options]` | List Fennec-tracked apps with live status. |
+| `fennec status [name]` | System overview + top processes (tracked and system). |
+| `fennec log <name\|pid> [options]` | Show (and follow) logs for a tracked app. |
+| `fennec spawn [name] [--all]` | Re-spawn a stopped tracked app from its saved config. |
+| `fennec stop <name\|--all>` | Stop (pause) a tracked app but keep it in the registry. Add `-y/--yes` to skip the confirmation prompt. |
+| `fennec restart <name\|pid>` | Stop and re-spawn a tracked app from its saved config. |
+| `fennec kill <pid\|name\|all>` | Kill a process and remove it from the registry. Add `-y/--yes` to skip the confirmation prompt. |
+| `fennec adopt <pid> [--name <name>] [--port <port>]` | Adopt an externally-started process into Fennec tracking. |
+| `fennec supervisor <start\|stop\|restart\|status>` | Manage the background supervisor that keeps `--restart` apps alive. |
+| `fennec persist <enable\|disable\|status>` | Survive reboots — auto-start tracked apps after login (systemd/launchd/Windows). |
+| `fennec dev <up\|down\|status\|restart <app>>` | Orchestrate a whole dev stack from `fennec.config.yaml`. |
+| `fennec inspect <name\|pid>` | Compact, AI-safe snapshot (status + recent logs + error scan). |
+| `fennec info <name>` | Detailed info for a tracked app. |
+| `fennec rename <old> <new>` | Rename a tracked app. |
+
+**`start` / `run` options:** `--name <name>` (recommended), `--port <port>` (Fennec waits until it accepts connections), `--cwd <dir>`, `--restart` (auto-restart on crash / port-down, survives terminal close), `--jsonl` (structured JSON-lines logs).
+
+**`ps` options:** `-w/--watch` (live refresh), `--system/-a/--all` (include non-Fennec system processes), `--json`, `--name <filter>`, `--sort <cpu|mem|pid|name>`.
+
+**`log` options:** `-f/--follow`, `--lines N`, `--since 10m|1h|2d`, `--level error|warn|info|debug`, `--json` (bounded, redacted, machine-readable for AI), `--no-redact`, `--clear`.
+
+**`inspect` options:** `--plain` (short human summary), `--tail N`, `--since 10m`.
+
+### Observation
+
+| Command | Description |
+|---------|-------------|
+| `fennec attach <port>` | Observe a running process by the port it listens on. |
+| `fennec attach-pid <pid>` | Attach to and observe a process by its PID. |
+| `fennec attach-port <port>` | Attach to and observe a process by its port. |
+| `fennec pipe --name <name>` | Pipe stdin into a Fennec log watcher. |
+| `fennec watch --file <path>` | Watch an existing log file. |
+
+### Data
+
+| Command | Description |
+|---------|-------------|
+| `fennec export --file <path>` | Export tracked apps to a file. |
+| `fennec import <file>` | Import tracked apps from a file. |
+| `fennec cleanup` | Remove dead/stale entries from the tracked registry. |
+
+### Configuration & Misc
+
+| Command | Description |
+|---------|-------------|
+| `fennec init` | Generate a `fennec.config.yaml` in the current directory. |
+| `fennec setup` | Interactively configure your MCP client for Fennec. |
+| `fennec install-browsers` | Install Playwright browser engines. |
+| `fennec sessions` | List saved browser auth sessions. |
+| `fennec health` | Health check of the Fennec environment. |
+| `fennec help [command]` | Show help, or detailed help for a command. |
 
 ## Usage Examples
 
-### Pipe Mode (Recommended for Observing Server Logs)
+### Run an app as a supervised daemon
 
 ```bash
-# Start your dev server with Fennec watching
-npm run dev 2>&1 | fennec pipe --name "my-app"
+# Launch and immediately return to your shell — logs go to ~/.fennec/logs/web.log
+fennec start "npm run dev" --name web --port 3000
+
+# Auto-restart if it crashes or its port stops answering (survives terminal close)
+fennec start node server.js --name api --cwd ./backend --restart
+
+# Watch it
+fennec ps
+fennec log web -f
 ```
 
-### Attach by PID
+### Idiot-proof `dev up` (idempotent)
+
+`fennec dev up` reads `fennec.config.yaml` and brings the whole stack up. It is
+**idempotent**: already-running apps with unchanged config are skipped, apps whose
+config changed are restarted, and an app whose port is already taken by *another*
+process is **adopted** instead of spawning a conflicting duplicate.
 
 ```bash
-# Find your process PID
-ps aux | grep "node"
-
-# Attach Fennec to it
-fennec attach-pid 12345 --name "my-app"
+fennec dev up                 # bring the stack up (skips what's already running)
+fennec dev status             # see every app's health
+fennec dev restart web        # restart just one app
+fennec dev down               # stop everything (keeps it in the registry)
 ```
 
-### Attach by Port
+### Adopt a process an AI agent started via raw bash
+
+An AI agent (or you) sometimes launches a server with plain bash. Fennec can take
+ownership instead of leaving it orphaned:
 
 ```bash
-# Auto-detect process listening on port 3000
-fennec attach-port 3000 --name "my-app"
+# Fennec finds whatever is listening on :8130 and tracks it as "svc"
+fennec adopt $(lsof -ti :8130) --name svc --port 8130
+
+# Or let Fennec discover the PID by port:
+fennec start node server.js --name svc --port 8130   # adopts the existing one
 ```
 
-### Multiple Sessions for Parallel Testing
+Adopted processes appear in `fennec ps` and gain supervised logging. (Fennec-spawned
+processes auto-restart on crash; adopted external processes are tracked but not
+respawned, since Fennec doesn't know their original command.)
+
+### Inspect & observe
 
 ```bash
-# Terminal 1: Run admin user session
-npm run dev 2>&1 | fennec pipe --name "admin-test"
-
-# Terminal 2: Run regular user session (same Fennec server)
-fennec start  # In another MCP client config
+fennec inspect web --plain          # one-line human summary
+fennec inspect web --since 10m      # recent logs + error scan (AI-friendly)
+fennec log web --json --since 10m   # bounded, redacted, machine-readable for AI
 ```
 
-### AI Diagnosis (One-Liner)
+### Survive reboots (persist)
 
 ```bash
-# Start server with pipe
-npm run dev 2>&1 | fennec pipe --name "my-app"
-
-# In AI: "Why is my app broken?"
-# AI calls observe() → ai_diagnose() → finds root cause
+fennec persist enable    # auto-start tracked apps after login (uses systemd user
+                         # service / launchd / Windows startup; enables linger on Linux)
+fennec persist status
 ```
 
 ## Configuration
@@ -191,7 +268,7 @@ Fennec works with zero config, but supports customization:
 fennec init  # Creates fennec.config.yaml
 ```
 
-Key configuration options (see [full reference](docs/configuration.md)):
+Key configuration options (see [full reference](../../docs/configuration.md)):
 
 ```yaml
 browser:
@@ -202,15 +279,27 @@ browser:
     width: 1280
     height: 720
 
-lazyContext:
-  level1: true             # Auto-attach summary on errors
-  level2: false             # Attach detail on expand
-  level3: false             # Attach raw data on request
+process:
+  maxProcesses: 10
+  spawnAllowlist:          # only these commands may be spawned
+    - npm
+    - node
+    - pnpm
+    - yarn
+    - bun
+    - python
+    - python3
 
 security:
   sandbox: true
   allowProcessSpawn: true
+  allowProcessKill: false  # off by default — opt in explicitly
   allowJSEvaluation: true
+
+lazyContext:
+  level1: true             # Auto-attach summary on errors
+  level2: false            # Attach detail on expand
+  level3: false            # Attach raw data on request
 
 correlation:
   windowMs: 500
@@ -218,24 +307,27 @@ correlation:
   minConfidence: 0.7
 ```
 
-Environment variables also supported: `FENNEC_BROWSER_TYPE`, `FENNEC_HEADLESS`, `FENNEC_PORT`, etc.
+## Security & Environment Variables
 
-## Cross-Browser Support
+Fennec ships with **sandbox mode enabled by default** and conservative process
+permissions. Environment variables override the config file:
 
-Fennec supports all three major browser engines via Playwright:
+| Variable | Effect |
+|----------|--------|
+| `FENNEC_DATA_DIR` | Override where Fennec stores tracked state & logs (default `~/.fennec`). |
+| `FENNEC_SANDBOX` | `false` disables the sandbox (permits more operations). |
+| `FENNEC_SECURITY_ALLOW_PROCESS_SPAWN` | `true` allows the AI to spawn new processes. |
+| `FENNEC_SECURITY_ALLOW_PROCESS_KILL` | `true` allows the AI to kill processes. |
+| `FENNEC_SECURITY_ALLOW_JS_EVALUATION` | `true` allows in-page JS evaluation. |
+| `FENNEC_TRANSPORT_TYPE` | `stdio` (default) or `sse`. |
+| `FENNEC_PORT` | Port for SSE transport (default `3333`). |
+| `FENNEC_BROWSER_TYPE` | `chromium` \| `firefox` \| `webkit`. |
+| `FENNEC_HEADLESS` | `false` to run headed. |
+| `FENNEC_DEFAULT_TIMEOUT` | Browser default timeout (ms). |
+| `FENNEC_VIEWPORT_WIDTH` / `FENNEC_VIEWPORT_HEIGHT` | Viewport size. |
+| `FENNEC_LOG_LEVEL` | `debug` \| `info` \| `warn` \| `error`. |
 
-```bash
-# Set via config
-fennec init  # then edit browser.type
-
-# Or via env var
-FENNEC_BROWSER_TYPE=firefox fennec start
-FENNEC_BROWSER_TYPE=webkit fennec start
-```
-
-## Security
-
-Fennec ships with **sandbox mode enabled by default**. Key security features:
+Security features:
 
 - 🔒 Process spawn allowlist (only npm, node, pnpm, etc. allowed by default)
 - 🔒 Domain allowlist/blocklist for browser navigation
@@ -243,16 +335,33 @@ Fennec ships with **sandbox mode enabled by default**. Key security features:
 - 🔒 Audit logging of all tool calls
 - 🔒 Session data export path confinement
 
-See [Security Model](docs/security-model.md) for details.
+See [Security Model](../../docs/security-model.md) for details.
+
+## Cross-Platform
+
+Fennec runs on **Linux, macOS, and Windows**:
+
+- Process discovery (`findPidOnPort`, command-line/cwd resolution, `ps`) is
+  platform-aware: Linux uses `/proc`, macOS uses `lsof`/`ps`, Windows uses
+  `netstat`/`tasklist`/`wmic`.
+- `attach`/`attach-port` rely on `lsof` on macOS/Linux (install it if missing).
+- On Windows, an app's `cwd` isn't readable via built-ins, so it shows as empty.
+
+## Cross-Browser Support
+
+Fennec supports all three major browser engines via Playwright:
+
+```bash
+FENNEC_BROWSER_TYPE=firefox fennec start
+FENNEC_BROWSER_TYPE=webkit fennec start
+```
 
 ## Documentation
 
 - [Getting Started Guide](https://github.com/plumpslabs/fennec/blob/main/docs/getting-started.md)
-- [Full Tool Reference](https://github.com/plumpslabs/fennec/blob/main/docs/tools/README.md) — 123 tools across 16 categories (including Mobile)
+- [Full Tool Reference](https://github.com/plumpslabs/fennec/blob/main/docs/tools/README.md)
 - [Configuration Reference](https://github.com/plumpslabs/fennec/blob/main/docs/configuration.md)
 - [Security Model](https://github.com/plumpslabs/fennec/blob/main/docs/security-model.md)
-- [Auth Flows Guide](https://github.com/plumpslabs/fennec/blob/main/docs/guides/auth-flows.md)
-- [Full-Stack Debugging Guide](https://github.com/plumpslabs/fennec/blob/main/docs/guides/fullstack-debugging.md)
 - [GitHub Repository](https://github.com/plumpslabs/fennec)
 
 ## License

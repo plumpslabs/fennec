@@ -2,7 +2,7 @@
 
 import { renderError } from "./utils/format.js";
 import { printBanner } from "./utils/banner.js";
-import { showHelp } from "./utils/help.js";
+import { showHelp, showCommandHelp } from "./utils/help.js";
 import { pipeCommand } from "./commands/pipe.js";
 import { attachPidCommand } from "./commands/attach-pid.js";
 import { attachPortCommand } from "./commands/attach-port.js";
@@ -13,6 +13,11 @@ import { killCommand } from "./commands/kill.js";
 import { stopCommand } from "./commands/stop.js";
 import { spawnCommand } from "./commands/spawn.js";
 import { restartCommand } from "./commands/restart.js";
+import { adoptCommand } from "./commands/adopt.js";
+import { supervisorCommand, runSupervisor } from "./commands/supervisor.js";
+import { persistCommand } from "./commands/persist.js";
+import { inspectCommand } from "./commands/inspect.js";
+import { devCommand } from "./commands/dev.js";
 import { logCommand } from "./commands/log.js";
 import { attachCommand } from "./commands/attach.js";
 import { sessionsCommand } from "./commands/sessions.js";
@@ -27,6 +32,20 @@ import { exportCommand, importCommand } from "./commands/export-import.js";
 const [, , command, ...args] = process.argv;
 
 async function main(): Promise<void> {
+  // Per-command help: `fennec <command> --help` / `-h` (but not bare `start`,
+  // which is the server, and not the help command itself).
+  if (
+    command &&
+    command !== "help" &&
+    command !== "--help" &&
+    command !== "-h" &&
+    (args.includes("--help") || args.includes("-h"))
+  ) {
+    printBanner();
+    showCommandHelp(command);
+    return;
+  }
+
   if (!command || command === "start") {
     if (args.length === 0 || args[0]?.startsWith("--")) {
       await startServer(args);
@@ -41,7 +60,7 @@ async function main(): Promise<void> {
   } else if (command === "status") {
     printBanner();
     await statusCommand(args);
-  } else if (command === "log") {
+  } else if (command === "log" || command === "logs") {
     await logCommand(args);
   } else if (command === "spawn") {
     await spawnCommand(args);
@@ -51,6 +70,21 @@ async function main(): Promise<void> {
     await killCommand(args);
   } else if (command === "restart") {
     await restartCommand(args);
+  } else if (command === "adopt") {
+    adoptCommand(args);
+  } else if (command === "supervisor") {
+    printBanner();
+    await supervisorCommand(args);
+  } else if (command === "__supervisor") {
+    await runSupervisor();
+  } else if (command === "persist") {
+    printBanner();
+    await persistCommand(args);
+  } else if (command === "inspect") {
+    await inspectCommand(args);
+  } else if (command === "dev") {
+    printBanner();
+    await devCommand(args);
   } else if (command === "info") {
     printBanner();
     await infoCommand(args);
@@ -89,7 +123,11 @@ async function main(): Promise<void> {
     printBanner();
   } else if (command === "help" || command === "--help" || command === "-h") {
     printBanner();
-    showHelp();
+    if (args[0] && !args[0].startsWith("-")) {
+      showCommandHelp(args[0]);
+    } else {
+      showHelp();
+    }
   } else {
     console.error(renderError(`Unknown command: ${command}`, "Run 'fennec help' for usage information"));
     process.exit(1);
