@@ -2,7 +2,7 @@
 /**
  * Bump the Fennec version across every place that hardcodes it.
  *
- * Usage:
+ * Usage (npm/pnpm script):  pnpm bump 1.14.2 | patch | minor | major
  *   node scripts/bump-version.mjs 1.14.2        # set explicit version
  *   node scripts/bump-version.mjs patch          # 1.14.1 -> 1.14.2
  *   node scripts/bump-version.mjs minor          # 1.14.1 -> 1.15.0
