@@ -85,6 +85,7 @@ async function restartOne(raw: string, force: boolean, multi: boolean): Promise<
       startedAt: new Date().toISOString(),
       autoRestart: trackedEntry.autoRestart,
       logMode: trackedEntry.logMode,
+      group: trackedEntry.group,
     });
 
     respawnSpinner.succeed(`${trackedEntry.name} restarted (PID: ${child.pid})`);
@@ -120,6 +121,7 @@ async function restartGroup(group: string, force: boolean): Promise<void> {
         command: trackedEntry.command,
         args: cmdParts,
         port: trackedEntry.port,
+        group: trackedEntry.group,
         cwd: trackedEntry.cwd,
         env: trackedEntry.env,
         startedAt: new Date().toISOString(),
