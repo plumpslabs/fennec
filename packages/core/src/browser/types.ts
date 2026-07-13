@@ -158,6 +158,7 @@ export interface Locator {
   setChecked(checked: boolean): Promise<void>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   evaluate<T = unknown>(fn: string | ((el: Element, ...args: any[]) => T), ...args: unknown[]): Promise<T>;
+  evaluateAll<T = unknown>(fn: (els: Element[], ...args: any[]) => T, ...args: any[]): Promise<T>;
   elementHandle(): Promise<ElementHandle | null>;
   first(): Locator;
   all(): Promise<Locator[]>;
