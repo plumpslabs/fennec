@@ -11,40 +11,40 @@
  * Keeps package.json (root), packages/cli/package.json,
  * packages/core/package.json, and the CLI banner VERSION in sync.
  */
-import { readFileSync, writeFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { readFileSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const TARGETS = [
-  { file: "package.json", type: "json", key: "version" },
-  { file: "packages/cli/package.json", type: "json", key: "version" },
-  { file: "packages/core/package.json", type: "json", key: "version" },
+  { file: 'package.json', type: 'json', key: 'version' },
+  { file: 'packages/cli/package.json', type: 'json', key: 'version' },
+  { file: 'packages/core/package.json', type: 'json', key: 'version' },
   {
-    file: "packages/cli/src/utils/banner.ts",
-    type: "banner",
-    re: /(export const VERSION = ")[^"]+(";)/,
+    file: 'packages/cli/src/utils/banner.ts',
+    type: 'banner',
+    re: /(export const VERSION = ['"])[^'"]+(['"];)/,
   },
 ];
 
 function readVersion() {
-  const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
   return pkg.version;
 }
 
 function bump(version, kind) {
-  const [major, minor, patch] = version.split(".").map(Number);
-  if (kind === "major") return `${major + 1}.0.0`;
-  if (kind === "minor") return `${major}.${minor + 1}.0`;
-  if (kind === "patch") return `${major}.${minor}.${patch + 1}`;
+  const [major, minor, patch] = version.split('.').map(Number);
+  if (kind === 'major') return `${major + 1}.0.0`;
+  if (kind === 'minor') return `${major}.${minor + 1}.0`;
+  if (kind === 'patch') return `${major}.${minor}.${patch + 1}`;
   return kind; // explicit version string
 }
 
 function main() {
   const arg = process.argv[2];
   if (!arg) {
-    console.error("Usage: node scripts/bump-version.mjs <version|patch|minor|major>");
+    console.error('Usage: node scripts/bump-version.mjs <version|patch|minor|major>');
     process.exit(1);
   }
   const current = readVersion();
@@ -60,18 +60,20 @@ function main() {
 
   for (const t of TARGETS) {
     const path = join(root, t.file);
-    let content = readFileSync(path, "utf8");
-    if (t.type === "json") {
+    let content = readFileSync(path, 'utf8');
+    if (t.type === 'json') {
       const json = JSON.parse(content);
       json[t.key] = next;
-      content = JSON.stringify(json, null, 2) + "\n";
+      content = JSON.stringify(json, null, 2) + '\n';
     } else {
       content = content.replace(t.re, `$1${next}$2`);
     }
     writeFileSync(path, content);
     console.log(`  ${t.file} -> ${next}`);
   }
-  console.log(`\nBumped ${current} -> ${next}. Remember to commit, tag v${next}, and run scripts/release.`);
+  console.log(
+    `\nBumped ${current} -> ${next}. Remember to commit, tag v${next}, and run scripts/release.`,
+  );
 }
 
 main();
