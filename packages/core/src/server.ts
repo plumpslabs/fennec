@@ -563,10 +563,27 @@ export class FennecServer {
       const tools = this.toolRegistry.getByCategories(selectedCategories);
 
       // Token tier per tool helps the agent prefer cheap tools before expensive ones.
-      const HIGH_BANDWIDTH = /(screenshot|dom_snapshot|screenshot_diff|screenshot_export|screenshot_annotated)/;
+      // Single source of truth: declare any exceptions in TIER_OVERRIDE, otherwise
+      // the name-based heuristic below decides. Category is used as a secondary
+      // signal so a high-cost tool can't silently get a "low" tier.
+      const TIER_OVERRIDE: Record<string, "low" | "medium" | "high"> = {
+        // "tool_name": "high",
+      };
+      const HIGH_BANDWIDTH = /(screenshot|dom_snapshot|screenshot_diff|screenshot_export|screenshot_annotated|screenshot_baseline)/;
       const MED_BANDWIDTH = /(network_get_logs|storage_export|console|performance|get_dom|get_accessibility)/;
-      const tokenTier = (name: string): "low" | "medium" | "high" =>
-        HIGH_BANDWIDTH.test(name) ? "high" : MED_BANDWIDTH.test(name) ? "medium" : "low";
+      const HIGH_CATEGORY = new Set(["dom", "smart"]);
+      const MED_CATEGORY = new Set(["devtools", "storage", "diagnostic"]);
+      const tokenTier = (name: string, category?: string): "low" | "medium" | "high" =>
+        TIER_OVERRIDE[name] ??
+        (HIGH_BANDWIDTH.test(name)
+          ? "high"
+          : MED_BANDWIDTH.test(name)
+            ? "medium"
+            : HIGH_CATEGORY.has(category ?? "")
+              ? "high"
+              : MED_CATEGORY.has(category ?? "")
+                ? "medium"
+                : "low");
 
       const maxTokens = this.config.tokenBudget.maxResponseTokens ?? 8000;
       return {
@@ -577,7 +594,7 @@ export class FennecServer {
             description: t.description,
             inputSchema: schema,
             _category: t.category,
-            _tokenTier: tokenTier(t.name),
+            _tokenTier: tokenTier(t.name, t.category),
           };
         }),
         _categories: this.toolRegistry.getCategories(),

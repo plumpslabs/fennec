@@ -237,9 +237,9 @@ Multi-step execution planning from natural language goals.
 | Scheduler | 7 | ❌ |
 | Smart | 12 | ✅ |
 | Planner | 5 | ❌ |
-| **Total** | **118** | **54 without browser** |
+| **Total** | **118** | **42 without browser** |
 
-> **53 tools work without Playwright/browser engines** — process, terminal, storage (basic), scheduler, planner, and partial auth + diagnostic.
+> **42 tools work without Playwright/browser engines** — process, terminal, storage (basic), scheduler, planner, and partial auth + diagnostic.
 
 ---
 
