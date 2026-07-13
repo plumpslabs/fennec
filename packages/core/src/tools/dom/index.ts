@@ -368,109 +368,90 @@ export const browserGetAccessibilityTree = createTool({
 });
 
 export const browserFindElements = createTool({
-  name: 'browser_find_elements',
-  category: 'dom',
-  description:
-    '`<use_case>DOM inspection</use_case> 🔎 Find ALL elements matching a CSS selector. Returns specified attributes for each element (default: id, class, textContent, tagName). Supports Shadow DOM piercing (automatically searches within shadow roots if standard querySelector finds nothing). Use when you know the CSS selector and need specific elements. For exploring the whole page structure, use browser_get_dom_snapshot first.`',
+  name: "browser_find_elements",
+  category: "dom",
+  description: "`<use_case>DOM inspection</use_case> 🔎 Find ALL elements matching a selector, using the SAME unified selector engine as browser_click / browser_type / browser_hover. Supports CSS, `text=\"Login\"`, `:has-text(\"Login\")`, `role=button`, and `xpath=//...`. Returns specified attributes for each element (default: id, class, textContent, tagName). Falls back to Shadow DOM piercing (CSS only) when the unified engine finds nothing. Use when you know the selector and need specific elements. For exploring the whole page structure, use browser_get_dom_snapshot first.`",
   inputSchema: z.object({
-    selector: z.string().describe('CSS selector to find elements'),
+    selector: z.string().describe("Selector — CSS, text=, :has-text(), role=, or xpath="),
     returnAttributes: z
       .array(z.string())
       .optional()
-      .default(['id', 'class', 'textContent', 'tagName'])
-      .describe('Attributes to return for each element'),
-    includeShadowDom: z
-      .boolean()
-      .optional()
-      .default(true)
-      .describe('Include Shadow DOM elements in search'),
-    sessionId: z.string().optional().describe('Session ID'),
+      .default(["id", "class", "textContent", "tagName"])
+      .describe("Attributes to return for each element"),
+    includeShadowDom: z.boolean().optional().default(true).describe("Include Shadow DOM elements in search (CSS fallback)"),
+    sessionId: z.string().optional().describe("Session ID"),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const elements = await session.browser.evaluate(
-        ({ selector, attributes, includeShadowDom }) => {
-          function queryAllDeep(root: Document | ShadowRoot, sel: string): Element[] {
-            // Start with light DOM
-            const results: Element[] = [];
-            try {
-              const light = Array.from(root.querySelectorAll(sel));
-              results.push(...light);
-            } catch {
-              /* invalid selector */
-            }
-
-            if (!includeShadowDom) return results;
-
-            // Find all shadow hosts and recurse
-            const allElements = root.querySelectorAll('*');
-            for (const el of Array.from(allElements)) {
-              const shadowRoot = (el as Element & { shadowRoot: ShadowRoot | null }).shadowRoot;
-              if (shadowRoot) {
-                results.push(...queryAllDeep(shadowRoot, sel));
+      const attributes = input.returnAttributes!;
+      // Use the unified Playwright locator engine (text=, :has-text(), role=,
+      // CSS, xpath=) — consistent with click/type/hover (issue #8).
+      const elements = await session.browser
+        .locator(input.selector)
+        .evaluateAll(
+          (els: Element[], attrs: string[]) =>
+            els.map((el) => {
+              const a: Record<string, string | null> = {};
+              for (const attr of attrs) {
+                if (attr === "textContent") a[attr] = el.textContent?.trim() ?? null;
+                else if (attr === "tagName") a[attr] = el.tagName?.toLowerCase() ?? null;
+                else a[attr] = el.getAttribute(attr) ?? null;
               }
-            }
+              return a;
+            }),
+          attributes,
+        )
+        .catch(() => null as Record<string, string | null>[] | null);
 
-            return results;
-          }
+      let result = elements ?? [];
 
-          // Try standard querySelector first (handles flat DOM)
-          let els = Array.from(document.querySelectorAll(selector));
-
-          if (els.length === 0 && includeShadowDom) {
-            // Fall back to deep piercing
-            els = queryAllDeep(document, selector);
-          } else if (includeShadowDom) {
-            // Also include shadow DOM results
-            const shadowResults = queryAllDeep(document, selector);
-            const existingIds = new Set(
-              els.map((e) => {
-                const attrs: Record<string, string | null> = {};
-                for (const attr of ['id', 'data-testid']) {
-                  if (attr === 'textContent') continue;
-                  const val = e.getAttribute(attr);
-                  if (val) attrs[attr] = val;
+      // Shadow DOM piercing fallback (CSS only) when the unified engine found nothing.
+      if (result.length === 0 && (input.includeShadowDom ?? true)) {
+        const shadow = await session.browser
+          .evaluate(
+            ({ sel, attrs }) => {
+              function queryAllDeep(root: Document | ShadowRoot, s: string): Element[] {
+                const out: Element[] = [];
+                try {
+                  out.push(...Array.from(root.querySelectorAll(s)));
+                } catch { /* invalid selector */ }
+                const all = root.querySelectorAll("*");
+                for (const el of Array.from(all)) {
+                  const sr = (el as Element & { shadowRoot?: ShadowRoot | null }).shadowRoot;
+                  if (sr) out.push(...queryAllDeep(sr, s));
                 }
-                return attrs.id || attrs['data-testid'] || '';
-              }),
-            );
-            for (const el of shadowResults) {
-              const id = el.id || el.getAttribute('data-testid') || '';
-              if (id && !existingIds.has(id)) {
-                els.push(el);
+                return out;
               }
-            }
-          }
+              const els = queryAllDeep(document, sel);
+              return els.map((el) => {
+                const a: Record<string, string | null> = {};
+                for (const attr of attrs) {
+                  if (attr === "textContent") a[attr] = el.textContent?.trim() ?? null;
+                  else if (attr === "tagName") a[attr] = el.tagName?.toLowerCase() ?? null;
+                  else a[attr] = el.getAttribute(attr) ?? null;
+                }
+                return a;
+              });
+            },
+            { sel: input.selector, attrs: attributes },
+          )
+          .catch(() => [] as Record<string, string | null>[]);
+        result = shadow;
+      }
 
-          return Array.from(els).map((el) => {
-            const attrs: Record<string, string | null> = {};
-            for (const attr of attributes) {
-              if (attr === 'textContent') {
-                attrs[attr] = el.textContent?.trim() ?? null;
-              } else {
-                attrs[attr] = el.getAttribute(attr) ?? null;
-              }
-            }
-            return attrs;
-          });
-        },
-        {
-          selector: input.selector,
-          attributes: input.returnAttributes!,
-          includeShadowDom: input.includeShadowDom ?? true,
-        },
-      );
-
-      return responseBuilder.success(
-        {
-          elements,
-          count: elements.length,
-        },
-        sessionManager.buildMeta(session),
-      );
+      return responseBuilder.success({
+        elements: result,
+        count: result.length,
+      }, sessionManager.buildMeta(session));
     } catch (error) {
-      return responseBuilder.error(error);
+      return responseBuilder.error(error, {
+        code: "ELEMENT_QUERY_FAILED",
+        suggestions: [
+          "Use a supported selector: CSS, text=\"Login\", :has-text(\"Login\"), role=button, or xpath=//...",
+          "For text matching prefer text=\"Login\" or :has-text(\"Login\")",
+        ],
+      });
     }
   },
 });

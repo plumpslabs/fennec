@@ -42,17 +42,17 @@ Click, type, select, hover, scroll, keyboard, file upload, and drag-and-drop.
 
 Query the DOM, get page content, wait for elements, take screenshots, inspect meta tags.
 
-| Tool                             | Description                            |
-| -------------------------------- | -------------------------------------- |
-| `browser_screenshot`             | Take screenshot                        |
-| `browser_get_dom_snapshot`       | Get DOM HTML snapshot with Shadow DOM  |
-| `browser_get_accessibility_tree` | Get accessibility tree                 |
-| `browser_find_elements`          | Find elements with Shadow DOM piercing |
-| `browser_get_element_info`       | Get element details                    |
-| `browser_wait_for_element`       | Wait for element state                 |
-| `browser_get_page_text`          | Get page text content                  |
-| `browser_get_page_title`         | Get page title                         |
-| `browser_get_meta`               | Get SEO/meta tags                      |
+| Tool | Description |
+|---|---|
+| `browser_screenshot` | Take screenshot |
+| `browser_get_dom_snapshot` | Get DOM HTML snapshot with Shadow DOM |
+| `browser_get_accessibility_tree` | Get accessibility tree |
+| `browser_find_elements` | Find elements by selector (CSS / text= / :has-text() / role= / xpath=) with Shadow DOM fallback |
+| `browser_get_element_info` | Get element details |
+| `browser_wait_for_element` | Wait for element state |
+| `browser_get_page_text` | Get page text content |
+| `browser_get_page_title` | Get page title |
+| `browser_get_meta` | Get SEO/meta tags |
 
 ### [DevTools — Console](console.md) (5 tools)
 
