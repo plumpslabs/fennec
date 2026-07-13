@@ -310,60 +310,6 @@ export const authDeleteSession = createTool({
   },
 });
 
-export const authEnsureSession = createTool({
-  name: "auth_ensure_session",
-  category: "auth",
-  description: "`<use_case>Auth</use_case> 🔐 ALWAYS call this BEFORE navigating to or interacting with a browser app that requires login (e.g. before testing a web app). It loads the matching saved auth session for the target origin (or a named session), so you start authenticated without re-logging in. If no matching session exists, it returns needsAuth=true with a prompt telling you to either log in with auth_fill_login_form (which auto-saves the session) or ask the developer if they have an account. Returns loaded + sessionName/origin, or needsAuth + prompt.",
-  inputSchema: z.object({
-    appUrl: z.string().describe("The app URL you're about to test/drive, e.g. https://app.example.com/dashboard"),
-    sessionName: z.string().optional().describe("Specific saved session name to load (optional; if omitted, matches by origin)"),
-    sessionId: z.string().optional().describe("Browser session ID"),
-  }),
-  handler: async (input, { sessionManager, responseBuilder, sessionStore }) => {
-    const session = sessionManager.getOrDefault(input.sessionId);
-    let origin: string;
-    try {
-      origin = new URL(input.appUrl).origin;
-    } catch {
-      return responseBuilder.error(new Error(`Invalid appUrl: ${input.appUrl}`));
-    }
-    const cwdDir = join(process.cwd(), ".fennec", "sessions");
-    const all = [...sessionStore.list(), ...sessionStore.listFromDir(cwdDir)];
-    const match = input.sessionName
-      ? all.find((s) => s.name === input.sessionName)
-      : all.find((s) => s.origin === origin);
-    if (match) {
-      await session.browser.contextAddCookies(match.cookies.map((c) => {
-        const cc = c as Record<string, unknown>;
-        return {
-          name: cc.name as string,
-          value: cc.value as string,
-          domain: cc.domain as string | undefined,
-          path: (cc.path as string) ?? "/",
-          httpOnly: cc.httpOnly as boolean | undefined,
-          secure: cc.secure as boolean | undefined,
-          sameSite: cc.sameSite as "Strict" | "Lax" | "None" | undefined,
-        };
-      }));
-      await session.browser.navigate(match.origin).catch(() => {});
-      for (const [key, value] of Object.entries(match.localStorage)) {
-        await session.browser.evaluate(({ k, v }) => localStorage.setItem(k, v), { k: key, v: value }).catch(() => {});
-      }
-      return responseBuilder.success({
-        loaded: true,
-        sessionName: match.name,
-        origin: match.origin,
-      }, sessionManager.buildMeta(session));
-    }
-    return responseBuilder.success({
-      loaded: false,
-      needsAuth: true,
-      origin,
-      prompt: `No saved session for ${origin}${input.sessionName ? ` (name "${input.sessionName}")` : ""}. Ask the developer if they have an account, or run auth_fill_login_form (it auto-saves the session for next time).`,
-    }, sessionManager.buildMeta(session));
-  },
-});
-
 export const authCheckLoggedIn = createTool({
   name: "auth_check_logged_in",
   category: "auth",

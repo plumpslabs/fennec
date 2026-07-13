@@ -1655,11 +1655,46 @@ export const smartNavigate = createTool({
       .optional()
       .default("explore")
       .describe("explore = full structured output; verify = return only {passed, reason} for quick assertions (saves ~80% tokens)."),
+    ensureAuth: z.boolean().optional().default(false).describe("If the target app needs login, load the matching saved auth session for this origin first (or a named session via ensureAuthSession). If none exists, the result includes needsAuth:true + a prompt to log in / ask the developer."),
+    ensureAuthSession: z.string().optional().describe("Specific saved session name to load when ensureAuth is true (optional; defaults to matching by origin)."),
     sessionId: z.string().optional().describe("Session ID"),
   }),
-  handler: async (input, { sessionManager, responseBuilder }) => {
+  handler: async (input, { sessionManager, responseBuilder, sessionStore }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     const page = session.browser;
+
+    let authNote: { needsAuth: boolean; prompt?: string } | null = null;
+    if (input.ensureAuth) {
+      const origin = new URL(input.url).origin;
+      const cwdDir = path.join(process.cwd(), ".fennec", "sessions");
+      const all = [...sessionStore.list(), ...sessionStore.listFromDir(cwdDir)];
+      const match = input.ensureAuthSession
+        ? all.find((s) => s.name === input.ensureAuthSession)
+        : all.find((s) => s.origin === origin);
+      if (match) {
+        await page.contextAddCookies(match.cookies.map((c) => {
+          const cc = c as Record<string, unknown>;
+          return {
+            name: cc.name as string,
+            value: cc.value as string,
+            domain: cc.domain as string | undefined,
+            path: (cc.path as string) ?? "/",
+            httpOnly: cc.httpOnly as boolean | undefined,
+            secure: cc.secure as boolean | undefined,
+            sameSite: cc.sameSite as "Strict" | "Lax" | "None" | undefined,
+          };
+        }));
+        await page.navigate(match.origin).catch(() => {});
+        for (const [key, value] of Object.entries(match.localStorage)) {
+          await page.evaluate(({ k, v }) => localStorage.setItem(k, v), { k: key, v: value }).catch(() => {});
+        }
+      } else {
+        authNote = {
+          needsAuth: true,
+          prompt: `No saved session for ${origin}${input.ensureAuthSession ? ` (name "${input.ensureAuthSession}")` : ""}. Ask the developer if they have an account, or run auth_fill_login_form (it auto-saves the session for next time).`,
+        };
+      }
+    }
 
     try {
       await page.navigate(input.url, {
@@ -1725,6 +1760,7 @@ export const smartNavigate = createTool({
             : `${errorCount} console error(s), ${failedRequests} failed request(s) after navigating to ${page.url()}`,
           url: page.url(),
           title,
+          ...(authNote ? { needsAuth: true, authPrompt: authNote.prompt } : {}),
         }, meta);
       }
 
@@ -1752,6 +1788,11 @@ export const smartNavigate = createTool({
       if (input.screenshot) {
         const shot = await takeScreenshot(session.browser, { format: "jpeg", quality: 50 }).catch(() => null);
         if (shot) result.screenshot = shot.base64;
+      }
+
+      if (authNote) {
+        (result as Record<string, unknown>).needsAuth = true;
+        (result as Record<string, unknown>).authPrompt = authNote.prompt;
       }
 
       return responseBuilder.success(result, meta);

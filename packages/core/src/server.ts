@@ -117,7 +117,6 @@ import {
   authListSessions,
   authDeleteSession,
   authCheckLoggedIn,
-  authEnsureSession,
 } from './tools/auth/index.js';
 import {
   tabNew,
@@ -395,7 +394,6 @@ export class FennecServer {
       authListSessions,
       authDeleteSession,
       authCheckLoggedIn,
-      authEnsureSession,
       tabNew,
       tabClose,
       tabList,
