@@ -169,6 +169,9 @@ async function spawnAllStopped(procs: TrackedProcess[]): Promise<void> {
         startedAt: new Date().toISOString(),
         autoRestart: proc.autoRestart,
         logMode: proc.logMode,
+        // Preserve the logical group across stop -> spawn (addTracked REPLACES
+        // the entry by name, so group must be carried over explicitly).
+        group: proc.group,
       });
       if (proc.autoRestart) {
         ensureSupervisorRunning();
@@ -280,7 +283,8 @@ async function respawnProcess(proc: TrackedProcess): Promise<void> {
     });
     const pid = child.pid ?? 0;
 
-    // Update tracked.json with new PID
+    // Update tracked.json with new PID (preserve group — addTracked REPLACES
+    // the entry by name, so the logical group must be carried over explicitly).
     addTracked({
       name: proc.name,
       pid,
@@ -292,6 +296,7 @@ async function respawnProcess(proc: TrackedProcess): Promise<void> {
       startedAt: new Date().toISOString(),
       autoRestart: proc.autoRestart,
       logMode: proc.logMode,
+      group: proc.group,
     });
 
     if (proc.autoRestart) {

@@ -143,30 +143,30 @@ Fennec is both an MCP server **and** a CLI you can use directly in your terminal
 
 ### Apps & Processes
 
-| Command                                              | Description                                                                                                                     |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `fennec start <command> --name <name> [options]`     | Launch an app as a supervised background daemon. Alias: `run`.                                                                  |
-| `fennec ps [options]`                                | List Fennec-tracked apps with live status.                                                                                      |
-| `fennec status [name]`                               | System overview + top processes (tracked and system).                                                                           |
-| `fennec log <name\|pid> [options]`                   | Show (and follow) logs for a tracked app.                                                                                       |
-| `fennec spawn [name] [name...] [--all]`              | Re-spawn a stopped tracked app from its saved config. Accepts MULTIPLE names at once.                                           |
-| `fennec stop <name\|--all> [name...]`                | Stop (pause) a tracked app but keep it in the registry. Accepts MULTIPLE names. Add `-y/--yes` to skip the confirmation prompt. |
-| `fennec restart <name\|pid> [name...]`               | Stop and re-spawn a tracked app from its saved config. Accepts MULTIPLE names at once.                                          |
-| `fennec kill <pid\|name\|all> [name...]`             | Kill a process and remove it from the registry. Accepts MULTIPLE names at once. Add `-y/--yes` to skip the confirmation prompt. |
-| `fennec group [name] [group]`                        | Assign a logical group to tracked apps (or list them). `--unset` to clear.                                                      |
-| `fennec adopt <pid> [--name <name>] [--port <port>]` | Adopt an externally-started process into Fennec tracking.                                                                       |
-| `fennec supervisor <start\|stop\|restart\|status>`   | Manage the background supervisor that keeps `--restart` apps alive.                                                             |
-| `fennec persist <enable\|disable\|status>`           | Survive reboots — auto-start tracked apps after login (systemd/launchd/Windows).                                                |
-| `fennec dev <up\|down\|status\|restart <app>>`       | Orchestrate a whole dev stack from `fennec.config.yaml`.                                                                        |
-| `fennec inspect <name\|pid>`                         | Compact, AI-safe snapshot (status + recent logs + error scan).                                                                  |
-| `fennec info <name>`                                 | Detailed info for a tracked app.                                                                                                |
-| `fennec rename <old> <new>`                          | Rename a tracked app.                                                                                                           |
+| Command | Description |
+|---------|-------------|
+| `fennec start <command> --name <name> [options]` | Launch an app as a supervised background daemon. Alias: `run`. |
+| `fennec ps [options]` | List Fennec-tracked apps with live status. |
+| `fennec status [name]` | System overview + top processes (tracked and system). |
+| `fennec log <name\|pid> [options]` | Show (and follow) logs for a tracked app. |
+| `fennec spawn [name] [name...] [--all]` | Re-spawn a stopped tracked app from its saved config. Accepts MULTIPLE names at once. |
+| `fennec stop <name\|--all> [name...]` | Stop (pause) a tracked app but keep it in the registry. Accepts MULTIPLE names. Add `-y/--yes` to skip the confirmation prompt. |
+| `fennec restart <name\|pid> [name...]` | Stop and re-spawn a tracked app from its saved config. Accepts MULTIPLE names at once. |
+| `fennec kill <pid\|name\|all> [name...]` | Kill a process and remove it from the registry. Accepts MULTIPLE names at once. Add `-y/--yes` to skip the confirmation prompt. |
+| `fennec group [name] [group]` | Assign a logical group to tracked apps (or list them). Bulk: `fennec group <group> <name...>`. `--unset` to clear. Group is preserved across `spawn`/`restart`. |
+| `fennec adopt <pid> [--name <name>] [--port <port>]` | Adopt an externally-started process into Fennec tracking. |
+| `fennec supervisor <start\|stop\|restart\|status>` | Manage the background supervisor that keeps `--restart` apps alive. |
+| `fennec persist <enable\|disable\|status>` | Survive reboots — auto-start tracked apps after login (systemd/launchd/Windows). |
+| `fennec dev <up\|down\|status\|restart <app>>` | Orchestrate a whole dev stack from `fennec.config.yaml`. |
+| `fennec inspect <name\|pid>` | Compact, AI-safe snapshot (status + recent logs + error scan). |
+| `fennec info <name>` | Detailed info for a tracked app. |
+| `fennec rename <old> <new>` | Rename a tracked app. |
 
 **`start` / `run` options:** `--name <name>` (recommended), `--port <port>` (Fennec waits until it accepts connections), `--cwd <dir>`, `--restart` (auto-restart on crash / port-down, survives terminal close), `--group <group>` (tag for scoped bulk ops), `--jsonl` (structured JSON-lines logs).
 
 **`ps` options:** `-w/--watch` (live refresh), `--system/-a/--all` (include non-Fennec system processes), `--json`, `--name <filter>`, `--group <g>` (show only apps in group `<g>`), `--sort <cpu|mem|pid|name>`. The `MEM` column shows each running app's resident memory (RSS) cross-platform, so you can spot leaks from long-lived apps.
 
-**Logical groups + bulk (multiple names):** tag apps with `fennec start <cmd> --name <n> --group <g>`, or retroactively with `fennec group <name> <g>` (existing entries too — `fennec group <name> --unset` clears). Then scope bulk ops to just that group: `fennec kill --group <g>`, `fennec stop --group <g>`, `fennec spawn --group <g>`, `fennec restart --group <g>`, `fennec ps --group <g>`. A bare group name as the positional (e.g. `fennec kill <g>`) is also accepted as shorthand. You can ALSO pass MULTIPLE names at once for one-shot bulk ops: `fennec stop be-crm fe-crm`, `fennec kill be-crm fe-crm -y`, `fennec restart be-crm fe-crm -y`, `fennec spawn be-crm fe-crm`. Already-running entries in scope are reported as "already running" (never double-spawned); `--all` still targets **every** tracked app across all groups.
+**Logical groups + bulk (multiple names):** tag apps with `fennec start <cmd> --name <n> --group <g>`, or retroactively with `fennec group <name> <g>` (existing entries too — `fennec group <name> --unset` clears). You can ALSO assign a group to MANY apps at once (bulk): `fennec group <group> <name1> <name2> ...` — e.g. `fennec group crm be-crm fe-crm` tags all three as `crm` in one shot (alternatively `fennec group --group crm be-crm fe-crm`). Then scope bulk ops to just that group: `fennec kill --group <g>`, `fennec stop --group <g>`, `fennec spawn --group <g>`, `fennec restart --group <g>`, `fennec ps --group <g>`. A bare group name as the positional (e.g. `fennec kill <g>`) is also accepted as shorthand. You can ALSO pass MULTIPLE names at once for one-shot bulk ops: `fennec stop be-crm fe-crm`, `fennec kill be-crm fe-crm -y`, `fennec restart be-crm fe-crm -y`, `fennec spawn be-crm fe-crm`. The group is PRESERVED across `spawn`/`restart` (stop→resume keeps the tag). Already-running entries in scope are reported as "already running" (never double-spawned); `--all` still targets **every** tracked app across all groups.
 
 **`log` options:** `-f/--follow`, `--lines N`, `--since 10m|1h|2d`, `--level error|warn|info|debug`, `--json` (bounded, redacted, machine-readable for AI), `--no-redact`, `--clear`.
 
