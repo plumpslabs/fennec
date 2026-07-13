@@ -174,16 +174,30 @@ export const devtoolsGetJsErrors = createTool({
 export const devtoolsWatchConsole = createTool({
   name: "devtools_watch_console",
   category: "devtools",
-  description: "`<use_case>Console inspector</use_case> ⏱️ Watch console logs in real-time for a specified duration (ms). Captures all logs emitted during the window — useful for catching startup errors, tracking log output during a specific interaction, or monitoring short-lived processes. Unlike devtools_get_console_logs which shows historical logs, this captures a live window.`",
+  description: "`<use_case>Console inspector</use_case> ⏱️ Watch console logs for a bounded window (durationMs). Self-terminating — it always stops after the duration (no resource leak), and with stopOnNavigation (default true) it also stops early if the page navigates. Captures all logs emitted during the window — useful for catching startup errors or tracking output during a specific interaction. Unlike devtools_get_console_logs (historical), this captures a live window.`",
   inputSchema: z.object({
-    durationMs: z.number().describe("Duration in milliseconds to watch console"),
+    durationMs: z.number().describe("Maximum duration in milliseconds to watch console (hard auto-stop)"),
     level: z.enum(["log", "info", "warn", "error", "debug"]).optional().describe("Filter by log level"),
+    stopOnNavigation: z.boolean().optional().default(true).describe("Stop watching early if the page URL changes during the window"),
     sessionId: z.string().optional().describe("Session ID"),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     const before = new Date().toISOString();
-    await new Promise((resolve) => setTimeout(resolve, input.durationMs));
+    const start = Date.now();
+    const initialUrl = session.browser.url();
+
+    // Bounded poll: always stops at durationMs; stops early on navigation.
+    const step = 200;
+    let stoppedOnNavigation = false;
+    while (Date.now() - start < input.durationMs) {
+      await new Promise((resolve) => setTimeout(resolve, step));
+      if (input.stopOnNavigation && session.browser.url() !== initialUrl) {
+        stoppedOnNavigation = true;
+        break;
+      }
+    }
+
     const logs = sessionManager.getConsoleBuffer(session.id, {
       level: input.level,
       since: before,
@@ -196,6 +210,7 @@ export const devtoolsWatchConsole = createTool({
       logs,
       errorCount,
       warnCount,
+      stoppedOnNavigation,
       summary: errorCount > 0
         ? `${errorCount} error(s) in ${input.durationMs}ms`
         : warnCount > 0

@@ -110,6 +110,10 @@ import {
   browserScreenshotAnnotated,
   browserScreenshotExport,
   browserScreenshotDiff,
+  browserScreenshotBaseline,
+  compareSessions,
+  testWithState,
+  browserGetElementComponent,
 } from "../../tools/smart/index.js";
 import {
   diagnosePage,
@@ -213,6 +217,10 @@ export const browserModule: FennecModule = {
     browserScreenshotAnnotated,
     browserScreenshotExport,
     browserScreenshotDiff,
+    browserScreenshotBaseline,
+    compareSessions,
+    testWithState,
+    browserGetElementComponent,
     // Diagnostic
     diagnosePage,
     diagnoseElement,

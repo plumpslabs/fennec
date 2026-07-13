@@ -22,6 +22,7 @@ export interface Pulse {
   page?: string;
   consoleErrors: number;
   consoleWarnings: number;
+  corsWarnings: number;
   networkFailures: number;
   networkSlow: number;
   summary: string;
@@ -31,22 +32,36 @@ export interface Pulse {
  * Build a pulse from the current browser session.
  * This is extremely lightweight — just counters and a one-line summary.
  * NO screenshots, NO full logs, NO DOM.
+ *
+ * Severity weighting: a single CORS false-positive (or other noisy console
+ * error) must NOT flip the whole health status to "error". CORS console
+ * messages are counted as `corsWarnings` (low severity) and only contribute
+ * to a "warning", never an "error". Real uncaught errors and >=400 network
+ * failures drive "error".
  */
-async function buildPulse(session: { browser?: BrowserSession; consoleBuffer: Array<{ level: string }>; networkBuffer: Array<{ status: number; duration: number }> }): Promise<Pulse> {
+async function buildPulse(session: { browser?: BrowserSession; consoleBuffer: Array<{ level: string; message?: string }>; networkBuffer: Array<{ status: number; duration: number }> }): Promise<Pulse> {
   const pulse: Pulse = {
     level: 0,
     status: "healthy",
     consoleErrors: 0,
     consoleWarnings: 0,
+    corsWarnings: 0,
     networkFailures: 0,
     networkSlow: 0,
     summary: "",
   };
 
+  const isCorsNoise = (msg?: string): boolean =>
+    !!msg && /cors|cross-origin|access-control|blocked by/i.test(msg);
+
   // Count console logs by level (fast, in-memory)
   for (const log of session.consoleBuffer) {
-    if (log.level === "error") pulse.consoleErrors++;
-    else if (log.level === "warn") pulse.consoleWarnings++;
+    if (log.level === "error") {
+      if (isCorsNoise(log.message)) pulse.corsWarnings++;
+      else pulse.consoleErrors++;
+    } else if (log.level === "warn") {
+      pulse.consoleWarnings++;
+    }
   }
 
   // Count network issues (fast, in-memory)
@@ -55,10 +70,13 @@ async function buildPulse(session: { browser?: BrowserSession; consoleBuffer: Ar
     if (req.duration > 1000) pulse.networkSlow++;
   }
 
-  // Determine status
+  // Severity-weighted status:
+  //  - error  : real (non-CORS) console errors OR >=400 network failures
+  //  - warning: CORS noise, console warnings, or slow requests
+  // A lone CORS false-positive therefore reads as "warning", not "error".
   if (pulse.consoleErrors > 0 || pulse.networkFailures > 0) {
     pulse.status = "error";
-  } else if (pulse.consoleWarnings > 0 || pulse.networkSlow > 0) {
+  } else if (pulse.corsWarnings > 0 || pulse.consoleWarnings > 0 || pulse.networkSlow > 0) {
     pulse.status = "warning";
   }
 
@@ -80,6 +98,7 @@ async function buildPulse(session: { browser?: BrowserSession; consoleBuffer: Ar
   parts.push(`status: ${pulse.status}`);
   if (pulse.consoleErrors > 0) parts.push(`${pulse.consoleErrors} error(s)`);
   if (pulse.consoleWarnings > 0) parts.push(`${pulse.consoleWarnings} warning(s)`);
+  if (pulse.corsWarnings > 0) parts.push(`${pulse.corsWarnings} cors warning(s)`);
   if (pulse.networkFailures > 0) parts.push(`${pulse.networkFailures} failed request(s)`);
   if (pulse.networkSlow > 0) parts.push(`${pulse.networkSlow} slow request(s)`);
   pulse.summary = parts.join(" | ");

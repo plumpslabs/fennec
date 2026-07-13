@@ -1012,6 +1012,90 @@ li { font: 11px monospace; padding: 4px 8px; background: rgba(255,255,255,0.05);
   },
 });
 
+// ─── browser_screenshot_baseline ──────────────────────────────
+// Captures the current page state and STORES it on the session so a
+// later browser_screenshot_diff(baselineId=...) can diff against it
+// without the agent hauling a big baseline object between calls.
+
+export interface StoredBaseline {
+  elements: Array<{
+    index: number;
+    tag: string;
+    text: string;
+    type: string;
+    name: string;
+    id: string;
+    boundingBox: { x: number; y: number; width: number; height: number };
+  }>;
+  screenshot: string;
+  viewport?: { width: number; height: number };
+  timestamp: string;
+}
+
+export const browserScreenshotBaseline = createTool({
+  name: "browser_screenshot_baseline",
+  category: "smart",
+  description: "`<use_case>Smart</use_case> 📸 Capture the CURRENT page as a baseline for later visual comparison. Stores it on the session (no big object returned). After performing an action, call browser_screenshot_diff with baselineId to get a visual diff (added/removed/changed regions) — no need to carry the baseline yourself. Returns baselineId (the session id) + elementCount.`",
+  inputSchema: z.object({
+    sessionId: z.string().optional().describe("Session ID (baseline is stored on this session)"),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    const page = session.browser;
+    try {
+      const buffer = await page.screenshot({ type: "png" });
+      const screenshot = buffer.toString("base64");
+      const viewport = page.viewportSize() ?? { width: 1280, height: 720 };
+      const elements = await page.evaluate(() => {
+        const selector = [
+          "a", "button",
+          "input:not([type=hidden]):not([type=submit]):not([type=button])",
+          "select", "textarea",
+          "[role=button]", "[role=link]", "[role=tab]", "[role=menuitem]",
+        ].join(", ");
+        const els = Array.from(document.querySelectorAll<HTMLElement>(selector));
+        const results: Array<{
+          index: number; tag: string; text: string; type: string;
+          name: string; id: string;
+          boundingBox: { x: number; y: number; width: number; height: number };
+        }> = [];
+        let index = 0;
+        for (const el of els) {
+          const rect = el.getBoundingClientRect();
+          if (rect.width < 5 || rect.height < 5) continue;
+          const tag = el.tagName.toLowerCase();
+          results.push({
+            index: index++,
+            tag,
+            text: (el.textContent ?? "").trim().slice(0, 60),
+            type: tag === "input" ? ((el as HTMLInputElement).type ?? "") : tag,
+            name: (el as HTMLInputElement).name ?? "",
+            id: el.id,
+            boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+          });
+        }
+        return results;
+      }).catch(() => []);
+
+      const baseline: StoredBaseline = {
+        elements: elements as StoredBaseline["elements"],
+        screenshot,
+        viewport,
+        timestamp: new Date().toISOString(),
+      };
+      (session.metadata as Record<string, unknown>).__fennecScreenshotBaseline = baseline;
+
+      return responseBuilder.success({
+        baselineId: session.id,
+        elementCount: baseline.elements.length,
+        timestamp: baseline.timestamp,
+      }, sessionManager.buildMeta(session));
+    } catch (error) {
+      return responseBuilder.error(error, { code: "BASELINE_FAILED" });
+    }
+  },
+});
+
 export const browserScreenshotDiff = createTool({
   name: "browser_screenshot_diff",
   category: "smart",
@@ -1039,7 +1123,8 @@ export const browserScreenshotDiff = createTool({
       viewport: z
         .object({ width: z.number(), height: z.number() })
         .optional(),
-    }),
+    }).optional().describe("Inline baseline. If omitted, use baselineId to load a baseline captured by browser_screenshot_baseline."),
+    baselineId: z.string().optional().describe("Session id whose stored baseline (from browser_screenshot_baseline) to diff against. Overrides `baseline` if both given."),
     format: z
       .enum(["png", "jpeg"])
       .optional()
@@ -1056,6 +1141,29 @@ export const browserScreenshotDiff = createTool({
     const page = session.browser;
 
     try {
+      // Resolve baseline: inline object, or a stored one via baselineId.
+      let baselineObj = input.baseline;
+      if (!baselineObj && input.baselineId) {
+        const stored = (sessionManager.getOrDefault(input.baselineId).metadata as Record<string, unknown> | undefined)?.__fennecScreenshotBaseline as StoredBaseline | undefined;
+        if (!stored) {
+          return responseBuilder.error(
+            new Error(`No stored baseline found for session ${input.baselineId}. Capture one with browser_screenshot_baseline first.`),
+            { code: "NO_BASELINE" },
+          );
+        }
+        baselineObj = {
+          elements: stored.elements,
+          screenshot: stored.screenshot,
+          viewport: stored.viewport,
+        };
+      }
+      if (!baselineObj) {
+        return responseBuilder.error(
+          new Error("Provide either `baseline` (inline) or `baselineId` (from browser_screenshot_baseline)."),
+          { code: "NO_BASELINE" },
+        );
+      }
+
       // Phase 1: Take current screenshot + scan elements
       const format = input.format ?? "png";
       const buffer = await page.screenshot({ type: format });
@@ -1098,7 +1206,7 @@ export const browserScreenshotDiff = createTool({
       }).catch(() => []);
 
       // Phase 2: Diff baseline vs current
-      const baselineElements: DiffElement[] = input.baseline.elements.map((e) => ({
+      const baselineElements: DiffElement[] = baselineObj.elements.map((e) => ({
         index: e.index,
         tag: e.tag,
         text: e.text,
@@ -1248,7 +1356,7 @@ li { font: 11px monospace; padding: 4px 8px; border-radius: 3px; white-space: no
     <div class="panel">
       <h3>Before</h3>
       <div class="shot-wrapper">
-        <img src="data:;base64,${input.baseline.screenshot}" alt="Before">
+        <img src="data:;base64,${baselineObj.screenshot}" alt="Before">
         ${beforeBoxesHtml}
       </div>
     </div>
@@ -1519,7 +1627,7 @@ export const smartNavigate = createTool({
   name: "smart_navigate",
   category: "smart",
   description:
-    "`<use_case>Smart</use_case> 🚀 Navigate to a URL with smart post-load analysis. Returns a STRUCTURED JSON result (no screenshot by default): url, title, textPreview, elementCount, availableElements[]. Use instead of browser_navigate when you want the AI to automatically understand the new page — saves an extra browser_get_dom_snapshot call. Set screenshot:true only if you also need an image.`",
+    "`<use_case>Smart</use_case> 🚀 Navigate to a URL with smart post-load analysis. Returns a STRUCTURED JSON result (no screenshot by default): url, title, textPreview, elementCount, availableElements[]. Use instead of browser_navigate when you want the AI to automatically understand the new page — saves an extra browser_get_dom_snapshot call. Set screenshot:true only if you also need an image. Use compact:true for minimal tokens (url/title/errorCount/top5) or mode:'verify' for a pass/fail assertion.`",
   inputSchema: z.object({
     url: z.string().describe("URL to navigate to"),
     waitUntil: z
@@ -1537,6 +1645,16 @@ export const smartNavigate = createTool({
       .optional()
       .default(false)
       .describe("Include a compressed JPEG screenshot in the result. Off by default to save tokens."),
+    compact: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe("Minimal tokens: return only url, title, errorCount, failedRequests, and top 5 elements."),
+    mode: z
+      .enum(["explore", "verify"])
+      .optional()
+      .default("explore")
+      .describe("explore = full structured output; verify = return only {passed, reason} for quick assertions (saves ~80% tokens)."),
     sessionId: z.string().optional().describe("Session ID"),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
@@ -1592,6 +1710,24 @@ export const smartNavigate = createTool({
           .catch(() => []),
       ]);
 
+      const meta = sessionManager.buildMeta(session);
+
+      // ── verify mode: pass/fail only ──
+      if (input.mode === "verify") {
+        const errorCount = session.consoleBuffer.filter((l) => l.level === "error").length;
+        const failedRequests = session.networkBuffer.filter((r) => r.status >= 400).length;
+        const passed = errorCount === 0 && failedRequests === 0;
+        return responseBuilder.success({
+          passed,
+          mode: "verify",
+          reason: passed
+            ? `Page loaded cleanly: "${title}" at ${page.url()}`
+            : `${errorCount} console error(s), ${failedRequests} failed request(s) after navigating to ${page.url()}`,
+          url: page.url(),
+          title,
+        }, meta);
+      }
+
       const result: Record<string, unknown> = {
         url: page.url(),
         title,
@@ -1600,12 +1736,25 @@ export const smartNavigate = createTool({
         availableElements: domSnapshot.slice(0, 30),
       };
 
+      // ── compact mode: minimal tokens ──
+      if (input.compact) {
+        const errorCount = session.consoleBuffer.filter((l) => l.level === "error").length;
+        const failedRequests = session.networkBuffer.filter((r) => r.status >= 400).length;
+        return responseBuilder.success({
+          url: page.url(),
+          title,
+          errorCount,
+          failedRequests,
+          topElements: domSnapshot.slice(0, 5),
+        }, meta);
+      }
+
       if (input.screenshot) {
         const shot = await takeScreenshot(session.browser, { format: "jpeg", quality: 50 }).catch(() => null);
         if (shot) result.screenshot = shot.base64;
       }
 
-      return responseBuilder.success(result, sessionManager.buildMeta(session));
+      return responseBuilder.success(result, meta);
     } catch (error) {
       return responseBuilder.error(error, {
         code: "NAVIGATION_FAILED",
@@ -1618,3 +1767,263 @@ export const smartNavigate = createTool({
     }
   },
 });
+
+// ─── compare_sessions ────────────────────────────────────
+// DOM/text comparison of what two sessions currently see — the practical
+// form of "what does user A vs user B see" without a pixel engine.
+
+async function capturePageView(page: import("../../browser/types.js").BrowserSession): Promise<{
+  url: string;
+  title: string;
+  text: string;
+  elements: Array<{ tag: string; id: string; role: string; text: string }>;
+}> {
+  const [url, title, text, elements] = await Promise.all([
+    Promise.resolve().then(() => page.url()),
+    page.title().catch(() => "unknown"),
+    page.evaluate(() => document.body?.innerText ?? "").catch(() => ""),
+    page
+      .evaluate(() => {
+        const els: Array<{ tag: string; id: string; role: string; text: string }> = [];
+        const walker = document.createTreeWalker(document.documentElement, NodeFilter.SHOW_ELEMENT);
+        let node: Node | null;
+        let count = 0;
+        while ((node = walker.nextNode()) && count < 200) {
+          const el = node as Element;
+          const tag = el.tagName.toLowerCase();
+          if (
+            ["a", "button", "input", "h1", "h2", "h3", "label", "select", "textarea"].includes(tag) ||
+            el.hasAttribute("role") ||
+            el.hasAttribute("data-testid")
+          ) {
+            const t = (el.textContent ?? "").trim().slice(0, 100);
+            if (t) {
+              els.push({ tag, id: el.id, role: el.getAttribute("role") ?? "", text: t });
+            }
+          }
+          count++;
+        }
+        return els;
+      })
+      .catch(() => [] as Array<{ tag: string; id: string; role: string; text: string }>),
+  ]);
+  return { url, title, text, elements };
+}
+
+function lineDiff(a: string, b: string): Array<{ kind: "added" | "removed"; line: string }> {
+  const la = a.split("\n").map((s) => s.trim()).filter(Boolean);
+  const lb = b.split("\n").map((s) => s.trim()).filter(Boolean);
+  const setB = new Set(lb);
+  const setA = new Set(la);
+  const out: Array<{ kind: "added" | "removed"; line: string }> = [];
+  for (const l of la) if (!setB.has(l)) out.push({ kind: "removed", line: l });
+  for (const l of lb) if (!setA.has(l)) out.push({ kind: "added", line: l });
+  return out;
+}
+
+export const compareSessions = createTool({
+  name: "compare_sessions",
+  category: "smart",
+  description: "`<use_case>Smart</use_case> 🔀 Compare what TWO sessions currently see — the practical answer to 'what does user A vs user B see'. Optionally navigate BOTH to `url` first. Returns structured DOM/text diff: title changes, element differences (present in one, absent in the other), and a text diff. Great for permission/role testing (e.g. does the Sales role see a button the Admin sees?). Pixel-level visual diff is not performed — this is structural/textual.`",
+  inputSchema: z.object({
+    sessionA: z.string().describe("First session ID"),
+    sessionB: z.string().describe("Second session ID"),
+    url: z.string().optional().describe("If set, navigate BOTH sessions here before comparing"),
+    sessionId: z.string().optional().describe("Session ID (unused, kept for symmetry)"),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    try {
+      const a = sessionManager.getOrDefault(input.sessionA);
+      const b = sessionManager.getOrDefault(input.sessionB);
+      if (input.url) {
+        await Promise.all([
+          a.browser.navigate(input.url, { waitUntil: "networkidle" }).catch(() => {}),
+          b.browser.navigate(input.url, { waitUntil: "networkidle" }).catch(() => {}),
+        ]);
+      }
+      const [va, vb] = await Promise.all([capturePageView(a.browser), capturePageView(b.browser)]);
+      const setTextA = new Set(va.elements.map((e) => e.text));
+      const setTextB = new Set(vb.elements.map((e) => e.text));
+      const onlyInA = va.elements.filter((e) => !setTextB.has(e.text)).slice(0, 30);
+      const onlyInB = vb.elements.filter((e) => !setTextA.has(e.text)).slice(0, 30);
+      const textDiff = lineDiff(va.text, vb.text).slice(0, 40);
+      return responseBuilder.success({
+        sessionA: { id: a.id, title: va.title, url: va.url, elementCount: va.elements.length },
+        sessionB: { id: b.id, title: vb.title, url: vb.url, elementCount: vb.elements.length },
+        titleChanged: va.title !== vb.title,
+        differences: {
+          onlyInA: onlyInA.map((e) => ({ tag: e.tag, id: e.id, role: e.role, text: e.text })),
+          onlyInB: onlyInB.map((e) => ({ tag: e.tag, id: e.id, role: e.role, text: e.text })),
+          textDiff,
+          textDiffCount: textDiff.length,
+        },
+      }, sessionManager.buildMeta(a));
+    } catch (error) {
+      return responseBuilder.error(error, { code: "COMPARE_FAILED" });
+    }
+  },
+});
+
+// ─── test_with_state ──────────────────────────────────────
+// Generic form of "test as permission/role": inject arbitrary
+// localStorage / cookies (the app's permission encoding) into a session,
+// reload, and return a compact view. App-specific permission semantics
+// live in the app — Fennec just applies the state you specify.
+
+export const testWithState = createTool({
+  name: "test_with_state",
+  category: "smart",
+  description: "`<use_case>Smart</use_case> 🎭 Render a page AS IF a given state (role/permissions) were active, without maintaining a saved session. Inject `apply.localStorage` and/or `apply.cookies` (your app's permission encoding), optionally navigate to `url`, reload so the app reads the state, and return a compact view (title, errorCount, top elements). Use to check 'is button X hidden for role Sales?' by setting the Sales permission in localStorage, navigating, and inspecting. App-specific permission names are yours to supply.`",
+  inputSchema: z.object({
+    url: z.string().describe("URL to load (or reload current page at its origin)"),
+    apply: z.object({
+      localStorage: z.record(z.string()).optional().describe("localStorage key→value pairs to set before reload (e.g. role/permission flags)"),
+      cookies: z.array(z.object({
+        name: z.string(),
+        value: z.string(),
+        domain: z.string().optional(),
+        path: z.string().optional().default("/"),
+      })).optional().describe("Cookies to set before reload"),
+    }).describe("State to apply before the page reads it"),
+    compact: z.boolean().optional().default(true).describe("Return compact view (title/errorCount/top elements) — minimal tokens"),
+    sessionId: z.string().optional().describe("Session ID"),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    const page = session.browser;
+    try {
+      // Ensure we're on the right origin before setting state.
+      const target = input.url || page.url();
+      await page.navigate(target, { waitUntil: "domcontentloaded" }).catch(() => {});
+
+      if (input.apply.localStorage) {
+        for (const [k, v] of Object.entries(input.apply.localStorage)) {
+          await page.evaluate(({ k, v }) => localStorage.setItem(k, v), { k, v }).catch(() => {});
+        }
+      }
+      if (input.apply.cookies?.length) {
+        await page.contextAddCookies(input.apply.cookies.map((c) => ({
+          name: c.name, value: c.value,
+          domain: c.domain ?? new URL(target).hostname,
+          path: c.path ?? "/",
+        }))).catch(() => {});
+      }
+
+      // Reload so the app reads the injected state.
+      await page.reload?.().catch(() => {});
+      await page.navigate(target, { waitUntil: "networkidle" }).catch(() => {});
+
+      const title = await page.title().catch(() => "unknown");
+      const errorCount = session.consoleBuffer.filter((l) => l.level === "error").length;
+      const elements = await page.evaluate(() => {
+        const els: Array<{ tag: string; id: string; role: string; text: string }> = [];
+        const walker = document.createTreeWalker(document.documentElement, NodeFilter.SHOW_ELEMENT);
+        let node: Node | null;
+        let count = 0;
+        while ((node = walker.nextNode()) && count < 60) {
+          const el = node as Element;
+          const tag = el.tagName.toLowerCase();
+          if (
+            ["a", "button", "input", "h1", "h2", "h3", "label", "select", "textarea"].includes(tag) ||
+            el.hasAttribute("role") ||
+            el.hasAttribute("data-testid")
+          ) {
+            const t = (el.textContent ?? "").trim().slice(0, 100);
+            if (t) els.push({ tag, id: el.id, role: el.getAttribute("role") ?? "", text: t });
+          }
+          count++;
+        }
+        return els;
+      }).catch(() => [] as Array<{ tag: string; id: string; role: string; text: string }>);
+
+      return responseBuilder.success({
+        url: page.url(),
+        title,
+        errorCount,
+        topElements: elements.slice(0, 10),
+      }, sessionManager.buildMeta(session));
+    } catch (error) {
+      return responseBuilder.error(error, { code: "TEST_STATE_FAILED" });
+    }
+  },
+});
+
+// ─── browser_get_element_component ─────────────────────────
+// Best-feasible proxy for "find component in browser": from a DOM
+// element, resolve the FRAMEWORK component that rendered it (React fiber
+// / Vue) plus any data-* / id hints. Full source-map reverse-mapping
+// (file → selector) is a build-time concern and out of scope here.
+
+export const browserGetElementComponent = createTool({
+  name: "browser_get_element_component",
+  category: "smart",
+  description: "`<use_case>Smart</use_case> 🧩 Given a CSS selector, identify the UI COMPONENT that rendered that element — reads React fiber / Vue component info and data-* / id hints straight from the live DOM. Helps you map 'ChatInput.tsx renders the Zap button' to the actual element without guessing the selector. NOTE: this resolves component-from-DOM (runtime); true source-map reverse-mapping (source file → selector) is build-time and not covered.`",
+  inputSchema: z.object({
+    selector: z.string().describe("CSS selector of the element to inspect"),
+    sessionId: z.string().optional().describe("Session ID"),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    try {
+      const info = await session.browser.evaluate((sel: string) => {
+        const el = document.querySelector(sel) as (Element & Record<string, unknown>) | null;
+        if (!el) return { found: false as const };
+        const out: Record<string, unknown> = { found: true, tag: el.tagName.toLowerCase(), id: el.id };
+
+        // data-* / aria / testid hints
+        const hints: string[] = [];
+        for (const attr of Array.from(el.attributes)) {
+          if (attr.name.startsWith("data-") || attr.name === "aria-label" || attr.name === "data-testid") {
+            hints.push(`${attr.name}=${attr.value}`);
+          }
+        }
+        out.hints = hints;
+
+        // React: walk fiber to the host component's owner name.
+        const fiberKey = Object.keys(el).find((k) => k.startsWith("__reactFiber$") || k.startsWith("__reactInternalInstance$"));
+        if (fiberKey) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let node: any = el[fiberKey];
+          let ownerName: string | undefined;
+          let file: string | undefined;
+          while (node) {
+            const type = node.type as Record<string, unknown> | string | undefined;
+            const tname = typeof type === "function" ? (type as { displayName?: string; name?: string }).displayName ?? (type as { name?: string }).name : undefined;
+            const tfile = (type as { __file?: string; _source?: { fileName?: string } })?. _source?.fileName
+              ?? (type as { __file?: string })?. __file;
+            if (tname && !ownerName) ownerName = tname;
+            if (tfile && !file) file = tfile;
+            const owner = node._debugOwner as Record<string, unknown> | undefined;
+            if (owner) {
+              const ot = owner.type as Record<string, unknown> | string | undefined;
+              if (!ownerName && typeof ot === "function") ownerName = (ot as { displayName?: string; name?: string }).displayName ?? (ot as { name?: string }).name;
+            }
+            node = node.return ?? node._debugOwner?._debugOwner;
+            if (ownerName && file) break;
+          }
+          out.framework = "react";
+          out.component = ownerName;
+          out.sourceFile = file;
+        } else {
+          // Vue: __vueParentComponent
+          const vueKey = Object.keys(el).find((k) => k.startsWith("__vue"));
+          if (vueKey) {
+            const comp = (el as Record<string, unknown>)[vueKey] as Record<string, unknown>;
+            const opts = comp?.type as Record<string, unknown> | undefined;
+            out.framework = "vue";
+            out.component = (opts?.__name ?? opts?.name ?? (comp?.type as { name?: string })?.name) as string | undefined;
+            out.sourceFile = opts?.__file as string | undefined;
+          } else {
+            out.framework = "unknown";
+          }
+        }
+        return out;
+      }, input.selector).catch((e) => ({ found: false, error: String(e) }));
+
+      return responseBuilder.success(info, sessionManager.buildMeta(session));
+    } catch (error) {
+      return responseBuilder.error(error, { code: "ELEMENT_NOT_FOUND" });
+    }
+  },
+});
+

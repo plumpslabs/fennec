@@ -112,6 +112,67 @@ export const processSpawn = createTool({
   },
 });
 
+export const processRunAndWait = createTool({
+  name: "process_run_and_wait",
+  category: "process",
+  description: "`<use_case>RUN + WAIT</use_case> 🎯 Spawn a command and BLOCK until it exits, then return its output — replaces the manual spawn → poll → get_logs dance in one call. Ideal for build/format/test commands you need the result of before continuing. Returns exitCode, timedOut, durationMs, and the captured stdout/stderr (redacted). If it exceeds timeoutMs (default 60s) it is killed and timedOut:true. Requires security.allowProcessSpawn.`",
+  inputSchema: z.object({
+    command: z.string().describe("Command to run (e.g. 'npm', 'node')"),
+    args: z.array(z.string()).optional().default([]).describe("Command arguments"),
+    cwd: z.string().optional().describe("Working directory"),
+    env: z.record(z.string(), z.string()).optional().describe("Environment variables"),
+    name: z.string().optional().describe("Process name for identification"),
+    timeoutMs: z.number().optional().default(60000).describe("Max time to wait for exit (ms). Exceeded → process killed, timedOut:true"),
+    lines: z.number().optional().default(100).describe("Max log lines to return"),
+    sessionId: z.string().optional().describe("Session ID"),
+  }),
+  handler: async (input, { config, responseBuilder, processManager, tokenBudget }) => {
+    if (!config.security.allowProcessSpawn) {
+      return responseBuilder.error(
+        new Error("Process spawning is disabled by security settings"),
+        { code: "INVALID_INPUT" },
+      );
+    }
+    try {
+      const proc = processManager.spawn(input.command, input.args ?? [], input.cwd, input.env, input.name);
+      const start = Date.now();
+      let timedOut = false;
+      let exitCode = -1;
+      try {
+        exitCode = await processManager.waitForExit(proc.processId, input.timeoutMs ?? 60000);
+      } catch {
+        timedOut = true;
+        processManager.kill(proc.processId, "SIGKILL");
+      }
+      const cap = clampLineCount(input.lines, 100, HARD_LOG_CAP, tokenBudget);
+      const logs = processManager.getLogs(proc.processId, { lines: cap });
+      // Fallback to on-disk log file for CLI-style output capture.
+      const name = resolveLogName(proc.processId) ?? proc.processId;
+      let mapped = logs.map((l) => ({ line: l.line, level: l.level, timestamp: l.timestamp }));
+      if (mapped.length === 0 && existsSync(logPathFor(name))) {
+        mapped = readLogLines(logPathFor(name), { tail: cap }).map((line) => ({ line, level: detectLogLevel(line), timestamp: new Date().toISOString() }));
+      }
+      const sliced = mapped.slice(-cap);
+      return responseBuilder.success({
+        processId: proc.processId,
+        pid: proc.pid,
+        exitCode,
+        timedOut,
+        durationMs: Date.now() - start,
+        logs: sliced,
+        count: sliced.length,
+        errorCount: sliced.filter((l) => l.level === "error").length,
+        redacted: true,
+      });
+    } catch (error) {
+      return responseBuilder.error(error, {
+        code: "RUN_FAILED",
+        suggestions: ["Check if the command is in the spawn allowlist", "Verify the command exists in PATH"],
+      });
+    }
+  },
+});
+
 export const processList = createTool({
   name: "process_list",
   category: "process",

@@ -31,13 +31,14 @@
 - **🔗 Full-stack correlation** — Cross-layer root cause inference with configurable confidence thresholds
 - **🛡️ Security middleware** — Sandbox mode, permission guards, domain allowlists, audit logging
 - **📊 Self-observability** — Internal performance metrics tracking (tool durations, memory, error rates)
+- **🪙 Token-efficient by default** — Screenshots return compressed JPEG (q50) unless requested as PNG; `browser_screenshot` supports `output:"base64"|"file_path"`; `smart_navigate` returns structured JSON (no image) with `compact`/`mode:"verify"` options; `tools/list` exposes a `_tokenTier` per tool so agents prefer cheap tools first; `tools_help` lists tools by category with parameter tiers
 
 ## What's inside
 
 | Module | Description |
 |--------|-------------|
 | `session/` | Browser session manager — CDP or Playwright engine, tabs, multi-session, CDP monitoring |
-| `tools/` | 130+ MCP tool definitions across 17 categories (navigation, interaction, dom, devtools console/network/performance, storage, auth, tabs, process, terminal, diagnostic, scheduler, smart, planner, mobile, **ai**) |
+| `tools/` | 140+ MCP tool definitions across 17 categories (navigation, interaction, dom, devtools console/network/performance, storage, auth, tabs, process, terminal, diagnostic, scheduler, smart, planner, mobile, **ai**) |
 | `tools/ai/` | **AI-Native API** — `observe()`, `ai_diagnose()`, `correlate()`, `summarize()`, `explain()`, `investigate()`, `predict()` |
 | `incident/` | **Incident Engine** — formal incident type, lifecycle management, confidence scoring, auto-detection via EventBus |
 | `modules/` | Modular system with `FennecModule` interface + `ModuleRegistry`. Modules: **browser**, **process**, **mobile** (Android/ADB: 11 tools) |

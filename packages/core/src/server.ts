@@ -223,6 +223,9 @@ import {
   predict,
 } from './tools/ai/index.js';
 import {
+  toolsHelp,
+} from './tools/help/index.js';
+import {
   budgetCheckPage,
   budgetGetSummary,
 } from './tools/budget/index.js';
@@ -457,6 +460,7 @@ export class FennecServer {
       explain,
       investigate,
       predict,
+      toolsHelp,
       // Performance Budget
       budgetCheckPage,
       budgetGetSummary,
@@ -505,6 +509,7 @@ export class FennecServer {
       eventBus: this.eventBus,
       lazyContext: this.lazyContext,
       incidentEngine: this.incidentEngine,
+      toolRegistry: this.toolRegistry,
       tokenBudget: { maxResponseTokens: this.config.tokenBudget.maxResponseTokens ?? 8000 },
     };
   }

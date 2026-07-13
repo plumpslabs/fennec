@@ -24,7 +24,7 @@
 **Fennec** is an MCP (Model Context Protocol) server that bridges the gap between AI agents and your development environment. It gives your AI full-stack visibility — and, crucially, **full-stack control**:
 
 - 🔍 **Observe** browser console logs, network requests, and performance metrics in real-time
-- 🖥️ **Run & watch** your apps as supervised background daemons (PM2-like) — logs, restart, health
+- 🖥️ **Run & watch** your apps as supervised background daemons — logs, restart, health
 - 🤝 **Adopt** processes an AI agent (or you) started via raw bash, so they're tracked instead of orphaned
 - 🔐 **Persist** authentication sessions across conversations
 - 🔗 **Correlate** events across layers to identify root causes automatically
@@ -140,7 +140,7 @@ Fennec is both an MCP server **and** a CLI you can use directly in your terminal
 | `fennec start --sse` | Start the MCP server over HTTP+SSE (experimental). |
 | `fennec start --transport sse` | Alias of `--sse`. |
 
-### Apps & Processes (PM2-like control plane)
+### Apps & Processes
 
 | Command | Description |
 |---------|-------------|

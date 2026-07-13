@@ -78,7 +78,7 @@ Fennec's signature feature correlates browser errors with server logs to identif
 ### 🖥️ Process & App Management — the AI-Native Control Plane
 This is what makes Fennec more than an observer. Your AI agent can **run, supervise, and recover** your apps exactly like a senior engineer would — without you pasting logs or running commands by hand:
 
-- **`start` / `run`** — launch any app as a detached, supervised daemon (PM2-like). Logs stream to `~/.fennec/logs/<name>.log`.
+- **`start` / `run`** — launch any app as a detached, supervised daemon. Logs stream to `~/.fennec/logs/<name>.log`.
 - **`--restart`** — auto-restart on crash **or** when the app's port stops answering. The supervisor survives your terminal closing.
 - **`dev up`** — idempotent stack orchestration from `fennec.config.yaml`: skips apps already running with unchanged config, restarts ones whose config changed, and **adopts** a process that's already holding a port instead of spawning a conflicting duplicate.
 - **`adopt`** — take ownership of a process an AI agent (or you) launched via raw bash, so it's tracked instead of orphaned.
@@ -293,7 +293,7 @@ fennec dev status
 ## Documentation
 
 - [Getting Started Guide](docs/getting-started.md) — includes mobile development (wireless ADB)
-- [Full Tool Reference](docs/tools/README.md) — all 123 tools documented
+- [Full Tool Reference](docs/tools/README.md) — all 118 tools documented
 - [Configuration Reference](docs/configuration.md) — all options + env vars
 - [Security Model](docs/security-model.md) — sandbox, allowlists, best practices
 - [Auth Flows Guide](docs/guides/auth-flows.md) — login forms, session persistence

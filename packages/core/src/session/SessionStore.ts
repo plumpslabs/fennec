@@ -8,6 +8,8 @@ export interface SavedSession {
   localStorage: Record<string, string>;
   sessionStorage: Record<string, string>;
   origin: string;
+  /** Free-form metadata captured at save time (user, role, workspace, notes, etc.). */
+  metadata?: Record<string, unknown>;
 }
 
 export class SessionStore {

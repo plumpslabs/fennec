@@ -7,12 +7,17 @@ AI-powered page interaction tools with auto-diagnosis, form filling, validation,
 | Tool | Description | Parameters |
 |------|-------------|------------|
 | `smart_wait` | Smart element wait with auto-diagnosis on timeout (URL, DOM snapshot, visible text, screenshot) | selector, text?, state?, timeout?, sessionId? |
-| `smart_navigate` | Navigate + auto-collect DOM snapshot, page text, and available elements after load | url, waitUntil?, timeout?, sessionId? |
+| `smart_navigate` | Navigate + auto-collect DOM snapshot, page text, and available elements after load. `compact:true` trims the snapshot; `mode:"verify"` returns pass/fail instead of a screenshot | url, waitUntil?, timeout?, compact?, mode?, sessionId? |
 | `smart_fill_form` | Auto-detect ALL form fields, fill by label/name/placeholder, optionally submit | fields, submitAfter?, submitSelector?, sessionId? |
 | `smart_validate_form` | Validate all form fields against HTML5 constraints + custom rules | customRules?, sessionId? |
 | `browser_screenshot_annotated` | Screenshot with numbered badges on all interactive elements + `data-ai-index` for clicking | format?, fullPage?, sessionId? |
 | `browser_screenshot_export` | Screenshot + bounding box highlights exported as standalone HTML file | format?, sessionId? |
-| `browser_screenshot_diff` | Compare current page against baseline — detect added/removed/changed elements, export diff HTML | baseline, format?, label?, sessionId? |
+| `browser_screenshot_baseline` | Capture a named baseline (elements + screenshot) you can diff against later | name, format?, sessionId? |
+| `browser_screenshot_diff` | Compare current page against a baseline — detect added/removed/changed elements, export diff HTML | baseline, baselineId?, format?, label?, sessionId? |
+| `compare_sessions` | DOM/text diff between two saved sessions at a URL (no screenshot needed) | sessionA, sessionB, url?, sessionId? |
+| `test_with_state` | Apply `apply.localStorage` / `apply.cookies` then load a URL to simulate auth/state | url, apply, waitUntil?, sessionId? |
+| `browser_get_element_component` | Resolve the component (React/Vue) owning a DOM element, with `sourceFile` when resolvable | selector, sessionId? |
+| `tools_help` | List tools within a category (or all) with `_tokenTier` and parameter tiers for discoverability | category?, includeExperimental? |
 
 ## Smart Wait Auto-Diagnosis
 
@@ -61,6 +66,48 @@ const diff = await toolRegistry.call("browser_screenshot_diff", {
 ## Examples
 
 ```typescript
+// Smart navigate — verify mode (no screenshot, just pass/fail)
+const nav = await toolRegistry.call("smart_navigate", {
+  url: "https://example.com/login",
+  mode: "verify"
+});
+// Returns: { success, url, title, snapshot: { detected, elementCount, checks } }
+
+// Smart navigate — compact snapshot (fewer tokens)
+const compact = await toolRegistry.call("smart_navigate", {
+  url: "https://example.com",
+  compact: true
+});
+// Returns: { url, title, text, elementCount, availableElements } (no full HTML)
+
+// Baseline workflow without re-passing elements
+const base = await toolRegistry.call("browser_screenshot_baseline", { name: "login" });
+await toolRegistry.call("browser_click", { selector: "#submit" });
+const diff = await toolRegistry.call("browser_screenshot_diff", {
+  baselineId: base.baselineId,
+  label: "After submit"
+});
+
+// Compare two saved sessions at a URL (DOM/text diff, no screenshot)
+const cmp = await toolRegistry.call("compare_sessions", {
+  sessionA: "user-role-a",
+  sessionB: "user-role-b",
+  url: "/dashboard"
+});
+// Returns: { summary: { changed, added, removed }, blocks: [...], elements: [...] }
+
+// Simulate auth by injecting state, then load the page
+const t = await toolRegistry.call("test_with_state", {
+  url: "/dashboard",
+  apply: { localStorage: { token: "xyz" }, cookies: [{ name: "sid", value: "abc" }] }
+});
+// Returns: { url, title, text, snapshot, injected: { localStorage, cookies } }
+
+// Resolve the component owning an element
+const comp = await toolRegistry.call("browser_get_element_component", { selector: "#price" });
+// Returns: { found, framework, component, element, sourceFile?, displayName? }
+```
+
 // Smart fill form
 const form = await toolRegistry.call("smart_fill_form", {
   fields: {

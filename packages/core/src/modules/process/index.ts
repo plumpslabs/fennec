@@ -10,6 +10,7 @@ import type { ToolDefinition } from "../../tools/_registry.js";
 
 import {
   processSpawn,
+  processRunAndWait,
   processList,
   processGetLogs,
   processGetStatus,
@@ -46,6 +47,7 @@ export const processModule: FennecModule = {
 
   tools: [
     processSpawn,
+    processRunAndWait,
     processList,
     processGetLogs,
     processGetStatus,

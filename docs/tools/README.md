@@ -1,8 +1,8 @@
 # Fennec Tool Reference
 
-Fennec provides **112 MCP tools** organized into **15 categories**. Each tool is designed to be consumed by AI agents, with structured input/output and actionable error messages.
+Fennec provides **118 MCP tools** organized into **15 categories**. Each tool is designed to be consumed by AI agents, with structured input/output and actionable error messages.
 
-> 💡 **Token-Efficient**: MCP clients can request specific categories to reduce context window usage.
+> 💡 **Token-Efficient**: MCP clients can request specific categories to reduce context window usage. Every tool response also carries a `_tokenTier` (low/medium/high) in `tools/list` so agents prefer cheap tools first. Screenshots default to compressed JPEG and `smart_navigate` returns structured JSON (no image) unless you ask for one.
 
 ---
 
@@ -132,7 +132,7 @@ Multi-tab and multi-context (incognito) management.
 | `context_new` | Create isolated context |
 | `context_close` | Close context |
 
-### [Process](process.md) (10 tools)
+### [Process](process.md) (11 tools)
 Spawn, monitor, attach, and manage processes. Works **without browser**.
 
 | Tool | Description |
@@ -145,6 +145,7 @@ Spawn, monitor, attach, and manage processes. Works **without browser**.
 | `process_kill` | Kill a process |
 | `process_restart` | Restart a process |
 | `process_wait_for_ready` | Wait for ready pattern |
+| `process_run_and_wait` | Run a process and block until it exits |
 | `process_attach_pid` | Attach by PID |
 | `process_attach_port` | Attach by port |
 
@@ -186,18 +187,23 @@ Auto-triggered workflow rules for event-based diagnosis.
 | `scheduler_enable_rule` | Enable a rule |
 | `scheduler_clear_history` | Clear trigger history |
 
-### [Smart Tools](smart.md) (7 tools) 🔥
-AI-powered interaction with auto-diagnosis, form filling, validation, and visual testing.
+### [Smart Tools](smart.md) (12 tools) 🔥
+AI-powered interaction with auto-diagnosis, form filling, validation, visual testing, and token-efficient session workflows.
 
 | Tool | Description |
 |---|---|
 | `smart_wait` | Wait with auto-diagnosis on timeout |
-| `smart_navigate` | Navigate + collect DOM snapshot |
+| `smart_navigate` | Navigate + collect DOM snapshot (supports `compact` and `mode:"verify"`) |
 | `smart_fill_form` | Auto-detect + fill form fields |
 | `smart_validate_form` | Validate fields + custom rules |
 | `browser_screenshot_annotated` | Screenshot with numbered badges |
 | `browser_screenshot_export` | Screenshot + HTML export |
+| `browser_screenshot_baseline` | Capture a named baseline snapshot for later diffing |
 | `browser_screenshot_diff` | Visual diff against baseline |
+| `compare_sessions` | DOM/text diff between two saved sessions at a URL |
+| `test_with_state` | Apply localStorage/cookies and load a URL to simulate auth/state |
+| `browser_get_element_component` | Resolve the component (React/Vue) owning an element |
+| `tools_help` | List tools by category with token tiers (discoverability) |
 
 ### [Planner](planner.md) (5 tools) 🆕
 Multi-step execution planning from natural language goals.
@@ -225,13 +231,13 @@ Multi-step execution planning from natural language goals.
 | Storage | 12 | ✅ |
 | Auth | 6 | ⚠️ Partial |
 | Tabs & Contexts | 7 | ✅ |
-| Process | 10 | ❌ |
+| Process | 11 | ❌ |
 | Terminal | 7 | ❌ |
 | Diagnostic | 6 | ⚠️ Partial |
 | Scheduler | 7 | ❌ |
-| Smart | 7 | ✅ |
+| Smart | 12 | ✅ |
 | Planner | 5 | ❌ |
-| **Total** | **112** | **53 without browser** |
+| **Total** | **118** | **54 without browser** |
 
 > **53 tools work without Playwright/browser engines** — process, terminal, storage (basic), scheduler, planner, and partial auth + diagnostic.
 

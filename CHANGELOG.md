@@ -2,6 +2,25 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.14.1] - 2026-07-13
+
+### Added (MCP tool improvements — feedback items 12–23)
+- **`smart_navigate` `compact: true`.** Returns a trimmed snapshot (fewer tokens) for quick checks; full HTML kept available via the standard snapshot tool.
+- **`auth_save_session` `metadata`.** Persist `user` / `role` / `workspace` with a session; surfaced in `auth_list_sessions` (and kept in the session file) for human-readable filtering.
+- **`smart_navigate` `mode: "verify"`.** Returns a structured pass/fail (`success`, detected checks, elementCount) **without any screenshot** — for fast "did it load?" assertions.
+- **`tools_help(category?)`.** Lists tools by category with each tool's `_tokenTier` and parameter tiers for discoverability, so agents can self-select cheap tools before calling `tools/list`.
+- **`browser_navigate` `maxRetries` + `retryOn`.** Auto-retry navigation on network/timeout errors or non-2xx status, with bounded attempts.
+- **`devtools_watch_console` `stopOnNavigation`.** Auto-stops the watcher when a navigation occurs (default true), preventing runaway background watchers.
+- **`process_run_and_wait`.** Run a command and block until it exits, returning `exitCode` + `logs` (via `ProcessManager.waitForExit`).
+- **`browser_screenshot_baseline(name)`.** Capture a named baseline (elements + screenshot) stored for later diffing — no need to re-pass elements each time.
+- **`browser_screenshot_diff` `baselineId`.** Diff against a previously saved baseline by id.
+- **`compare_sessions(sessionA, sessionB, url?)`.** DOM/text diff between two saved sessions at a URL (no screenshot needed) — generic multi-session comparison.
+- **`test_with_state(apply, url)`.** Apply `localStorage` / `cookies` then load a URL to simulate any auth/state (e.g. admin vs user) without bespoke hacks.
+- **`browser_get_element_component(selector)`.** Resolve the component (React/Vue) owning a DOM element, with `sourceFile` when resolvable via the framework's dev metadata.
+
+### Changed
+- **PulseContext severity weighting.** CORS issues now surface as `warning` (not `error`), so non-blocking CORS noise stops inflating critical counts.
+
 ## [1.14.0] - 2026-07-13
 
 ### Added (MCP tool improvements — token burn & UX)

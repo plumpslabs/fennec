@@ -5,7 +5,7 @@ import type { ToolContext } from "../_registry.js";
 export const browserNavigate = createTool({
   name: "browser_navigate",
   category: "navigation",
-  description: "`<use_case>Navigation</use_case> 🚀 Navigate the browser to a URL. Supports waitUntil options: 'networkidle' (default, waits for no network activity), 'load', 'domcontentloaded', 'commit'. Returns finalUrl (in case of redirects), statusCode, loadTime. Use as the primary way to load pages. For smarter navigation with auto-DOM summary, use smart_navigate instead. For going back/forward in history, use browser_go_back / browser_go_forward.`",
+  description: "`<use_case>Navigation</use_case> 🚀 Navigate the browser to a URL. Supports waitUntil options: 'networkidle' (default, waits for no network activity), 'load', 'domcontentloaded', 'commit'. Returns finalUrl (in case of redirects), statusCode, loadTime. Use as the primary way to load pages. For smarter navigation with auto-DOM summary, use smart_navigate instead. Built-in retry: set maxRetries (default 0) and retryOn (default ['timeout','navigation_error']) to auto-retry flaky loads. For going back/forward in history, use browser_go_back / browser_go_forward.`",
   inputSchema: z.object({
     url: z.string().url().describe("The URL to navigate to"),
     waitUntil: z
@@ -14,38 +14,62 @@ export const browserNavigate = createTool({
       .default("networkidle")
       .describe("When to consider navigation complete"),
     timeout: z.number().optional().default(30000).describe("Timeout in milliseconds"),
+    maxRetries: z.number().optional().default(0).describe("Number of automatic retries on failure (default 0 = no retry)"),
+    retryOn: z.array(z.enum(["timeout", "navigation_error"])).optional().default(["timeout", "navigation_error"]).describe("Error classes that trigger a retry"),
+    retryDelayMs: z.number().optional().default(1000).describe("Delay between retries in milliseconds"),
     sessionId: z.string().optional().describe("Session ID"),
   }),
   handler: async (input, { sessionManager, responseBuilder, logger }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     const startTime = Date.now();
+    const maxRetries = Math.max(0, input.maxRetries ?? 0);
 
-    try {
-      const result = await session.browser.navigate(input.url, {
-        waitUntil: input.waitUntil,
-        timeout: input.timeout,
-      });
+    const classify = (err: unknown): "timeout" | "navigation_error" => {
+      const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+      if (msg.includes("timeout") || msg.includes("timed out")) return "timeout";
+      return "navigation_error";
+    };
 
-      return responseBuilder.success(
-        {
-          finalUrl: result.finalUrl,
-          statusCode: result.statusCode,
-          loadTime: result.loadTimeMs,
-        },
-        { ...sessionManager.buildMeta(session), elapsed: result.loadTimeMs },
-      );
-    } catch (error) {
-      const elapsed = Date.now() - startTime;
-      return responseBuilder.error(error, {
-        code: "NAVIGATION_FAILED",
-        suggestions: [
-          "Check if the URL is accessible from your network",
-          "Try increasing the timeout parameter",
-          "Verify the URL format includes protocol (http:// or https://)",
-        ],
-        meta: { ...sessionManager.buildMeta(session), elapsed },
-      });
+    let lastError: unknown;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const result = await session.browser.navigate(input.url, {
+          waitUntil: input.waitUntil,
+          timeout: input.timeout,
+        });
+
+        return responseBuilder.success(
+          {
+            finalUrl: result.finalUrl,
+            statusCode: result.statusCode,
+            loadTime: result.loadTimeMs,
+            attempts: attempt + 1,
+          },
+          { ...sessionManager.buildMeta(session), elapsed: result.loadTimeMs },
+        );
+      } catch (error) {
+        lastError = error;
+        const cls = classify(error);
+        const canRetry = (input.retryOn ?? ["timeout", "navigation_error"]).includes(cls) && attempt < maxRetries;
+        if (canRetry) {
+          logger?.info?.({ attempt: attempt + 1, cls }, "browser_navigate: retrying after failure");
+          await new Promise((r) => setTimeout(r, input.retryDelayMs ?? 1000));
+          continue;
+        }
+        break;
+      }
     }
+
+    const elapsed = Date.now() - startTime;
+    return responseBuilder.error(lastError, {
+      code: "NAVIGATION_FAILED",
+      suggestions: [
+        "Check if the URL is accessible from your network",
+        "Try increasing the timeout parameter",
+        "Verify the URL format includes protocol (http:// or https://)",
+      ],
+      meta: { ...sessionManager.buildMeta(session), elapsed },
+    });
   },
 });
 

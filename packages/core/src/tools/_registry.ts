@@ -36,6 +36,7 @@ export interface ToolContext {
   eventBus: EventBus;
   lazyContext: LazyContext;
   incidentEngine: IncidentEngine;
+  toolRegistry?: ToolRegistry;
   tokenBudget?: { maxResponseTokens: number };
   /** Progress reporter for long-running tools — sends notifications to MCP client */
   progressReporter?: import("../utils/ProgressReporter.js").ProgressReporter;

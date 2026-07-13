@@ -15,6 +15,7 @@ export interface ManagedProcess {
   child: ChildProcess;
   logBuffer: Array<{ line: string; level: LogLevel; timestamp: string }>;
   running: boolean;
+  exitCode?: number;
 }
 
 export interface ProcessConfig {
@@ -130,6 +131,7 @@ export class ProcessManager {
     // Handle exit
     child.on("exit", (code, signal) => {
       managed.running = false;
+      managed.exitCode = code ?? -1;
       logger.info({ processId, code, signal }, "Process exited");
 
       // Publish exit event to EventBus for scheduler auto-trigger
@@ -218,6 +220,25 @@ export class ProcessManager {
     if (!proc.running || !proc.child.stdin) return false;
     proc.child.stdin.write(`${input}\n`);
     return true;
+  }
+
+  /**
+   * Wait for a spawned process to exit (or time out). Resolves with the
+   * exit code. Used by process_run_and_wait so a single tool call can spawn,
+   * block, and return the output — no manual poll loop in the agent.
+   */
+  waitForExit(processId: string, timeoutMs: number): Promise<number> {
+    const proc = this.get(processId);
+    if (!proc.running) return Promise.resolve(proc.exitCode ?? -1);
+    return new Promise<number>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(`Process ${processId} did not exit within ${timeoutMs}ms`));
+      }, timeoutMs);
+      proc.child.once("exit", (code) => {
+        clearTimeout(timer);
+        resolve(code ?? -1);
+      });
+    });
   }
 
   private getRunningCount(): number {

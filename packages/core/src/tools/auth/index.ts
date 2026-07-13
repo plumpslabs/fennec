@@ -167,9 +167,10 @@ export const authFillLoginForm = createTool({
 export const authSaveSession = createTool({
   name: "auth_save_session",
   category: "auth",
-  description: "`<use_case>Auth</use_case> 💾 Save the current auth state (cookies + localStorage) to a named session for later reuse. Returns sessionId, savedAt, and filePath (where it was written, e.g. ./.fennec/sessions/<name>.json). Use AFTER successful login to persist the session — next time you can use auth_load_session to restore auth instantly without re-entering credentials. Pass filePath to write to a custom location. List saved sessions with auth_list_sessions. Delete with auth_delete_session.`",
+  description: "`<use_case>Auth</use_case> 💾 Save the current auth state (cookies + localStorage) to a named session for later reuse. Returns sessionId, savedAt, filePath, and metadata. Use AFTER successful login to persist the session — next time you can use auth_load_session to restore auth instantly. Capture context with `metadata` (e.g. { user, role, workspace, notes }) so you can tell sessions apart later — auth_list_sessions shows it. Pass filePath to write to a custom location.`",
   inputSchema: z.object({
     name: z.string().describe("Session name to save as"),
+    metadata: z.record(z.unknown()).optional().describe("Free-form context to remember with this session: user, role, workspace, notes, etc. Shown by auth_list_sessions."),
     filePath: z.string().optional().describe("Custom path to save the session JSON (defaults to ./.fennec/sessions/<name>.json)"),
     sessionId: z.string().optional().describe("Browser session ID"),
   }),
@@ -196,6 +197,7 @@ export const authSaveSession = createTool({
         localStorage: storage,
         sessionStorage: {},
         origin,
+        metadata: input.metadata,
       };
 
       const filePath = input.filePath ?? sessionStore.pathFor(input.name);
@@ -209,6 +211,7 @@ export const authSaveSession = createTool({
         sessionId: session.id,
         savedAt: new Date().toISOString(),
         filePath,
+        metadata: input.metadata ?? null,
       }, sessionManager.buildMeta(session));
     } catch (error) {
       return responseBuilder.error(error);
@@ -277,9 +280,9 @@ export const authListSessions = createTool({
   description: "`<use_case>Auth</use_case> 📋 List all saved auth sessions with their names, origins, save dates, and filePath. Also auto-discovers sessions in the cwd ./.fennec/sessions directory. Returns sessions[] and count. Use to discover available sessions before loading one with auth_load_session or deleting with auth_delete_session. Sessions are persisted on disk, so they survive browser restarts.`",
   inputSchema: z.object({}),
   handler: async (input, { responseBuilder, sessionStore }) => {
-    const byName = new Map<string, { name: string; savedAt: string; origin: string; filePath: string }>();
-    const add = (s: { name: string; savedAt: string; origin: string }, filePath: string) => {
-      if (!byName.has(s.name)) byName.set(s.name, { name: s.name, savedAt: s.savedAt, origin: s.origin, filePath });
+    const byName = new Map<string, { name: string; savedAt: string; origin: string; filePath: string; metadata?: Record<string, unknown> }>();
+    const add = (s: { name: string; savedAt: string; origin: string; metadata?: Record<string, unknown> }, filePath: string) => {
+      if (!byName.has(s.name)) byName.set(s.name, { name: s.name, savedAt: s.savedAt, origin: s.origin, filePath, metadata: s.metadata });
     };
     for (const s of sessionStore.list()) add(s, sessionStore.pathFor(s.name));
     for (const s of sessionStore.listFromDir(join(process.cwd(), ".fennec", "sessions"))) {

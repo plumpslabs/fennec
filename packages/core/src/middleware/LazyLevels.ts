@@ -89,6 +89,7 @@ export function createLazyLevel1(
               status: (pulse.status as "healthy" | "warning" | "error") ?? "healthy",
               consoleErrors: (pulse.consoleErrors as number) ?? 0,
               consoleWarnings: (pulse.consoleWarnings as number) ?? 0,
+              corsWarnings: (pulse.corsWarnings as number) ?? 0,
               networkFailures: (pulse.networkFailures as number) ?? 0,
               networkSlow: (pulse.networkSlow as number) ?? 0,
               summary: (pulse.summary as string) ?? "",
