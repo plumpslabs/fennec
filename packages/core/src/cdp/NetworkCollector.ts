@@ -97,12 +97,14 @@ export class NetworkCollector {
   private collectedEvents: NetworkEvent[] = [];
   private maxCollectedEvents = 1000;
   private enabled = false;
+  private cdpSession?: BrowserCDPSession;
 
   async enable(cdpSession: BrowserCDPSession): Promise<void> {
     if (this.enabled) return;
 
     try {
       await cdpSession.send('Network.enable');
+      this.cdpSession = cdpSession;
 
       cdpSession.on('Network.requestWillBeSent', (msg: unknown) => {
         this.handleRequestSent(msg as CDPRequestWillBeSent);
@@ -180,6 +182,34 @@ export class NetworkCollector {
         existing.timing.ttfb +
         existing.timing.sending;
       existing.timing.contentDownload = Math.max(0, totalMs - beforeContent);
+    }
+
+    // Fetch the response body lazily (CDP only exposes it via a separate
+    // call, and only once loading has finished). Fire-and-forget: the
+    // stored event object is the same reference held by consumers
+    // (networkBuffer), so setting `responseBody` here propagates.
+    void this.fetchResponseBody(msg.requestId);
+  }
+
+  /**
+   * Fetch a request's response body via CDP `Network.getResponseBody`.
+   * Decodes base64 payloads (e.g. binary/compressed) and attaches
+   * the result to the matching event so `network_get_request_detail`
+   * and `network_wait_for_api_response` can surface it.
+   */
+  private async fetchResponseBody(requestId: string): Promise<void> {
+    const session = this.cdpSession;
+    if (!session) return;
+    try {
+      const res = (await session.send('Network.getResponseBody', {
+        requestId,
+      })) as { body: string; base64Encoded: boolean };
+      const body = res.base64Encoded ? Buffer.from(res.body, 'base64').toString('utf-8') : res.body;
+      const event = this.collectedEvents.find((e) => e.requestId === requestId);
+      if (event) event.responseBody = body;
+    } catch {
+      // Body unavailable: no data, binary stream, or already evicted from
+      // the CDP buffer. Leave `responseBody` undefined.
     }
   }
 
