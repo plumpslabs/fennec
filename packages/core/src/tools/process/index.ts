@@ -880,7 +880,14 @@ export const processRestart = createTool({
           const newProc = await processManager.restart(target.value!);
           // Preserve the logical group across restart (addTracked REPLACES the
           // entry by name, so `group` must be carried over explicitly).
-          addTracked({ name: newProc.name, pid: newProc.pid, command: newProc.command, cwd: newProc.cwd, startedAt: newProc.startedAt.toISOString(), group: mcp.group });
+          addTracked({
+            name: newProc.name,
+            pid: newProc.pid,
+            command: newProc.command,
+            cwd: newProc.cwd,
+            startedAt: newProc.startedAt.toISOString(),
+            group: mcp.group,
+          });
           restarted.push({ name: newProc.name, pid: newProc.pid });
         } else {
           restartTracked(target.value!);

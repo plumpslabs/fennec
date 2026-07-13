@@ -55,8 +55,10 @@ export async function groupCommand(args: string[]): Promise<void> {
       `\n  ${pc.bold('Fennec Apps by Group')} ${pc.dim(`(${getGroups().length} group(s))`)}\n`,
     );
     console.error(renderTable(columns, rows));
-    console.error(`  ${pc.dim("Assign one:")} ${pc.cyan("fennec group <name> <group>")}`);
-    console.error(`  ${pc.dim("Assign bulk:")} ${pc.cyan("fennec group <group> <name...>")}  ${pc.dim("Clear:")} ${pc.cyan("fennec group <name> --unset")}`);
+    console.error(`  ${pc.dim('Assign one:')} ${pc.cyan('fennec group <name> <group>')}`);
+    console.error(
+      `  ${pc.dim('Assign bulk:')} ${pc.cyan('fennec group <group> <name...>')}  ${pc.dim('Clear:')} ${pc.cyan('fennec group <name> --unset')}`,
+    );
     console.error();
     return;
   }
@@ -66,10 +68,10 @@ export async function groupCommand(args: string[]): Promise<void> {
     const name = positional[0]!;
     const ok = setGroup(name, undefined);
     if (!ok) {
-      console.error(renderError("Not found", `No tracked process named "${name}".`));
+      console.error(renderError('Not found', `No tracked process named "${name}".`));
       process.exit(1);
     }
-    console.error(`\n  ${pc.green("✓")} ${pc.bold(name)} ${pc.dim("removed from its group")}\n`);
+    console.error(`\n  ${pc.green('✓')} ${pc.bold(name)} ${pc.dim('removed from its group')}\n`);
     return;
   }
 
@@ -106,10 +108,12 @@ export async function groupCommand(args: string[]): Promise<void> {
   }
 
   if (okNames.length > 0) {
-    console.error(`\n  ${pc.green("✓")} ${pc.bold(okNames.join(", "))} ${pc.dim(`assigned to group`)} ${pc.cyan(group)}`);
+    console.error(
+      `\n  ${pc.green('✓')} ${pc.bold(okNames.join(', '))} ${pc.dim(`assigned to group`)} ${pc.cyan(group)}`,
+    );
   }
   if (failed.length > 0) {
-    console.error(`  ${pc.red("✗")} ${pc.dim(`not found: ${failed.join(", ")}`)}`);
+    console.error(`  ${pc.red('✗')} ${pc.dim(`not found: ${failed.join(', ')}`)}`);
   }
   if (okNames.length === 0 && failed.length > 0) process.exit(1);
   console.error();
