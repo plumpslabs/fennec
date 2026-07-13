@@ -265,6 +265,54 @@ export class Recorder {
   }
 
   /**
+   * Export a recording as a runnable Playwright or Puppeteer script.
+   * Maps recorded actions (navigate/click/type/select/scroll/screenshot/wait/
+   * evaluate) onto the target framework's API. Returns null if the recording
+   * is missing.
+   */
+  exportAsScript(id: string, framework: 'playwright' | 'puppeteer' = 'playwright'): string | null {
+    const recording = this.recordings.get(id);
+    if (!recording) return null;
+
+    const isPw = framework === 'playwright';
+    const header = isPw
+      ? `import { chromium } from 'playwright';\n\n(async () => {\n  const browser = await chromium.launch();\n  const page = await browser.newPage();\n`
+      : `const puppeteer = require('puppeteer');\n\n(async () => {\n  const browser = await puppeteer.launch();\n  const page = await browser.newPage();\n`;
+
+    const body = recording.actions.map((a) => this.actionToScript(a, isPw)).join('\n');
+
+    const footer = `\n  await browser.close();\n})();\n`;
+    return header + body + footer;
+  }
+
+  private actionToScript(a: RecordedAction, isPw: boolean): string {
+    const sel = (p: Record<string, unknown>) =>
+      (p.selector as string) ?? (p.locator as string) ?? 'body';
+    const txt = (p: Record<string, unknown>) => (p.text as string) ?? (p.value as string) ?? '';
+    const indent = '  ';
+    switch (a.type) {
+      case 'navigate':
+        return `${indent}await page.goto(${JSON.stringify(a.params.url ?? a.url)});`;
+      case 'click':
+        return `${indent}await page.${isPw ? 'click' : 'click'}(${JSON.stringify(sel(a.params))});`;
+      case 'type':
+        return `${indent}await page.fill(${JSON.stringify(sel(a.params))}, ${JSON.stringify(txt(a.params))});`;
+      case 'select':
+        return `${indent}await page.selectOption(${JSON.stringify(sel(a.params))}, ${JSON.stringify(a.params.value ?? '')});`;
+      case 'scroll':
+        return `${indent}await page.evaluate(() => window.scrollBy(0, ${Number(a.params.y ?? a.params.deltaY ?? 0)}));`;
+      case 'screenshot':
+        return `${indent}await page.screenshot({ path: ${JSON.stringify((a.params.path as string) ?? `shot-${a.id}.png`)} });`;
+      case 'wait':
+        return `${indent}await page.waitForTimeout(${Number(a.params.ms ?? 1000)});`;
+      case 'evaluate':
+        return `${indent}await page.evaluate(${a.params.fn ?? '() => {}'});`;
+      default:
+        return `${indent}// ${a.type}: ${a.description.replace(/\*\//g, '')}`;
+    }
+  }
+
+  /**
    * Export a recording as JSON.
    */
   exportRecording(id: string): string | null {

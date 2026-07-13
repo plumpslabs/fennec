@@ -1,6 +1,6 @@
 # Fennec Tool Reference
 
-Fennec provides **17 MCP tools** organized into **15 categories**. Each tool is designed to be consumed by AI agents, with structured input/output and actionable error messages.
+Fennec provides **134 MCP tools** organized into **17 categories**. Each tool is designed to be consumed by AI agents, with structured input/output and actionable error messages.
 
 > 💡 **Token-Efficient**: MCP clients can request specific categories to reduce context window usage. Every tool response also carries a `_tokenTier` (low/medium/high) in `tools/list` so agents prefer cheap tools first. Screenshots default to compressed JPEG and `smart_navigate` returns structured JSON (no image) unless you ask for one.
 
@@ -241,6 +241,26 @@ Multi-step execution planning from natural language goals.
 | `planner_get_plan`     | Get plan details               |
 | `planner_cancel_plan`  | Cancel running plan            |
 
+### [Recorder](recorder.md) (5 tools)
+
+Capture user interactions and export them as runnable test scripts.
+
+| Tool               | Description                                                     |
+| ------------------ | --------------------------------------------------------------- |
+| `recorder_start`   | Start recording interactions in the session                     |
+| `recorder_stop`    | Stop the active recording                                       |
+| `recorder_export`  | Export the last recording as a Playwright/Puppeteer test script |
+| `recorder_list`    | List saved recordings                                           |
+| `recorder_capture` | Manually capture a step into the active recording               |
+
+### [Assert](assert.md) (1 tools)
+
+Token-efficient assertions for AI-driven verification (no screenshot needed).
+
+| Tool             | Description                                         |
+| ---------------- | --------------------------------------------------- |
+| `browser_assert` | Assert page/element state with structured pass/fail |
+
 ---
 
 ## Quick Stats
@@ -262,7 +282,9 @@ Multi-step execution planning from natural language goals.
 | Scheduler            | 7       |          ❌           |
 | Smart                | 12      |          ✅           |
 | Planner              | 5       |          ❌           |
-| **Total**            | **128** | **0 without browser** |
+| Recorder             | 5       |          ✅           |
+| Assert               | 1       |          ✅           |
+| **Total**            | **134** | **0 without browser** |
 
 > **0 tools work without Playwright/browser engines** — process, terminal, storage (basic), scheduler, planner, and partial auth + diagnostic.
 

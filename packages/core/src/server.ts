@@ -234,6 +234,14 @@ import {
 } from './tools/ai/index.js';
 import { toolsHelp } from './tools/help/index.js';
 import { budgetCheckPage, budgetGetSummary } from './tools/budget/index.js';
+import {
+  recorderStart,
+  recorderStop,
+  recorderExport,
+  recorderList,
+  recorderCapture,
+} from './tools/recorder/index.js';
+import { browserAssert } from './tools/assert/index.js';
 
 export class FennecServer {
   private server: Server;
@@ -493,6 +501,13 @@ export class FennecServer {
       mobileInspectWebview,
       mobileGetWebviewContent,
       mobileCaptureWebviewConsole,
+      // Test authoring
+      recorderStart,
+      recorderStop,
+      recorderExport,
+      recorderList,
+      recorderCapture,
+      browserAssert,
     ];
 
     for (const tool of tools) {
