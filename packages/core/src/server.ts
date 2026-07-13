@@ -20,6 +20,7 @@ import { createLogger, getLogger } from './utils/logger.js';
 import { ProcessManager } from './process/ProcessManager.js';
 import { LogWatcher } from './process/LogWatcher.js';
 import type { FennecConfig } from './config/defaults.js';
+import { DEFAULT_CONSOLE_IGNORE_PATTERNS } from './config/defaults.js';
 import {
   Pipeline,
   createPermissionGuard,
@@ -551,7 +552,12 @@ export class FennecServer {
         this.sessionManager.addNetworkEvent(target.id, event);
       });
 
-      await consoleCollector.enable(target.browser.cdp());
+      await consoleCollector.enable(target.browser.cdp(), {
+        ignorePatterns: [
+          ...DEFAULT_CONSOLE_IGNORE_PATTERNS,
+          ...(this.config.console.ignorePatterns ?? []),
+        ],
+      });
       await networkCollector.enable(target.browser.cdp());
 
       logger.info(`CDP monitoring enabled for session ${target.id}`);

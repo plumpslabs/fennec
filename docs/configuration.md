@@ -66,6 +66,16 @@ console:
     - warn
     - error
     - debug
+  # Messages matching any pattern are dropped before they reach the console
+  # buffer, pulse status, or incident engine. Defaults already ignore common
+  # dev-server HMR websocket noise (e.g. Vite). Strings are case-insensitive
+  # substring matches; wrap in /regex/flags for full regex.
+  ignorePatterns:
+    - 'failed to connect to websocket'
+    - 'insecure websocket connection'
+    - 'websocket connection to'
+    - 'hot update failed'
+    - 'hmr update failed'
 
 correlation:
   windowMs: 500

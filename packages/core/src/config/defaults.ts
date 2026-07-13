@@ -7,6 +7,21 @@ const STORE_BASE = resolve(
   '.fennec',
 );
 
+/**
+ * Pure dev-tool websocket noise that should never be treated as a page error.
+ * Vite (and similar dev servers) log an error when the HMR websocket can't
+ * connect (e.g. insecure ws on https, or ws upgrade refused). These are
+ * dev-only artifacts, not application bugs. Applied by default on top of any
+ * user-supplied `console.ignorePatterns`.
+ */
+export const DEFAULT_CONSOLE_IGNORE_PATTERNS: string[] = [
+  'failed to connect to websocket',
+  'insecure websocket connection',
+  'websocket connection to',
+  'hot update failed',
+  'hmr update failed',
+];
+
 export interface FennecConfig {
   browser: {
     adapter: 'auto' | 'cdp' | 'playwright';
@@ -46,6 +61,14 @@ export interface FennecConfig {
   console: {
     bufferSize: number;
     levels: string[];
+    /**
+     * Console message patterns to silently ignore. Matches are dropped before they
+     * reach the console buffer, pulse status, or incident engine — so benign dev
+     * noise (e.g. Vite HMR websocket errors) never flips the page status to
+     * `error` or triggers a false-positive incident. Strings are treated as
+     * case-insensitive substring matches; wrap in `/.../` for regex.
+     */
+    ignorePatterns?: string[];
   };
   correlation: {
     windowMs: number;
@@ -131,6 +154,7 @@ export const defaultConfig: FennecConfig = {
   console: {
     bufferSize: 500,
     levels: ['log', 'info', 'warn', 'error', 'debug'],
+    ignorePatterns: [...DEFAULT_CONSOLE_IGNORE_PATTERNS],
   },
   correlation: {
     windowMs: 500,

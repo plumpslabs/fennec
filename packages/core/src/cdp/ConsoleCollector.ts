@@ -7,8 +7,20 @@ type ConsoleCallback = (event: ConsoleEvent) => void;
 export class ConsoleCollector {
   private listeners: Map<string, ConsoleCallback> = new Map();
   private enabled = false;
+  private ignorePatterns: RegExp[] = [];
 
-  async enable(cdpSession: BrowserCDPSession): Promise<void> {
+  async enable(
+    cdpSession: BrowserCDPSession,
+    options?: { ignorePatterns?: string[] },
+  ): Promise<void> {
+    if (options?.ignorePatterns?.length) {
+      this.ignorePatterns = options.ignorePatterns.map((p) => {
+        // Support /regex/ syntax, otherwise case-insensitive substring match.
+        const m = p.match(/^\/(.*)\/([a-z]*)$/);
+        if (m) return new RegExp(m[1]!, m[2] || 'i');
+        return new RegExp(p, 'i');
+      });
+    }
     if (this.enabled) return;
 
     try {
@@ -80,6 +92,7 @@ export class ConsoleCollector {
       };
     };
   }): void {
+    if (this.shouldIgnore(msg.message.text)) return;
     const event: ConsoleEvent = {
       level: msg.message.level as ConsoleEvent['level'],
       message: msg.message.text,
@@ -111,6 +124,7 @@ export class ConsoleCollector {
       };
     };
   }): void {
+    if (this.shouldIgnore(msg.exceptionDetails.text)) return;
     const event: ConsoleEvent = {
       level: 'error',
       message: msg.exceptionDetails.text,
@@ -133,6 +147,11 @@ export class ConsoleCollector {
 
   off(id: string): void {
     this.listeners.delete(id);
+  }
+
+  private shouldIgnore(message?: string): boolean {
+    if (!message || this.ignorePatterns.length === 0) return false;
+    return this.ignorePatterns.some((re) => re.test(message));
   }
 
   private emit(event: ConsoleEvent): void {
