@@ -184,7 +184,10 @@ export interface Locator {
   setInputFiles(paths: string[]): Promise<void>;
   setChecked(checked: boolean): Promise<void>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  evaluate<T = unknown>(fn: string | ((el: Element, ...args: any[]) => T), ...args: unknown[]): Promise<T>;
+  evaluate<T = unknown>(
+    fn: string | ((el: Element, ...args: any[]) => T),
+    ...args: unknown[]
+  ): Promise<T>;
   evaluateAll<T = unknown>(fn: (els: Element[], ...args: any[]) => T, ...args: any[]): Promise<T>;
   elementHandle(): Promise<ElementHandle | null>;
   first(): Locator;

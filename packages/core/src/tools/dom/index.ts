@@ -368,18 +368,23 @@ export const browserGetAccessibilityTree = createTool({
 });
 
 export const browserFindElements = createTool({
-  name: "browser_find_elements",
-  category: "dom",
-  description: "`<use_case>DOM inspection</use_case> 🔎 Find ALL elements matching a selector, using the SAME unified selector engine as browser_click / browser_type / browser_hover. Supports CSS, `text=\"Login\"`, `:has-text(\"Login\")`, `role=button`, and `xpath=//...`. Returns specified attributes for each element (default: id, class, textContent, tagName). Falls back to Shadow DOM piercing (CSS only) when the unified engine finds nothing. Use when you know the selector and need specific elements. For exploring the whole page structure, use browser_get_dom_snapshot first.`",
+  name: 'browser_find_elements',
+  category: 'dom',
+  description:
+    '`<use_case>DOM inspection</use_case> 🔎 Find ALL elements matching a selector, using the SAME unified selector engine as browser_click / browser_type / browser_hover. Supports CSS, `text="Login"`, `:has-text("Login")`, `role=button`, and `xpath=//...`. Returns specified attributes for each element (default: id, class, textContent, tagName). Falls back to Shadow DOM piercing (CSS only) when the unified engine finds nothing. Use when you know the selector and need specific elements. For exploring the whole page structure, use browser_get_dom_snapshot first.`',
   inputSchema: z.object({
-    selector: z.string().describe("Selector — CSS, text=, :has-text(), role=, or xpath="),
+    selector: z.string().describe('Selector — CSS, text=, :has-text(), role=, or xpath='),
     returnAttributes: z
       .array(z.string())
       .optional()
-      .default(["id", "class", "textContent", "tagName"])
-      .describe("Attributes to return for each element"),
-    includeShadowDom: z.boolean().optional().default(true).describe("Include Shadow DOM elements in search (CSS fallback)"),
-    sessionId: z.string().optional().describe("Session ID"),
+      .default(['id', 'class', 'textContent', 'tagName'])
+      .describe('Attributes to return for each element'),
+    includeShadowDom: z
+      .boolean()
+      .optional()
+      .default(true)
+      .describe('Include Shadow DOM elements in search (CSS fallback)'),
+    sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
@@ -394,8 +399,8 @@ export const browserFindElements = createTool({
             els.map((el) => {
               const a: Record<string, string | null> = {};
               for (const attr of attrs) {
-                if (attr === "textContent") a[attr] = el.textContent?.trim() ?? null;
-                else if (attr === "tagName") a[attr] = el.tagName?.toLowerCase() ?? null;
+                if (attr === 'textContent') a[attr] = el.textContent?.trim() ?? null;
+                else if (attr === 'tagName') a[attr] = el.tagName?.toLowerCase() ?? null;
                 else a[attr] = el.getAttribute(attr) ?? null;
               }
               return a;
@@ -415,8 +420,10 @@ export const browserFindElements = createTool({
                 const out: Element[] = [];
                 try {
                   out.push(...Array.from(root.querySelectorAll(s)));
-                } catch { /* invalid selector */ }
-                const all = root.querySelectorAll("*");
+                } catch {
+                  /* invalid selector */
+                }
+                const all = root.querySelectorAll('*');
                 for (const el of Array.from(all)) {
                   const sr = (el as Element & { shadowRoot?: ShadowRoot | null }).shadowRoot;
                   if (sr) out.push(...queryAllDeep(sr, s));
@@ -427,8 +434,8 @@ export const browserFindElements = createTool({
               return els.map((el) => {
                 const a: Record<string, string | null> = {};
                 for (const attr of attrs) {
-                  if (attr === "textContent") a[attr] = el.textContent?.trim() ?? null;
-                  else if (attr === "tagName") a[attr] = el.tagName?.toLowerCase() ?? null;
+                  if (attr === 'textContent') a[attr] = el.textContent?.trim() ?? null;
+                  else if (attr === 'tagName') a[attr] = el.tagName?.toLowerCase() ?? null;
                   else a[attr] = el.getAttribute(attr) ?? null;
                 }
                 return a;
@@ -440,16 +447,19 @@ export const browserFindElements = createTool({
         result = shadow;
       }
 
-      return responseBuilder.success({
-        elements: result,
-        count: result.length,
-      }, sessionManager.buildMeta(session));
+      return responseBuilder.success(
+        {
+          elements: result,
+          count: result.length,
+        },
+        sessionManager.buildMeta(session),
+      );
     } catch (error) {
       return responseBuilder.error(error, {
-        code: "ELEMENT_QUERY_FAILED",
+        code: 'ELEMENT_QUERY_FAILED',
         suggestions: [
-          "Use a supported selector: CSS, text=\"Login\", :has-text(\"Login\"), role=button, or xpath=//...",
-          "For text matching prefer text=\"Login\" or :has-text(\"Login\")",
+          'Use a supported selector: CSS, text="Login", :has-text("Login"), role=button, or xpath=//...',
+          'For text matching prefer text="Login" or :has-text("Login")',
         ],
       });
     }

@@ -4,17 +4,17 @@ Tools for inspecting and extracting page content, with full Shadow DOM support.
 
 ## Tools
 
-| Tool | Description | Parameters |
-|------|-------------|------------|
-| `browser_screenshot` | Take a screenshot | fullPage?, selector?, format?, sessionId? |
-| `browser_get_dom_snapshot` | Get DOM snapshot with Shadow DOM | selector?, includeStyles?, includeShadowDom?, sessionId? |
-| `browser_get_accessibility_tree` | Get accessibility tree | selector?, sessionId? |
-| `browser_find_elements` | Find elements by selector (CSS / `text=` / `:has-text()` / `role=` / `xpath=`) with Shadow DOM piercing fallback | selector, returnAttributes?, includeShadowDom?, sessionId? |
-| `browser_get_element_info` | Get element details | selector, sessionId? |
-| `browser_wait_for_element` | Wait for element state | selector, state?, timeout?, sessionId? |
-| `browser_get_page_text` | Get visible page text | selector?, sessionId? |
-| `browser_get_page_title` | Get page title | sessionId? |
-| `browser_get_meta` | Get SEO/meta tags | sessionId? |
+| Tool                             | Description                                                                                                      | Parameters                                                 |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `browser_screenshot`             | Take a screenshot                                                                                                | fullPage?, selector?, format?, sessionId?                  |
+| `browser_get_dom_snapshot`       | Get DOM snapshot with Shadow DOM                                                                                 | selector?, includeStyles?, includeShadowDom?, sessionId?   |
+| `browser_get_accessibility_tree` | Get accessibility tree                                                                                           | selector?, sessionId?                                      |
+| `browser_find_elements`          | Find elements by selector (CSS / `text=` / `:has-text()` / `role=` / `xpath=`) with Shadow DOM piercing fallback | selector, returnAttributes?, includeShadowDom?, sessionId? |
+| `browser_get_element_info`       | Get element details                                                                                              | selector, sessionId?                                       |
+| `browser_wait_for_element`       | Wait for element state                                                                                           | selector, state?, timeout?, sessionId?                     |
+| `browser_get_page_text`          | Get visible page text                                                                                            | selector?, sessionId?                                      |
+| `browser_get_page_title`         | Get page title                                                                                                   | sessionId?                                                 |
+| `browser_get_meta`               | Get SEO/meta tags                                                                                                | sessionId?                                                 |
 
 ## Shadow DOM Support
 
