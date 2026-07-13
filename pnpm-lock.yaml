@@ -61,9 +61,6 @@ importers:
       js-yaml:
         specifier: ^5.2.1
         version: 5.2.1
-      playwright:
-        specifier: ^1.42.0
-        version: 1.61.1
       zod:
         specifier: ^3.22.0
         version: 3.25.76
@@ -77,6 +74,9 @@ importers:
       '@types/node':
         specifier: ^20.11.0
         version: 20.19.43
+      playwright:
+        specifier: ^1.61.1
+        version: 1.61.1
       tsup:
         specifier: ^8.0.0
         version: 8.5.1(postcss@8.5.15)(typescript@5.9.3)
