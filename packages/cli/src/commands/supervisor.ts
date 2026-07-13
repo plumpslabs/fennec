@@ -25,6 +25,7 @@ import {
   mkdirSync,
   openSync,
   closeSync,
+  statSync,
 } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { dirname } from 'node:path';
@@ -87,8 +88,55 @@ export function ensureSupervisorRunning(): number {
   return startSupervisorDaemon();
 }
 
-/** Spawn the supervisor as a detached daemon and return its PID. */
+/**
+ * Spawn the supervisor as a detached daemon and return its PID.
+ *
+ * Guarded by an atomic lockfile so concurrent `spawn --restart` calls
+ * (each of which calls `ensureSupervisorRunning`) cannot all observe a
+ * missing pidfile and spawn a separate `__supervisor` — that race was
+ * the root cause of many duplicate daemons piling up.
+ */
 export function startSupervisorDaemon(): number {
+  const already = getSupervisorPid();
+  if (already) return already;
+
+  const lockPath = `${getSupervisorPidPath()}.lock`;
+  const SUPERVISOR_LOCK_STALE_MS = 60_000;
+  const acquireLock = (): boolean => {
+    try {
+      const lfd = openSync(lockPath, 'wx'); // throws if already locked
+      closeSync(lfd);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  if (!acquireLock()) {
+    // Lock held. A spawn is either in flight (daemon not yet written its
+    // pidfile) or the lock is stale (a previous spawner died mid-start).
+    // Never delete a held lock blindly — that would let a second spawner
+    // race in and start a duplicate daemon.
+    const live = getSupervisorPid();
+    if (live) return live;
+    let stale = false;
+    try {
+      stale = Date.now() - statSync(lockPath).mtimeMs > SUPERVISOR_LOCK_STALE_MS;
+    } catch {
+      stale = false;
+    }
+    if (stale) {
+      try {
+        unlinkSync(lockPath);
+      } catch {
+        /* ignore */
+      }
+      if (!acquireLock()) return getSupervisorPid() ?? 0;
+    } else {
+      // In-flight: trust it and don't spawn a duplicate.
+      return 0;
+    }
+  }
+
   const logFilePath = logFilePathFor('supervisor');
   mkdirSync(dirname(logFilePath), { recursive: true });
   const fd = openSync(logFilePath, 'a');
@@ -226,6 +274,13 @@ export async function runSupervisor(): Promise<void> {
     return;
   }
   writeFileSync(pidPath, String(process.pid), 'utf-8');
+  // Release the spawn lock now that the pidfile is authoritative, so
+  // concurrent `ensureSupervisorRunning` callers see a live supervisor.
+  try {
+    unlinkSync(`${pidPath}.lock`);
+  } catch {
+    /* best-effort */
+  }
   log(`supervisor started (PID ${process.pid}), polling every ${POLL_INTERVAL_MS}ms`);
 
   const crashes = new Map<string, CrashRecord>();
@@ -235,6 +290,11 @@ export async function runSupervisor(): Promise<void> {
     stopped = true;
     try {
       unlinkSync(pidPath);
+    } catch {
+      /* best-effort */
+    }
+    try {
+      unlinkSync(`${pidPath}.lock`);
     } catch {
       /* best-effort */
     }
