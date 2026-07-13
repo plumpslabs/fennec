@@ -447,6 +447,33 @@ export class SessionManager {
     await this.rotateSessionInternal(session);
   }
 
+  /**
+   * Ensure a session's browser page/CDP is still usable. If the page/target
+   * has died (e.g. cross-scheme https->http navigation detaching the CDP
+   * target — issue #4), transparently recreate the page in the same context
+   * and re-attach CDP collectors via the `onRotate` hook, so the very next
+   * tool call works instead of every call failing with "Unable to connect".
+   */
+  async ensureAlive(id?: string): Promise<void> {
+    const sessionId = id ?? this.defaultSessionId;
+    if (!sessionId) return;
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    if (session.browser.isAlive()) return;
+
+    const logger = getLogger();
+    try {
+      await session.browser.recreate();
+      session.lastUsedAt = new Date();
+      if (this.onRotate) {
+        await this.onRotate(session.id);
+      }
+      logger.warn({ sessionId }, "Recovered a dead browser session by recreating its page");
+    } catch (error) {
+      logger.warn({ sessionId, error }, "Session recovery (recreate) failed");
+    }
+  }
+
   async close(): Promise<void> {
     if (this.pruneTimer) {
       clearInterval(this.pruneTimer);

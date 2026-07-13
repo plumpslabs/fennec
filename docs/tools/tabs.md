@@ -49,3 +49,5 @@ Each browser context provides isolated storage (cookies, localStorage, IndexedDB
 - The default context cannot be closed
 
 Use `tab_switch` to change the active tab within the same context. Use `context_new` + `tab_new` for multi-user testing.
+
+- **`browser_session_recover`**: Recovers a session whose page/CDP target died silently (e.g. after a cross-scheme https→http navigation detached the CDP target — #4). Recreates the page in the same context and re-attaches collectors, so the next tool call works without restarting Fennec.

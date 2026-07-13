@@ -102,7 +102,8 @@ import {
   contextNew,
   contextClose,
   contextRotate,
-} from '../../tools/tabs/index.js';
+  sessionRecover,
+} from "../../tools/tabs/index.js";
 import {
   smartWait,
   smartNavigate,
@@ -212,6 +213,7 @@ export const browserModule: FennecModule = {
     contextNew,
     contextClose,
     contextRotate,
+    sessionRecover,
     // Smart
     smartWait,
     smartNavigate,
