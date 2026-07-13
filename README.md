@@ -309,7 +309,7 @@ fennec dev status
 ## Documentation
 
 - [Getting Started Guide](docs/getting-started.md) — includes mobile development (wireless ADB)
-- [Full Tool Reference](docs/tools/README.md) — all 128 tools documented
+- [Full Tool Reference](docs/tools/README.md) — all 17 tools documented
 - [Configuration Reference](docs/configuration.md) — all options + env vars
 - [Security Model](docs/security-model.md) — sandbox, allowlists, best practices
 - [Auth Flows Guide](docs/guides/auth-flows.md) — login forms, session persistence

@@ -12,6 +12,13 @@ export const networkGetLogs = createTool({
     method: z.string().optional().describe('Filter by HTTP method (GET, POST, etc.)'),
     urlPattern: z.string().optional().describe('Filter by URL pattern'),
     limit: z.number().optional().default(50).describe('Maximum number of requests to return'),
+    includeResponseBodies: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(
+        'Include response bodies in the log. OFF by default to keep output lean; bodies are still available via network_get_request_detail.',
+      ),
     sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
@@ -33,6 +40,12 @@ export const networkGetLogs = createTool({
 
     if (input.limit && input.limit > 0) {
       requests = requests.slice(-input.limit);
+    }
+
+    // By default response bodies are omitted from the log (they can be
+    // large); surface them only when explicitly requested.
+    if (!input.includeResponseBodies) {
+      requests = requests.map(({ responseBody, ...rest }) => rest);
     }
 
     const failedCount = requests.filter((r) => r.status >= 400).length;
@@ -285,6 +298,13 @@ export const networkGetRequestDetail = createTool({
     .object({
       url: z.string().optional().describe('URL of the request to get detail for'),
       requestId: z.string().optional().describe('Request ID from the buffer'),
+      fullBody: z
+        .boolean()
+        .optional()
+        .default(false)
+        .describe(
+          'Return the FULL response body. By default large bodies are truncated to keep the result readable.',
+        ),
       sessionId: z.string().optional().describe('Session ID'),
     })
     .refine((data) => data.url || data.requestId, {
@@ -310,6 +330,13 @@ export const networkGetRequestDetail = createTool({
       });
     }
 
+    const MAX_RESPONSE_BODY = 4000;
+    const rawBody = request.responseBody;
+    const truncated = !!rawBody && !input.fullBody && rawBody.length > MAX_RESPONSE_BODY;
+    const responseBody = truncated
+      ? `${rawBody!.slice(0, MAX_RESPONSE_BODY)}\n…[truncated ${rawBody!.length - MAX_RESPONSE_BODY} chars — pass fullBody:true for the complete body]`
+      : rawBody;
+
     return responseBuilder.success(
       {
         request: {
@@ -320,7 +347,8 @@ export const networkGetRequestDetail = createTool({
           requestHeaders: request.requestHeaders,
           responseHeaders: request.responseHeaders,
           requestBody: request.requestBody,
-          responseBody: request.responseBody,
+          responseBody,
+          responseBodyTruncated: truncated,
           timestamp: request.timestamp,
         },
       },

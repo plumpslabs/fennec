@@ -1,6 +1,6 @@
 # Fennec Tool Reference
 
-Fennec provides **128 MCP tools** organized into **15 categories**. Each tool is designed to be consumed by AI agents, with structured input/output and actionable error messages.
+Fennec provides **17 MCP tools** organized into **15 categories**. Each tool is designed to be consumed by AI agents, with structured input/output and actionable error messages.
 
 > 💡 **Token-Efficient**: MCP clients can request specific categories to reduce context window usage. Every tool response also carries a `_tokenTier` (low/medium/high) in `tools/list` so agents prefer cheap tools first. Screenshots default to compressed JPEG and `smart_navigate` returns structured JSON (no image) unless you ask for one.
 
@@ -245,26 +245,26 @@ Multi-step execution planning from natural language goals.
 
 ## Quick Stats
 
-| Category             | Tools   |    Requires Browser    |
-| -------------------- | ------- | :--------------------: |
-| Navigation           | 6       |           ✅           |
-| Interaction          | 10      |           ✅           |
-| DOM & Page           | 9       |           ✅           |
-| DevTools Console     | 5       |           ✅           |
-| DevTools Network     | 9       |           ✅           |
-| DevTools Performance | 6       |           ✅           |
-| Storage              | 12      |           ✅           |
-| Auth                 | 6       |       ⚠️ Partial       |
-| Tabs & Contexts      | 9       |           ✅           |
-| Process              | 19      |           ❌           |
-| Terminal             | 7       |           ❌           |
-| Diagnostic           | 6       |       ⚠️ Partial       |
-| Scheduler            | 7       |           ❌           |
-| Smart                | 12      |           ✅           |
-| Planner              | 5       |           ❌           |
-| **Total**            | **128** | **50 without browser** |
+| Category             | Tools   |   Requires Browser    |
+| -------------------- | ------- | :-------------------: |
+| Navigation           | 6       |          ✅           |
+| Interaction          | 10      |          ✅           |
+| DOM & Page           | 9       |          ✅           |
+| DevTools Console     | 5       |          ✅           |
+| DevTools Network     | 9       |          ✅           |
+| DevTools Performance | 6       |          ✅           |
+| Storage              | 12      |          ✅           |
+| Auth                 | 6       |      ⚠️ Partial       |
+| Tabs & Contexts      | 9       |          ✅           |
+| Process              | 19      |          ❌           |
+| Terminal             | 7       |          ❌           |
+| Diagnostic           | 6       |      ⚠️ Partial       |
+| Scheduler            | 7       |          ❌           |
+| Smart                | 12      |          ✅           |
+| Planner              | 5       |          ❌           |
+| **Total**            | **128** | **0 without browser** |
 
-> **50 tools work without Playwright/browser engines** — process, terminal, storage (basic), scheduler, planner, and partial auth + diagnostic.
+> **0 tools work without Playwright/browser engines** — process, terminal, storage (basic), scheduler, planner, and partial auth + diagnostic.
 
 ---
 

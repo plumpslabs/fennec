@@ -5,6 +5,7 @@ import {
   networkRemoveIntercept,
   networkMockResponse,
 } from '../../../src/tools/devtools/network.js';
+import { NetworkCollector } from '../../../src/cdp/NetworkCollector.js';
 
 describe('network_intercept tool', () => {
   it('should have correct name and description', () => {
@@ -159,5 +160,85 @@ describe('network_mock_response tool', () => {
   it('should have inputSchema property of type ZodType', () => {
     expect(networkMockResponse.inputSchema).toBeDefined();
     expect(networkMockResponse.inputSchema).toBeInstanceOf(z.ZodType);
+  });
+});
+
+describe('NetworkCollector response body', () => {
+  it('captures responseBody via Network.getResponseBody on loadingFinished', async () => {
+    const collector = new NetworkCollector();
+    const handlers: Record<string, (msg: unknown) => void> = {};
+    const send = vi.fn(async (method: string, _params: unknown) => {
+      if (method === 'Network.getResponseBody')
+        return { body: '{"ok":true}', base64Encoded: false };
+      return {};
+    });
+
+    await collector.enable({
+      send,
+      on: (event: string, cb: (msg: unknown) => void) => {
+        handlers[event] = cb;
+      },
+    } as any);
+
+    handlers['Network.requestWillBeSent']!({
+      requestId: '1',
+      request: { url: 'http://x/api', method: 'GET' },
+      type: 'fetch',
+      timestamp: 1,
+    });
+    handlers['Network.responseReceived']!({
+      requestId: '1',
+      response: {
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        requestTime: 1,
+        timing: { requestTime: 1, sendStart: 1, sendEnd: 1, receiveHeadersEnd: 1 },
+      },
+      timestamp: 1,
+    });
+    handlers['Network.loadingFinished']!({ requestId: '1', encodedDataLength: 0, timestamp: 1.1 });
+
+    // fetchResponseBody is fire-and-forget; let it resolve.
+    await new Promise((r) => setTimeout(r, 20));
+
+    const ev = collector.getEvents().find((e) => e.requestId === '1');
+    expect(send).toHaveBeenCalledWith('Network.getResponseBody', { requestId: '1' });
+    expect(ev?.responseBody).toBe('{"ok":true}');
+  });
+
+  it('decodes base64-encoded response bodies', async () => {
+    const collector = new NetworkCollector();
+    const handlers: Record<string, (msg: unknown) => void> = {};
+    const payload = Buffer.from('hello').toString('base64');
+    const send = vi.fn(async (method: string) => {
+      if (method === 'Network.getResponseBody') return { body: payload, base64Encoded: true };
+      return {};
+    });
+
+    await collector.enable({
+      send,
+      on: (event: string, cb: (msg: unknown) => void) => {
+        handlers[event] = cb;
+      },
+    } as any);
+
+    handlers['Network.requestWillBeSent']!({
+      requestId: '2',
+      request: { url: 'http://x/b', method: 'GET' },
+      type: 'fetch',
+      timestamp: 1,
+    });
+    handlers['Network.responseReceived']!({
+      requestId: '2',
+      response: { status: 200, statusText: 'OK', headers: {} },
+      timestamp: 1,
+    });
+    handlers['Network.loadingFinished']!({ requestId: '2', encodedDataLength: 0, timestamp: 1.1 });
+
+    await new Promise((r) => setTimeout(r, 20));
+
+    const ev = collector.getEvents().find((e) => e.requestId === '2');
+    expect(ev?.responseBody).toBe('hello');
   });
 });
