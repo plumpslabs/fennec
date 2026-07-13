@@ -2,6 +2,24 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.14.4] - 2026-07-13
+
+### Added
+- **Recorder tools.** `recorder_start` / `recorder_stop` / `recorder_export` / `recorder_list` / `recorder_capture` capture session interactions and export them as runnable **Playwright** or **Puppeteer** test scripts (`Recorder.exportAsScript`).
+- **`browser_assert`.** Token-efficient structured assertions (page-url, url-contains, element-exists, element-text-equals, element-value-equals, count-equals, exists-with-attr) returning `{ passed, reason, actual, expected }` instead of requiring screenshots.
+- **Console ignore patterns.** `console.ignorePatterns` (with sensible Vite HMR/web-socket defaults) drop dev noise at the source so it never reaches the buffer, pulse, or incident engine.
+
+### Changed
+- **SPA-friendly navigation defaults.** `browser_navigate` / `smart_navigate` now default to `waitUntil: "domcontentloaded"` (was `networkidle`) to avoid hanging on chatty SPAs.
+- **Richer navigation errors.** Failures now return a `code` + `suggestions` taxonomy (TIMEOUT, URL_UNREACHABLE/DNS, CONNECTION_REFUSED, MIXED_CONTENT_OR_CORS, SESSION_DEAD, NAVIGATION_FAILED).
+- **Tab auto-focus.** `tab_new` and `tab_switch` now bring the target tab to the foreground and update the active page.
+- **Calmer slow-request threshold.** `network.slowRequestThresholdMs` raised 1000 → 2000 ms.
+- **Honest incident root-cause.** Generic `browser:network:0` incidents are now low-confidence ("cause ambiguous"); a CORS/blocked console error is required to escalate to high-confidence.
+
+### Fixed
+- **Duplicate supervisor daemons.** `spawn --restart` no longer spawns multiple `__supervisor` processes — guarded by an atomic lockfile with stale-lock self-heal.
+- **Network response bodies.** Network tools now capture and surface response bodies for failed requests.
+
 ## [1.14.1] - 2026-07-13
 
 ### Added (MCP tool improvements — feedback items 12–23)
