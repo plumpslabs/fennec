@@ -47,9 +47,14 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - shell: bash
-        run: npx playwright install chromium --with-deps
+      - name: Install Playwright browsers (ubuntu)
         if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: pnpm --filter @plumpslabs/fennec-core exec playwright install chromium --with-deps
+      - name: Install Playwright browsers (windows)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: pnpm --filter @plumpslabs/fennec-core exec playwright install chromium
       - run: pnpm build
       - run: pnpm test -- --reporter=verbose
       - name: Upload coverage
