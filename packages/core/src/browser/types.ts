@@ -188,6 +188,7 @@ export interface Locator {
     fn: string | ((el: Element, ...args: any[]) => T),
     ...args: unknown[]
   ): Promise<T>;
+  evaluateAll<T = unknown>(fn: (els: Element[], ...args: any[]) => T, ...args: any[]): Promise<T>;
   elementHandle(): Promise<ElementHandle | null>;
   first(): Locator;
   all(): Promise<Locator[]>;
