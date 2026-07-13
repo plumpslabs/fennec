@@ -245,23 +245,23 @@ Multi-step execution planning from natural language goals.
 
 ## Quick Stats
 
-| Category             | Tools   |    Requires Browser    |
-| -------------------- | ------- | :--------------------: |
-| Navigation           | 6       |           ✅           |
-| Interaction          | 10      |           ✅           |
-| DOM & Page           | 9       |           ✅           |
-| DevTools Console     | 5       |           ✅           |
-| DevTools Network     | 9       |           ✅           |
-| DevTools Performance | 6       |           ✅           |
-| Storage              | 12      |           ✅           |
-| Auth                 | 6       |       ⚠️ Partial       |
-| Tabs & Contexts      | 9       |           ✅           |
-| Process              | 19      |           ❌           |
-| Terminal             | 7       |           ❌           |
-| Diagnostic           | 6       |       ⚠️ Partial       |
-| Scheduler            | 7       |           ❌           |
-| Smart                | 12      |           ✅           |
-| Planner              | 5       |           ❌           |
+| Category             | Tools   |   Requires Browser    |
+| -------------------- | ------- | :-------------------: |
+| Navigation           | 6       |          ✅           |
+| Interaction          | 10      |          ✅           |
+| DOM & Page           | 9       |          ✅           |
+| DevTools Console     | 5       |          ✅           |
+| DevTools Network     | 9       |          ✅           |
+| DevTools Performance | 6       |          ✅           |
+| Storage              | 12      |          ✅           |
+| Auth                 | 6       |      ⚠️ Partial       |
+| Tabs & Contexts      | 9       |          ✅           |
+| Process              | 19      |          ❌           |
+| Terminal             | 7       |          ❌           |
+| Diagnostic           | 6       |      ⚠️ Partial       |
+| Scheduler            | 7       |          ❌           |
+| Smart                | 12      |          ✅           |
+| Planner              | 5       |          ❌           |
 | **Total**            | **128** | **0 without browser** |
 
 > **0 tools work without Playwright/browser engines** — process, terminal, storage (basic), scheduler, planner, and partial auth + diagnostic.
