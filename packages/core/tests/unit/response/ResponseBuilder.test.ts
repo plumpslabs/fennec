@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ResponseBuilder } from '../../../src/response/ResponseBuilder.js';
+import { ResponseBuilder, sanitize } from '../../../src/response/ResponseBuilder.js';
 
 describe('ResponseBuilder', () => {
   const builder = new ResponseBuilder();
@@ -84,6 +84,33 @@ describe('ResponseBuilder', () => {
       const response = builder.error(null);
       expect(response.success).toBe(false);
       expect(response.error.message).toBe('null');
+    });
+  });
+
+  describe('sanitize (circular-ref protection)', () => {
+    it('should stringify a circular structure without throwing', () => {
+      const a: Record<string, unknown> = { name: 'a' };
+      const b: Record<string, unknown> = { name: 'b' };
+      a.context = b;
+      b.take_screenshot = a; // mimics the reported `context.take_screenshot` cycle
+      const out = sanitize(a);
+      expect(JSON.stringify(out)).toContain('[Circular]');
+      expect(() => JSON.stringify(sanitize(a))).not.toThrow();
+    });
+
+    it('should drop functions and non-serializable values', () => {
+      const data = { ok: 1, fn: () => 1, nested: { alsoFn: () => 'x' } };
+      const out = sanitize(data) as Record<string, unknown>;
+      expect(out.fn).toBeUndefined();
+      expect((out.nested as Record<string, unknown>).alsoFn).toBeUndefined();
+      expect(out.ok).toBe(1);
+    });
+
+    it('should keep success() serializable even with cycles in data', () => {
+      const data: Record<string, unknown> = { step: 'take_screenshot' };
+      data.context = data; // self-referential cycle
+      const response = builder.success(data, { sessionId: 's1' });
+      expect(() => JSON.stringify(response)).not.toThrow();
     });
   });
 });
