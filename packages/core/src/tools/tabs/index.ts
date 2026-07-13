@@ -5,7 +5,7 @@ export const tabNew = createTool({
   name: 'tab_new',
   category: 'tabs',
   description:
-    '`<use_case>Tab management</use_case> ➕ Create a new browser tab. Optionally navigate to a URL immediately. Returns tabId (the URL of the new tab) and sessionId. Use when you need to open a page in a separate tab while keeping the current tab active. For just navigating the current tab, use browser_navigate instead.`',
+    '`<use_case>Tab management</use_case> ➕ Create a new browser tab. Optionally navigate to a URL immediately. Returns tabId (the URL of the new tab) and sessionId. The new tab is automatically focused, so subsequent operations (screenshot, get_page_text, click, etc.) target it without an explicit tab_switch. For just navigating the current tab, use browser_navigate instead.`',
   inputSchema: z.object({
     url: z.string().optional().describe('URL to navigate to in the new tab'),
     sessionId: z.string().optional().describe('Session ID'),
@@ -14,8 +14,12 @@ export const tabNew = createTool({
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
       const newPage = await session.browser.contextNewPage();
+      // Auto-focus: bring the new tab to front AND point the session's
+      // active page at it, so get_page_text etc. read the new tab.
+      await newPage.bringToFront().catch(() => {});
+      sessionManager.setActivePage(session.id, newPage);
       if (input.url) {
-        await newPage.navigate(input.url, { waitUntil: 'networkidle' });
+        await newPage.navigate(input.url, { waitUntil: 'domcontentloaded' });
       }
 
       return responseBuilder.success(
@@ -109,6 +113,7 @@ export const tabSwitch = createTool({
       for (const page of pages) {
         if (page.url() === input.tabId) {
           await page.bringToFront();
+          sessionManager.setActivePage(session.id, page);
           return responseBuilder.success(
             {
               url: page.url(),
