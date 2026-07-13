@@ -34,17 +34,17 @@ export type ToolResponse<T = Record<string, unknown>> = SuccessResponse<T> | Err
 export function sanitize<T>(value: T): T {
   const seen = new WeakSet<object>();
   const walk = (val: unknown): unknown => {
-    if (val === null || typeof val !== "object") return val;
+    if (val === null || typeof val !== 'object') return val;
     if (val instanceof Date) return val.toISOString();
     // Objects with a custom toJSON (e.g. some Playwright wrappers) serialize cleanly.
-    if (typeof (val as { toJSON?: unknown }).toJSON === "function") {
+    if (typeof (val as { toJSON?: unknown }).toJSON === 'function') {
       try {
         return (val as { toJSON: () => unknown }).toJSON();
       } catch {
-        return "[Unserializable]";
+        return '[Unserializable]';
       }
     }
-    if (seen.has(val as object)) return "[Circular]";
+    if (seen.has(val as object)) return '[Circular]';
     seen.add(val as object);
     if (Array.isArray(val)) return val.map(walk);
     if (val instanceof Error) {
@@ -52,11 +52,11 @@ export function sanitize<T>(value: T): T {
     }
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
-      if (typeof v === "function") continue; // drop functions — not serializable
+      if (typeof v === 'function') continue; // drop functions — not serializable
       try {
         out[k] = walk(v);
       } catch {
-        out[k] = "[Unserializable]";
+        out[k] = '[Unserializable]';
       }
     }
     return out;
