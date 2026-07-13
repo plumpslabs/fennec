@@ -7,28 +7,28 @@
  * and IncidentEngine.
  */
 
-import type { ConsoleEvent, NetworkEvent } from "../session/types.js";
+import type { ConsoleEvent, NetworkEvent } from '../session/types.js';
 
 // ─── Normalized Event Format ─────────────────────────────────────
 
 export type EventSource =
-  | "browser:console"
-  | "browser:network"
-  | "browser:navigation"
-  | "browser:screenshot"
-  | "browser:dom"
-  | "process:stdout"
-  | "process:stderr"
-  | "process:status"
-  | "process:crash"
-  | "terminal:output"
-  | "terminal:error"
-  | "mobile:logcat"
-  | "mobile:device"
-  | "system:health"
-  | "system:error";
+  | 'browser:console'
+  | 'browser:network'
+  | 'browser:navigation'
+  | 'browser:screenshot'
+  | 'browser:dom'
+  | 'process:stdout'
+  | 'process:stderr'
+  | 'process:status'
+  | 'process:crash'
+  | 'terminal:output'
+  | 'terminal:error'
+  | 'mobile:logcat'
+  | 'mobile:device'
+  | 'system:health'
+  | 'system:error';
 
-export type EventSeverity = "debug" | "info" | "warn" | "error" | "critical";
+export type EventSeverity = 'debug' | 'info' | 'warn' | 'error' | 'critical';
 
 export interface NormalizedEvent {
   /** Unique event identifier */
@@ -63,22 +63,19 @@ export class EventNormalizer {
   }
 
   /** Normalize a ConsoleEvent from a browser session */
-  normalizeConsoleEvent(
-    event: ConsoleEvent,
-    sessionId?: string,
-  ): NormalizedEvent {
+  normalizeConsoleEvent(event: ConsoleEvent, sessionId?: string): NormalizedEvent {
     return {
       id: this.nextId(),
-      source: "browser:console",
+      source: 'browser:console',
       timestamp: event.timestamp,
       severity:
-        event.level === "error"
-          ? "error"
-          : event.level === "warn"
-            ? "warn"
-            : event.level === "info"
-              ? "info"
-              : "debug",
+        event.level === 'error'
+          ? 'error'
+          : event.level === 'warn'
+            ? 'warn'
+            : event.level === 'info'
+              ? 'info'
+              : 'debug',
       summary: `[${event.level}] ${event.message.slice(0, 150)}`,
       payload: {
         level: event.level,
@@ -87,27 +84,24 @@ export class EventNormalizer {
         stackTrace: event.stackTrace,
       },
       sessionId,
-      tags: ["console", event.level, `source:${event.source.slice(0, 40)}`],
+      tags: ['console', event.level, `source:${event.source.slice(0, 40)}`],
     };
   }
 
   /** Normalize a NetworkEvent from a browser session */
-  normalizeNetworkEvent(
-    event: NetworkEvent,
-    sessionId?: string,
-  ): NormalizedEvent {
+  normalizeNetworkEvent(event: NetworkEvent, sessionId?: string): NormalizedEvent {
     const severity: EventSeverity =
       event.status >= 500
-        ? "critical"
+        ? 'critical'
         : event.status >= 400
-          ? "error"
+          ? 'error'
           : event.status >= 300
-            ? "warn"
-            : "info";
+            ? 'warn'
+            : 'info';
 
     return {
       id: this.nextId(),
-      source: "browser:network",
+      source: 'browser:network',
       timestamp: event.timestamp,
       severity,
       summary: `${event.method} ${event.url.slice(0, 100)} → ${event.status} (${event.duration}ms)`,
@@ -121,12 +115,7 @@ export class EventNormalizer {
         type: event.type,
       },
       sessionId,
-      tags: [
-        "network",
-        `http:${event.status}`,
-        `method:${event.method}`,
-        `type:${event.type}`,
-      ],
+      tags: ['network', `http:${event.status}`, `method:${event.method}`, `type:${event.type}`],
     };
   }
 
@@ -139,15 +128,13 @@ export class EventNormalizer {
   ): NormalizedEvent {
     return {
       id: this.nextId(),
-      source: "browser:navigation",
+      source: 'browser:navigation',
       timestamp: new Date().toISOString(),
-      severity: ok ? "info" : "error",
-      summary: ok
-        ? `Navigated to ${url.slice(0, 120)}`
-        : `Navigation failed: ${url.slice(0, 120)}`,
+      severity: ok ? 'info' : 'error',
+      summary: ok ? `Navigated to ${url.slice(0, 120)}` : `Navigation failed: ${url.slice(0, 120)}`,
       payload: { url, ok, loadTimeMs: loadTimeMs ?? 0 },
       sessionId,
-      tags: ["navigation", ok ? "success" : "failure"],
+      tags: ['navigation', ok ? 'success' : 'failure'],
     };
   }
 
@@ -156,41 +143,33 @@ export class EventNormalizer {
     line: string,
     level: string,
     processId: string,
-    source: "stdout" | "stderr",
+    source: 'stdout' | 'stderr',
   ): NormalizedEvent {
     const severity: EventSeverity =
-      level === "error" || level === "critical"
-        ? "error"
-        : level === "warn"
-          ? "warn"
-          : "info";
+      level === 'error' || level === 'critical' ? 'error' : level === 'warn' ? 'warn' : 'info';
 
     return {
       id: this.nextId(),
-      source: source === "stderr" ? "process:stderr" : "process:stdout",
+      source: source === 'stderr' ? 'process:stderr' : 'process:stdout',
       timestamp: new Date().toISOString(),
       severity,
       summary: line.slice(0, 150),
       payload: { processId, line, level },
       processId,
-      tags: ["process", `level:${level}`, `pid:${processId}`],
+      tags: ['process', `level:${level}`, `pid:${processId}`],
     };
   }
 
   /** Normalize a terminal log entry */
-  normalizeTerminalLog(
-    line: string,
-    watcherId: string,
-    isError: boolean,
-  ): NormalizedEvent {
+  normalizeTerminalLog(line: string, watcherId: string, isError: boolean): NormalizedEvent {
     return {
       id: this.nextId(),
-      source: isError ? "terminal:error" : "terminal:output",
+      source: isError ? 'terminal:error' : 'terminal:output',
       timestamp: new Date().toISOString(),
-      severity: isError ? "error" : "info",
+      severity: isError ? 'error' : 'info',
       summary: line.slice(0, 150),
       payload: { watcherId, line },
-      tags: ["terminal", `watcher:${watcherId}`, isError ? "error" : "output"],
+      tags: ['terminal', `watcher:${watcherId}`, isError ? 'error' : 'output'],
     };
   }
 
@@ -199,47 +178,38 @@ export class EventNormalizer {
     entry: { time: string; tag: string; message: string; level?: string },
     deviceId: string,
   ): NormalizedEvent {
-    const level = entry.level ?? "info";
+    const level = entry.level ?? 'info';
     const severity: EventSeverity =
-      level === "error" || level === "fatal"
-        ? "error"
-        : level === "warn"
-          ? "warn"
-          : "info";
+      level === 'error' || level === 'fatal' ? 'error' : level === 'warn' ? 'warn' : 'info';
 
     return {
       id: this.nextId(),
-      source: "mobile:logcat",
+      source: 'mobile:logcat',
       timestamp: entry.time,
       severity,
       summary: `[${entry.tag}] ${entry.message.slice(0, 150)}`,
       payload: { deviceId, tag: entry.tag, message: entry.message, level },
-      tags: ["mobile", "logcat", `device:${deviceId}`, `tag:${entry.tag}`],
+      tags: ['mobile', 'logcat', `device:${deviceId}`, `tag:${entry.tag}`],
     };
   }
 
   /** Normalize a system health check result */
-  normalizeSystemHealth(
-    healthy: boolean,
-    details: Record<string, unknown>,
-  ): NormalizedEvent {
+  normalizeSystemHealth(healthy: boolean, details: Record<string, unknown>): NormalizedEvent {
     return {
       id: this.nextId(),
-      source: "system:health",
+      source: 'system:health',
       timestamp: new Date().toISOString(),
-      severity: healthy ? "info" : "warn",
-      summary: healthy
-        ? "System health check passed"
-        : "System health check detected issues",
+      severity: healthy ? 'info' : 'warn',
+      summary: healthy ? 'System health check passed' : 'System health check detected issues',
       payload: { healthy, details },
-      tags: ["system", "health", healthy ? "pass" : "fail"],
+      tags: ['system', 'health', healthy ? 'pass' : 'fail'],
     };
   }
 
   /** Bulk-normalize an array of mixed events */
   normalizeMany(
     events: Array<{
-      type: "console" | "network" | "process" | "terminal" | "navigation";
+      type: 'console' | 'network' | 'process' | 'terminal' | 'navigation';
       data: any;
       sessionId?: string;
       processId?: string;
@@ -247,24 +217,20 @@ export class EventNormalizer {
   ): NormalizedEvent[] {
     return events.map((e) => {
       switch (e.type) {
-        case "console":
+        case 'console':
           return this.normalizeConsoleEvent(e.data, e.sessionId);
-        case "network":
+        case 'network':
           return this.normalizeNetworkEvent(e.data, e.sessionId);
-        case "process":
+        case 'process':
           return this.normalizeProcessLine(
             e.data.line,
-            e.data.level ?? "info",
-            e.processId ?? "unknown",
-            e.data.source ?? "stdout",
+            e.data.level ?? 'info',
+            e.processId ?? 'unknown',
+            e.data.source ?? 'stdout',
           );
-        case "terminal":
-          return this.normalizeTerminalLog(
-            e.data.line,
-            e.data.watcherId,
-            e.data.isError ?? false,
-          );
-        case "navigation":
+        case 'terminal':
+          return this.normalizeTerminalLog(e.data.line, e.data.watcherId, e.data.isError ?? false);
+        case 'navigation':
           return this.normalizeNavigation(
             e.data.url,
             e.data.ok ?? true,

@@ -17,9 +17,9 @@ By default, Fennec creates one session (`sess_xxxx`). You can create additional 
 // Create a new session with custom name
 context_new({
   options: {
-    viewport: { width: 1024, height: 768 }
-  }
-})
+    viewport: { width: 1024, height: 768 },
+  },
+});
 
 // The new session has its own cookies, storage, and auth state
 ```
@@ -28,14 +28,14 @@ context_new({
 
 ```javascript
 // === Session 1: Admin User ===
-auth_load_session({ name: "admin" })
-browser_navigate({ url: "http://localhost:3000/admin" })
+auth_load_session({ name: 'admin' });
+browser_navigate({ url: 'http://localhost:3000/admin' });
 // Test admin features...
 
 // === Session 2: Regular User ===
-context_new()
-auth_load_session({ name: "regular-user" })
-browser_navigate({ url: "http://localhost:3000/dashboard" })
+context_new();
+auth_load_session({ name: 'regular-user' });
+browser_navigate({ url: 'http://localhost:3000/dashboard' });
 // Test regular user features...
 
 // === Compare access ===
@@ -48,19 +48,19 @@ For collaborative apps (chat, collaboration tools):
 
 ```javascript
 // Session 1: User A sends a message
-tab_list() // Note active tab
-auth_load_session({ name: "user-a" })
-browser_navigate({ url: "http://localhost:3000/chat" })
-browser_type({ selector: "#message-input", text: "Hello from User A!" })
-browser_click({ selector: "#send-button" })
+tab_list(); // Note active tab
+auth_load_session({ name: 'user-a' });
+browser_navigate({ url: 'http://localhost:3000/chat' });
+browser_type({ selector: '#message-input', text: 'Hello from User A!' });
+browser_click({ selector: '#send-button' });
 
 // Session 2: User B receives the message
-context_new()
-auth_load_session({ name: "user-b" })
-browser_navigate({ url: "http://localhost:3000/chat" })
+context_new();
+auth_load_session({ name: 'user-b' });
+browser_navigate({ url: 'http://localhost:3000/chat' });
 
 // Check if User B sees User A's message
-browser_get_page_text({ selector: "#messages" })
+browser_get_page_text({ selector: '#messages' });
 // → "Hello from User A!" found!
 ```
 
@@ -69,13 +69,13 @@ browser_get_page_text({ selector: "#messages" })
 ```javascript
 // Create → use → save → destroy
 
-context_new()                                // Create
-browser_navigate({ url: "..." })
-auth_save_session({ name: "test-session" })  // Save state
-context_close({ sessionId: "sess_xxx" })     // Clean up
+context_new(); // Create
+browser_navigate({ url: '...' });
+auth_save_session({ name: 'test-session' }); // Save state
+context_close({ sessionId: 'sess_xxx' }); // Clean up
 
 // Later — restore
-auth_load_session({ name: "test-session" })  // Continue from saved state
+auth_load_session({ name: 'test-session' }); // Continue from saved state
 ```
 
 ## Best Practices

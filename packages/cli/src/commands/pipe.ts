@@ -1,11 +1,11 @@
-import { PipeWatcher } from "@plumpslabs/fennec-core";
+import { PipeWatcher } from '@plumpslabs/fennec-core';
 
 export async function pipeCommand(args: string[]): Promise<void> {
-  const nameIndex = args.indexOf("--name");
-  const name = nameIndex !== -1 ? args[nameIndex + 1] : "pipe";
+  const nameIndex = args.indexOf('--name');
+  const name = nameIndex !== -1 ? args[nameIndex + 1] : 'pipe';
 
   if (!name) {
-    console.error("Error: --name is required for pipe command");
+    console.error('Error: --name is required for pipe command');
     process.exit(1);
   }
 
@@ -17,10 +17,10 @@ export async function pipeCommand(args: string[]): Promise<void> {
   const onDrain = () => {
     process.stdin.resume();
   };
-  process.stdout.on("drain", onDrain);
+  process.stdout.on('drain', onDrain);
 
-  process.stdin.setEncoding("utf-8");
-  process.stdin.on("data", (data: string) => {
+  process.stdin.setEncoding('utf-8');
+  process.stdin.on('data', (data: string) => {
     try {
       write(data);
       const canContinue = process.stdout.write(data);
@@ -28,25 +28,25 @@ export async function pipeCommand(args: string[]): Promise<void> {
         process.stdin.pause();
       }
     } catch (error) {
-      console.error("Pipe error:", error);
+      console.error('Pipe error:', error);
     }
   });
 
-  process.stdin.on("error", (error) => {
-    console.error("Pipe stdin error:", error);
+  process.stdin.on('error', (error) => {
+    console.error('Pipe stdin error:', error);
   });
 
-  process.stdin.on("end", () => {
+  process.stdin.on('end', () => {
     console.error(`Pipe watcher '${name}' ended.`);
     watcher.cleanup();
   });
 
   const shutdown = () => {
     watcher.cleanup();
-    process.stdout.removeListener("drain", onDrain);
+    process.stdout.removeListener('drain', onDrain);
     process.stdin.removeAllListeners();
     process.exit(0);
   };
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
 }

@@ -8,45 +8,66 @@
  * Unlike `fennec start <cmd> --name <name>` which creates a brand new connection,
  * `fennec spawn` revives a previously stopped process.
  */
-import pc from "picocolors";
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
-import { homedir } from "node:os";
-import { symbols, renderError, renderKV, renderAppName, createSpinner, selectPrompt } from "../utils/format.js";
-import { readTracked, addTracked, spawnDaemon, resolveArgs, isTrackedRunning, buildSpawnEnv, resolveTargets, getGroups } from "./tracker.js";
-import type { TrackedProcess } from "./tracker.js";
-import { ensureSupervisorRunning } from "./supervisor.js";
-import { ensurePersistEnabled } from "./persist.js";
-import { psCommand } from "./ps.js";
+import pc from 'picocolors';
+import { mkdirSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { homedir } from 'node:os';
+import {
+  symbols,
+  renderError,
+  renderKV,
+  renderAppName,
+  createSpinner,
+  selectPrompt,
+} from '../utils/format.js';
+import {
+  readTracked,
+  addTracked,
+  spawnDaemon,
+  resolveArgs,
+  isTrackedRunning,
+  buildSpawnEnv,
+  resolveTargets,
+  getGroups,
+} from './tracker.js';
+import type { TrackedProcess } from './tracker.js';
+import { ensureSupervisorRunning } from './supervisor.js';
+import { ensurePersistEnabled } from './persist.js';
+import { psCommand } from './ps.js';
 
 export async function spawnCommand(args: string[]): Promise<void> {
   const target = resolveTargets(args);
 
-  if (target.kind === "single") {
+  if (target.kind === 'single') {
     await spawnOne(target.value!, false);
     return;
   }
 
-  if (target.kind === "names") {
+  if (target.kind === 'names') {
     for (const name of target.values!) {
       await spawnOne(name, true);
     }
     return;
   }
 
-  if (target.kind === "group") {
+  if (target.kind === 'group') {
     const group = target.group!;
     const tracked = readTracked();
     const inGroup = tracked.filter((t) => t.group === group && !isTrackedRunning(t) && t.command);
     if (inGroup.length === 0) {
-      console.error(renderError("Empty group", `No stopped entries with a saved command in group "${group}".\nKnown groups: ${pc.cyan(getGroups().join(", ") || "(none)")}`));
+      console.error(
+        renderError(
+          'Empty group',
+          `No stopped entries with a saved command in group "${group}".\nKnown groups: ${pc.cyan(getGroups().join(', ') || '(none)')}`,
+        ),
+      );
       process.exit(1);
     }
     await spawnAllStopped(inGroup);
     return;
   }
 
-  if (target.kind === "all") {
+  if (target.kind === 'all') {
     await spawnAllStopped(readTracked().filter((t) => !isTrackedRunning(t) && t.command));
     return;
   }
@@ -65,15 +86,22 @@ async function spawnOne(name: string, multi: boolean): Promise<void> {
   const match = tracked.find((t) => t.name === name);
 
   if (!match) {
-    const msg = `No tracked process named "${name}". Use ${pc.cyan("fennec spawn")} to see available processes, or ${pc.cyan("fennec start <command> --name <name>")} to create a new one.`;
-    if (multi) { console.error(renderError("Not found", msg)); return; }
-    console.error(renderError("Not found", msg));
+    const msg = `No tracked process named "${name}". Use ${pc.cyan('fennec spawn')} to see available processes, or ${pc.cyan('fennec start <command> --name <name>')} to create a new one.`;
+    if (multi) {
+      console.error(renderError('Not found', msg));
+      return;
+    }
+    console.error(renderError('Not found', msg));
     process.exit(1);
   }
 
   if (isTrackedRunning(match)) {
-    console.error(`\n  ${pc.yellow("⚠")} ${pc.bold(name)} ${pc.dim("is already running (PID:")} ${match.pid}${pc.dim(")")}`);
-    console.error(`  ${pc.dim("Use")} ${pc.cyan(`fennec stop ${name}`)} ${pc.dim("to stop it first.")}`);
+    console.error(
+      `\n  ${pc.yellow('⚠')} ${pc.bold(name)} ${pc.dim('is already running (PID:')} ${match.pid}${pc.dim(')')}`,
+    );
+    console.error(
+      `  ${pc.dim('Use')} ${pc.cyan(`fennec stop ${name}`)} ${pc.dim('to stop it first.')}`,
+    );
     console.error();
     if (!multi) process.exit(0);
     return;
@@ -81,8 +109,11 @@ async function spawnOne(name: string, multi: boolean): Promise<void> {
 
   if (!match.command) {
     const msg = `"${name}" has no saved command and cannot be re-spawned.`;
-    if (multi) { console.error(renderError("No command saved", msg)); return; }
-    console.error(renderError("No command saved", msg));
+    if (multi) {
+      console.error(renderError('No command saved', msg));
+      return;
+    }
+    console.error(renderError('No command saved', msg));
     process.exit(1);
   }
 
@@ -96,28 +127,35 @@ async function spawnAllStopped(procs: TrackedProcess[]): Promise<void> {
   const toSpawn = procs;
 
   if (toSpawn.length === 0) {
-    console.error(`\n  ${pc.dim("No stopped processes with saved commands to spawn.")}\n`);
+    console.error(`\n  ${pc.dim('No stopped processes with saved commands to spawn.')}\n`);
     return;
   }
 
   console.error(`\n  ${symbols.fox} ${pc.bold(`Spawning ${toSpawn.length} process(es)...`)}\n`);
   for (const t of toSpawn) {
-    console.error(`  ${pc.dim("·")} ${pc.bold(t.name)} ${pc.dim(`(${t.command})`)}`);
+    console.error(`  ${pc.dim('·')} ${pc.bold(t.name)} ${pc.dim(`(${t.command})`)}`);
   }
   console.error();
 
-  const spinner = createSpinner("Spawning...");
+  const spinner = createSpinner('Spawning...');
   let spawned = 0;
   let failed = 0;
 
   for (const proc of toSpawn) {
     try {
       const cmdParts = resolveArgs(proc);
-      const logDir = resolve(homedir(), ".fennec", "logs");
+      const logDir = resolve(homedir(), '.fennec', 'logs');
       mkdirSync(logDir, { recursive: true });
       const logFilePath = resolve(logDir, `${proc.name}.log`);
 
-      const child = spawnDaemon({ cmdParts, name: proc.name, cwd: proc.cwd, logFilePath, env: buildSpawnEnv(proc.env), logMode: proc.logMode });
+      const child = spawnDaemon({
+        cmdParts,
+        name: proc.name,
+        cwd: proc.cwd,
+        logFilePath,
+        env: buildSpawnEnv(proc.env),
+        logMode: proc.logMode,
+      });
       const pid = child.pid ?? 0;
 
       addTracked({
@@ -132,7 +170,10 @@ async function spawnAllStopped(procs: TrackedProcess[]): Promise<void> {
         autoRestart: proc.autoRestart,
         logMode: proc.logMode,
       });
-      if (proc.autoRestart) { ensureSupervisorRunning(); ensurePersistEnabled(); }
+      if (proc.autoRestart) {
+        ensureSupervisorRunning();
+        ensurePersistEnabled();
+      }
 
       spawned++;
     } catch {
@@ -141,13 +182,13 @@ async function spawnAllStopped(procs: TrackedProcess[]): Promise<void> {
   }
 
   spinner.stop();
-  process.stdout.write("\r\x1b[K");
+  process.stdout.write('\r\x1b[K');
 
   if (spawned > 0) {
-    console.error(`  ${pc.green("✓")} ${pc.bold(`Spawned ${spawned} process(es)`)}`);
+    console.error(`  ${pc.green('✓')} ${pc.bold(`Spawned ${spawned} process(es)`)}`);
   }
   if (failed > 0) {
-    console.error(`  ${pc.red("✗")} ${pc.bold(`${failed} process(es) failed to spawn`)}`);
+    console.error(`  ${pc.red('✗')} ${pc.bold(`${failed} process(es) failed to spawn`)}`);
   }
 
   console.error();
@@ -161,8 +202,10 @@ async function spawnList(): Promise<void> {
   const tracked = readTracked();
 
   if (tracked.length === 0) {
-    console.error(`\n  ${pc.dim("No tracked processes found.")}`);
-    console.error(`  ${pc.dim("Start an app first:")} ${pc.cyan("fennec start <command> --name <name>")}`);
+    console.error(`\n  ${pc.dim('No tracked processes found.')}`);
+    console.error(
+      `  ${pc.dim('Start an app first:')} ${pc.cyan('fennec start <command> --name <name>')}`,
+    );
     console.error();
     return;
   }
@@ -171,31 +214,36 @@ async function spawnList(): Promise<void> {
   const running = tracked.filter((t) => isTrackedRunning(t));
 
   if (stopped.length === 0) {
-    console.error(`\n  ${pc.dim("All tracked processes are running. Nothing to spawn.")}`);
+    console.error(`\n  ${pc.dim('All tracked processes are running. Nothing to spawn.')}`);
     console.error();
     return;
   }
 
-  console.error(`\n  ${symbols.fox} ${pc.bold("Available to spawn")} ${pc.dim(`(${stopped.length}/${tracked.length} stopped)`)}`);
+  console.error(
+    `\n  ${symbols.fox} ${pc.bold('Available to spawn')} ${pc.dim(`(${stopped.length}/${tracked.length} stopped)`)}`,
+  );
 
   // Show running ones as info
   if (running.length > 0) {
-    console.error(`  ${pc.dim("Running (use stop first):")}`);
+    console.error(`  ${pc.dim('Running (use stop first):')}`);
     for (const r of running) {
-      console.error(`    ${pc.green("●")} ${pc.bold(r.name)} ${pc.dim(`(PID ${r.pid})`)}`);
+      console.error(`    ${pc.green('●')} ${pc.bold(r.name)} ${pc.dim(`(PID ${r.pid})`)}`);
     }
     console.error();
   }
 
   // Show stopped ones as selectable
-  const selected = await selectPrompt("Select a process to spawn:", stopped.map((t) => ({
-    value: t.name,
-    label: t.name,
-    description: t.command.length > 80 ? t.command.slice(0, 80) + "..." : t.command,
-  })));
+  const selected = await selectPrompt(
+    'Select a process to spawn:',
+    stopped.map((t) => ({
+      value: t.name,
+      label: t.name,
+      description: t.command.length > 80 ? t.command.slice(0, 80) + '...' : t.command,
+    })),
+  );
 
   if (selected === null) {
-    console.error(`  ${pc.dim("Cancelled")}`);
+    console.error(`  ${pc.dim('Cancelled')}`);
     return;
   }
 
@@ -210,17 +258,26 @@ async function spawnList(): Promise<void> {
  */
 async function respawnProcess(proc: TrackedProcess): Promise<void> {
   const cmdParts = resolveArgs(proc);
-  const logDir = resolve(homedir(), ".fennec", "logs");
+  const logDir = resolve(homedir(), '.fennec', 'logs');
   mkdirSync(logDir, { recursive: true });
   const logFilePath = resolve(logDir, `${proc.name}.log`);
 
-  console.error(`\n  ${symbols.fox} ${pc.bold("Spawning")} ${renderAppName(proc.name)} ${pc.dim("(from saved config)")}\n`);
-  console.error(`  ${renderKV("Command", proc.command)}`);
-  if (proc.cwd) console.error(`  ${renderKV("Directory", proc.cwd)}`);
-  if (proc.port) console.error(`  ${renderKV("Port", String(proc.port))}`);
+  console.error(
+    `\n  ${symbols.fox} ${pc.bold('Spawning')} ${renderAppName(proc.name)} ${pc.dim('(from saved config)')}\n`,
+  );
+  console.error(`  ${renderKV('Command', proc.command)}`);
+  if (proc.cwd) console.error(`  ${renderKV('Directory', proc.cwd)}`);
+  if (proc.port) console.error(`  ${renderKV('Port', String(proc.port))}`);
 
   try {
-    const child = spawnDaemon({ cmdParts, name: proc.name, cwd: proc.cwd, logFilePath, env: buildSpawnEnv(proc.env), logMode: proc.logMode });
+    const child = spawnDaemon({
+      cmdParts,
+      name: proc.name,
+      cwd: proc.cwd,
+      logFilePath,
+      env: buildSpawnEnv(proc.env),
+      logMode: proc.logMode,
+    });
     const pid = child.pid ?? 0;
 
     // Update tracked.json with new PID
@@ -237,9 +294,12 @@ async function respawnProcess(proc: TrackedProcess): Promise<void> {
       logMode: proc.logMode,
     });
 
-    if (proc.autoRestart) { ensureSupervisorRunning(); ensurePersistEnabled(); }
+    if (proc.autoRestart) {
+      ensureSupervisorRunning();
+      ensurePersistEnabled();
+    }
 
-    console.error(`  ${pc.green("✓")} ${pc.bold(proc.name)} ${pc.dim(`spawned (PID: ${pid})`)}`);
+    console.error(`  ${pc.green('✓')} ${pc.bold(proc.name)} ${pc.dim(`spawned (PID: ${pid})`)}`);
 
     // Show the process table
     await psCommand([]);

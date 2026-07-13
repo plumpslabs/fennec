@@ -1,13 +1,16 @@
-import { homedir } from "node:os";
-import { resolve } from "node:path";
+import { homedir } from 'node:os';
+import { resolve } from 'node:path';
 
 /** Global store base: FENNEC_HOME | FENNEC_DATA_DIR | ~/.fennec (matches process tracking). */
-const STORE_BASE = resolve(process.env.FENNEC_HOME ?? process.env.FENNEC_DATA_DIR ?? homedir(), ".fennec");
+const STORE_BASE = resolve(
+  process.env.FENNEC_HOME ?? process.env.FENNEC_DATA_DIR ?? homedir(),
+  '.fennec',
+);
 
 export interface FennecConfig {
   browser: {
-    adapter: "auto" | "cdp" | "playwright";
-    type: "chromium" | "firefox" | "webkit";
+    adapter: 'auto' | 'cdp' | 'playwright';
+    type: 'chromium' | 'firefox' | 'webkit';
     headless: boolean;
     slowMo: number;
     defaultTimeout: number;
@@ -78,28 +81,28 @@ export interface FennecConfig {
     maxExportSizeMB: number;
   };
   transport: {
-    type: "stdio" | "sse";
+    type: 'stdio' | 'sse';
     port: number;
     host: string;
   };
   logging: {
-    level: "debug" | "info" | "warn" | "error";
-    format: "pretty" | "json";
+    level: 'debug' | 'info' | 'warn' | 'error';
+    format: 'pretty' | 'json';
     file: string | null;
   };
 }
 
 export const defaultConfig: FennecConfig = {
   browser: {
-    adapter: "auto",
-    type: "chromium",
+    adapter: 'auto',
+    type: 'chromium',
     headless: true,
     slowMo: 0,
     defaultTimeout: 30000,
     viewport: { width: 1280, height: 720 },
     userAgent: null,
-    locale: "en-US",
-    timezone: "Asia/Jakarta",
+    locale: 'en-US',
+    timezone: 'Asia/Jakarta',
     ignoreHTTPSErrors: false,
   },
   session: {
@@ -107,12 +110,12 @@ export const defaultConfig: FennecConfig = {
     idleTimeoutSecs: 1800,
     maxSessionAgeSecs: 0,
     rotationIntervalSecs: 0,
-    persistPath: resolve(STORE_BASE, "sessions"),
+    persistPath: resolve(STORE_BASE, 'sessions'),
   },
   process: {
     maxProcesses: 10,
     logBufferLines: 2000,
-    spawnAllowlist: ["npm", "node", "pnpm", "yarn", "bun", "python", "python3"],
+    spawnAllowlist: ['npm', 'node', 'pnpm', 'yarn', 'bun', 'python', 'python3'],
   },
   terminal: {
     logBufferLines: 2000,
@@ -127,7 +130,7 @@ export const defaultConfig: FennecConfig = {
   },
   console: {
     bufferSize: 500,
-    levels: ["log", "info", "warn", "error", "debug"],
+    levels: ['log', 'info', 'warn', 'error', 'debug'],
   },
   correlation: {
     windowMs: 500,
@@ -155,17 +158,17 @@ export const defaultConfig: FennecConfig = {
     allowFileProtocol: false,
     allowCDPRawAccess: false,
     allowJSEvaluation: true,
-    exportPath: resolve(STORE_BASE, "exports"),
+    exportPath: resolve(STORE_BASE, 'exports'),
     maxExportSizeMB: 10,
   },
   transport: {
-    type: "stdio",
+    type: 'stdio',
     port: 3333,
-    host: "127.0.0.1",
+    host: '127.0.0.1',
   },
   logging: {
-    level: "info",
-    format: "pretty",
+    level: 'info',
+    format: 'pretty',
     file: null,
   },
 };

@@ -11,12 +11,12 @@
  * Levels 2 and 3 are expensive — they should only be fetched when explicitly requested.
  */
 
-import type { FennecSession } from "../session/types.js";
-import type { IncidentEngine } from "../incident/IncidentEngine.js";
-import type { EventBus } from "../correlation/EventBus.js";
-import type { Pulse } from "./PulseContext.js";
-import { getLogger } from "../utils/logger.js";
-import { truncateByTokens, estimateTokens } from "../utils/tokenCounter.js";
+import type { FennecSession } from '../session/types.js';
+import type { IncidentEngine } from '../incident/IncidentEngine.js';
+import type { EventBus } from '../correlation/EventBus.js';
+import type { Pulse } from './PulseContext.js';
+import { getLogger } from '../utils/logger.js';
+import { truncateByTokens, estimateTokens } from '../utils/tokenCounter.js';
 
 // ─── Level 1: Summary ───────────────────────────────────────────
 
@@ -79,7 +79,7 @@ export class LazyContext {
    */
   getSummary(session: FennecSession, pulse: Pulse, maxTokens = 100): L1Summary {
     const incidents = this.incidentEngine.getActiveIncidents();
-    const critical = incidents.filter((i) => i.severity === "critical");
+    const critical = incidents.filter((i) => i.severity === 'critical');
 
     const summaryParts: string[] = [];
     summaryParts.push(`Pulse: ${pulse.summary}`);
@@ -90,7 +90,7 @@ export class LazyContext {
       }
     }
 
-    const nonCritical = incidents.filter((i) => i.severity !== "critical").slice(0, 5);
+    const nonCritical = incidents.filter((i) => i.severity !== 'critical').slice(0, 5);
     for (const inc of nonCritical) {
       summaryParts.push(`[${inc.severity.toUpperCase()}] ${inc.rootCause}`);
     }
@@ -106,7 +106,7 @@ export class LazyContext {
         fix: i.fix?.slice(0, 100) ?? null,
       })),
       pulse,
-      summary: truncateByTokens(summaryParts.join(" | "), maxTokens),
+      summary: truncateByTokens(summaryParts.join(' | '), maxTokens),
     };
 
     if (incidents.length > 5) {
@@ -130,44 +130,44 @@ export class LazyContext {
     const timeline = recentEvents.map((e) => ({
       at: new Date(e.timestamp).toISOString().slice(11, 23),
       relativeMs: e.timestamp - (recentEvents[0]?.timestamp ?? e.timestamp),
-      layer: e.type.startsWith("browser")
-        ? "browser"
-        : e.type.startsWith("process")
-          ? "server"
-          : e.type.startsWith("terminal")
-            ? "terminal"
-            : "tool",
+      layer: e.type.startsWith('browser')
+        ? 'browser'
+        : e.type.startsWith('process')
+          ? 'server'
+          : e.type.startsWith('terminal')
+            ? 'terminal'
+            : 'tool',
       event: `${e.type}: ${JSON.stringify(e.data).slice(0, 120)}`,
     }));
 
     // Find correlations
     const browserErrors = recentEvents.filter(
-      (e) => e.type === "browser:console" && String(e.data.level) === "error",
+      (e) => e.type === 'browser:console' && String(e.data.level) === 'error',
     );
     const networkErrors = recentEvents.filter(
-      (e) => e.type === "browser:network" && Number(e.data.status) >= 400,
+      (e) => e.type === 'browser:network' && Number(e.data.status) >= 400,
     );
-    const processErrors = recentEvents.filter((e) => e.type === "process:stderr");
+    const processErrors = recentEvents.filter((e) => e.type === 'process:stderr');
 
-    const correlation: L2Detail["correlation"] = [];
+    const correlation: L2Detail['correlation'] = [];
 
     if (browserErrors.length > 0 && processErrors.length > 0) {
       correlation.push({
-        pattern: "Browser error + Server error",
+        pattern: 'Browser error + Server error',
         confidence: 0.85,
         events: [
-          `Browser: ${String(browserErrors[0]?.data.message ?? "").slice(0, 100)}`,
-          `Server: ${String(processErrors[0]?.data.line ?? "").slice(0, 100)}`,
+          `Browser: ${String(browserErrors[0]?.data.message ?? '').slice(0, 100)}`,
+          `Server: ${String(processErrors[0]?.data.line ?? '').slice(0, 100)}`,
         ],
       });
     }
     if (networkErrors.length > 0 && processErrors.length > 0) {
       correlation.push({
-        pattern: "Network failure + Server error",
+        pattern: 'Network failure + Server error',
         confidence: 0.9,
         events: [
           `Network: ${networkErrors[0]?.data.method} ${networkErrors[0]?.data.url} → ${networkErrors[0]?.data.status}`,
-          `Server: ${String(processErrors[0]?.data.line ?? "").slice(0, 100)}`,
+          `Server: ${String(processErrors[0]?.data.line ?? '').slice(0, 100)}`,
         ],
       });
     }
@@ -225,12 +225,12 @@ export class LazyContext {
       duration: r.duration,
     }));
 
-    let domSummary = "DOM unavailable (no browser session)";
+    let domSummary = 'DOM unavailable (no browser session)';
     if (session.browser) {
       try {
         domSummary = `URL: ${session.browser.url().slice(0, 200)}`;
       } catch {
-        domSummary = "DOM unavailable (cross-origin)";
+        domSummary = 'DOM unavailable (cross-origin)';
       }
     }
 

@@ -17,16 +17,16 @@
  * Requires a build first:  pnpm --filter @plumpslabs/fennec-cli build
  * Run:                     pnpm --filter @plumpslabs/fennec-cli test:e2e
  */
-import { execFileSync, spawnSync, spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, writeFileSync, readFileSync } from "node:fs";
-import { resolve, join } from "node:path";
-import { tmpdir } from "node:os";
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { execFileSync, spawnSync, spawn, type ChildProcess } from 'node:child_process';
+import { existsSync, mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
+import { resolve, join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
-const CLI = resolve(__dirname, "../../dist/index.js");
+const CLI = resolve(__dirname, '../../dist/index.js');
 const BUILT = existsSync(CLI);
 
-const DATA_DIR = mkdtempSync(join(tmpdir(), "fennec-e2e-"));
+const DATA_DIR = mkdtempSync(join(tmpdir(), 'fennec-e2e-'));
 // Random base port so leftover daemons from a previous (crashed) run can never
 // collide with this run's ports.
 const BASE = 20000 + Math.floor(Math.random() * 400) * 10;
@@ -42,21 +42,21 @@ interface RunResult {
 function run(args: string[], extra: Record<string, string> = {}): RunResult {
   // NOTE: the CLI prints human-readable output to stderr and JSON to stdout.
   // Capture BOTH streams so assertions see the real output.
-  const res = spawnSync("node", [CLI, ...args], {
-    encoding: "utf-8",
+  const res = spawnSync('node', [CLI, ...args], {
+    encoding: 'utf-8',
     timeout: 30000,
     env: { ...process.env, FENNEC_DATA_DIR: DATA_DIR, HOME: DATA_DIR, ...extra },
   });
-  const stdout = res.stdout ?? "";
-  const stderr = res.stderr ?? "";
+  const stdout = res.stdout ?? '';
+  const stderr = res.stderr ?? '';
   return { code: res.status ?? (res.error ? 1 : 0), stdout, stderr, out: stdout + stderr };
 }
 
 function psJson(): any[] {
-  const { stdout } = run(["ps", "--json"]);
+  const { stdout } = run(['ps', '--json']);
   try {
     const parsed = JSON.parse(stdout);
-    return Array.isArray(parsed) ? parsed : parsed.apps ?? [];
+    return Array.isArray(parsed) ? parsed : (parsed.apps ?? []);
   } catch {
     return [];
   }
@@ -88,7 +88,7 @@ interface Bg {
 const backgrounds: Bg[] = [];
 
 function bgNode(code: string): Bg {
-  const child: ChildProcess = spawn("node", ["-e", code], { detached: true, stdio: "ignore" });
+  const child: ChildProcess = spawn('node', ['-e', code], { detached: true, stdio: 'ignore' });
   const pid = child.pid!;
   const bg: Bg = {
     pid,
@@ -99,7 +99,7 @@ function bgNode(code: string): Bg {
         /* already gone */
       }
       try {
-        child.kill("SIGKILL");
+        child.kill('SIGKILL');
       } catch {
         /* already gone */
       }
@@ -109,12 +109,15 @@ function bgNode(code: string): Bg {
   return bg;
 }
 
-const HTTP = (port: number, extra = "") =>
+const HTTP = (port: number, extra = '') =>
   `require('http').createServer((q,s)=>s.end('ok')).listen(${port},()=>console.log('BOOT ${port}'))${extra}`;
 
-describe.skipIf(!BUILT)("CLI E2E: process control plane", () => {
+describe.skipIf(!BUILT)('CLI E2E: process control plane', () => {
   beforeAll(() => {
-    expect(BUILT, "dist/index.js missing — run `pnpm --filter @plumpslabs/fennec-cli build` first").toBe(true);
+    expect(
+      BUILT,
+      'dist/index.js missing — run `pnpm --filter @plumpslabs/fennec-cli build` first',
+    ).toBe(true);
   });
 
   afterAll(() => {
@@ -122,12 +125,12 @@ describe.skipIf(!BUILT)("CLI E2E: process control plane", () => {
     // the reliable non-interactive teardown). Also kills any orphan adopted
     // from a prior run that landed in this run's tracked.json.
     try {
-      const raw = readFileSync(join(DATA_DIR, "tracked.json"), "utf-8");
+      const raw = readFileSync(join(DATA_DIR, 'tracked.json'), 'utf-8');
       const tracked = JSON.parse(raw) as any[];
       for (const t of tracked) {
         if (t?.pid) {
           try {
-            process.kill(t.pid, "SIGKILL");
+            process.kill(t.pid, 'SIGKILL');
           } catch {
             /* already gone */
           }
@@ -144,233 +147,310 @@ describe.skipIf(!BUILT)("CLI E2E: process control plane", () => {
     }
   });
 
-  it("start spawns a supervised daemon (does NOT start the MCP server)", () => {
+  it('start spawns a supervised daemon (does NOT start the MCP server)', () => {
     const port = P(0);
-    const r = run(["start", "node", "-e", HTTP(port), "--name", "web", "--port", String(port)]);
+    const r = run(['start', 'node', '-e', HTTP(port), '--name', 'web', '--port', String(port)]);
     expect(r.code).toBe(0);
-    const app = findApp("web");
-    expect(app, "web should be tracked").toBeDefined();
-    expect(app.status).toBe("running");
+    const app = findApp('web');
+    expect(app, 'web should be tracked').toBeDefined();
+    expect(app.status).toBe('running');
     expect(app.pid).toBeGreaterThan(0);
 
     // log file lives under FENNEC_DATA_DIR/logs (parity fix)
-    expect(existsSync(join(DATA_DIR, "logs", "web.log"))).toBe(true);
+    expect(existsSync(join(DATA_DIR, 'logs', 'web.log'))).toBe(true);
   });
 
   it("log and inspect read the daemon's output", async () => {
     // Read the log FILE directly (robust against ANSI formatting in CLI output).
-    const logPath = join(DATA_DIR, "logs", "web.log");
-    expect(await waitFor(() => existsSync(logPath) && readFileSync(logPath, "utf-8").includes(`BOOT ${P(0)}`))).toBeTruthy();
+    const logPath = join(DATA_DIR, 'logs', 'web.log');
+    expect(
+      await waitFor(
+        () => existsSync(logPath) && readFileSync(logPath, 'utf-8').includes(`BOOT ${P(0)}`),
+      ),
+    ).toBeTruthy();
 
-    const json = run(["log", "web", "--json"]);
+    const json = run(['log', 'web', '--json']);
     expect(() => JSON.parse(json.out)).not.toThrow();
 
-    const inspect = run(["inspect", "web", "--plain"]);
-    expect(inspect.out.toLowerCase()).toContain("running");
+    const inspect = run(['inspect', 'web', '--plain']);
+    expect(inspect.out.toLowerCase()).toContain('running');
   });
 
-  it("stop pauses and spawn resumes a tracked app", async () => {
-    expect(run(["stop", "web", "-y"]).code).toBe(0);
-    expect(await waitFor(() => findApp("web")?.status === "stopped")).toBe(true);
+  it('stop pauses and spawn resumes a tracked app', async () => {
+    expect(run(['stop', 'web', '-y']).code).toBe(0);
+    expect(await waitFor(() => findApp('web')?.status === 'stopped')).toBe(true);
 
-    expect(run(["spawn", "web"]).code).toBe(0);
-    expect(await waitFor(() => findApp("web")?.status === "running")).toBe(true);
+    expect(run(['spawn', 'web']).code).toBe(0);
+    expect(await waitFor(() => findApp('web')?.status === 'running')).toBe(true);
   });
 
-  it("adopt-by-port reuses an external process instead of double-starting", async () => {
+  it('adopt-by-port reuses an external process instead of double-starting', async () => {
     const port = P(1);
     const ext = bgNode(HTTP(port));
     // Wait until the external server is actually bound.
     const bound = await waitFor(() => {
       try {
-        execFileSync("node", ["-e", `require('http').get('http://127.0.0.1:${port}',r=>process.exit(0)).on('error',()=>process.exit(1))`], {
-          stdio: "ignore",
-          timeout: 3000,
-        });
+        execFileSync(
+          'node',
+          [
+            '-e',
+            `require('http').get('http://127.0.0.1:${port}',r=>process.exit(0)).on('error',()=>process.exit(1))`,
+          ],
+          {
+            stdio: 'ignore',
+            timeout: 3000,
+          },
+        );
         return true;
       } catch {
         return false;
       }
     });
-    expect(bound, "external server should bind").toBe(true);
+    expect(bound, 'external server should bind').toBe(true);
 
     // This start should ADOPT the external server (same pid), not spawn a new one.
-    const r = run(["start", "node", "-e", "process.exit(0)", "--name", "svc", "--port", String(port)]);
+    const r = run([
+      'start',
+      'node',
+      '-e',
+      'process.exit(0)',
+      '--name',
+      'svc',
+      '--port',
+      String(port),
+    ]);
     expect(r.code).toBe(0);
 
-    const apps = psJson().filter((a) => a.name === "svc");
-    expect(apps.length, "exactly one svc tracked").toBe(1);
-    expect(apps[0].status).toBe("running");
+    const apps = psJson().filter((a) => a.name === 'svc');
+    expect(apps.length, 'exactly one svc tracked').toBe(1);
+    expect(apps[0].status).toBe('running');
     expect(apps[0].pid).toBe(ext.pid); // adopted the external pid
   });
 
-  it("supervisor auto-restarts a --restart app after it is killed", async () => {
+  it('supervisor auto-restarts a --restart app after it is killed', async () => {
     const port = P(2);
-    const r = run(["start", "node", "-e", HTTP(port), "--name", "api", "--port", String(port), "--restart"]);
+    const r = run([
+      'start',
+      'node',
+      '-e',
+      HTTP(port),
+      '--name',
+      'api',
+      '--port',
+      String(port),
+      '--restart',
+    ]);
     expect(r.code).toBe(0);
-    const before = findApp("api");
-    expect(before?.status).toBe("running");
+    const before = findApp('api');
+    expect(before?.status).toBe('running');
     const pid1 = before!.pid;
 
     // Kill the managed process out from under it.
     try {
-      process.kill(pid1, "SIGKILL");
+      process.kill(pid1, 'SIGKILL');
     } catch {
       /* ignore */
     }
 
     // Supervisor should respawn it with a new pid.
     const respawned = await waitFor(() => {
-      const a = findApp("api");
-      return a && a.status === "running" && a.pid !== pid1 ? a : false;
+      const a = findApp('api');
+      return a && a.status === 'running' && a.pid !== pid1 ? a : false;
     }, 15000);
-    expect(respawned, "api should respawn and be running").toBeTruthy();
-    expect((respawned as any).pid, "should have a new pid after respawn").not.toBe(pid1);
+    expect(respawned, 'api should respawn and be running').toBeTruthy();
+    expect((respawned as any).pid, 'should have a new pid after respawn').not.toBe(pid1);
     expect((respawned as any).pid).toBeGreaterThan(0);
   });
 
-  it("dev up is idempotent (skips already-running apps), restart + down work", async () => {
+  it('dev up is idempotent (skips already-running apps), restart + down work', async () => {
     const port = P(3);
     const cfg = `apps:\n  - name: be\n    command: node\n    args: ["-e", "${HTTP(port)}"]\n    port: ${port}\n    restart: true\n`;
-    const cfgPath = join(DATA_DIR, "fennec.config.yaml");
+    const cfgPath = join(DATA_DIR, 'fennec.config.yaml');
     writeFileSync(cfgPath, cfg);
 
-    expect(run(["dev", "up", "--config", cfgPath]).code).toBe(0);
-    expect(await waitFor(() => findApp("be")?.status === "running")).toBe(true);
-    const pid1 = findApp("be")!.pid;
+    expect(run(['dev', 'up', '--config', cfgPath]).code).toBe(0);
+    expect(await waitFor(() => findApp('be')?.status === 'running')).toBe(true);
+    const pid1 = findApp('be')!.pid;
 
     // Second `dev up` must NOT restart it (same pid — idempotent).
-    expect(run(["dev", "up", "--config", cfgPath]).code).toBe(0);
-    expect(findApp("be")?.pid, "dev up should skip already-running app").toBe(pid1);
+    expect(run(['dev', 'up', '--config', cfgPath]).code).toBe(0);
+    expect(findApp('be')?.pid, 'dev up should skip already-running app').toBe(pid1);
 
     // dev restart should bring it back (pid may change).
-    expect(run(["dev", "restart", "be"]).code).toBe(0);
-    expect(await waitFor(() => findApp("be")?.status === "running")).toBe(true);
+    expect(run(['dev', 'restart', 'be']).code).toBe(0);
+    expect(await waitFor(() => findApp('be')?.status === 'running')).toBe(true);
 
     // dev down stops the stack (keeps registry).
-    expect(run(["dev", "down"]).code).toBe(0);
-    expect(await waitFor(() => findApp("be")?.status === "stopped")).toBe(true);
+    expect(run(['dev', 'down']).code).toBe(0);
+    expect(await waitFor(() => findApp('be')?.status === 'stopped')).toBe(true);
   }, 30000);
 
-  it("ps --system, supervisor, persist, and health commands run without error", () => {
-    expect(run(["ps", "--system"]).code).toBe(0);
-    expect(run(["ps", "--json"]).code).toBe(0);
-    expect(run(["supervisor", "status"]).code).toBe(0);
-    const persist = run(["persist", "status"]);
+  it('ps --system, supervisor, persist, and health commands run without error', () => {
+    expect(run(['ps', '--system']).code).toBe(0);
+    expect(run(['ps', '--json']).code).toBe(0);
+    expect(run(['supervisor', 'status']).code).toBe(0);
+    const persist = run(['persist', 'status']);
     expect(persist.code).toBe(0);
-    const health = run(["health"]);
+    const health = run(['health']);
     expect(health.code).toBe(0);
   });
 
-  it("kill removes an already-stopped tracked app from the registry", async () => {
+  it('kill removes an already-stopped tracked app from the registry', async () => {
     const port = P(9);
-    expect(run(["start", "node", "-e", HTTP(port), "--name", "killstop", "--port", String(port)]).code).toBe(0);
-    expect(await waitFor(() => findApp("killstop")?.status === "running", 5000)).toBe(true);
+    expect(
+      run(['start', 'node', '-e', HTTP(port), '--name', 'killstop', '--port', String(port)]).code,
+    ).toBe(0);
+    expect(await waitFor(() => findApp('killstop')?.status === 'running', 5000)).toBe(true);
 
-    expect(run(["stop", "killstop", "-y"]).code).toBe(0);
-    expect(await waitFor(() => findApp("killstop")?.status === "stopped", 5000)).toBe(true);
+    expect(run(['stop', 'killstop', '-y']).code).toBe(0);
+    expect(await waitFor(() => findApp('killstop')?.status === 'stopped', 5000)).toBe(true);
 
     // `kill` on a stopped app must deregister it (no zombie entry left behind).
-    expect(run(["kill", "killstop"]).code).toBe(0);
-    expect(await waitFor(() => !findApp("killstop"), 5000)).toBe(true);
+    expect(run(['kill', 'killstop']).code).toBe(0);
+    expect(await waitFor(() => !findApp('killstop'), 5000)).toBe(true);
   }, 30000);
 
-  it("routing guard: `start <cmd>` spawns (does not launch the MCP server)", () => {
+  it('routing guard: `start <cmd>` spawns (does not launch the MCP server)', () => {
     const port = P(4);
-    const r = run(["start", "node", "-e", HTTP(port), "--name", "guard", "--port", String(port)]);
+    const r = run(['start', 'node', '-e', HTTP(port), '--name', 'guard', '--port', String(port)]);
     expect(r.code).toBe(0);
-    expect(r.out.toLowerCase()).not.toContain("starting fennec mcp server");
-    expect(findApp("guard")?.status).toBe("running");
+    expect(r.out.toLowerCase()).not.toContain('starting fennec mcp server');
+    expect(findApp('guard')?.status).toBe('running');
   });
 
-  it("kill all only stops Fennec-tracked apps — never other user processes", async () => {
+  it('kill all only stops Fennec-tracked apps — never other user processes', async () => {
     const port = P(5);
-    expect(run(["start", "node", "-e", HTTP(port), "--name", "killme", "--port", String(port)]).code).toBe(0);
-    expect(await waitFor(() => findApp("killme")?.status === "running", 5000)).toBe(true);
+    expect(
+      run(['start', 'node', '-e', HTTP(port), '--name', 'killme', '--port', String(port)]).code,
+    ).toBe(0);
+    expect(await waitFor(() => findApp('killme')?.status === 'running', 5000)).toBe(true);
 
     // An external, UNtracked process that MUST survive `kill all`.
     const extPort = P(6);
     const ext = bgNode(HTTP(extPort));
     const bound = await waitFor(() => {
       try {
-        execFileSync("node", ["-e", `require('http').get('http://127.0.0.1:${extPort}',r=>process.exit(0)).on('error',()=>process.exit(1))`], { stdio: "ignore", timeout: 3000 });
+        execFileSync(
+          'node',
+          [
+            '-e',
+            `require('http').get('http://127.0.0.1:${extPort}',r=>process.exit(0)).on('error',()=>process.exit(1))`,
+          ],
+          { stdio: 'ignore', timeout: 3000 },
+        );
         return true;
       } catch {
         return false;
       }
     }, 5000);
-    expect(bound, "external server should bind before kill all").toBe(true);
+    expect(bound, 'external server should bind before kill all').toBe(true);
 
     // A STOPPED tracked app that `kill all` must ALSO deregister.
     const stopPort = P(7);
-    expect(run(["start", "node", "-e", HTTP(stopPort), "--name", "stoppedtoo", "--port", String(stopPort)]).code).toBe(0);
-    expect(await waitFor(() => findApp("stoppedtoo")?.status === "running", 5000)).toBe(true);
-    expect(run(["stop", "stoppedtoo", "-y"]).code).toBe(0);
-    expect(await waitFor(() => findApp("stoppedtoo")?.status === "stopped", 5000)).toBe(true);
+    expect(
+      run([
+        'start',
+        'node',
+        '-e',
+        HTTP(stopPort),
+        '--name',
+        'stoppedtoo',
+        '--port',
+        String(stopPort),
+      ]).code,
+    ).toBe(0);
+    expect(await waitFor(() => findApp('stoppedtoo')?.status === 'running', 5000)).toBe(true);
+    expect(run(['stop', 'stoppedtoo', '-y']).code).toBe(0);
+    expect(await waitFor(() => findApp('stoppedtoo')?.status === 'stopped', 5000)).toBe(true);
 
     // The critical regression guard: kill all must only target tracked apps,
     // but it MUST remove BOTH running and stopped tracked entries.
-    expect(run(["kill", "all", "-y"]).code).toBe(0);
+    expect(run(['kill', 'all', '-y']).code).toBe(0);
 
     // Both tracked apps are gone (running killme + stopped stoppedtoo).
-    expect(await waitFor(() => !findApp("killme"), 5000)).toBe(true);
-    expect(await waitFor(() => !findApp("stoppedtoo"), 5000)).toBe(true);
+    expect(await waitFor(() => !findApp('killme'), 5000)).toBe(true);
+    expect(await waitFor(() => !findApp('stoppedtoo'), 5000)).toBe(true);
 
     // External untracked process is STILL alive (proves it was never scoped-in).
     const stillUp = await waitFor(() => {
       try {
-        execFileSync("node", ["-e", `require('http').get('http://127.0.0.1:${extPort}',r=>process.exit(0)).on('error',()=>process.exit(1))`], { stdio: "ignore", timeout: 3000 });
+        execFileSync(
+          'node',
+          [
+            '-e',
+            `require('http').get('http://127.0.0.1:${extPort}',r=>process.exit(0)).on('error',()=>process.exit(1))`,
+          ],
+          { stdio: 'ignore', timeout: 3000 },
+        );
         return true;
       } catch {
         return false;
       }
     }, 5000);
-    expect(stillUp, "external untracked process must survive `kill all`").toBe(true);
+    expect(stillUp, 'external untracked process must survive `kill all`').toBe(true);
     ext.kill();
   }, 30000);
 
-  it("kill/restart by name are scoped to tracked apps (no system-wide kill)", async () => {
+  it('kill/restart by name are scoped to tracked apps (no system-wide kill)', async () => {
     const port = P(7);
-    expect(run(["start", "node", "-e", HTTP(port), "--name", "rt", "--port", String(port)]).code).toBe(0);
-    expect(await waitFor(() => findApp("rt")?.status === "running", 5000)).toBe(true);
+    expect(
+      run(['start', 'node', '-e', HTTP(port), '--name', 'rt', '--port', String(port)]).code,
+    ).toBe(0);
+    expect(await waitFor(() => findApp('rt')?.status === 'running', 5000)).toBe(true);
 
     // External, UNtracked process that must survive kill/restart by an unknown name.
     const extPort = P(8);
     const ext = bgNode(HTTP(extPort));
     const bound = await waitFor(() => {
       try {
-        execFileSync("node", ["-e", `require('http').get('http://127.0.0.1:${extPort}',r=>process.exit(0)).on('error',()=>process.exit(1))`], { stdio: "ignore", timeout: 3000 });
+        execFileSync(
+          'node',
+          [
+            '-e',
+            `require('http').get('http://127.0.0.1:${extPort}',r=>process.exit(0)).on('error',()=>process.exit(1))`,
+          ],
+          { stdio: 'ignore', timeout: 3000 },
+        );
         return true;
       } catch {
         return false;
       }
     }, 5000);
-    expect(bound, "external server should bind").toBe(true);
+    expect(bound, 'external server should bind').toBe(true);
 
     // Unknown name to `kill` must error — NOT hunt & kill system processes by name.
-    expect(run(["kill", "definitely-not-tracked"]).code).not.toBe(0);
+    expect(run(['kill', 'definitely-not-tracked']).code).not.toBe(0);
     // Unknown name to `restart` must error — NOT SIGKILL a system process by name.
-    expect(run(["restart", "definitely-not-tracked"]).code).not.toBe(0);
+    expect(run(['restart', 'definitely-not-tracked']).code).not.toBe(0);
 
     // External untracked process is STILL alive (proves no system-wide kill happened).
     const stillUp = await waitFor(() => {
       try {
-        execFileSync("node", ["-e", `require('http').get('http://127.0.0.1:${extPort}',r=>process.exit(0)).on('error',()=>process.exit(1))`], { stdio: "ignore", timeout: 3000 });
+        execFileSync(
+          'node',
+          [
+            '-e',
+            `require('http').get('http://127.0.0.1:${extPort}',r=>process.exit(0)).on('error',()=>process.exit(1))`,
+          ],
+          { stdio: 'ignore', timeout: 3000 },
+        );
         return true;
       } catch {
         return false;
       }
     }, 5000);
-    expect(stillUp, "external untracked process must survive kill/restart by unknown name").toBe(true);
+    expect(stillUp, 'external untracked process must survive kill/restart by unknown name').toBe(
+      true,
+    );
 
     // `restart rt` (tracked) actually re-spawns from saved config.
-    const rp = run(["restart", "rt", "-y"]);
+    const rp = run(['restart', 'rt', '-y']);
     expect(rp.code).toBe(0);
     const after = await waitFor(() => {
-      const a = findApp("rt");
-      return a && a.status === "running" ? a : false;
+      const a = findApp('rt');
+      return a && a.status === 'running' ? a : false;
     }, 8000);
-    expect(after, "rt should be running after restart").toBeTruthy();
+    expect(after, 'rt should be running after restart').toBeTruthy();
 
     ext.kill();
   }, 30000);

@@ -29,7 +29,7 @@ export interface BrowserLaunchOptions {
   defaultTimeout?: number;
 }
 
-export type BrowserType = "chromium" | "firefox" | "webkit";
+export type BrowserType = 'chromium' | 'firefox' | 'webkit';
 
 export interface BrowserEngine {
   readonly type: BrowserType;
@@ -52,7 +52,7 @@ export interface BrowserSessionOptions {
 // ─── Browser Session ─────────────────────────────────────────────
 
 // ConsoleEvent and NetworkEvent are imported from session/types.ts to avoid duplication
-import type { ConsoleEvent, NetworkEvent } from "../session/types.js";
+import type { ConsoleEvent, NetworkEvent } from '../session/types.js';
 
 export interface BrowserSession {
   readonly id: string;
@@ -77,10 +77,28 @@ export interface BrowserSession {
   $(selector: string): Promise<ElementHandle | null>;
   $$(selector: string): Promise<ElementHandle[]>;
   waitForSelector(selector: string, options?: WaitForSelectorOptions): Promise<void>;
-  waitForURL(urlOrFn: string | ((url: string) => boolean), options?: { timeout?: number }): Promise<void>;
+  waitForURL(
+    urlOrFn: string | ((url: string) => boolean),
+    options?: { timeout?: number },
+  ): Promise<void>;
   waitForLoadState(state?: LoadEvent, options?: { timeout?: number }): Promise<void>;
   waitForTimeout(ms: number): Promise<void>;
-  waitForRequest(urlOrPredicate: string | ((request: { url: () => string; method: () => string }) => boolean), options?: { timeout?: number }): Promise<{ url: string; method: string; headers: Record<string, string>; postData: string | null; resourceType: string; response: () => Promise<{ status: number; statusText: string; headers: Record<string, string>; url: string } | null> }>;
+  waitForRequest(
+    urlOrPredicate: string | ((request: { url: () => string; method: () => string }) => boolean),
+    options?: { timeout?: number },
+  ): Promise<{
+    url: string;
+    method: string;
+    headers: Record<string, string>;
+    postData: string | null;
+    resourceType: string;
+    response: () => Promise<{
+      status: number;
+      statusText: string;
+      headers: Record<string, string>;
+      url: string;
+    } | null>;
+  }>;
 
   // ── JavaScript Execution ──
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -118,7 +136,7 @@ export interface BrowserSession {
 
 // ─── Navigation ──────────────────────────────────────────────────
 
-export type LoadEvent = "load" | "domcontentloaded" | "networkidle" | "commit";
+export type LoadEvent = 'load' | 'domcontentloaded' | 'networkidle' | 'commit';
 
 export interface NavigateOptions {
   waitUntil?: LoadEvent;
@@ -134,14 +152,14 @@ export interface NavigationResult {
 // ─── Wait Options ────────────────────────────────────────────────
 
 export interface WaitForSelectorOptions {
-  state?: "attached" | "detached" | "visible" | "hidden";
+  state?: 'attached' | 'detached' | 'visible' | 'hidden';
   timeout?: number;
 }
 
 // ─── Element Locator ─────────────────────────────────────────────
 
 export interface Locator {
-  click(options?: { button?: "left" | "right" | "middle"; clickCount?: number }): Promise<void>;
+  click(options?: { button?: 'left' | 'right' | 'middle'; clickCount?: number }): Promise<void>;
   fill(text: string): Promise<void>;
   pressSequentially(text: string, options?: { delay?: number }): Promise<void>;
   selectOption(value: string): Promise<string[]>;
@@ -157,7 +175,10 @@ export interface Locator {
   setInputFiles(paths: string[]): Promise<void>;
   setChecked(checked: boolean): Promise<void>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  evaluate<T = unknown>(fn: string | ((el: Element, ...args: any[]) => T), ...args: unknown[]): Promise<T>;
+  evaluate<T = unknown>(
+    fn: string | ((el: Element, ...args: any[]) => T),
+    ...args: unknown[]
+  ): Promise<T>;
   elementHandle(): Promise<ElementHandle | null>;
   first(): Locator;
   all(): Promise<Locator[]>;
@@ -183,7 +204,7 @@ export interface BoundingBox {
 export interface ScreenshotOpts {
   fullPage?: boolean;
   clip?: BoundingBox;
-  type?: "png" | "jpeg";
+  type?: 'png' | 'jpeg';
   /** JPEG quality (0-100). Only applies to `jpeg`. Defaults to 50 in takeScreenshot. */
   quality?: number;
 }
@@ -191,9 +212,19 @@ export interface ScreenshotOpts {
 // ─── Network Route ───────────────────────────────────────────────
 
 export interface Route {
-  request: { url: string; method: string; headers: Record<string, string>; postData: string | null };
+  request: {
+    url: string;
+    method: string;
+    headers: Record<string, string>;
+    postData: string | null;
+  };
   continue(): Promise<void>;
-  fulfill(options: { status?: number; contentType?: string; body?: string; headers?: Record<string, string> }): Promise<void>;
+  fulfill(options: {
+    status?: number;
+    contentType?: string;
+    body?: string;
+    headers?: Record<string, string>;
+  }): Promise<void>;
 }
 
 // ─── CDP ─────────────────────────────────────────────────────────
@@ -213,7 +244,7 @@ export interface Cookie {
   path: string;
   httpOnly: boolean;
   secure: boolean;
-  sameSite: "Strict" | "Lax" | "None";
+  sameSite: 'Strict' | 'Lax' | 'None';
   expires?: number;
 }
 
@@ -224,7 +255,7 @@ export interface CookieInput {
   path?: string;
   httpOnly?: boolean;
   secure?: boolean;
-  sameSite?: "Strict" | "Lax" | "None";
+  sameSite?: 'Strict' | 'Lax' | 'None';
   url?: string;
 }
 

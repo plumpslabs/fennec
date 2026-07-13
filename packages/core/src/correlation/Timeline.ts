@@ -1,5 +1,5 @@
-import type { BusEvent } from "./EventBus.js";
-import type { TimelineEntry } from "./CorrelationEngine.js";
+import type { BusEvent } from './EventBus.js';
+import type { TimelineEntry } from './CorrelationEngine.js';
 
 export class TimelineBuilder {
   build(events: BusEvent[]): TimelineEntry[] {
@@ -15,23 +15,23 @@ export class TimelineBuilder {
     }));
   }
 
-  private mapLayer(type: string): "browser" | "server" | "terminal" {
-    if (type.startsWith("browser")) return "browser";
-    if (type.startsWith("process")) return "server";
-    return "terminal";
+  private mapLayer(type: string): 'browser' | 'server' | 'terminal' {
+    if (type.startsWith('browser')) return 'browser';
+    if (type.startsWith('process')) return 'server';
+    return 'terminal';
   }
 
   private formatEvent(event: BusEvent): string {
     const data = event.data;
     switch (event.type) {
-      case "browser:network":
+      case 'browser:network':
         return `${data.method} ${data.url}`;
-      case "browser:console":
+      case 'browser:console':
         return `[${data.level}] ${data.message}`;
-      case "browser:error":
+      case 'browser:error':
         return `Error: ${data.message}`;
-      case "process:stdout":
-      case "process:stderr":
+      case 'process:stdout':
+      case 'process:stderr':
         return `${data.line}`;
       default:
         return `${event.type}`;
@@ -40,14 +40,14 @@ export class TimelineBuilder {
 
   private formatDetail(event: BusEvent): string {
     switch (event.type) {
-      case "browser:network":
+      case 'browser:network':
         return `Status: ${event.data.status}`;
-      case "process:stderr":
+      case 'process:stderr':
         return `Error output`;
-      case "process:exit":
+      case 'process:exit':
         return `Exit code: ${event.data.code}`;
       default:
-        return "";
+        return '';
     }
   }
 }

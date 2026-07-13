@@ -12,13 +12,13 @@
  *   "Page: error | 5 console errors | 2 failed requests"
  */
 
-import type { MiddlewareFn } from "./Pipeline.js";
-import { getLogger } from "../utils/logger.js";
-import type { BrowserSession } from "../browser/types.js";
+import type { MiddlewareFn } from './Pipeline.js';
+import { getLogger } from '../utils/logger.js';
+import type { BrowserSession } from '../browser/types.js';
 
 export interface Pulse {
   level: 0;
-  status: "healthy" | "warning" | "error";
+  status: 'healthy' | 'warning' | 'error';
   page?: string;
   consoleErrors: number;
   consoleWarnings: number;
@@ -39,16 +39,20 @@ export interface Pulse {
  * to a "warning", never an "error". Real uncaught errors and >=400 network
  * failures drive "error".
  */
-async function buildPulse(session: { browser?: BrowserSession; consoleBuffer: Array<{ level: string; message?: string }>; networkBuffer: Array<{ status: number; duration: number }> }): Promise<Pulse> {
+async function buildPulse(session: {
+  browser?: BrowserSession;
+  consoleBuffer: Array<{ level: string; message?: string }>;
+  networkBuffer: Array<{ status: number; duration: number }>;
+}): Promise<Pulse> {
   const pulse: Pulse = {
     level: 0,
-    status: "healthy",
+    status: 'healthy',
     consoleErrors: 0,
     consoleWarnings: 0,
     corsWarnings: 0,
     networkFailures: 0,
     networkSlow: 0,
-    summary: "",
+    summary: '',
   };
 
   const isCorsNoise = (msg?: string): boolean =>
@@ -56,10 +60,10 @@ async function buildPulse(session: { browser?: BrowserSession; consoleBuffer: Ar
 
   // Count console logs by level (fast, in-memory)
   for (const log of session.consoleBuffer) {
-    if (log.level === "error") {
+    if (log.level === 'error') {
       if (isCorsNoise(log.message)) pulse.corsWarnings++;
       else pulse.consoleErrors++;
-    } else if (log.level === "warn") {
+    } else if (log.level === 'warn') {
       pulse.consoleWarnings++;
     }
   }
@@ -75,9 +79,9 @@ async function buildPulse(session: { browser?: BrowserSession; consoleBuffer: Ar
   //  - warning: CORS noise, console warnings, or slow requests
   // A lone CORS false-positive therefore reads as "warning", not "error".
   if (pulse.consoleErrors > 0 || pulse.networkFailures > 0) {
-    pulse.status = "error";
+    pulse.status = 'error';
   } else if (pulse.corsWarnings > 0 || pulse.consoleWarnings > 0 || pulse.networkSlow > 0) {
-    pulse.status = "warning";
+    pulse.status = 'warning';
   }
 
   // Get page URL if available (cross-domain safe)
@@ -85,14 +89,14 @@ async function buildPulse(session: { browser?: BrowserSession; consoleBuffer: Ar
     try {
       pulse.page = session.browser.url().slice(0, 200);
     } catch {
-      pulse.page = "unknown";
+      pulse.page = 'unknown';
     }
   }
 
   // Build one-line summary (Level 0 — minimal tokens)
   const parts: string[] = [];
   if (pulse.page) {
-    const pageLabel = pulse.page.replace(/^https?:\/\//, "").slice(0, 60);
+    const pageLabel = pulse.page.replace(/^https?:\/\//, '').slice(0, 60);
     parts.push(`Page: ${pageLabel}`);
   }
   parts.push(`status: ${pulse.status}`);
@@ -101,7 +105,7 @@ async function buildPulse(session: { browser?: BrowserSession; consoleBuffer: Ar
   if (pulse.corsWarnings > 0) parts.push(`${pulse.corsWarnings} cors warning(s)`);
   if (pulse.networkFailures > 0) parts.push(`${pulse.networkFailures} failed request(s)`);
   if (pulse.networkSlow > 0) parts.push(`${pulse.networkSlow} slow request(s)`);
-  pulse.summary = parts.join(" | ");
+  pulse.summary = parts.join(' | ');
 
   return pulse;
 }
@@ -129,7 +133,7 @@ export function createPulseContext(): MiddlewareFn {
         (resultObj.meta as Record<string, unknown>).pulse = pulse;
       } catch (error) {
         // Pulse is best-effort
-        logger.warn({ error }, "PulseContext: failed to build pulse");
+        logger.warn({ error }, 'PulseContext: failed to build pulse');
       }
     }
 

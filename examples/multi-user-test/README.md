@@ -4,18 +4,18 @@ Demonstrates Fennec's **multi-session parallel testing** — create two isolated
 
 ## Tools Used
 
-| Tool | Purpose |
-|---|---|
-| `context_new` | Create isolated browser context (separate cookies/storage) |
-| `browser_navigate` | Navigate in a specific session |
-| `auth_fill_login_form` | Login as a specific user |
-| `auth_save_session` | Save session for quick switching |
-| `tab_switch` | Switch between sessions |
-| `tab_get_current` | Check active session details |
-| `tab_list` | List all open tabs/sessions |
-| `context_close` | Clean up a session |
-| `browser_screenshot` | Capture state for comparison |
-| `storage_get_cookies` | Verify different auth cookies per session |
+| Tool                   | Purpose                                                    |
+| ---------------------- | ---------------------------------------------------------- |
+| `context_new`          | Create isolated browser context (separate cookies/storage) |
+| `browser_navigate`     | Navigate in a specific session                             |
+| `auth_fill_login_form` | Login as a specific user                                   |
+| `auth_save_session`    | Save session for quick switching                           |
+| `tab_switch`           | Switch between sessions                                    |
+| `tab_get_current`      | Check active session details                               |
+| `tab_list`             | List all open tabs/sessions                                |
+| `context_close`        | Clean up a session                                         |
+| `browser_screenshot`   | Capture state for comparison                               |
+| `storage_get_cookies`  | Verify different auth cookies per session                  |
 
 ---
 
@@ -26,6 +26,7 @@ Demonstrates Fennec's **multi-session parallel testing** — create two isolated
 Start with the default session, then create a second isolated context:
 
 **Request:** Create second context (for regular user)
+
 ```json
 {
   "name": "context_new",
@@ -34,24 +35,28 @@ Start with the default session, then create a second isolated context:
 ```
 
 **Response:**
+
 ```json
 {
-  "content": [{
-    "text": "{\"success\":true,\"data\":{\"contextId\":\"sess_2\"},\"meta\":{\"elapsed\":500,\"sessionId\":\"sess_2\",\"timestamp\":\"2026-06-28T10:00:00.000Z\"}}"
-  }]
+  "content": [
+    {
+      "text": "{\"success\":true,\"data\":{\"contextId\":\"sess_2\"},\"meta\":{\"elapsed\":500,\"sessionId\":\"sess_2\",\"timestamp\":\"2026-06-28T10:00:00.000Z\"}}"
+    }
+  ]
 }
 ```
 
 Now we have two sessions:
 
-| Session | User | Cookies/Storage |
-|---|---|---|
-| `sess_default` | (to be admin) | Isolated |
-| `sess_2` | (to be regular user) | Completely separate |
+| Session        | User                 | Cookies/Storage     |
+| -------------- | -------------------- | ------------------- |
+| `sess_default` | (to be admin)        | Isolated            |
+| `sess_2`       | (to be regular user) | Completely separate |
 
 ### Step 2 — Login as Admin in Session Default
 
 **Request:**
+
 ```json
 {
   "name": "browser_navigate",
@@ -63,15 +68,19 @@ Now we have two sessions:
 ```
 
 **Response:**
+
 ```json
 {
-  "content": [{
-    "text": "{\"success\":true,\"data\":{\"finalUrl\":\"https://example.com/login\",\"statusCode\":200,\"loadTime\":1200},\"meta\":{\"elapsed\":1200,\"sessionId\":\"sess_default\",\"timestamp\":\"2026-06-28T10:00:01.000Z\"}}"
-  }]
+  "content": [
+    {
+      "text": "{\"success\":true,\"data\":{\"finalUrl\":\"https://example.com/login\",\"statusCode\":200,\"loadTime\":1200},\"meta\":{\"elapsed\":1200,\"sessionId\":\"sess_default\",\"timestamp\":\"2026-06-28T10:00:01.000Z\"}}"
+    }
+  ]
 }
 ```
 
 **Request:** Fill login form as admin
+
 ```json
 {
   "name": "auth_fill_login_form",
@@ -85,15 +94,19 @@ Now we have two sessions:
 ```
 
 **Response:**
+
 ```json
 {
-  "content": [{
-    "text": "{\"success\":true,\"data\":{\"formFound\":true,\"fieldsDetected\":{\"usernameField\":true,\"passwordField\":true,\"submitButton\":true},\"submitted\":true},\"meta\":{\"elapsed\":400,\"sessionId\":\"sess_default\",\"timestamp\":\"2026-06-28T10:00:03.000Z\"}}"
-  }]
+  "content": [
+    {
+      "text": "{\"success\":true,\"data\":{\"formFound\":true,\"fieldsDetected\":{\"usernameField\":true,\"passwordField\":true,\"submitButton\":true},\"submitted\":true},\"meta\":{\"elapsed\":400,\"sessionId\":\"sess_default\",\"timestamp\":\"2026-06-28T10:00:03.000Z\"}}"
+    }
+  ]
 }
 ```
 
 **Request:** Save admin session
+
 ```json
 {
   "name": "auth_save_session",
@@ -107,6 +120,7 @@ Now we have two sessions:
 ### Step 3 — Switch to Session 2 and Login as Regular User
 
 **Request:** Navigate in session 2
+
 ```json
 {
   "name": "browser_navigate",
@@ -118,6 +132,7 @@ Now we have two sessions:
 ```
 
 **Request:** Fill login form as regular user
+
 ```json
 {
   "name": "auth_fill_login_form",
@@ -131,6 +146,7 @@ Now we have two sessions:
 ```
 
 **Request:** Save user session
+
 ```json
 {
   "name": "auth_save_session",
@@ -144,6 +160,7 @@ Now we have two sessions:
 ### Step 4 — Verify Auth States Are Different
 
 **Request:** Check admin session cookies
+
 ```json
 {
   "name": "storage_get_cookies",
@@ -154,15 +171,19 @@ Now we have two sessions:
 ```
 
 **Response (abbreviated):**
+
 ```json
 {
-  "content": [{
-    "text": "{\"success\":true,\"data\":{\"cookies\":[{\"name\":\"session_token\",\"value\":\"admin_jwt_token_abc\",\"domain\":\".example.com\",\"path\":\"/\",\"httpOnly\":true,\"secure\":true}],\"count\":1}}"
-  }]
+  "content": [
+    {
+      "text": "{\"success\":true,\"data\":{\"cookies\":[{\"name\":\"session_token\",\"value\":\"admin_jwt_token_abc\",\"domain\":\".example.com\",\"path\":\"/\",\"httpOnly\":true,\"secure\":true}],\"count\":1}}"
+    }
+  ]
 }
 ```
 
 **Request:** Check user session cookies
+
 ```json
 {
   "name": "storage_get_cookies",
@@ -173,11 +194,14 @@ Now we have two sessions:
 ```
 
 **Response (abbreviated):**
+
 ```json
 {
-  "content": [{
-    "text": "{\"success\":true,\"data\":{\"cookies\":[{\"name\":\"session_token\",\"value\":\"user_jwt_token_xyz\",\"domain\":\".example.com\",\"path\":\"/\",\"httpOnly\":true,\"secure\":true}],\"count\":1}}"
-  }]
+  "content": [
+    {
+      "text": "{\"success\":true,\"data\":{\"cookies\":[{\"name\":\"session_token\",\"value\":\"user_jwt_token_xyz\",\"domain\":\".example.com\",\"path\":\"/\",\"httpOnly\":true,\"secure\":true}],\"count\":1}}"
+    }
+  ]
 }
 ```
 
@@ -188,6 +212,7 @@ Different tokens — confirmed! ✅
 Navigate to admin panel in both sessions:
 
 **Request:** Admin can access
+
 ```json
 {
   "name": "browser_navigate",
@@ -201,6 +226,7 @@ Navigate to admin panel in both sessions:
 **Response:** ✅ Page loads with user list (status 200)
 
 **Request:** Regular user tries admin page
+
 ```json
 {
   "name": "browser_navigate",
@@ -215,9 +241,11 @@ Navigate to admin panel in both sessions:
 
 ```json
 {
-  "content": [{
-    "text": "{\"success\":true,\"data\":{\"finalUrl\":\"https://example.com/access-denied\",\"statusCode\":403,\"loadTime\":500},\"meta\":{\"elapsed\":500,\"sessionId\":\"sess_2\",\"timestamp\":\"2026-06-28T10:01:00.000Z\"}}"
-  }]
+  "content": [
+    {
+      "text": "{\"success\":true,\"data\":{\"finalUrl\":\"https://example.com/access-denied\",\"statusCode\":403,\"loadTime\":500},\"meta\":{\"elapsed\":500,\"sessionId\":\"sess_2\",\"timestamp\":\"2026-06-28T10:01:00.000Z\"}}"
+    }
+  ]
 }
 ```
 
@@ -321,11 +349,14 @@ Test if two users can interact (e.g., chat, comments):
 ```
 
 **Response:**
+
 ```json
 {
-  "content": [{
-    "text": "{\"success\":true,\"data\":{\"tabs\":[{\"url\":\"https://example.com/admin/users\",\"title\":\"User Management — Admin\",\"active\":true},{\"url\":\"https://example.com/access-denied\",\"title\":\"Access Denied\",\"active\":false}],\"activeTabId\":\"https://example.com/admin/users\"}}"
-  }]
+  "content": [
+    {
+      "text": "{\"success\":true,\"data\":{\"tabs\":[{\"url\":\"https://example.com/admin/users\",\"title\":\"User Management — Admin\",\"active\":true},{\"url\":\"https://example.com/access-denied\",\"title\":\"Access Denied\",\"active\":false}],\"activeTabId\":\"https://example.com/admin/users\"}}"
+    }
+  ]
 }
 ```
 
@@ -341,11 +372,14 @@ Test if two users can interact (e.g., chat, comments):
 ```
 
 **Response:**
+
 ```json
 {
-  "content": [{
-    "text": "{\"success\":true,\"data\":{\"url\":\"https://example.com/admin/users\",\"title\":\"User Management — Admin\",\"readyState\":\"complete\"}}"
-  }]
+  "content": [
+    {
+      "text": "{\"success\":true,\"data\":{\"url\":\"https://example.com/admin/users\",\"title\":\"User Management — Admin\",\"readyState\":\"complete\"}}"
+    }
+  ]
 }
 ```
 
@@ -366,21 +400,21 @@ Test if two users can interact (e.g., chat, comments):
 
 ## Use Cases
 
-| Use Case | How Fennec Helps |
-|---|---|
-| **RBAC testing** | Test role-based access control with minimal setup |
-| **Multi-tenant apps** | Verify tenant data isolation |
-| **Chat/comment systems** | Test user-to-user interactions |
-| **Admin approval flows** | Admin creates content, regular user verifies they can see it |
-| **Concurrent editing** | Test that two users editing the same resource handle conflicts correctly |
+| Use Case                 | How Fennec Helps                                                         |
+| ------------------------ | ------------------------------------------------------------------------ |
+| **RBAC testing**         | Test role-based access control with minimal setup                        |
+| **Multi-tenant apps**    | Verify tenant data isolation                                             |
+| **Chat/comment systems** | Test user-to-user interactions                                           |
+| **Admin approval flows** | Admin creates content, regular user verifies they can see it             |
+| **Concurrent editing**   | Test that two users editing the same resource handle conflicts correctly |
 
 ---
 
 ## Troubleshooting
 
-| Issue | Cause | Fix |
-|---|---|---|
-| Sessions share cookies | You're using the same session | Use `context_new` to create isolated contexts |
-| `ELEMENT_NOT_FOUND` in session 2 | Page not navigated yet | Call `browser_navigate` in the session first |
-| `session ID not found` | Session was closed or expired | Check `tab_list` for active sessions |
-| Auth state lost between calls | Session uses short-lived tokens | Save session immediately after login, load before each test block |
+| Issue                            | Cause                           | Fix                                                               |
+| -------------------------------- | ------------------------------- | ----------------------------------------------------------------- |
+| Sessions share cookies           | You're using the same session   | Use `context_new` to create isolated contexts                     |
+| `ELEMENT_NOT_FOUND` in session 2 | Page not navigated yet          | Call `browser_navigate` in the session first                      |
+| `session ID not found`           | Session was closed or expired   | Check `tab_list` for active sessions                              |
+| Auth state lost between calls    | Session uses short-lived tokens | Save session immediately after login, load before each test block |

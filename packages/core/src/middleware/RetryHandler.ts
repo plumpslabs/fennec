@@ -1,5 +1,5 @@
-import type { MiddlewareFn, MiddlewareContext } from "./Pipeline.js";
-import { getLogger } from "../utils/logger.js";
+import type { MiddlewareFn, MiddlewareContext } from './Pipeline.js';
+import { getLogger } from '../utils/logger.js';
 
 interface RetryConfig {
   maxRetries: number;
@@ -13,24 +13,23 @@ const DEFAULT_CONFIG: RetryConfig = {
   baseDelayMs: 200,
   maxDelayMs: 5000,
   retryableErrors: [
-    { code: "ELEMENT_NOT_FOUND" },
-    { code: "ELEMENT_NOT_INTERACTABLE" },
-    { code: "NAVIGATION_TIMEOUT" },
-    { code: "TIMEOUT" },
-    { code: "REQUEST_TIMEOUT" },
-    { code: "NETWORK_INTERCEPT_FAILED" },
-    { messagePattern: "timeout" },
-    { messagePattern: "net::ERR_" },
-    { messagePattern: "Target closed" },
-    { messagePattern: "Protocol error" },
-    { messagePattern: "Session closed" },
+    { code: 'ELEMENT_NOT_FOUND' },
+    { code: 'ELEMENT_NOT_INTERACTABLE' },
+    { code: 'NAVIGATION_TIMEOUT' },
+    { code: 'TIMEOUT' },
+    { code: 'REQUEST_TIMEOUT' },
+    { code: 'NETWORK_INTERCEPT_FAILED' },
+    { messagePattern: 'timeout' },
+    { messagePattern: 'net::ERR_' },
+    { messagePattern: 'Target closed' },
+    { messagePattern: 'Protocol error' },
+    { messagePattern: 'Session closed' },
   ],
 };
 
-function isRetryable(error: unknown, retryableErrors: RetryConfig["retryableErrors"]): boolean {
+function isRetryable(error: unknown, retryableErrors: RetryConfig['retryableErrors']): boolean {
   const errorStr = String(error);
-  const errorCode =
-    (error as Record<string, unknown>).code as string | undefined;
+  const errorCode = (error as Record<string, unknown>).code as string | undefined;
 
   for (const rule of retryableErrors) {
     if (rule.code && errorCode === rule.code) return true;
@@ -59,14 +58,10 @@ export function createRetryHandler(config: Partial<RetryConfig> = {}): Middlewar
       ctx.retryCount = attempt;
 
       if (attempt > 0) {
-        const delay = calculateDelay(
-          attempt - 1,
-          retryConfig.baseDelayMs,
-          retryConfig.maxDelayMs,
-        );
+        const delay = calculateDelay(attempt - 1, retryConfig.baseDelayMs, retryConfig.maxDelayMs);
         logger.info(
           { tool: ctx.toolName, attempt, maxRetries: retryConfig.maxRetries, delayMs: delay },
-          "RetryHandler: retrying tool execution",
+          'RetryHandler: retrying tool execution',
         );
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
@@ -84,32 +79,26 @@ export function createRetryHandler(config: Partial<RetryConfig> = {}): Middlewar
 
         // Check if error is retryable by inspecting the result structure
         const errorResult = error as Record<string, unknown>;
-        const errorCode =
-          (errorResult.error as Record<string, unknown> | undefined)
-            ?.code as string | undefined;
+        const errorCode = (errorResult.error as Record<string, unknown> | undefined)?.code as
+          string | undefined;
 
         if (errorCode) {
           // Check if contains a retryable error code
-          const isRetryableCode = retryConfig.retryableErrors.some(
-            (r) => r.code === errorCode,
-          );
+          const isRetryableCode = retryConfig.retryableErrors.some((r) => r.code === errorCode);
           if (isRetryableCode && attempt < retryConfig.maxRetries) {
             logger.info(
               { tool: ctx.toolName, errorCode, attempt },
-              "RetryHandler: retryable error, will retry",
+              'RetryHandler: retryable error, will retry',
             );
             continue;
           }
         }
 
         // Check if error message is retryable
-        if (
-          isRetryable(error, retryConfig.retryableErrors) &&
-          attempt < retryConfig.maxRetries
-        ) {
+        if (isRetryable(error, retryConfig.retryableErrors) && attempt < retryConfig.maxRetries) {
           logger.info(
             { tool: ctx.toolName, error: String(error), attempt },
-            "RetryHandler: retryable error, will retry",
+            'RetryHandler: retryable error, will retry',
           );
           continue;
         }
@@ -118,7 +107,7 @@ export function createRetryHandler(config: Partial<RetryConfig> = {}): Middlewar
         if (attempt >= retryConfig.maxRetries) {
           logger.warn(
             { tool: ctx.toolName, attempts: attempt + 1 },
-            "RetryHandler: max retries exceeded",
+            'RetryHandler: max retries exceeded',
           );
         }
         throw error;

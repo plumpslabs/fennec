@@ -1,4 +1,4 @@
-import type { FennecSession } from "../session/types.js";
+import type { FennecSession } from '../session/types.js';
 
 export interface EnrichedContext {
   currentUrl?: string;
@@ -11,7 +11,10 @@ export interface EnrichedContext {
 }
 
 export class ErrorEnricher {
-  async enrich(session: FennecSession | null, extra?: { serverLogs?: string[] }): Promise<EnrichedContext> {
+  async enrich(
+    session: FennecSession | null,
+    extra?: { serverLogs?: string[] },
+  ): Promise<EnrichedContext> {
     const context: EnrichedContext = {};
 
     if (!session) return context;
@@ -28,8 +31,8 @@ export class ErrorEnricher {
     // Replaced with lightweight text summary:
     try {
       const pageText = await session.browser
-        .evaluate(() => document.body?.innerText?.slice(0, 500) ?? "")
-        .catch(() => "");
+        .evaluate(() => document.body?.innerText?.slice(0, 500) ?? '')
+        .catch(() => '');
       if (pageText) {
         context.visualSummary = `Page text preview: ${pageText.slice(0, 200)}`;
       }
@@ -39,7 +42,7 @@ export class ErrorEnricher {
 
     // Include console errors (summary only, not full dump)
     const errors = session.consoleBuffer
-      .filter((l) => l.level === "error")
+      .filter((l) => l.level === 'error')
       .slice(-3)
       .map((l) => `[${l.level}] ${l.message.slice(0, 150)}`);
 

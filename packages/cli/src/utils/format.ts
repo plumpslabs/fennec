@@ -11,9 +11,9 @@
  * - Fox-themed (🦊) but not overwhelming
  */
 
-import { createInterface } from "node:readline";
-import pc from "picocolors";
-import CliTable3 from "cli-table3";
+import { createInterface } from 'node:readline';
+import pc from 'picocolors';
+import CliTable3 from 'cli-table3';
 
 // ─── Color Helpers ───────────────────────────────────────────────
 
@@ -23,16 +23,16 @@ import CliTable3 from "cli-table3";
  * versions due to CJS/ESM interop issues. We detect and fall back.
  */
 function hex(color: string): (s: string) => string {
-  if (typeof (pc as any).hex === "function") {
+  if (typeof (pc as any).hex === 'function') {
     return (pc as any).hex(color);
   }
   return (s: string) => s;
 }
 
 // Brand colors (runtime-safe, bypass TypeScript limitations)
-const fennecOrange = hex("#FF6432");
-const blueAccent = hex("#4A90D9");
-const redAccent = hex("#E94560");
+const fennecOrange = hex('#FF6432');
+const blueAccent = hex('#4A90D9');
+const redAccent = hex('#E94560');
 
 // ─── Color Palette ───────────────────────────────────────────────
 
@@ -61,51 +61,62 @@ export const colors = {
 
 export const symbols = {
   // Status
-  active: pc.green("●"),
-  inactive: pc.dim("○"),
-  error: pc.red("✗"),
-  warning: pc.yellow("⚠"),
-  success: pc.green("✓"),
-  info: pc.cyan("ℹ"),
-  pending: pc.yellow("◌"),
+  active: pc.green('●'),
+  inactive: pc.dim('○'),
+  error: pc.red('✗'),
+  warning: pc.yellow('⚠'),
+  success: pc.green('✓'),
+  info: pc.cyan('ℹ'),
+  pending: pc.yellow('◌'),
 
   // UI
-  bullet: pc.dim("│"),
-  dot: pc.dim("·"),
-  arrow: pc.cyan("→"),
-  pointer: fennecOrange("▶"),
-  separator: pc.dim("─"),
+  bullet: pc.dim('│'),
+  dot: pc.dim('·'),
+  arrow: pc.cyan('→'),
+  pointer: fennecOrange('▶'),
+  separator: pc.dim('─'),
 
   // Fennec
-  fox: "🦊",
-  ears: "⏜",
+  fox: '🦊',
+  ears: '⏜',
 } as const;
 
 // ─── Status Badges ───────────────────────────────────────────────
 
-export type ProcessStatus = "running" | "stopped" | "error" | "starting" | "unknown";
+export type ProcessStatus = 'running' | 'stopped' | 'error' | 'starting' | 'unknown';
 
 export function statusBadge(status: ProcessStatus): string {
   switch (status) {
-    case "running":  return pc.green("● running");
-    case "stopped":  return pc.dim("○ stopped");
-    case "error":    return pc.red("✗ error");
-    case "starting": return pc.yellow("◌ starting");
-    case "unknown":  return pc.dim("? unknown");
+    case 'running':
+      return pc.green('● running');
+    case 'stopped':
+      return pc.dim('○ stopped');
+    case 'error':
+      return pc.red('✗ error');
+    case 'starting':
+      return pc.yellow('◌ starting');
+    case 'unknown':
+      return pc.dim('? unknown');
   }
 }
 
-export type LogLevel = "error" | "warn" | "info" | "debug" | "verbose";
+export type LogLevel = 'error' | 'warn' | 'info' | 'debug' | 'verbose';
 
 export function logLevel(label: string): string {
   const upper = label.toUpperCase().padEnd(5);
   switch (label.toLowerCase()) {
-    case "error":   return pc.bgRed(pc.white(` ${upper} `));
-    case "warn":    return pc.bgYellow(pc.black(` ${upper} `));
-    case "info":    return pc.bgCyan(pc.black(` ${upper} `));
-    case "debug":   return pc.dim(pc.italic(upper));
-    case "verbose": return pc.dim(pc.italic(upper));
-    default:        return pc.dim(upper);
+    case 'error':
+      return pc.bgRed(pc.white(` ${upper} `));
+    case 'warn':
+      return pc.bgYellow(pc.black(` ${upper} `));
+    case 'info':
+      return pc.bgCyan(pc.black(` ${upper} `));
+    case 'debug':
+      return pc.dim(pc.italic(upper));
+    case 'verbose':
+      return pc.dim(pc.italic(upper));
+    default:
+      return pc.dim(upper);
   }
 }
 
@@ -114,7 +125,7 @@ export function logLevel(label: string): string {
 export interface Column {
   key: string;
   label: string;
-  align?: "left" | "right" | "center";
+  align?: 'left' | 'right' | 'center';
   width?: number;
   format?: (value: unknown) => string;
 }
@@ -123,38 +134,52 @@ export interface Row {
   [key: string]: unknown;
 }
 
-export function renderTable(columns: Column[], rows: Row[], options?: { padding?: number; compact?: boolean }): string {
+export function renderTable(
+  columns: Column[],
+  rows: Row[],
+  options?: { padding?: number; compact?: boolean },
+): string {
   const pad = options?.padding ?? 1;
 
   if (rows.length === 0) {
-    return pc.dim("  (no data)");
+    return pc.dim('  (no data)');
   }
 
   // Build cli-table3 instance
   const table = new CliTable3({
     head: columns.map((c) => pc.bold(c.label)),
-    colAligns: columns.map((c) => c.align ?? "left"),
+    colAligns: columns.map((c) => c.align ?? 'left'),
     style: {
-      "padding-left": pad,
-      "padding-right": pad,
+      'padding-left': pad,
+      'padding-right': pad,
       head: [], // reset default styles; our pc.bold is already applied
       border: [],
       compact: false,
     },
     chars: {
-      top: "─", "top-mid": "┬", "top-left": "┌", "top-right": "┐",
-      "bottom": "─", "bottom-mid": "┴", "bottom-left": "└", "bottom-right": "┘",
-      left: "│", "left-mid": "├", mid: "─", "mid-mid": "┼",
-      right: "│", "right-mid": "┤",
-      middle: "│",
+      top: '─',
+      'top-mid': '┬',
+      'top-left': '┌',
+      'top-right': '┐',
+      bottom: '─',
+      'bottom-mid': '┴',
+      'bottom-left': '└',
+      'bottom-right': '┘',
+      left: '│',
+      'left-mid': '├',
+      mid: '─',
+      'mid-mid': '┼',
+      right: '│',
+      'right-mid': '┤',
+      middle: '│',
     },
-    truncate: "…",
+    truncate: '…',
   });
 
   for (const row of rows) {
     const values = columns.map((col) => {
       const raw = row[col.key];
-      return col.format ? col.format(raw) : String(raw ?? "-");
+      return col.format ? col.format(raw) : String(raw ?? '-');
     });
     table.push(values);
   }
@@ -162,55 +187,74 @@ export function renderTable(columns: Column[], rows: Row[], options?: { padding?
   const output = table.toString();
 
   // Apply dim to all border lines (head, body, foot)
-  const lines = output.split("\n");
-  return lines.map((l) => {
-    // Only dim border chars (lines that start with box-drawing chars)
-    if (l.length > 0 && (l[0] === "┌" || l[0] === "│" || l[0] === "├" || l[0] === "└" || l[0] === "─")) {
-      // Dim the border characters but keep cell content bright
-      return l.replace(/^([│├└┌┐┤┴┬─]+)/, (m) => pc.dim(m));
-    }
-    return l;
-  }).join("\n");
+  const lines = output.split('\n');
+  return lines
+    .map((l) => {
+      // Only dim border chars (lines that start with box-drawing chars)
+      if (
+        l.length > 0 &&
+        (l[0] === '┌' || l[0] === '│' || l[0] === '├' || l[0] === '└' || l[0] === '─')
+      ) {
+        // Dim the border characters but keep cell content bright
+        return l.replace(/^([│├└┌┐┤┴┬─]+)/, (m) => pc.dim(m));
+      }
+      return l;
+    })
+    .join('\n');
 }
 
 // ─── Key-Value Display ───────────────────────────────────────────
 
-export function renderKV(key: string, value: string, options?: { indent?: number; separator?: string }): string {
+export function renderKV(
+  key: string,
+  value: string,
+  options?: { indent?: number; separator?: string },
+): string {
   const indent = options?.indent ?? 2;
-  const sep = options?.separator ?? ":";
-  const pad = " ".repeat(indent);
+  const sep = options?.separator ?? ':';
+  const pad = ' '.repeat(indent);
   return `${pad}${pc.dim(key + sep)} ${value}`;
 }
 
-export function renderKVColor(key: string, value: string, color: (s: string) => string = pc.bold): string {
-  return `  ${pc.dim(key + ":")} ${color(value)}`;
+export function renderKVColor(
+  key: string,
+  value: string,
+  color: (s: string) => string = pc.bold,
+): string {
+  return `  ${pc.dim(key + ':')} ${color(value)}`;
 }
 
 export function renderSection(title: string, content: string): string {
-  const line = pc.dim("─".repeat(40));
+  const line = pc.dim('─'.repeat(40));
   return `\n  ${pc.bold(title)}\n  ${line}\n${content}\n`;
 }
 
 // ─── Box Renderer ────────────────────────────────────────────────
 
-export function renderBox(title: string, content: string, options?: {
-  width?: number;
-  borderColor?: (s: string) => string;
-  titleColor?: (s: string) => string;
-}): string {
+export function renderBox(
+  title: string,
+  content: string,
+  options?: {
+    width?: number;
+    borderColor?: (s: string) => string;
+    titleColor?: (s: string) => string;
+  },
+): string {
   const width = options?.width ?? 50;
   const border = options?.borderColor ?? pc.dim;
   const titleColor = options?.titleColor ?? pc.bold;
 
-  const lines = content.split("\n");
+  const lines = content.split('\n');
   const wrapped = lines.map((l) => {
-    const clean = l.replace(/\x1b\[[0-9;]*m/g, "");
-    return l + " ".repeat(Math.max(0, width - clean.length - 2));
+    const clean = l.replace(/\x1b\[[0-9;]*m/g, '');
+    return l + ' '.repeat(Math.max(0, width - clean.length - 2));
   });
 
-  const top = border(`┌─ ${titleColor(title)} ${"─".repeat(Math.max(0, width - title.length - 4))}┐`);
-  const mid = wrapped.map((l) => border("│ ") + l + border(" │")).join("\n");
-  const bot = border(`└${"─".repeat(width)}┘`);
+  const top = border(
+    `┌─ ${titleColor(title)} ${'─'.repeat(Math.max(0, width - title.length - 4))}┐`,
+  );
+  const mid = wrapped.map((l) => border('│ ') + l + border(' │')).join('\n');
+  const bot = border(`└${'─'.repeat(width)}┘`);
 
   return `\n${top}\n${mid}\n${bot}\n`;
 }
@@ -226,7 +270,7 @@ export interface Spinner {
 }
 
 export function createSpinner(text: string): Spinner {
-  const frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+  const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
   let i = 0;
   let running = true;
 
@@ -244,17 +288,17 @@ export function createSpinner(text: string): Spinner {
     succeed(msg: string) {
       running = false;
       clearInterval(interval);
-      process.stdout.write(`\r${pc.green("✓")} ${msg}\n`);
+      process.stdout.write(`\r${pc.green('✓')} ${msg}\n`);
     },
     fail(msg: string) {
       running = false;
       clearInterval(interval);
-      process.stdout.write(`\r${pc.red("✗")} ${msg}\n`);
+      process.stdout.write(`\r${pc.red('✗')} ${msg}\n`);
     },
     warn(msg: string) {
       running = false;
       clearInterval(interval);
-      process.stdout.write(`\r${pc.yellow("⚠")} ${msg}\n`);
+      process.stdout.write(`\r${pc.yellow('⚠')} ${msg}\n`);
     },
     stop() {
       running = false;
@@ -277,11 +321,11 @@ export async function selectPrompt<T extends string>(
       console.log(`     ${pc.dim(opt.description)}`);
     }
   });
-  console.log(`  ${pc.dim("0)  Cancel")}\n`);
+  console.log(`  ${pc.dim('0)  Cancel')}\n`);
 
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const answer = await new Promise<string>((resolve) => {
-    rl.question(`  ${pc.bold("Enter number")} ${pc.dim("(0-" + options.length + ")")}: `, (ans) => {
+    rl.question(`  ${pc.bold('Enter number')} ${pc.dim('(0-' + options.length + ')')}: `, (ans) => {
       rl.close();
       resolve(ans.trim());
     });
@@ -291,24 +335,24 @@ export async function selectPrompt<T extends string>(
   if (isNaN(num) || num === 0) return null;
   const selected = options[num - 1];
   if (!selected) {
-    console.log(`  ${pc.red("Invalid selection.")}`);
+    console.log(`  ${pc.red('Invalid selection.')}`);
     return null;
   }
   return selected.value;
 }
 
 export async function confirmPrompt(message: string, defaultValue = false): Promise<boolean> {
-  const hint = defaultValue ? pc.bold("Y") + pc.dim("/n") : pc.dim("y/") + pc.bold("N");
+  const hint = defaultValue ? pc.bold('Y') + pc.dim('/n') : pc.dim('y/') + pc.bold('N');
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const answer = await new Promise<string>((resolve) => {
-    rl.question(`\n  ${message} ${pc.dim("(" + hint + ")")}: `, (ans) => {
+    rl.question(`\n  ${message} ${pc.dim('(' + hint + ')')}: `, (ans) => {
       rl.close();
       resolve(ans.trim().toLowerCase());
     });
   });
 
   if (!answer) return defaultValue;
-  return answer === "y" || answer === "yes";
+  return answer === 'y' || answer === 'yes';
 }
 
 // ─── Divider ─────────────────────────────────────────────────────
@@ -318,16 +362,16 @@ export function divider(text?: string): string {
     const len = 50 - text.length - 2;
     const left = Math.floor(len / 2);
     const right = len - left;
-    return pc.dim("─".repeat(left) + ` ${text} ` + "─".repeat(right));
+    return pc.dim('─'.repeat(left) + ` ${text} ` + '─'.repeat(right));
   }
-  return pc.dim("─".repeat(50));
+  return pc.dim('─'.repeat(50));
 }
 
 // ─── Timestamp ───────────────────────────────────────────────────
 
 export function timestamp(date?: Date): string {
   const d = date ?? new Date();
-  const time = d.toLocaleTimeString("en-US", { hour12: false });
+  const time = d.toLocaleTimeString('en-US', { hour12: false });
   return pc.dim(`[${time}]`);
 }
 
@@ -345,23 +389,23 @@ export function renderAppName(name: string): string {
 
 export function renderError(title: string, details?: string, suggestions?: string[]): string {
   const lines: string[] = [];
-  lines.push(`\n  ${pc.bgRed(pc.white(" ERROR "))} ${pc.bold(title)}`);
+  lines.push(`\n  ${pc.bgRed(pc.white(' ERROR '))} ${pc.bold(title)}`);
   if (details) {
     lines.push(`  ${pc.dim(details)}`);
   }
   if (suggestions && suggestions.length > 0) {
-    lines.push(`\n  ${pc.bold("Suggestions:")}`);
+    lines.push(`\n  ${pc.bold('Suggestions:')}`);
     for (const s of suggestions) {
-      lines.push(`  ${pc.cyan("→")} ${s}`);
+      lines.push(`  ${pc.cyan('→')} ${s}`);
     }
   }
-  return lines.join("\n") + "\n";
+  return lines.join('\n') + '\n';
 }
 
 export function renderSuccess(message: string): string {
-  return `  ${pc.green("✓")} ${message}`;
+  return `  ${pc.green('✓')} ${message}`;
 }
 
 export function renderWarning(message: string): string {
-  return `  ${pc.yellow("⚠")} ${message}`;
+  return `  ${pc.yellow('⚠')} ${message}`;
 }

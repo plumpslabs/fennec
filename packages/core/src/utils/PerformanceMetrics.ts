@@ -1,4 +1,4 @@
-import { getLogger } from "./logger.js";
+import { getLogger } from './logger.js';
 
 export interface ToolCallMetric {
   toolName: string;
@@ -49,7 +49,7 @@ export class PerformanceMetrics {
       const rssMB = Math.round(mem.rss / 1024 / 1024);
       getLogger().debug(
         { heapMB, rssMB, toolCalls: this.toolCalls.length },
-        "PerformanceMetrics: self-monitoring snapshot",
+        'PerformanceMetrics: self-monitoring snapshot',
       );
     }, intervalMs);
   }
@@ -73,7 +73,8 @@ export class PerformanceMetrics {
     const failedCalls = totalToolCalls - successfulCalls;
     const totalDuration = this.toolCalls.reduce((sum, t) => sum + t.durationMs, 0);
     const avgDurationMs = totalToolCalls > 0 ? Math.round(totalDuration / totalToolCalls) : 0;
-    const maxDurationMs = totalToolCalls > 0 ? Math.max(...this.toolCalls.map((t) => t.durationMs)) : 0;
+    const maxDurationMs =
+      totalToolCalls > 0 ? Math.max(...this.toolCalls.map((t) => t.durationMs)) : 0;
 
     // Calculate per-tool averages for slowest tools
     const toolStats = new Map<string, { totalDuration: number; count: number }>();

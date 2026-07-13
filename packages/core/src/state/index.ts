@@ -1,5 +1,10 @@
-import { StateMachine, type ContextSwitchEvent } from "./StateMachine.js";
-export type { AppState, StateTransition, StateHistoryEntry, ContextSwitchEvent } from "./StateMachine.js";
+import { StateMachine, type ContextSwitchEvent } from './StateMachine.js';
+export type {
+  AppState,
+  StateTransition,
+  StateHistoryEntry,
+  ContextSwitchEvent,
+} from './StateMachine.js';
 export { StateMachine };
 
 export interface ActiveSessionInfo {

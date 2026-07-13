@@ -118,17 +118,23 @@ describe('SessionManager', () => {
     it('should support all three browser types', async () => {
       const { chromium, firefox, webkit } = await import('playwright');
 
-      const sm1 = new SessionManager(makeConfig({ browser: { ...defaultConfig.browser, type: 'chromium' } }));
+      const sm1 = new SessionManager(
+        makeConfig({ browser: { ...defaultConfig.browser, type: 'chromium' } }),
+      );
       await sm1.initialize();
       expect(chromium.launch).toHaveBeenCalled();
       await sm1.close();
 
-      const sm2 = new SessionManager(makeConfig({ browser: { ...defaultConfig.browser, type: 'firefox' } }));
+      const sm2 = new SessionManager(
+        makeConfig({ browser: { ...defaultConfig.browser, type: 'firefox' } }),
+      );
       await sm2.initialize();
       expect(firefox.launch).toHaveBeenCalled();
       await sm2.close();
 
-      const sm3 = new SessionManager(makeConfig({ browser: { ...defaultConfig.browser, type: 'webkit' } }));
+      const sm3 = new SessionManager(
+        makeConfig({ browser: { ...defaultConfig.browser, type: 'webkit' } }),
+      );
       await sm3.initialize();
       expect(webkit.launch).toHaveBeenCalled();
       await sm3.close();
@@ -204,10 +210,16 @@ describe('SessionManager', () => {
     it('should filter console logs by level', () => {
       const session = sessionManager.getOrDefault();
       sessionManager.addConsoleEvent(session.id, {
-        level: 'error', message: 'err', source: 'test.js', timestamp: new Date().toISOString(),
+        level: 'error',
+        message: 'err',
+        source: 'test.js',
+        timestamp: new Date().toISOString(),
       });
       sessionManager.addConsoleEvent(session.id, {
-        level: 'info', message: 'info msg', source: 'test.js', timestamp: new Date().toISOString(),
+        level: 'info',
+        message: 'info msg',
+        source: 'test.js',
+        timestamp: new Date().toISOString(),
       });
 
       const errors = sessionManager.getConsoleBuffer(session.id, { level: 'error' });
@@ -218,10 +230,16 @@ describe('SessionManager', () => {
     it('should filter console logs by keyword', () => {
       const session = sessionManager.getOrDefault();
       sessionManager.addConsoleEvent(session.id, {
-        level: 'warn', message: 'deprecation warning', source: 'test.js', timestamp: new Date().toISOString(),
+        level: 'warn',
+        message: 'deprecation warning',
+        source: 'test.js',
+        timestamp: new Date().toISOString(),
       });
       sessionManager.addConsoleEvent(session.id, {
-        level: 'info', message: 'all good', source: 'test.js', timestamp: new Date().toISOString(),
+        level: 'info',
+        message: 'all good',
+        source: 'test.js',
+        timestamp: new Date().toISOString(),
       });
 
       const filtered = sessionManager.getConsoleBuffer(session.id, { keyword: 'deprecation' });
@@ -231,7 +249,10 @@ describe('SessionManager', () => {
     it('should clear console buffer', () => {
       const session = sessionManager.getOrDefault();
       sessionManager.addConsoleEvent(session.id, {
-        level: 'error', message: 'test', source: 'test.js', timestamp: new Date().toISOString(),
+        level: 'error',
+        message: 'test',
+        source: 'test.js',
+        timestamp: new Date().toISOString(),
       });
       const cleared = sessionManager.clearConsoleBuffer(session.id);
       expect(cleared).toBe(1);

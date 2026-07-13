@@ -1,26 +1,56 @@
-import { z } from "zod";
-import { createTool } from "../_registry.js";
-import { resolveSelector } from "../../utils/selector.js";
-import { takeScreenshot } from "../../utils/screenshot.js";
+import { z } from 'zod';
+import { createTool } from '../_registry.js';
+import { resolveSelector } from '../../utils/selector.js';
+import { takeScreenshot } from '../../utils/screenshot.js';
 
 export const browserScreenshot = createTool({
-  name: "browser_screenshot",
-  category: "dom",
-  description: "`<use_case>DOM/Visual</use_case> 📸 Take a screenshot of the current page. Supports fullPage (scrollable content), selector-scoped (specific element), and png/jpeg format. Defaults to compressed JPEG (quality 50) to minimize token usage when returned inline. Returns base64 image, dimensions, timestamp. Set output:'file_path' to write the image to disk and return only a path (no base64 in context). For annotated screenshots, use browser_screenshot_annotated. For visual diffs, use browser_screenshot_diff.`",
+  name: 'browser_screenshot',
+  category: 'dom',
+  description:
+    "`<use_case>DOM/Visual</use_case> 📸 Take a screenshot of the current page. Supports fullPage (scrollable content), selector-scoped (specific element), and png/jpeg format. Defaults to compressed JPEG (quality 50) to minimize token usage when returned inline. Returns base64 image, dimensions, timestamp. Set output:'file_path' to write the image to disk and return only a path (no base64 in context). For annotated screenshots, use browser_screenshot_annotated. For visual diffs, use browser_screenshot_diff.`",
   inputSchema: z.object({
-    fullPage: z.boolean().optional().default(false).describe("Capture full page (including scrollable content)"),
-    selector: z.string().optional().describe("Element selector to capture (instead of viewport)"),
-    format: z.enum(["png", "jpeg"]).optional().default("jpeg").describe("Image format. Defaults to jpeg (compressed). Use png only when lossless is required."),
-    quality: z.number().min(1).max(100).optional().default(50).describe("JPEG quality (1-100). Lower = smaller, faster. Ignored for png."),
-    fullResolution: z.boolean().optional().default(false).describe("Lossless full-resolution capture (forces png, quality ignored)."),
-    output: z.enum(["base64", "file_path"]).optional().default("base64").describe("Return base64 inline, or write to a file and return the path only (saves tokens)."),
-    outputDir: z.string().optional().describe("Directory for file_path output. Defaults to a temp dir."),
-    sessionId: z.string().optional().describe("Session ID"),
+    fullPage: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe('Capture full page (including scrollable content)'),
+    selector: z.string().optional().describe('Element selector to capture (instead of viewport)'),
+    format: z
+      .enum(['png', 'jpeg'])
+      .optional()
+      .default('jpeg')
+      .describe(
+        'Image format. Defaults to jpeg (compressed). Use png only when lossless is required.',
+      ),
+    quality: z
+      .number()
+      .min(1)
+      .max(100)
+      .optional()
+      .default(50)
+      .describe('JPEG quality (1-100). Lower = smaller, faster. Ignored for png.'),
+    fullResolution: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe('Lossless full-resolution capture (forces png, quality ignored).'),
+    output: z
+      .enum(['base64', 'file_path'])
+      .optional()
+      .default('base64')
+      .describe(
+        'Return base64 inline, or write to a file and return the path only (saves tokens).',
+      ),
+    outputDir: z
+      .string()
+      .optional()
+      .describe('Directory for file_path output. Defaults to a temp dir.'),
+    sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const format = input.fullResolution ? "png" : input.format;
+      const format = input.fullResolution ? 'png' : input.format;
       const result = await takeScreenshot(session.browser, {
         fullPage: input.fullPage,
         selector: input.selector,
@@ -30,80 +60,115 @@ export const browserScreenshot = createTool({
         outputDir: input.outputDir,
       });
 
-      const payload = input.output === "file_path"
-        ? {
-            filePath: result.filePath,
-            width: result.width,
-            height: result.height,
-            contentType: result.contentType,
-            timestamp: result.timestamp,
-          }
-        : result;
+      const payload =
+        input.output === 'file_path'
+          ? {
+              filePath: result.filePath,
+              width: result.width,
+              height: result.height,
+              contentType: result.contentType,
+              timestamp: result.timestamp,
+            }
+          : result;
 
       return responseBuilder.success(payload, sessionManager.buildMeta(session));
     } catch (error) {
       return responseBuilder.error(error, {
-        code: "CDP_ERROR",
-        suggestions: ["Check if the page is still open and accessible"],
+        code: 'CDP_ERROR',
+        suggestions: ['Check if the page is still open and accessible'],
       });
     }
   },
 });
 
 export const browserGetElementText = createTool({
-  name: "browser_get_element_text",
-  category: "dom",
-  description: "`<use_case>DOM inspection</use_case> 🔤 Extract the visible text content of a single element matched by selector (element.innerText). Far cheaper than screenshotting or dumping the DOM when you only need the text of one element (e.g. a heading, price, status label). Returns text, charCount, truncated flag. Use includeHidden to also capture textContent.`",
+  name: 'browser_get_element_text',
+  category: 'dom',
+  description:
+    '`<use_case>DOM inspection</use_case> 🔤 Extract the visible text content of a single element matched by selector (element.innerText). Far cheaper than screenshotting or dumping the DOM when you only need the text of one element (e.g. a heading, price, status label). Returns text, charCount, truncated flag. Use includeHidden to also capture textContent.`',
   inputSchema: z.object({
-    selector: z.string().describe("CSS selector of the element whose text to read"),
-    includeHidden: z.boolean().optional().default(false).describe("Use textContent instead of innerText (includes hidden text)"),
-    maxLength: z.number().optional().default(4000).describe("Max characters to return (longer text is truncated)"),
-    sessionId: z.string().optional().describe("Session ID"),
+    selector: z.string().describe('CSS selector of the element whose text to read'),
+    includeHidden: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe('Use textContent instead of innerText (includes hidden text)'),
+    maxLength: z
+      .number()
+      .optional()
+      .default(4000)
+      .describe('Max characters to return (longer text is truncated)'),
+    sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
       const result = await session.browser.evaluate(
-        function readText({ selector, includeHidden, maxLength }: { selector: string; includeHidden: boolean; maxLength: number }): { found: boolean; text: string; charCount: number; truncated: boolean } {
+        function readText({
+          selector,
+          includeHidden,
+          maxLength,
+        }: {
+          selector: string;
+          includeHidden: boolean;
+          maxLength: number;
+        }): { found: boolean; text: string; charCount: number; truncated: boolean } {
           const el = document.querySelector(selector);
-          if (!el) return { found: false, text: "", charCount: 0, truncated: false };
-          const raw = includeHidden ? el.textContent ?? "" : (el as HTMLElement).innerText ?? "";
-          const text = raw.replace(/\s+/g, " ").trim();
+          if (!el) return { found: false, text: '', charCount: 0, truncated: false };
+          const raw = includeHidden
+            ? (el.textContent ?? '')
+            : ((el as HTMLElement).innerText ?? '');
+          const text = raw.replace(/\s+/g, ' ').trim();
           const truncated = text.length > maxLength;
           return {
             found: true,
-            text: truncated ? text.slice(0, maxLength) + "…" : text,
+            text: truncated ? text.slice(0, maxLength) + '…' : text,
             charCount: text.length,
             truncated,
           };
         },
-        { selector: input.selector, includeHidden: input.includeHidden, maxLength: input.maxLength } as never
+        {
+          selector: input.selector,
+          includeHidden: input.includeHidden,
+          maxLength: input.maxLength,
+        } as never,
       );
 
       return responseBuilder.success(result, sessionManager.buildMeta(session));
     } catch (error) {
       return responseBuilder.error(error, {
-        code: "ELEMENT_NOT_FOUND",
-        suggestions: ["Verify the selector is correct and the element is present on the page"],
+        code: 'ELEMENT_NOT_FOUND',
+        suggestions: ['Verify the selector is correct and the element is present on the page'],
       });
     }
   },
 });
 
 export const browserGetDomSnapshot = createTool({
-  name: "browser_get_dom_snapshot",
-  category: "dom",
-  description: "`<use_case>DOM inspection</use_case> 🌳 Get a summarized DOM tree — interactable elements, forms, buttons, links, headings, inputs with their attributes. Much lighter than dumping full HTML. Returns elementCount, interactableCount, depth, structure[] (tree), tagBreakdown. Use as your FIRST step on any new page to understand what's there. For full raw HTML, use devtools_evaluate with document.documentElement.outerHTML. For finding specific elements by CSS, use browser_find_elements.`",
+  name: 'browser_get_dom_snapshot',
+  category: 'dom',
+  description:
+    "`<use_case>DOM inspection</use_case> 🌳 Get a summarized DOM tree — interactable elements, forms, buttons, links, headings, inputs with their attributes. Much lighter than dumping full HTML. Returns elementCount, interactableCount, depth, structure[] (tree), tagBreakdown. Use as your FIRST step on any new page to understand what's there. For full raw HTML, use devtools_evaluate with document.documentElement.outerHTML. For finding specific elements by CSS, use browser_find_elements.`",
   inputSchema: z.object({
-    selector: z.string().optional().describe("Optional selector to scope the summary"),
-    includeAllElements: z.boolean().optional().default(false).describe("Include all elements (not just interactable ones)"),
-    sessionId: z.string().optional().describe("Session ID"),
+    selector: z.string().optional().describe('Optional selector to scope the summary'),
+    includeAllElements: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe('Include all elements (not just interactable ones)'),
+    sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
       const result = await session.browser.evaluate(
-        function evaluateSnapshot({ selector, includeAll }: { selector?: string; includeAll?: boolean }): Record<string, unknown> {
+        function evaluateSnapshot({
+          selector,
+          includeAll,
+        }: {
+          selector?: string;
+          includeAll?: boolean;
+        }): Record<string, unknown> {
           function getRoot(sel?: string): Element | null {
             if (!sel) return document.documentElement;
             const el = document.querySelector(sel);
@@ -111,7 +176,7 @@ export const browserGetDomSnapshot = createTool({
           }
 
           const root = getRoot(selector);
-          if (!root) return { elementCount: 0, summary: "", structure: [] };
+          if (!root) return { elementCount: 0, summary: '', structure: [] };
 
           // ─── Summary counters ────────────────────────
           let totalElements = 0;
@@ -120,16 +185,36 @@ export const browserGetDomSnapshot = createTool({
           let depth = 0;
 
           const INTERACTABLE_TAGS = new Set([
-            "a", "button", "input", "select", "textarea",
-            "form", "label", "option",
-            "details", "summary",
-            "video", "audio", "img",
+            'a',
+            'button',
+            'input',
+            'select',
+            'textarea',
+            'form',
+            'label',
+            'option',
+            'details',
+            'summary',
+            'video',
+            'audio',
+            'img',
           ]);
 
           const INTERACTABLE_ROLES = new Set([
-            "button", "link", "textbox", "combobox", "listbox",
-            "checkbox", "radio", "switch", "slider", "tab",
-            "menuitem", "option", "searchbox", "spinbutton",
+            'button',
+            'link',
+            'textbox',
+            'combobox',
+            'listbox',
+            'checkbox',
+            'radio',
+            'switch',
+            'slider',
+            'tab',
+            'menuitem',
+            'option',
+            'searchbox',
+            'spinbutton',
           ]);
 
           function buildTree(node: Element, currentDepth: number): Record<string, unknown> | null {
@@ -138,14 +223,14 @@ export const browserGetDomSnapshot = createTool({
             tagCounts[tag] = (tagCounts[tag] ?? 0) + 1;
             if (currentDepth > depth) depth = currentDepth;
 
-            const role = node.getAttribute("role") ?? "";
+            const role = node.getAttribute('role') ?? '';
             const isInteractable =
               INTERACTABLE_TAGS.has(tag) ||
               INTERACTABLE_ROLES.has(role) ||
-              node.hasAttribute("onclick") ||
-              node.getAttribute("tabindex") !== null ||
-              node.getAttribute("contenteditable") === "true" ||
-              (tag === "div" && role !== "");
+              node.hasAttribute('onclick') ||
+              node.getAttribute('tabindex') !== null ||
+              node.getAttribute('contenteditable') === 'true' ||
+              (tag === 'div' && role !== '');
 
             if (isInteractable) interactableCount++;
 
@@ -162,7 +247,7 @@ export const browserGetDomSnapshot = createTool({
               if (built) children.push(built);
             }
 
-            const text = (node.textContent ?? "").trim().slice(0, 120);
+            const text = (node.textContent ?? '').trim().slice(0, 120);
 
             return {
               tag,
@@ -171,14 +256,14 @@ export const browserGetDomSnapshot = createTool({
               class: node.className.slice(0, 100) || undefined,
               role: role || undefined,
               type: (node as HTMLInputElement).type || undefined,
-              name: (node as HTMLInputElement).name || node.getAttribute("name") || undefined,
+              name: (node as HTMLInputElement).name || node.getAttribute('name') || undefined,
               href: (node as HTMLAnchorElement).href || undefined,
               src: (node as HTMLImageElement).src || undefined,
-              alt: node.getAttribute("alt") || undefined,
-              placeholder: node.getAttribute("placeholder") || undefined,
+              alt: node.getAttribute('alt') || undefined,
+              placeholder: node.getAttribute('placeholder') || undefined,
               checked: (node as HTMLInputElement).checked || undefined,
               disabled: (node as HTMLInputElement).disabled || undefined,
-              required: node.hasAttribute("required") || undefined,
+              required: node.hasAttribute('required') || undefined,
               children,
             };
           }
@@ -186,21 +271,25 @@ export const browserGetDomSnapshot = createTool({
           const structure = buildTree(root, 0);
 
           const summaryParts: string[] = [];
-          summaryParts.push(`Page has ${totalElements} elements (${interactableCount} interactable) in ${depth + 1} levels`);
+          summaryParts.push(
+            `Page has ${totalElements} elements (${interactableCount} interactable) in ${depth + 1} levels`,
+          );
 
           const sortedTags = Object.entries(tagCounts)
             .sort((a, b) => b[1] - a[1])
             .slice(0, 10);
           if (sortedTags.length > 0) {
-            summaryParts.push("Elements: " + sortedTags.map(([t, c]) => `${t}:${c}`).join(", "));
+            summaryParts.push('Elements: ' + sortedTags.map(([t, c]) => `${t}:${c}`).join(', '));
           }
 
-          const buttons = tagCounts["button"] ?? 0;
-          const inputs = tagCounts["input"] ?? 0;
-          const links = tagCounts["a"] ?? 0;
-          const forms = tagCounts["form"] ?? 0;
-          const headings = ["h1", "h2", "h3", "h4", "h5", "h6"]
-            .reduce((sum, h) => sum + (tagCounts[h] ?? 0), 0);
+          const buttons = tagCounts['button'] ?? 0;
+          const inputs = tagCounts['input'] ?? 0;
+          const links = tagCounts['a'] ?? 0;
+          const forms = tagCounts['form'] ?? 0;
+          const headings = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].reduce(
+            (sum, h) => sum + (tagCounts[h] ?? 0),
+            0,
+          );
 
           if (buttons > 0) summaryParts.push(`${buttons} button(s)`);
           if (inputs > 0) summaryParts.push(`${inputs} input(s)`);
@@ -212,7 +301,7 @@ export const browserGetDomSnapshot = createTool({
             elementCount: totalElements,
             interactableCount,
             depth: depth + 1,
-            summary: summaryParts.join(". "),
+            summary: summaryParts.join('. '),
             tagBreakdown: sortedTags.map(([tag, count]) => ({ tag, count })),
             structure: structure ? [structure] : [],
           };
@@ -223,7 +312,10 @@ export const browserGetDomSnapshot = createTool({
         },
       );
 
-      return responseBuilder.success(result as Record<string, unknown>, sessionManager.buildMeta(session));
+      return responseBuilder.success(
+        result as Record<string, unknown>,
+        sessionManager.buildMeta(session),
+      );
     } catch (error) {
       return responseBuilder.error(error);
     }
@@ -231,12 +323,13 @@ export const browserGetDomSnapshot = createTool({
 });
 
 export const browserGetAccessibilityTree = createTool({
-  name: "browser_get_accessibility_tree",
-  category: "dom",
-  description: "`<use_case>DOM inspection</use_case> ♿ Get the accessibility tree with ARIA roles, labels, and nested structure. Optionally scope to a CSS selector. Returns a tree of accessible nodes with role and name. Use for accessibility auditing, finding elements by their ARIA role, or understanding how screen readers will interpret the page. Also works well for finding elements that browser_get_dom_snapshot might miss.`",
+  name: 'browser_get_accessibility_tree',
+  category: 'dom',
+  description:
+    '`<use_case>DOM inspection</use_case> ♿ Get the accessibility tree with ARIA roles, labels, and nested structure. Optionally scope to a CSS selector. Returns a tree of accessible nodes with role and name. Use for accessibility auditing, finding elements by their ARIA role, or understanding how screen readers will interpret the page. Also works well for finding elements that browser_get_dom_snapshot might miss.`',
   inputSchema: z.object({
-    selector: z.string().optional().describe("Optional selector to scope the tree"),
-    sessionId: z.string().optional().describe("Session ID"),
+    selector: z.string().optional().describe('Optional selector to scope the tree'),
+    sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
@@ -262,9 +355,12 @@ export const browserGetAccessibilityTree = createTool({
         return getAccessibleNode(root);
       }, input.selector);
 
-      return responseBuilder.success({
-        tree: tree ?? null,
-      }, sessionManager.buildMeta(session));
+      return responseBuilder.success(
+        {
+          tree: tree ?? null,
+        },
+        sessionManager.buildMeta(session),
+      );
     } catch (error) {
       return responseBuilder.error(error);
     }
@@ -272,18 +368,23 @@ export const browserGetAccessibilityTree = createTool({
 });
 
 export const browserFindElements = createTool({
-  name: "browser_find_elements",
-  category: "dom",
-  description: "`<use_case>DOM inspection</use_case> 🔎 Find ALL elements matching a CSS selector. Returns specified attributes for each element (default: id, class, textContent, tagName). Supports Shadow DOM piercing (automatically searches within shadow roots if standard querySelector finds nothing). Use when you know the CSS selector and need specific elements. For exploring the whole page structure, use browser_get_dom_snapshot first.`",
+  name: 'browser_find_elements',
+  category: 'dom',
+  description:
+    '`<use_case>DOM inspection</use_case> 🔎 Find ALL elements matching a CSS selector. Returns specified attributes for each element (default: id, class, textContent, tagName). Supports Shadow DOM piercing (automatically searches within shadow roots if standard querySelector finds nothing). Use when you know the CSS selector and need specific elements. For exploring the whole page structure, use browser_get_dom_snapshot first.`',
   inputSchema: z.object({
-    selector: z.string().describe("CSS selector to find elements"),
+    selector: z.string().describe('CSS selector to find elements'),
     returnAttributes: z
       .array(z.string())
       .optional()
-      .default(["id", "class", "textContent", "tagName"])
-      .describe("Attributes to return for each element"),
-    includeShadowDom: z.boolean().optional().default(true).describe("Include Shadow DOM elements in search"),
-    sessionId: z.string().optional().describe("Session ID"),
+      .default(['id', 'class', 'textContent', 'tagName'])
+      .describe('Attributes to return for each element'),
+    includeShadowDom: z
+      .boolean()
+      .optional()
+      .default(true)
+      .describe('Include Shadow DOM elements in search'),
+    sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
@@ -296,7 +397,9 @@ export const browserFindElements = createTool({
             try {
               const light = Array.from(root.querySelectorAll(sel));
               results.push(...light);
-            } catch { /* invalid selector */ }
+            } catch {
+              /* invalid selector */
+            }
 
             if (!includeShadowDom) return results;
 
@@ -321,15 +424,17 @@ export const browserFindElements = createTool({
           } else if (includeShadowDom) {
             // Also include shadow DOM results
             const shadowResults = queryAllDeep(document, selector);
-            const existingIds = new Set(els.map((e) => {
-              const attrs: Record<string, string | null> = {};
-              for (const attr of ['id', 'data-testid']) {
-                if (attr === 'textContent') continue;
-                const val = e.getAttribute(attr);
-                if (val) attrs[attr] = val;
-              }
-              return attrs.id || attrs['data-testid'] || '';
-            }));
+            const existingIds = new Set(
+              els.map((e) => {
+                const attrs: Record<string, string | null> = {};
+                for (const attr of ['id', 'data-testid']) {
+                  if (attr === 'textContent') continue;
+                  const val = e.getAttribute(attr);
+                  if (val) attrs[attr] = val;
+                }
+                return attrs.id || attrs['data-testid'] || '';
+              }),
+            );
             for (const el of shadowResults) {
               const id = el.id || el.getAttribute('data-testid') || '';
               if (id && !existingIds.has(id)) {
@@ -341,7 +446,7 @@ export const browserFindElements = createTool({
           return Array.from(els).map((el) => {
             const attrs: Record<string, string | null> = {};
             for (const attr of attributes) {
-              if (attr === "textContent") {
+              if (attr === 'textContent') {
                 attrs[attr] = el.textContent?.trim() ?? null;
               } else {
                 attrs[attr] = el.getAttribute(attr) ?? null;
@@ -350,13 +455,20 @@ export const browserFindElements = createTool({
             return attrs;
           });
         },
-        { selector: input.selector, attributes: input.returnAttributes!, includeShadowDom: input.includeShadowDom ?? true },
+        {
+          selector: input.selector,
+          attributes: input.returnAttributes!,
+          includeShadowDom: input.includeShadowDom ?? true,
+        },
       );
 
-      return responseBuilder.success({
-        elements,
-        count: elements.length,
-      }, sessionManager.buildMeta(session));
+      return responseBuilder.success(
+        {
+          elements,
+          count: elements.length,
+        },
+        sessionManager.buildMeta(session),
+      );
     } catch (error) {
       return responseBuilder.error(error);
     }
@@ -364,26 +476,30 @@ export const browserFindElements = createTool({
 });
 
 export const browserGetElementInfo = createTool({
-  name: "browser_get_element_info",
-  category: "dom",
-  description: "`<use_case>DOM inspection</use_case> 🔍 Get detailed info about a specific element: exists, visible (isVisible), enabled (isEnabled), text (textContent), attributes (all), boundingBox (x, y, width, height). Use BEFORE clicking or typing to verify the element is in the right state. For quicker existence checks without details, use diagnose_element. For finding elements by attributes, use browser_find_elements.`",
+  name: 'browser_get_element_info',
+  category: 'dom',
+  description:
+    '`<use_case>DOM inspection</use_case> 🔍 Get detailed info about a specific element: exists, visible (isVisible), enabled (isEnabled), text (textContent), attributes (all), boundingBox (x, y, width, height). Use BEFORE clicking or typing to verify the element is in the right state. For quicker existence checks without details, use diagnose_element. For finding elements by attributes, use browser_find_elements.`',
   inputSchema: z.object({
-    selector: z.string().describe("Element selector"),
-    sessionId: z.string().optional().describe("Session ID"),
+    selector: z.string().describe('Element selector'),
+    sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
       const resolved = await resolveSelector(session.browser, input.selector);
       if (!resolved.found) {
-        return responseBuilder.success({
-          exists: false,
-          visible: false,
-          enabled: false,
-          text: null,
-          attributes: null,
-          boundingBox: null,
-        }, sessionManager.buildMeta(session));
+        return responseBuilder.success(
+          {
+            exists: false,
+            visible: false,
+            enabled: false,
+            text: null,
+            attributes: null,
+            boundingBox: null,
+          },
+          sessionManager.buildMeta(session),
+        );
       }
 
       const locator = session.browser.locator(resolved.selector);
@@ -391,24 +507,29 @@ export const browserGetElementInfo = createTool({
         locator.isVisible().catch(() => false),
         locator.isEnabled().catch(() => false),
         locator.textContent().catch(() => null),
-        locator.evaluate((el) => {
-          const attrs: Record<string, string> = {};
-          for (const attr of Array.from(el.attributes as unknown as ArrayLike<Attr>)) {
-            attrs[attr.name] = attr.value;
-          }
-          return attrs;
-        }).catch(() => null),
+        locator
+          .evaluate((el) => {
+            const attrs: Record<string, string> = {};
+            for (const attr of Array.from(el.attributes as unknown as ArrayLike<Attr>)) {
+              attrs[attr.name] = attr.value;
+            }
+            return attrs;
+          })
+          .catch(() => null),
         locator.boundingBox().catch(() => null),
       ]);
 
-      return responseBuilder.success({
-        exists: true,
-        visible,
-        enabled,
-        text: text?.trim() ?? null,
-        attributes,
-        boundingBox: box,
-      }, sessionManager.buildMeta(session));
+      return responseBuilder.success(
+        {
+          exists: true,
+          visible,
+          enabled,
+          text: text?.trim() ?? null,
+          attributes,
+          boundingBox: box,
+        },
+        sessionManager.buildMeta(session),
+      );
     } catch (error) {
       return responseBuilder.error(error);
     }
@@ -416,18 +537,19 @@ export const browserGetElementInfo = createTool({
 });
 
 export const browserWaitForElement = createTool({
-  name: "browser_wait_for_element",
-  category: "dom",
-  description: "`<use_case>Page state</use_case> ⏳ Wait for an element to reach a specific state. States: attached (in DOM), detached (removed), visible (displayed), hidden (not displayed). Configurable timeout (default 30s). Returns elapsed time. Use before interacting with dynamic elements that appear after loading. For smarter waiting with auto-diagnosis on failure, use smart_wait instead.`",
+  name: 'browser_wait_for_element',
+  category: 'dom',
+  description:
+    '`<use_case>Page state</use_case> ⏳ Wait for an element to reach a specific state. States: attached (in DOM), detached (removed), visible (displayed), hidden (not displayed). Configurable timeout (default 30s). Returns elapsed time. Use before interacting with dynamic elements that appear after loading. For smarter waiting with auto-diagnosis on failure, use smart_wait instead.`',
   inputSchema: z.object({
-    selector: z.string().describe("Element selector"),
+    selector: z.string().describe('Element selector'),
     state: z
-      .enum(["attached", "detached", "visible", "hidden"])
+      .enum(['attached', 'detached', 'visible', 'hidden'])
       .optional()
-      .default("visible")
-      .describe("Desired element state"),
-    timeout: z.number().optional().default(30000).describe("Timeout in milliseconds"),
-    sessionId: z.string().optional().describe("Session ID"),
+      .default('visible')
+      .describe('Desired element state'),
+    timeout: z.number().optional().default(30000).describe('Timeout in milliseconds'),
+    sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
@@ -439,17 +561,20 @@ export const browserWaitForElement = createTool({
         timeout: input.timeout,
       });
 
-      return responseBuilder.success({
-        elapsed: Date.now() - startTime,
-        finalState: input.state,
-      }, sessionManager.buildMeta(session));
+      return responseBuilder.success(
+        {
+          elapsed: Date.now() - startTime,
+          finalState: input.state,
+        },
+        sessionManager.buildMeta(session),
+      );
     } catch (error) {
       return responseBuilder.error(error, {
-        code: "ELEMENT_NOT_FOUND",
+        code: 'ELEMENT_NOT_FOUND',
         suggestions: [
           `Element with selector "${input.selector}" did not reach state "${input.state}" within ${input.timeout}ms`,
-          "Try checking if the page is on the correct URL",
-          "Try using browser_get_dom_snapshot to see available elements",
+          'Try checking if the page is on the correct URL',
+          'Try using browser_get_dom_snapshot to see available elements',
         ],
       });
     }
@@ -457,24 +582,28 @@ export const browserWaitForElement = createTool({
 });
 
 export const browserGetPageText = createTool({
-  name: "browser_get_page_text",
-  category: "dom",
-  description: "`<use_case>DOM inspection</use_case> 📝 Get visible (rendered) text from the full page or a scoped element. Returns text content and wordCount. Use to extract page content, read article text, or verify text appears on the page. Unlike browser_get_dom_snapshot which returns structure, this returns raw readable text. For page metadata (title, description, OG tags), use browser_get_meta.`",
+  name: 'browser_get_page_text',
+  category: 'dom',
+  description:
+    '`<use_case>DOM inspection</use_case> 📝 Get visible (rendered) text from the full page or a scoped element. Returns text content and wordCount. Use to extract page content, read article text, or verify text appears on the page. Unlike browser_get_dom_snapshot which returns structure, this returns raw readable text. For page metadata (title, description, OG tags), use browser_get_meta.`',
   inputSchema: z.object({
-    selector: z.string().optional().describe("Optional selector to scope text extraction"),
-    sessionId: z.string().optional().describe("Session ID"),
+    selector: z.string().optional().describe('Optional selector to scope text extraction'),
+    sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
       const text = input.selector
         ? await session.browser.locator(input.selector).innerText()
-        : await session.browser.evaluate(() => document.body?.innerText ?? "");
+        : await session.browser.evaluate(() => document.body?.innerText ?? '');
 
-      return responseBuilder.success({
-        text,
-        wordCount: text.split(/\s+/).filter(Boolean).length,
-      }, sessionManager.buildMeta(session));
+      return responseBuilder.success(
+        {
+          text,
+          wordCount: text.split(/\s+/).filter(Boolean).length,
+        },
+        sessionManager.buildMeta(session),
+      );
     } catch (error) {
       return responseBuilder.error(error);
     }
@@ -482,11 +611,12 @@ export const browserGetPageText = createTool({
 });
 
 export const browserGetPageTitle = createTool({
-  name: "browser_get_page_title",
-  category: "dom",
-  description: "`<use_case>Page state</use_case> 📌 Get just the page title (document.title). Fast — no full DOM scan needed. Returns title string. Use for quick page identification, verifying navigation success, or checking if the page loaded correctly. For more details including URL and readyState, use tab_get_current or browser_get_current_url.`",
+  name: 'browser_get_page_title',
+  category: 'dom',
+  description:
+    '`<use_case>Page state</use_case> 📌 Get just the page title (document.title). Fast — no full DOM scan needed. Returns title string. Use for quick page identification, verifying navigation success, or checking if the page loaded correctly. For more details including URL and readyState, use tab_get_current or browser_get_current_url.`',
   inputSchema: z.object({
-    sessionId: z.string().optional().describe("Session ID"),
+    sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
@@ -500,11 +630,12 @@ export const browserGetPageTitle = createTool({
 });
 
 export const browserGetMeta = createTool({
-  name: "browser_get_meta",
-  category: "dom",
-  description: "`<use_case>DOM inspection</use_case> 🏷️ Get comprehensive page metadata: title, description, Open Graph tags (og:*), Twitter cards (twitter:*), canonical URL, favicon, viewport, and ALL meta tags. Use for SEO analysis, link preview verification, social sharing checks, or extracting structured page info. More complete than browser_get_page_title which only returns the title.`",
+  name: 'browser_get_meta',
+  category: 'dom',
+  description:
+    '`<use_case>DOM inspection</use_case> 🏷️ Get comprehensive page metadata: title, description, Open Graph tags (og:*), Twitter cards (twitter:*), canonical URL, favicon, viewport, and ALL meta tags. Use for SEO analysis, link preview verification, social sharing checks, or extracting structured page info. More complete than browser_get_page_title which only returns the title.`',
   inputSchema: z.object({
-    sessionId: z.string().optional().describe("Session ID"),
+    sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
@@ -512,32 +643,36 @@ export const browserGetMeta = createTool({
       const meta = await session.browser.evaluate(() => {
         const getMeta = (name: string): string | null => {
           const el = document.querySelector(`meta[name="${name}"], meta[property="${name}"]`);
-          return el ? el.getAttribute("content") : null;
+          return el ? el.getAttribute('content') : null;
         };
 
         const ogTags: Record<string, string | null> = {};
         const twitterTags: Record<string, string | null> = {};
         const allMeta: Record<string, string | null> = {};
 
-        document.querySelectorAll("meta").forEach((el) => {
-          const property = el.getAttribute("property");
-          const name = el.getAttribute("name");
-          const content = el.getAttribute("content");
+        document.querySelectorAll('meta').forEach((el) => {
+          const property = el.getAttribute('property');
+          const name = el.getAttribute('name');
+          const content = el.getAttribute('content');
           const key = property || name;
           if (key && content) {
             allMeta[key] = content;
-            if (key.startsWith("og:")) ogTags[key] = content;
-            if (key.startsWith("twitter:")) twitterTags[key] = content;
+            if (key.startsWith('og:')) ogTags[key] = content;
+            if (key.startsWith('twitter:')) twitterTags[key] = content;
           }
         });
 
-        const canonical = document.querySelector("link[rel='canonical']")?.getAttribute("href") ?? null;
-        const favicon = document.querySelector("link[rel='icon'], link[rel='shortcut icon']")?.getAttribute("href") ?? null;
-        const viewport = getMeta("viewport");
+        const canonical =
+          document.querySelector("link[rel='canonical']")?.getAttribute('href') ?? null;
+        const favicon =
+          document
+            .querySelector("link[rel='icon'], link[rel='shortcut icon']")
+            ?.getAttribute('href') ?? null;
+        const viewport = getMeta('viewport');
 
         return {
           title: document.title,
-          description: getMeta("description"),
+          description: getMeta('description'),
           ogTags,
           twitterTags,
           canonical,

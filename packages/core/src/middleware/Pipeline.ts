@@ -1,9 +1,9 @@
-import { getLogger } from "../utils/logger.js";
-import type { ToolDefinition, ToolContext } from "../tools/_registry.js";
-import type { FennecSession } from "../session/types.js";
-import type { FennecConfig } from "../config/defaults.js";
-import type { WorkflowScheduler } from "../scheduler/WorkflowScheduler.js";
-import type { StateManager } from "../state/index.js";
+import { getLogger } from '../utils/logger.js';
+import type { ToolDefinition, ToolContext } from '../tools/_registry.js';
+import type { FennecSession } from '../session/types.js';
+import type { FennecConfig } from '../config/defaults.js';
+import type { WorkflowScheduler } from '../scheduler/WorkflowScheduler.js';
+import type { StateManager } from '../state/index.js';
 
 export interface MiddlewareContext {
   toolName: string;
@@ -102,7 +102,7 @@ export class Pipeline {
               toSession: switchEvent.toSessionId,
               tool: tool.name,
             },
-            "Pipeline: context switch detected",
+            'Pipeline: context switch detected',
           );
         }
       }
@@ -115,7 +115,10 @@ export class Pipeline {
 
     // Final handler is the tool itself
     const finalHandler: MiddlewareFn = async (mwCtx) => {
-      logger.info({ tool: mwCtx.toolName, args: parsedInput }, "Middleware: executing tool handler");
+      logger.info(
+        { tool: mwCtx.toolName, args: parsedInput },
+        'Middleware: executing tool handler',
+      );
       const result = await tool.handler(parsedInput, toolContext);
       return result as Record<string, unknown>;
     };
@@ -123,7 +126,7 @@ export class Pipeline {
     // Execute middleware chain recursively
     const run = async (mwCtx: MiddlewareContext, idx: number): Promise<Record<string, unknown>> => {
       if (idx >= chain.length) {
-        return finalHandler(mwCtx, async () => ({} as Record<string, unknown>));
+        return finalHandler(mwCtx, async () => ({}) as Record<string, unknown>);
       }
       const mw = chain[idx] as MiddlewareFn;
       return mw(mwCtx, () => run(mwCtx, idx + 1));
@@ -133,7 +136,7 @@ export class Pipeline {
       const result = await run(ctx, 0);
       return result;
     } catch (error) {
-      logger.error({ tool: ctx.toolName, error }, "Middleware: pipeline execution failed");
+      logger.error({ tool: ctx.toolName, error }, 'Middleware: pipeline execution failed');
       throw error;
     }
   }

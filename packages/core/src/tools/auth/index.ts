@@ -1,27 +1,50 @@
-import { z } from "zod";
-import { join } from "node:path";
-import { createTool } from "../_registry.js";
-import { detectFormFields, matchField, fillField, findSubmitButton } from "../smart/index.js";
-import { StoreManager } from "../../store/StoreManager.js";
+import { z } from 'zod';
+import { join } from 'node:path';
+import { createTool } from '../_registry.js';
+import { detectFormFields, matchField, fillField, findSubmitButton } from '../smart/index.js';
+import { StoreManager } from '../../store/StoreManager.js';
 
 // Fallback selectors when smart field detection returns no results
 const LOGIN_SELECTORS = {
-  usernameFields: ['input[type="email"]', 'input[type="text"][name*="user"]', 'input[type="text"][name*="email"]', 'input[type="text"][name*="login"]', 'input#email', 'input#username', 'input#login'],
+  usernameFields: [
+    'input[type="email"]',
+    'input[type="text"][name*="user"]',
+    'input[type="text"][name*="email"]',
+    'input[type="text"][name*="login"]',
+    'input#email',
+    'input#username',
+    'input#login',
+  ],
   passwordFields: ['input[type="password"]'],
-  submitButtons: ['button[type="submit"]', 'input[type="submit"]', 'button:has-text("Sign in")', 'button:has-text("Login")', 'button:has-text("Log in")', 'button:has-text("Continue")'],
+  submitButtons: [
+    'button[type="submit"]',
+    'input[type="submit"]',
+    'button:has-text("Sign in")',
+    'button:has-text("Login")',
+    'button:has-text("Log in")',
+    'button:has-text("Continue")',
+  ],
 };
 
 export const authFillLoginForm = createTool({
-  name: "auth_fill_login_form",
-  category: "auth",
-  description: "`<use_case>Auth</use_case> 🔑 Auto-detect and fill a login form (username/email + password). Smart field detection matches by label, name, id, placeholder, aria-label, data-testid. Options: submitAfter (submit form after filling), saveAfterLogin (auto-save auth session on success — DEFAULT ON), sessionName (name for the saved session, e.g. 'myapp-prod'). Returns formFound, fieldsDetected, submitted, sessionSaved. Use as the PRIMARY way to log into sites — smarter than manually finding fields with browser_type. For non-login forms, use smart_fill_form instead. For checking auth state, use auth_check_logged_in or diagnose_auth.`",
+  name: 'auth_fill_login_form',
+  category: 'auth',
+  description:
+    "`<use_case>Auth</use_case> 🔑 Auto-detect and fill a login form (username/email + password). Smart field detection matches by label, name, id, placeholder, aria-label, data-testid. Options: submitAfter (submit form after filling), saveAfterLogin (auto-save auth session on success — DEFAULT ON), sessionName (name for the saved session, e.g. 'myapp-prod'). Returns formFound, fieldsDetected, submitted, sessionSaved. Use as the PRIMARY way to log into sites — smarter than manually finding fields with browser_type. For non-login forms, use smart_fill_form instead. For checking auth state, use auth_check_logged_in or diagnose_auth.`",
   inputSchema: z.object({
-    username: z.string().describe("Username or email to fill"),
-    password: z.string().describe("Password to fill"),
-    submitAfter: z.boolean().optional().default(false).describe("Submit the form after filling"),
-    saveAfterLogin: z.boolean().optional().default(true).describe("Auto-save session after successful login (DEFAULT ON). Set false to skip."),
-    sessionName: z.string().optional().describe("Name to save the session as (e.g. 'myapp-prod'). Defaults to auto-<domain>."),
-    sessionId: z.string().optional().describe("Session ID"),
+    username: z.string().describe('Username or email to fill'),
+    password: z.string().describe('Password to fill'),
+    submitAfter: z.boolean().optional().default(false).describe('Submit the form after filling'),
+    saveAfterLogin: z
+      .boolean()
+      .optional()
+      .default(true)
+      .describe('Auto-save session after successful login (DEFAULT ON). Set false to skip.'),
+    sessionName: z
+      .string()
+      .optional()
+      .describe("Name to save the session as (e.g. 'myapp-prod'). Defaults to auto-<domain>."),
+    sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder, sessionStore }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
@@ -32,13 +55,15 @@ export const authFillLoginForm = createTool({
       const formFields = await detectFormFields(page);
 
       // Phase 2: Smart-match username and password fields
-      const usernameField = formFields.length > 0
-        ? matchField(formFields, "email") || matchField(formFields, "username") || matchField(formFields, "login") || matchField(formFields, "user")
-        : null;
+      const usernameField =
+        formFields.length > 0
+          ? matchField(formFields, 'email') ||
+            matchField(formFields, 'username') ||
+            matchField(formFields, 'login') ||
+            matchField(formFields, 'user')
+          : null;
 
-      const passwordField = formFields.length > 0
-        ? matchField(formFields, "password")
-        : null;
+      const passwordField = formFields.length > 0 ? matchField(formFields, 'password') : null;
 
       let submitted = false;
 
@@ -52,9 +77,9 @@ export const authFillLoginForm = createTool({
           const submitBtn = await findSubmitButton(page);
           if (submitBtn) {
             if (input.saveAfterLogin) {
-            await Promise.all([
-              page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {}),
-              submitBtn.click(),
+              await Promise.all([
+                page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {}),
+                submitBtn.click(),
               ]);
             } else {
               await submitBtn.click();
@@ -70,28 +95,34 @@ export const authFillLoginForm = createTool({
 
         for (const sel of LOGIN_SELECTORS.usernameFields) {
           const el = await page.$(sel);
-          if (el) { usernameSelector = sel; break; }
+          if (el) {
+            usernameSelector = sel;
+            break;
+          }
         }
         for (const sel of LOGIN_SELECTORS.passwordFields) {
           const el = await page.$(sel);
-          if (el) { passwordSelector = sel; break; }
+          if (el) {
+            passwordSelector = sel;
+            break;
+          }
         }
         for (const sel of LOGIN_SELECTORS.submitButtons) {
           const el = await page.$(sel);
-          if (el) { submitSelector = sel; break; }
+          if (el) {
+            submitSelector = sel;
+            break;
+          }
         }
 
         if (!usernameSelector || !passwordSelector) {
-          return responseBuilder.error(
-            new Error("Could not detect login form fields"),
-            {
-              code: "ELEMENT_NOT_FOUND",
-              suggestions: [
-                "Use browser_get_dom_snapshot to see the page structure",
-                "Manually use browser_type to fill in the fields",
-              ],
-            },
-          );
+          return responseBuilder.error(new Error('Could not detect login form fields'), {
+            code: 'ELEMENT_NOT_FOUND',
+            suggestions: [
+              'Use browser_get_dom_snapshot to see the page structure',
+              'Manually use browser_type to fill in the fields',
+            ],
+          });
         }
 
         await page.locator(usernameSelector).fill(input.username);
@@ -100,7 +131,7 @@ export const authFillLoginForm = createTool({
         if (input.submitAfter && submitSelector) {
           if (input.saveAfterLogin) {
             await Promise.all([
-              page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {}),
+              page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {}),
               page.locator(submitSelector).click(),
             ]);
           } else {
@@ -112,7 +143,7 @@ export const authFillLoginForm = createTool({
 
       // Phase 4: Auto-save session after login (DEFAULT ON)
       let sessionSaved = false;
-      let sessionName = "";
+      let sessionName = '';
 
       if (input.saveAfterLogin) {
         if (submitted) {
@@ -120,25 +151,34 @@ export const authFillLoginForm = createTool({
         }
 
         const cookies = await session.browser.contextCookies();
-        const hasAuthCookie = cookies.some((c) => /token|session|auth|jwt|sid|connect/i.test(c.name));
+        const hasAuthCookie = cookies.some((c) =>
+          /token|session|auth|jwt|sid|connect/i.test(c.name),
+        );
 
         if (hasAuthCookie || input.sessionName) {
           const origin = new URL(page.url()).origin;
           sessionName = input.sessionName || `auto-${new URL(page.url()).hostname}`;
 
-          const storage = await page.evaluate(() => {
-            const items: Record<string, string> = {};
-            for (let i = 0; i < localStorage.length; i++) {
-              const key = localStorage.key(i);
-              if (key) items[key] = localStorage.getItem(key) ?? "";
-            }
-            return items;
-          }).catch(() => ({} as Record<string, string>));
+          const storage = await page
+            .evaluate(() => {
+              const items: Record<string, string> = {};
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key) items[key] = localStorage.getItem(key) ?? '';
+              }
+              return items;
+            })
+            .catch(() => ({}) as Record<string, string>);
 
           sessionStore.save(sessionName, {
             cookies: cookies.map((c) => ({
-              name: c.name, value: c.value, domain: c.domain, path: c.path,
-              httpOnly: c.httpOnly, secure: c.secure, sameSite: c.sameSite,
+              name: c.name,
+              value: c.value,
+              domain: c.domain,
+              path: c.path,
+              httpOnly: c.httpOnly,
+              secure: c.secure,
+              sameSite: c.sameSite,
             })),
             localStorage: storage,
             sessionStorage: {},
@@ -149,16 +189,19 @@ export const authFillLoginForm = createTool({
         }
       }
 
-      return responseBuilder.success({
-        formFound: true,
-        fieldsDetected: {
-          usernameField: usernameField !== null,
-          passwordField: passwordField !== null,
+      return responseBuilder.success(
+        {
+          formFound: true,
+          fieldsDetected: {
+            usernameField: usernameField !== null,
+            passwordField: passwordField !== null,
+          },
+          submitted,
+          sessionSaved,
+          ...(sessionSaved ? { sessionName } : {}),
         },
-        submitted,
-        sessionSaved,
-        ...(sessionSaved ? { sessionName } : {}),
-      }, sessionManager.buildMeta(session));
+        sessionManager.buildMeta(session),
+      );
     } catch (error) {
       return responseBuilder.error(error);
     }
@@ -166,14 +209,25 @@ export const authFillLoginForm = createTool({
 });
 
 export const authSaveSession = createTool({
-  name: "auth_save_session",
-  category: "auth",
-  description: "`<use_case>Auth</use_case> 💾 Save the current auth state (cookies + localStorage) to a named session for later reuse. Returns sessionId, savedAt, filePath, and metadata. Use AFTER successful login to persist the session — next time you can use auth_load_session to restore auth instantly. Capture context with `metadata` (e.g. { user, role, workspace, notes }) so you can tell sessions apart later — auth_list_sessions shows it. Pass filePath to write to a custom location.`",
+  name: 'auth_save_session',
+  category: 'auth',
+  description:
+    '`<use_case>Auth</use_case> 💾 Save the current auth state (cookies + localStorage) to a named session for later reuse. Returns sessionId, savedAt, filePath, and metadata. Use AFTER successful login to persist the session — next time you can use auth_load_session to restore auth instantly. Capture context with `metadata` (e.g. { user, role, workspace, notes }) so you can tell sessions apart later — auth_list_sessions shows it. Pass filePath to write to a custom location.`',
   inputSchema: z.object({
-    name: z.string().describe("Session name to save as"),
-    metadata: z.record(z.unknown()).optional().describe("Free-form context to remember with this session: user, role, workspace, notes, etc. Shown by auth_list_sessions."),
-    filePath: z.string().optional().describe("Custom path to save the session JSON (defaults to the global Fennec store ~/.fennec/sessions/<origin>/<name>.json)"),
-    sessionId: z.string().optional().describe("Browser session ID"),
+    name: z.string().describe('Session name to save as'),
+    metadata: z
+      .record(z.unknown())
+      .optional()
+      .describe(
+        'Free-form context to remember with this session: user, role, workspace, notes, etc. Shown by auth_list_sessions.',
+      ),
+    filePath: z
+      .string()
+      .optional()
+      .describe(
+        'Custom path to save the session JSON (defaults to the global Fennec store ~/.fennec/sessions/<origin>/<name>.json)',
+      ),
+    sessionId: z.string().optional().describe('Browser session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder, sessionStore }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
@@ -181,19 +235,26 @@ export const authSaveSession = createTool({
       const cookies = await session.browser.contextCookies();
       const origin = new URL(session.browser.url()).origin;
 
-      const storage = await session.browser.evaluate(() => {
-        const items: Record<string, string> = {};
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key) items[key] = localStorage.getItem(key) ?? "";
-        }
-        return items;
-      }).catch(() => ({} as Record<string, string>));
+      const storage = await session.browser
+        .evaluate(() => {
+          const items: Record<string, string> = {};
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key) items[key] = localStorage.getItem(key) ?? '';
+          }
+          return items;
+        })
+        .catch(() => ({}) as Record<string, string>);
 
       const payload = {
         cookies: cookies.map((c) => ({
-          name: c.name, value: c.value, domain: c.domain, path: c.path,
-          httpOnly: c.httpOnly, secure: c.secure, sameSite: c.sameSite,
+          name: c.name,
+          value: c.value,
+          domain: c.domain,
+          path: c.path,
+          httpOnly: c.httpOnly,
+          secure: c.secure,
+          sameSite: c.sameSite,
         })),
         localStorage: storage,
         sessionStorage: {},
@@ -209,12 +270,15 @@ export const authSaveSession = createTool({
         filePath = sessionStore.save(input.name, payload);
       }
 
-      return responseBuilder.success({
-        sessionId: session.id,
-        savedAt: new Date().toISOString(),
-        filePath,
-        metadata: input.metadata ?? null,
-      }, sessionManager.buildMeta(session));
+      return responseBuilder.success(
+        {
+          sessionId: session.id,
+          savedAt: new Date().toISOString(),
+          filePath,
+          metadata: input.metadata ?? null,
+        },
+        sessionManager.buildMeta(session),
+      );
     } catch (error) {
       return responseBuilder.error(error);
     }
@@ -222,13 +286,21 @@ export const authSaveSession = createTool({
 });
 
 export const authLoadSession = createTool({
-  name: "auth_load_session",
-  category: "auth",
-   description: "`<use_case>Auth</use_case> 🔓 Load a previously saved auth session (from auth_save_session) into the browser. Restores cookies + localStorage + navigates to origin. Returns cookiesLoaded and storageLoaded counts. Use to quickly restore authenticated state without re-logging in. Pass filePath to load from a specific .json, or name to load from the global store ~/.fennec/sessions/<origin>/<name>.json (auto-discovered, including cwd ./.fennec/sessions). Get available session names from auth_list_sessions. For one-off cookie setting, use storage_set_cookie instead.`",
+  name: 'auth_load_session',
+  category: 'auth',
+  description:
+    '`<use_case>Auth</use_case> 🔓 Load a previously saved auth session (from auth_save_session) into the browser. Restores cookies + localStorage + navigates to origin. Returns cookiesLoaded and storageLoaded counts. Use to quickly restore authenticated state without re-logging in. Pass filePath to load from a specific .json, or name to load from the global store ~/.fennec/sessions/<origin>/<name>.json (auto-discovered, including cwd ./.fennec/sessions). Get available session names from auth_list_sessions. For one-off cookie setting, use storage_set_cookie instead.`',
   inputSchema: z.object({
-    name: z.string().describe("Session name to load (resolved from the global Fennec store ~/.fennec/sessions/<origin>/<name>.json, or cwd ./.fennec/sessions)"),
-    filePath: z.string().optional().describe("Explicit path to the saved session .json file (overrides name)"),
-    sessionId: z.string().optional().describe("Browser session ID"),
+    name: z
+      .string()
+      .describe(
+        'Session name to load (resolved from the global Fennec store ~/.fennec/sessions/<origin>/<name>.json, or cwd ./.fennec/sessions)',
+      ),
+    filePath: z
+      .string()
+      .optional()
+      .describe('Explicit path to the saved session .json file (overrides name)'),
+    sessionId: z.string().optional().describe('Browser session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder, sessionStore }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
@@ -240,35 +312,46 @@ export const authLoadSession = createTool({
         saved = sessionStore.load(input.name);
         if (!saved) {
           // Auto-discover in the cwd .fennec/sessions (recursive: namespaced + legacy)
-          saved = sessionStore.loadFromDir(join(process.cwd(), ".fennec", "sessions"), input.name);
+          saved = sessionStore.loadFromDir(join(process.cwd(), '.fennec', 'sessions'), input.name);
         }
       }
       if (!saved) {
-        return responseBuilder.error(
-          new Error(`Session not found: ${input.name}`),
-          { code: "SESSION_NOT_FOUND", suggestions: ["Use auth_list_sessions to see available sessions", "Pass filePath to load a specific .json"] },
-        );
+        return responseBuilder.error(new Error(`Session not found: ${input.name}`), {
+          code: 'SESSION_NOT_FOUND',
+          suggestions: [
+            'Use auth_list_sessions to see available sessions',
+            'Pass filePath to load a specific .json',
+          ],
+        });
       }
 
-      await session.browser.contextAddCookies(saved.cookies.map((c) => ({
-        name: (c as Record<string, unknown>).name as string,
-        value: (c as Record<string, unknown>).value as string,
-        domain: (c as Record<string, unknown>).domain as string | undefined,
-        path: ((c as Record<string, unknown>).path as string) ?? "/",
-        httpOnly: (c as Record<string, unknown>).httpOnly as boolean | undefined,
-        secure: (c as Record<string, unknown>).secure as boolean | undefined,
-        sameSite: (c as Record<string, unknown>).sameSite as "Strict" | "Lax" | "None" | undefined,
-      })));
+      await session.browser.contextAddCookies(
+        saved.cookies.map((c) => ({
+          name: (c as Record<string, unknown>).name as string,
+          value: (c as Record<string, unknown>).value as string,
+          domain: (c as Record<string, unknown>).domain as string | undefined,
+          path: ((c as Record<string, unknown>).path as string) ?? '/',
+          httpOnly: (c as Record<string, unknown>).httpOnly as boolean | undefined,
+          secure: (c as Record<string, unknown>).secure as boolean | undefined,
+          sameSite: (c as Record<string, unknown>).sameSite as
+            'Strict' | 'Lax' | 'None' | undefined,
+        })),
+      );
 
       await session.browser.navigate(saved.origin).catch(() => {});
       for (const [key, value] of Object.entries(saved.localStorage)) {
-        await session.browser.evaluate(({ k, v }) => localStorage.setItem(k, v), { k: key, v: value }).catch(() => {});
+        await session.browser
+          .evaluate(({ k, v }) => localStorage.setItem(k, v), { k: key, v: value })
+          .catch(() => {});
       }
 
-      return responseBuilder.success({
-        cookiesLoaded: saved.cookies.length,
-        storageLoaded: Object.keys(saved.localStorage).length,
-      }, sessionManager.buildMeta(session));
+      return responseBuilder.success(
+        {
+          cookiesLoaded: saved.cookies.length,
+          storageLoaded: Object.keys(saved.localStorage).length,
+        },
+        sessionManager.buildMeta(session),
+      );
     } catch (error) {
       return responseBuilder.error(error);
     }
@@ -276,17 +359,37 @@ export const authLoadSession = createTool({
 });
 
 export const authListSessions = createTool({
-  name: "auth_list_sessions",
-  category: "auth",
-  description: "`<use_case>Auth</use_case> 📋 List all saved auth sessions with their names, origins, save dates, and filePath. Also auto-discovers sessions in the cwd ./.fennec/sessions directory. Returns sessions[] and count. Use to discover available sessions before loading one with auth_load_session or deleting with auth_delete_session. Sessions are persisted on disk, so they survive browser restarts.`",
+  name: 'auth_list_sessions',
+  category: 'auth',
+  description:
+    '`<use_case>Auth</use_case> 📋 List all saved auth sessions with their names, origins, save dates, and filePath. Also auto-discovers sessions in the cwd ./.fennec/sessions directory. Returns sessions[] and count. Use to discover available sessions before loading one with auth_load_session or deleting with auth_delete_session. Sessions are persisted on disk, so they survive browser restarts.`',
   inputSchema: z.object({}),
   handler: async (input, { responseBuilder, sessionStore }) => {
-    const byName = new Map<string, { name: string; savedAt: string; origin: string; filePath: string; metadata?: Record<string, unknown> }>();
-    const add = (s: { name: string; savedAt: string; origin: string; metadata?: Record<string, unknown> }, filePath: string) => {
-      if (!byName.has(s.name)) byName.set(s.name, { name: s.name, savedAt: s.savedAt, origin: s.origin, filePath, metadata: s.metadata });
+    const byName = new Map<
+      string,
+      {
+        name: string;
+        savedAt: string;
+        origin: string;
+        filePath: string;
+        metadata?: Record<string, unknown>;
+      }
+    >();
+    const add = (
+      s: { name: string; savedAt: string; origin: string; metadata?: Record<string, unknown> },
+      filePath: string,
+    ) => {
+      if (!byName.has(s.name))
+        byName.set(s.name, {
+          name: s.name,
+          savedAt: s.savedAt,
+          origin: s.origin,
+          filePath,
+          metadata: s.metadata,
+        });
     };
     for (const s of sessionStore.list()) add(s, sessionStore.pathFor(s.name, s.origin));
-    for (const s of sessionStore.listFromDir(join(process.cwd(), ".fennec", "sessions"))) {
+    for (const s of sessionStore.listFromDir(join(process.cwd(), '.fennec', 'sessions'))) {
       add(s, sessionStore.pathFor(s.name, s.origin));
     }
     const sessions = Array.from(byName.values());
@@ -298,55 +401,78 @@ export const authListSessions = createTool({
 });
 
 export const authDeleteSession = createTool({
-  name: "auth_delete_session",
-  category: "auth",
-  description: "`<use_case>Auth</use_case> 🗑️ Delete a saved auth session by name. Returns deleted=true/false. Use to clean up old or expired sessions. Get session names from auth_list_sessions. Deleting doesn't affect the current browser state — only removes the saved snapshot.`",
+  name: 'auth_delete_session',
+  category: 'auth',
+  description:
+    "`<use_case>Auth</use_case> 🗑️ Delete a saved auth session by name. Returns deleted=true/false. Use to clean up old or expired sessions. Get session names from auth_list_sessions. Deleting doesn't affect the current browser state — only removes the saved snapshot.`",
   inputSchema: z.object({
-    name: z.string().describe("Session name to delete"),
+    name: z.string().describe('Session name to delete'),
   }),
   handler: async (input, { responseBuilder, sessionStore }) => {
     const deleted = sessionStore.delete(input.name);
-    return responseBuilder.success({ deleted }, { elapsed: 0, sessionId: "", timestamp: new Date().toISOString() });
+    return responseBuilder.success(
+      { deleted },
+      { elapsed: 0, sessionId: '', timestamp: new Date().toISOString() },
+    );
   },
 });
 
 export const authCheckLoggedIn = createTool({
-  name: "auth_check_logged_in",
-  category: "auth",
-  description: "`<use_case>Auth</use_case> ✅ Check login state by detecting auth indicators: auth cookies (token/session/jwt/sid/connect), logout/profile links, and login links. Returns loggedIn, confidence (0-1), detectedIndicators[]. Supports custom CSS selectors for site-specific indicators. Use to verify login succeeded, check auth state before performing actions, or detect unexpected logouts. More comprehensive than diagnose_auth which only checks cookies.`",
+  name: 'auth_check_logged_in',
+  category: 'auth',
+  description:
+    '`<use_case>Auth</use_case> ✅ Check login state by detecting auth indicators: auth cookies (token/session/jwt/sid/connect), logout/profile links, and login links. Returns loggedIn, confidence (0-1), detectedIndicators[]. Supports custom CSS selectors for site-specific indicators. Use to verify login succeeded, check auth state before performing actions, or detect unexpected logouts. More comprehensive than diagnose_auth which only checks cookies.`',
   inputSchema: z.object({
-    indicators: z.array(z.string()).optional().describe("Custom CSS selectors to check for login state"),
-    sessionId: z.string().optional().describe("Session ID"),
+    indicators: z
+      .array(z.string())
+      .optional()
+      .describe('Custom CSS selectors to check for login state'),
+    sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
       const loggedOutIndicators = [
-        'a[href*="login"]', 'a[href*="sign-in"]', 'a[href*="signin"]',
-        'button:has-text("Log in")', 'button:has-text("Sign in")',
+        'a[href*="login"]',
+        'a[href*="sign-in"]',
+        'a[href*="signin"]',
+        'button:has-text("Log in")',
+        'button:has-text("Sign in")',
       ];
       const loggedInIndicators = input.indicators ?? [
-        'a[href*="logout"]', 'a[href*="sign-out"]', 'a[href*="profile"]',
-        'a[href*="/account"]', 'button:has-text("Log out")', 'button:has-text("Sign out")',
+        'a[href*="logout"]',
+        'a[href*="sign-out"]',
+        'a[href*="profile"]',
+        'a[href*="/account"]',
+        'button:has-text("Log out")',
+        'button:has-text("Sign out")',
       ];
 
       const [hasLoggedOutLink, hasLoggedInLink] = await Promise.all([
-        Promise.any(loggedOutIndicators.map((sel) => session.browser.$(sel).then((el) => el !== null))).catch(() => false),
-        Promise.any(loggedInIndicators.map((sel) => session.browser.$(sel).then((el) => el !== null))).catch(() => false),
+        Promise.any(
+          loggedOutIndicators.map((sel) => session.browser.$(sel).then((el) => el !== null)),
+        ).catch(() => false),
+        Promise.any(
+          loggedInIndicators.map((sel) => session.browser.$(sel).then((el) => el !== null)),
+        ).catch(() => false),
       ]);
 
       const cookies = await session.browser.contextCookies();
       const hasAuthCookie = cookies.some((c) => /token|session|auth|jwt|sid|connect/i.test(c.name));
 
       const detectedIndicators: string[] = [];
-      if (hasLoggedInLink) detectedIndicators.push("Logout/profile link found");
-      if (hasAuthCookie) detectedIndicators.push("Auth cookie found");
-      if (hasLoggedOutLink) detectedIndicators.push("Login link found (not logged in)");
+      if (hasLoggedInLink) detectedIndicators.push('Logout/profile link found');
+      if (hasAuthCookie) detectedIndicators.push('Auth cookie found');
+      if (hasLoggedOutLink) detectedIndicators.push('Login link found (not logged in)');
 
       const loggedIn = (hasLoggedInLink || hasAuthCookie) && !hasLoggedOutLink;
-      const confidence = hasLoggedInLink && hasAuthCookie ? 0.95 : hasLoggedInLink || hasAuthCookie ? 0.7 : 0.3;
+      const confidence =
+        hasLoggedInLink && hasAuthCookie ? 0.95 : hasLoggedInLink || hasAuthCookie ? 0.7 : 0.3;
 
-      return responseBuilder.success({ loggedIn, confidence, detectedIndicators }, sessionManager.buildMeta(session));
+      return responseBuilder.success(
+        { loggedIn, confidence, detectedIndicators },
+        sessionManager.buildMeta(session),
+      );
     } catch (error) {
       return responseBuilder.error(error);
     }

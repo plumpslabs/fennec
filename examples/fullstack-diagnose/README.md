@@ -6,21 +6,21 @@ This is Fennec's most powerful workflow — what sets it apart from any other MC
 
 ## Tools Used
 
-| Tool | Purpose |
-|---|---|
-| `process_spawn` | Start a dev server |
-| `process_wait_for_ready` | Wait for server readiness |
-| `process_get_logs` | Read server logs |
-| `process_get_status` | Check process health |
-| `process_restart` | Restart with new config |
-| `process_kill` | Stop a process |
-| `terminal_watch_file` | Watch log files |
-| `terminal_watch_pipe` | Watch piped output |
-| `browser_navigate` | Open the app in browser |
-| `browser_click` / `browser_type` | Interact with the app |
-| `diagnose_fullstack` | Correlate browser + server |
-| `devtools_get_console_logs` | Read browser JS errors |
-| `network_get_failed_requests` | Check network failures |
+| Tool                             | Purpose                    |
+| -------------------------------- | -------------------------- |
+| `process_spawn`                  | Start a dev server         |
+| `process_wait_for_ready`         | Wait for server readiness  |
+| `process_get_logs`               | Read server logs           |
+| `process_get_status`             | Check process health       |
+| `process_restart`                | Restart with new config    |
+| `process_kill`                   | Stop a process             |
+| `terminal_watch_file`            | Watch log files            |
+| `terminal_watch_pipe`            | Watch piped output         |
+| `browser_navigate`               | Open the app in browser    |
+| `browser_click` / `browser_type` | Interact with the app      |
+| `diagnose_fullstack`             | Correlate browser + server |
+| `devtools_get_console_logs`      | Read browser JS errors     |
+| `network_get_failed_requests`    | Check network failures     |
 
 ---
 
@@ -47,6 +47,7 @@ The AI spawns and manages the server directly using `process_spawn`.
 ### Step 1 — Spawn Dev Server
 
 **Request:**
+
 ```json
 {
   "name": "process_spawn",
@@ -60,17 +61,21 @@ The AI spawns and manages the server directly using `process_spawn`.
 ```
 
 **Response:**
+
 ```json
 {
-  "content": [{
-    "text": "{\"success\":true,\"data\":{\"processId\":\"dev-server\",\"pid\":12345,\"name\":\"dev-server\",\"startedAt\":\"2026-06-28T10:00:00.000Z\"}}"
-  }]
+  "content": [
+    {
+      "text": "{\"success\":true,\"data\":{\"processId\":\"dev-server\",\"pid\":12345,\"name\":\"dev-server\",\"startedAt\":\"2026-06-28T10:00:00.000Z\"}}"
+    }
+  ]
 }
 ```
 
 ### Step 2 — Wait for Server to Be Ready
 
 **Request:**
+
 ```json
 {
   "name": "process_wait_for_ready",
@@ -83,11 +88,14 @@ The AI spawns and manages the server directly using `process_spawn`.
 ```
 
 **Response:**
+
 ```json
 {
-  "content": [{
-    "text": "{\"success\":true,\"data\":{\"ready\":true,\"elapsed\":3240,\"matchedLine\":\"[INFO] Server listening on port 3000\"}}"
-  }]
+  "content": [
+    {
+      "text": "{\"success\":true,\"data\":{\"ready\":true,\"elapsed\":3240,\"matchedLine\":\"[INFO] Server listening on port 3000\"}}"
+    }
+  ]
 }
 ```
 
@@ -96,6 +104,7 @@ Server is ready in 3.24 seconds!
 ### Step 3 — Verify Process Health
 
 **Request:**
+
 ```json
 {
   "name": "process_get_status",
@@ -106,17 +115,21 @@ Server is ready in 3.24 seconds!
 ```
 
 **Response:**
+
 ```json
 {
-  "content": [{
-    "text": "{\"success\":true,\"data\":{\"running\":true,\"pid\":12345,\"uptime\":4}}"
-  }]
+  "content": [
+    {
+      "text": "{\"success\":true,\"data\":{\"running\":true,\"pid\":12345,\"uptime\":4}}"
+    }
+  ]
 }
 ```
 
 ### Step 4 — Open Browser and Navigate to the App
 
 **Request:**
+
 ```json
 {
   "name": "browser_navigate",
@@ -128,17 +141,21 @@ Server is ready in 3.24 seconds!
 ```
 
 **Response:**
+
 ```json
 {
-  "content": [{
-    "text": "{\"success\":true,\"data\":{\"finalUrl\":\"http://localhost:3000\",\"statusCode\":200,\"loadTime\":450}}"
-  }]
+  "content": [
+    {
+      "text": "{\"success\":true,\"data\":{\"finalUrl\":\"http://localhost:3000\",\"statusCode\":200,\"loadTime\":450}}"
+    }
+  ]
 }
 ```
 
 ### Step 5 — View Recent Server Logs
 
 **Request:**
+
 ```json
 {
   "name": "process_get_logs",
@@ -150,11 +167,14 @@ Server is ready in 3.24 seconds!
 ```
 
 **Response (abbreviated):**
+
 ```json
 {
-  "content": [{
-    "text": "{\"success\":true,\"data\":{\"logs\":[{\"line\":\"[INFO] Starting development server...\",\"level\":\"info\",\"timestamp\":\"2026-06-28T10:00:01.000Z\"},{\"line\":\"[INFO] Server listening on port 3000\",\"level\":\"info\",\"timestamp\":\"2026-06-28T10:00:03.000Z\"},{\"line\":\"[INFO] GET / 200 12ms\",\"level\":\"info\",\"timestamp\":\"2026-06-28T10:00:05.000Z\"}],\"count\":3,\"errorCount\":0}}"
-  }]
+  "content": [
+    {
+      "text": "{\"success\":true,\"data\":{\"logs\":[{\"line\":\"[INFO] Starting development server...\",\"level\":\"info\",\"timestamp\":\"2026-06-28T10:00:01.000Z\"},{\"line\":\"[INFO] Server listening on port 3000\",\"level\":\"info\",\"timestamp\":\"2026-06-28T10:00:03.000Z\"},{\"line\":\"[INFO] GET / 200 12ms\",\"level\":\"info\",\"timestamp\":\"2026-06-28T10:00:05.000Z\"}],\"count\":3,\"errorCount\":0}}"
+    }
+  ]
 }
 ```
 
@@ -198,11 +218,14 @@ Server is ready in 3.24 seconds!
 ```
 
 **Response:**
+
 ```json
 {
-  "content": [{
-    "text": "{\"success\":true,\"data\":{\"logs\":[{\"level\":\"error\",\"message\":\"Uncaught TypeError: Cannot read properties of null (reading 'email')\",\"source\":\"app.js:145\",\"timestamp\":\"2026-06-28T10:01:00.000Z\"}],\"errorCount\":1,\"warnCount\":0,\"summary\":\"1 JS error(s) detected\"}}"
-  }]
+  "content": [
+    {
+      "text": "{\"success\":true,\"data\":{\"logs\":[{\"level\":\"error\",\"message\":\"Uncaught TypeError: Cannot read properties of null (reading 'email')\",\"source\":\"app.js:145\",\"timestamp\":\"2026-06-28T10:01:00.000Z\"}],\"errorCount\":1,\"warnCount\":0,\"summary\":\"1 JS error(s) detected\"}}"
+    }
+  ]
 }
 ```
 
@@ -216,11 +239,14 @@ Server is ready in 3.24 seconds!
 ```
 
 **Response:**
+
 ```json
 {
-  "content": [{
-    "text": "{\"success\":true,\"data\":{\"requests\":[{\"url\":\"http://localhost:3000/api/users/999\",\"method\":\"GET\",\"status\":500,\"duration\":312}],\"count\":1}}"
-  }]
+  "content": [
+    {
+      "text": "{\"success\":true,\"data\":{\"requests\":[{\"url\":\"http://localhost:3000/api/users/999\",\"method\":\"GET\",\"status\":500,\"duration\":312}],\"count\":1}}"
+    }
+  ]
 }
 ```
 
@@ -238,17 +264,21 @@ Server is ready in 3.24 seconds!
 ```
 
 **Response:**
+
 ```json
 {
-  "content": [{
-    "text": "{\"success\":true,\"data\":{\"logs\":[{\"line\":\"[ERROR] TypeError: Cannot read properties of null (reading 'email')\",\"level\":\"error\",\"timestamp\":\"2026-06-28T10:01:00.000Z\"},{\"line\":\"[ERROR] GET /api/users/999 - 500 (12ms)\",\"level\":\"error\",\"timestamp\":\"2026-06-28T10:01:00.000Z\"}],\"count\":2,\"errorCount\":2}}"
-  }]
+  "content": [
+    {
+      "text": "{\"success\":true,\"data\":{\"logs\":[{\"line\":\"[ERROR] TypeError: Cannot read properties of null (reading 'email')\",\"level\":\"error\",\"timestamp\":\"2026-06-28T10:01:00.000Z\"},{\"line\":\"[ERROR] GET /api/users/999 - 500 (12ms)\",\"level\":\"error\",\"timestamp\":\"2026-06-28T10:01:00.000Z\"}],\"count\":2,\"errorCount\":2}}"
+    }
+  ]
 }
 ```
 
 ### Step 6 — Run diagnose_fullstack for Correlation
 
 **Request:**
+
 ```json
 {
   "name": "diagnose_fullstack",
@@ -259,15 +289,19 @@ Server is ready in 3.24 seconds!
 ```
 
 **Response:**
+
 ```json
 {
-  "content": [{
-    "text": "{\"success\":true,\"data\":{\"browser\":{\"url\":\"http://localhost:3000/users\",\"title\":\"User Profile\",\"consoleErrors\":[\"Uncaught TypeError: Cannot read properties of null (reading 'email')\"],\"networkFailures\":[{\"url\":\"http://localhost:3000/api/users/999\",\"method\":\"GET\",\"status\":500,\"duration\":312}]},\"server\":{\"recentErrors\":[\"[ERROR] TypeError: Cannot read properties of null (reading 'email')\",\"[ERROR] GET /api/users/999 - 500 (12ms)\"],\"processStatus\":{\"running\":true,\"uptime\":120,\"pid\":12345}},\"correlation\":{\"rootCause\":\"Server error caused network failure\",\"confidence\":0.9,\"fix\":\"Check server logs for unhandled exceptions\"}}}"
-  }]
+  "content": [
+    {
+      "text": "{\"success\":true,\"data\":{\"browser\":{\"url\":\"http://localhost:3000/users\",\"title\":\"User Profile\",\"consoleErrors\":[\"Uncaught TypeError: Cannot read properties of null (reading 'email')\"],\"networkFailures\":[{\"url\":\"http://localhost:3000/api/users/999\",\"method\":\"GET\",\"status\":500,\"duration\":312}]},\"server\":{\"recentErrors\":[\"[ERROR] TypeError: Cannot read properties of null (reading 'email')\",\"[ERROR] GET /api/users/999 - 500 (12ms)\"],\"processStatus\":{\"running\":true,\"uptime\":120,\"pid\":12345}},\"correlation\":{\"rootCause\":\"Server error caused network failure\",\"confidence\":0.9,\"fix\":\"Check server logs for unhandled exceptions\"}}}"
+    }
+  ]
 }
 ```
 
 The correlation is clear:
+
 - **Browser error** occurs because the API returns 500
 - **Server error** shows the root cause: `TypeError: Cannot read properties of null (reading 'email')` — likely user ID `999` doesn't exist
 - **Confidence: 0.9** — highly likely the server error caused the network failure
@@ -286,11 +320,14 @@ Fix the code, then restart:
 ```
 
 **Response:**
+
 ```json
 {
-  "content": [{
-    "text": "{\"success\":true,\"data\":{\"processId\":\"dev-server\",\"pid\":12346,\"startedAt\":\"2026-06-28T10:02:00.000Z\"}}"
-  }]
+  "content": [
+    {
+      "text": "{\"success\":true,\"data\":{\"processId\":\"dev-server\",\"pid\":12346,\"startedAt\":\"2026-06-28T10:02:00.000Z\"}}"
+    }
+  ]
 }
 ```
 
@@ -316,11 +353,14 @@ If your app writes to log files instead of stdout:
 ```
 
 **Response:**
+
 ```json
 {
-  "content": [{
-    "text": "{\"success\":true,\"data\":{\"watcherId\":\"app-log\",\"name\":\"app-log\"}}"
-  }]
+  "content": [
+    {
+      "text": "{\"success\":true,\"data\":{\"watcherId\":\"app-log\",\"name\":\"app-log\"}}"
+    }
+  ]
 }
 ```
 
@@ -377,33 +417,33 @@ SPAWN ──► WAIT_FOR_READY ──► RUNNING ──► KILL
   └──────────────────────────────────────────┘
 ```
 
-| State | Description | Available Tools |
-|---|---|---|
-| **SPAWNED** | Process started, PID allocated | `process_get_status`, `process_get_logs` |
-| **READY** | Matched ready pattern | All browser tools |
-| **RUNNING** | Normal operation | `process_send_input`, `process_restart`, `process_kill` |
-| **EXITED** | Process terminated | `process_list` shows `running: false` |
+| State       | Description                    | Available Tools                                         |
+| ----------- | ------------------------------ | ------------------------------------------------------- |
+| **SPAWNED** | Process started, PID allocated | `process_get_status`, `process_get_logs`                |
+| **READY**   | Matched ready pattern          | All browser tools                                       |
+| **RUNNING** | Normal operation               | `process_send_input`, `process_restart`, `process_kill` |
+| **EXITED**  | Process terminated             | `process_list` shows `running: false`                   |
 
 ---
 
 ## Use Cases
 
-| Use Case | Description |
-|---|---|
-| **CI/CD debugging** | Spawn the build, capture errors, diagnose why it failed |
-| **Dev server management** | AI manages the full dev workflow — start, test, fix, restart |
-| **Log analysis** | Watch log files, search for patterns, correlate with browser errors |
-| **Remote debugging** | Attach to a process on a remote server by PID or port |
-| **Automated testing** | Spawn test server → run tests → kill server — all through MCP |
+| Use Case                  | Description                                                         |
+| ------------------------- | ------------------------------------------------------------------- |
+| **CI/CD debugging**       | Spawn the build, capture errors, diagnose why it failed             |
+| **Dev server management** | AI manages the full dev workflow — start, test, fix, restart        |
+| **Log analysis**          | Watch log files, search for patterns, correlate with browser errors |
+| **Remote debugging**      | Attach to a process on a remote server by PID or port               |
+| **Automated testing**     | Spawn test server → run tests → kill server — all through MCP       |
 
 ---
 
 ## Troubleshooting
 
-| Issue | Cause | Fix |
-|---|---|---|
-| `SPAWN_FAILED` | Command not in spawn allowlist | Add the command to `security.spawnAllowlist` in config |
-| `PROCESS_NOT_FOUND` | Wrong process ID | Use `process_list` to see all managed processes |
-| Process never becomes ready | Pattern doesn't match | Try a broader pattern like `"started\|listening\|ready\|compiled\|running"` |
-| `ELEMENT_NOT_FOUND` on page | Server not ready yet | Check `process_get_status` and wait for ready pattern |
-| Process won't kill | Missing `allowProcessKill: true` | Set `security.allowProcessKill: true` in config (disabled by default) |
+| Issue                       | Cause                            | Fix                                                                         |
+| --------------------------- | -------------------------------- | --------------------------------------------------------------------------- |
+| `SPAWN_FAILED`              | Command not in spawn allowlist   | Add the command to `security.spawnAllowlist` in config                      |
+| `PROCESS_NOT_FOUND`         | Wrong process ID                 | Use `process_list` to see all managed processes                             |
+| Process never becomes ready | Pattern doesn't match            | Try a broader pattern like `"started\|listening\|ready\|compiled\|running"` |
+| `ELEMENT_NOT_FOUND` on page | Server not ready yet             | Check `process_get_status` and wait for ready pattern                       |
+| Process won't kill          | Missing `allowProcessKill: true` | Set `security.allowProcessKill: true` in config (disabled by default)       |

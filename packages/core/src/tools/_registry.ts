@@ -1,21 +1,21 @@
-import type { z } from "zod";
-import type { SessionManager } from "../session/SessionManager.js";
-import type { ResponseBuilder } from "../response/ResponseBuilder.js";
-import type { FennecConfig } from "../config/defaults.js";
-import type { ProcessManager } from "../process/ProcessManager.js";
-import type { LogWatcher } from "../process/LogWatcher.js";
-import type { SessionStore } from "../session/SessionStore.js";
-import type { ResourceManager } from "../resource/ResourceManager.js";
-import type { StateManager } from "../state/index.js";
-import type { CapabilityDetector } from "../capability/Detector.js";
-import type { Planner } from "../planner/Planner.js";
-import type { WorkflowEngine } from "../workflow/WorkflowEngine.js";
-import type { Recorder } from "../recorder/Recorder.js";
-import type { WorkflowScheduler } from "../scheduler/WorkflowScheduler.js";
-import type { EventBus } from "../correlation/EventBus.js";
-import type { LazyContext } from "../middleware/LazyContext.js";
-import type { IncidentEngine } from "../incident/IncidentEngine.js";
-import type { FennecLogger } from "../utils/logger.js";
+import type { z } from 'zod';
+import type { SessionManager } from '../session/SessionManager.js';
+import type { ResponseBuilder } from '../response/ResponseBuilder.js';
+import type { FennecConfig } from '../config/defaults.js';
+import type { ProcessManager } from '../process/ProcessManager.js';
+import type { LogWatcher } from '../process/LogWatcher.js';
+import type { SessionStore } from '../session/SessionStore.js';
+import type { ResourceManager } from '../resource/ResourceManager.js';
+import type { StateManager } from '../state/index.js';
+import type { CapabilityDetector } from '../capability/Detector.js';
+import type { Planner } from '../planner/Planner.js';
+import type { WorkflowEngine } from '../workflow/WorkflowEngine.js';
+import type { Recorder } from '../recorder/Recorder.js';
+import type { WorkflowScheduler } from '../scheduler/WorkflowScheduler.js';
+import type { EventBus } from '../correlation/EventBus.js';
+import type { LazyContext } from '../middleware/LazyContext.js';
+import type { IncidentEngine } from '../incident/IncidentEngine.js';
+import type { FennecLogger } from '../utils/logger.js';
 
 export interface ToolContext {
   sessionManager: SessionManager;
@@ -39,7 +39,7 @@ export interface ToolContext {
   toolRegistry?: ToolRegistry;
   tokenBudget?: { maxResponseTokens: number };
   /** Progress reporter for long-running tools — sends notifications to MCP client */
-  progressReporter?: import("../utils/ProgressReporter.js").ProgressReporter;
+  progressReporter?: import('../utils/ProgressReporter.js').ProgressReporter;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -95,9 +95,7 @@ export class ToolRegistry {
       return this.getAll();
     }
     const catSet = new Set(categories);
-    return Array.from(this.tools.values()).filter(
-      (t) => t.category && catSet.has(t.category),
-    );
+    return Array.from(this.tools.values()).filter((t) => t.category && catSet.has(t.category));
   }
 
   has(name: string): boolean {

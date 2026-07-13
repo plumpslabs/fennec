@@ -5,8 +5,8 @@
  * BrowserEngine interface. This is the default engine.
  */
 
-import type { Browser, BrowserContext, Page, CDPSession } from "playwright";
-import { randomUUID } from "node:crypto";
+import type { Browser, BrowserContext, Page, CDPSession } from 'playwright';
+import { randomUUID } from 'node:crypto';
 import type {
   BrowserEngine,
   BrowserInstance,
@@ -23,25 +23,22 @@ import type {
   BrowserCDPSession,
   CookieInput,
   BrowserType,
-} from "./types.js";
+} from './types.js';
 
 /**
  * Lazy-load playwright — it's an optional peer dependency.
  */
 async function getPlaywright() {
   try {
-    return await import("playwright");
+    return await import('playwright');
   } catch (err) {
     // "Cannot find module" covers both CJS (MODULE_NOT_FOUND) and ESM (ERR_MODULE_NOT_FOUND)
-    const isModuleNotFound =
-      err instanceof Error && err.message?.includes("Cannot find module");
+    const isModuleNotFound = err instanceof Error && err.message?.includes('Cannot find module');
     if (isModuleNotFound) {
-      throw new Error(
-        "Playwright is not installed. Install it with: npm install playwright"
-      );
+      throw new Error('Playwright is not installed. Install it with: npm install playwright');
     }
     throw new Error(
-      "Failed to load Playwright: " + (err instanceof Error ? err.message : String(err))
+      'Failed to load Playwright: ' + (err instanceof Error ? err.message : String(err)),
     );
   }
 }
@@ -54,7 +51,7 @@ function generateSessionId(): string {
 
 // ─── Helper: wrap a Playwright locator into a Fennec Locator ─────
 
-function wrapLocator(pwLocator: ReturnType<Page["locator"]>): Locator {
+function wrapLocator(pwLocator: ReturnType<Page['locator']>): Locator {
   return {
     click: (opts) => pwLocator.click(opts as any).then(),
     fill: (text) => pwLocator.fill(text),
@@ -62,7 +59,10 @@ function wrapLocator(pwLocator: ReturnType<Page["locator"]>): Locator {
     selectOption: (value) => pwLocator.selectOption(value),
     hover: () => pwLocator.hover(),
     focus: () => pwLocator.focus(),
-    boundingBox: () => pwLocator.boundingBox().then((b) => (b ? { x: b.x, y: b.y, width: b.width, height: b.height } : null)),
+    boundingBox: () =>
+      pwLocator
+        .boundingBox()
+        .then((b) => (b ? { x: b.x, y: b.y, width: b.width, height: b.height } : null)),
     isVisible: () => pwLocator.isVisible(),
     isEnabled: () => pwLocator.isEnabled(),
     textContent: () => pwLocator.textContent(),
@@ -82,9 +82,12 @@ function wrapLocator(pwLocator: ReturnType<Page["locator"]>): Locator {
 
 // ─── Helper: wrap a Playwright element handle into a Fennec ElementHandle ─
 
-function wrapElementHandle(h: Awaited<ReturnType<Page["$"]>>): ElementHandle {
+function wrapElementHandle(h: Awaited<ReturnType<Page['$']>>): ElementHandle {
   return {
-    boundingBox: () => h!.boundingBox().then((b) => (b ? { x: b.x, y: b.y, width: b.width, height: b.height } : null)),
+    boundingBox: () =>
+      h!
+        .boundingBox()
+        .then((b) => (b ? { x: b.x, y: b.y, width: b.width, height: b.height } : null)),
     click: () => h!.click(),
     $: async (sel) => {
       const child = await h!.$(sel);
@@ -98,14 +101,17 @@ function wrapElementHandle(h: Awaited<ReturnType<Page["$"]>>): ElementHandle {
 export class PlaywrightEngineFactory {
   create(type: BrowserType): BrowserEngine {
     switch (type) {
-      case "chromium": return new PlaywrightEngine("chromium");
-      case "firefox":  return new PlaywrightEngine("firefox");
-      case "webkit":   return new PlaywrightEngine("webkit");
+      case 'chromium':
+        return new PlaywrightEngine('chromium');
+      case 'firefox':
+        return new PlaywrightEngine('firefox');
+      case 'webkit':
+        return new PlaywrightEngine('webkit');
     }
   }
 
   getAvailableTypes(): BrowserType[] {
-    return ["chromium", "firefox", "webkit"];
+    return ['chromium', 'firefox', 'webkit'];
   }
 }
 
@@ -122,16 +128,22 @@ class PlaywrightEngine implements BrowserEngine {
     const opts = {
       headless: options.headless,
       slowMo: options.slowMo,
-      args: options.args ?? ["--no-sandbox", "--disable-setuid-sandbox"],
+      args: options.args ?? ['--no-sandbox', '--disable-setuid-sandbox'],
       ignoreHTTPSErrors: options.ignoreHTTPSErrors,
     };
 
     const pw = await getPlaywright();
     let browser: Browser;
     switch (this.type) {
-      case "chromium": browser = await pw.chromium.launch(opts); break;
-      case "firefox":  browser = await pw.firefox.launch(opts);  break;
-      case "webkit":   browser = await pw.webkit.launch(opts);   break;
+      case 'chromium':
+        browser = await pw.chromium.launch(opts);
+        break;
+      case 'firefox':
+        browser = await pw.firefox.launch(opts);
+        break;
+      case 'webkit':
+        browser = await pw.webkit.launch(opts);
+        break;
     }
 
     return new PlaywrightInstance(this.type, browser!);
@@ -158,7 +170,15 @@ class PlaywrightInstance implements BrowserInstance {
     });
     const page = await context.newPage();
     const cdpSession = await context.newCDPSession(page);
-    return new PlaywrightSession(generateSessionId(), this.type, page, context, cdpSession, this.browser, options);
+    return new PlaywrightSession(
+      generateSessionId(),
+      this.type,
+      page,
+      context,
+      cdpSession,
+      this.browser,
+      options,
+    );
   }
 
   async close(): Promise<void> {
@@ -177,7 +197,15 @@ class PlaywrightSession implements BrowserSession {
   private parent: Browser;
   private options?: BrowserSessionOptions;
 
-  constructor(id: string, type: BrowserType, page: Page, context: BrowserContext, cdpSession: CDPSession, parent: Browser, options?: BrowserSessionOptions) {
+  constructor(
+    id: string,
+    type: BrowserType,
+    page: Page,
+    context: BrowserContext,
+    cdpSession: CDPSession,
+    parent: Browser,
+    options?: BrowserSessionOptions,
+  ) {
     this.id = id;
     this.type = type;
     this.page = page;
@@ -191,28 +219,50 @@ class PlaywrightSession implements BrowserSession {
 
   async navigate(url: string, options?: NavigateOptions): Promise<NavigationResult> {
     const startTime = Date.now();
-    await this.page.goto(url, { waitUntil: options?.waitUntil ?? "networkidle", timeout: options?.timeout ?? 30000 });
-    const statusCode = await this.page.evaluate(() => {
-      const perf = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
-      return perf?.responseStatus ?? 200;
-    }).catch(() => 200);
+    await this.page.goto(url, {
+      waitUntil: options?.waitUntil ?? 'networkidle',
+      timeout: options?.timeout ?? 30000,
+    });
+    const statusCode = await this.page
+      .evaluate(() => {
+        const perf = performance.getEntriesByType('navigation')[0] as
+          PerformanceNavigationTiming | undefined;
+        return perf?.responseStatus ?? 200;
+      })
+      .catch(() => 200);
     return { finalUrl: this.page.url(), statusCode, loadTimeMs: Date.now() - startTime };
   }
 
-  async goBack(): Promise<void> { await this.page.goBack(); }
-  async goForward(): Promise<void> { await this.page.goForward(); }
+  async goBack(): Promise<void> {
+    await this.page.goBack();
+  }
+  async goForward(): Promise<void> {
+    await this.page.goForward();
+  }
 
-  async reload(options?: { waitUntil?: "load" | "domcontentloaded" | "networkidle" }): Promise<void> {
-    await this.page.reload({ waitUntil: options?.waitUntil ?? "networkidle" });
+  async reload(options?: {
+    waitUntil?: 'load' | 'domcontentloaded' | 'networkidle';
+  }): Promise<void> {
+    await this.page.reload({ waitUntil: options?.waitUntil ?? 'networkidle' });
   }
 
   // ── URL & State ──
 
-  url(): string { return this.page.url(); }
-  async title(): Promise<string> { return this.page.title(); }
-  async readyState(): Promise<string> { return this.page.evaluate(() => document.readyState); }
-  viewportSize(): { width: number; height: number } | null { return this.page.viewportSize() ?? null; }
-  isClosed(): boolean { return this.page.isClosed(); }
+  url(): string {
+    return this.page.url();
+  }
+  async title(): Promise<string> {
+    return this.page.title();
+  }
+  async readyState(): Promise<string> {
+    return this.page.evaluate(() => document.readyState);
+  }
+  viewportSize(): { width: number; height: number } | null {
+    return this.page.viewportSize() ?? null;
+  }
+  isClosed(): boolean {
+    return this.page.isClosed();
+  }
   async close(): Promise<void> {
     // Close the PAGE *and* its BrowserContext. Closing only the page
     // leaks the context (cookies, cache, service workers, network
@@ -221,7 +271,9 @@ class PlaywrightSession implements BrowserSession {
     await this.page.close().catch(() => {});
     await this.context.close().catch(() => {});
   }
-  async bringToFront(): Promise<void> { await this.page.bringToFront(); }
+  async bringToFront(): Promise<void> {
+    await this.page.bringToFront();
+  }
 
   // ── Element Discovery ──
 
@@ -236,38 +288,73 @@ class PlaywrightSession implements BrowserSession {
   }
 
   async waitForSelector(selector: string, options?: WaitForSelectorOptions): Promise<void> {
-    await this.page.waitForSelector(selector, { state: options?.state ?? "visible", timeout: options?.timeout ?? 30000 });
+    await this.page.waitForSelector(selector, {
+      state: options?.state ?? 'visible',
+      timeout: options?.timeout ?? 30000,
+    });
   }
 
-  async waitForURL(urlOrFn: string | ((url: string) => boolean), options?: { timeout?: number }): Promise<void> {
+  async waitForURL(
+    urlOrFn: string | ((url: string) => boolean),
+    options?: { timeout?: number },
+  ): Promise<void> {
     await this.page.waitForURL(urlOrFn as any, { timeout: options?.timeout });
   }
 
-  async waitForLoadState(state?: "load" | "domcontentloaded" | "networkidle", options?: { timeout?: number }): Promise<void> {
-    await this.page.waitForLoadState(state ?? "networkidle", { timeout: options?.timeout });
+  async waitForLoadState(
+    state?: 'load' | 'domcontentloaded' | 'networkidle',
+    options?: { timeout?: number },
+  ): Promise<void> {
+    await this.page.waitForLoadState(state ?? 'networkidle', { timeout: options?.timeout });
   }
 
-  async waitForTimeout(ms: number): Promise<void> { await this.page.waitForTimeout(ms); }
+  async waitForTimeout(ms: number): Promise<void> {
+    await this.page.waitForTimeout(ms);
+  }
 
   async waitForRequest(
     urlOrPredicate: string | ((req: { url: () => string; method: () => string }) => boolean),
     options?: { timeout?: number },
-  ): Promise<{ url: string; method: string; headers: Record<string, string>; postData: string | null; resourceType: string; response: () => Promise<{ status: number; statusText: string; headers: Record<string, string>; url: string } | null> }> {
-    const predicate = typeof urlOrPredicate === "string" ? (req: any) => req.url().includes(urlOrPredicate) : urlOrPredicate;
+  ): Promise<{
+    url: string;
+    method: string;
+    headers: Record<string, string>;
+    postData: string | null;
+    resourceType: string;
+    response: () => Promise<{
+      status: number;
+      statusText: string;
+      headers: Record<string, string>;
+      url: string;
+    } | null>;
+  }> {
+    const predicate =
+      typeof urlOrPredicate === 'string'
+        ? (req: any) => req.url().includes(urlOrPredicate)
+        : urlOrPredicate;
     const req = await this.page.waitForRequest(predicate as any, { timeout: options?.timeout });
     return {
-      url: req.url(), method: req.method(), headers: req.headers(), postData: req.postData(), resourceType: req.resourceType(),
+      url: req.url(),
+      method: req.method(),
+      headers: req.headers(),
+      postData: req.postData(),
+      resourceType: req.resourceType(),
       response: async () => {
         const r = await req.response();
-        return r ? { status: r.status(), statusText: r.statusText(), headers: r.headers(), url: r.url() } : null;
+        return r
+          ? { status: r.status(), statusText: r.statusText(), headers: r.headers(), url: r.url() }
+          : null;
       },
     };
   }
 
   // ── JavaScript Execution ──
 
-  async evaluate<T = unknown>(fn: string | ((...args: unknown[]) => T), ...args: unknown[]): Promise<T> {
-    return typeof fn === "string" ? this.page.evaluate(fn) : this.page.evaluate(fn as any, ...args);
+  async evaluate<T = unknown>(
+    fn: string | ((...args: unknown[]) => T),
+    ...args: unknown[]
+  ): Promise<T> {
+    return typeof fn === 'string' ? this.page.evaluate(fn) : this.page.evaluate(fn as any, ...args);
   }
 
   // ── Locator ──
@@ -278,7 +365,12 @@ class PlaywrightSession implements BrowserSession {
 
   // ── Screenshot ──
 
-  async screenshot(options?: { fullPage?: boolean; clip?: BoundingBox; type?: "png" | "jpeg"; quality?: number }): Promise<Buffer> {
+  async screenshot(options?: {
+    fullPage?: boolean;
+    clip?: BoundingBox;
+    type?: 'png' | 'jpeg';
+    quality?: number;
+  }): Promise<Buffer> {
     return this.page.screenshot(options as any);
   }
 
@@ -287,14 +379,21 @@ class PlaywrightSession implements BrowserSession {
   async route(urlPattern: string, handler: (route: Route) => Promise<void>): Promise<void> {
     await this.page.route(urlPattern, async (pwRoute) => {
       await handler({
-        request: { url: pwRoute.request().url(), method: pwRoute.request().method(), headers: pwRoute.request().headers(), postData: pwRoute.request().postData() },
+        request: {
+          url: pwRoute.request().url(),
+          method: pwRoute.request().method(),
+          headers: pwRoute.request().headers(),
+          postData: pwRoute.request().postData(),
+        },
         continue: () => pwRoute.continue(),
         fulfill: (opts) => pwRoute.fulfill(opts as any).then(),
       });
     });
   }
 
-  async unroute(urlPattern: string): Promise<void> { await this.page.unroute(urlPattern); }
+  async unroute(urlPattern: string): Promise<void> {
+    await this.page.unroute(urlPattern);
+  }
 
   // ── Keyboard ──
 
@@ -306,7 +405,8 @@ class PlaywrightSession implements BrowserSession {
 
   cdp(): BrowserCDPSession {
     return {
-      send: <T>(method: string, params?: Record<string, unknown>) => this.cdpSession.send(method as never, params as never) as Promise<T>,
+      send: <T>(method: string, params?: Record<string, unknown>) =>
+        this.cdpSession.send(method as never, params as never) as Promise<T>,
       on: (event, handler) => void this.cdpSession.on(event as never, handler as never),
       off: (event, handler) => void this.cdpSession.off(event as never, handler as never),
     };
@@ -337,12 +437,16 @@ class PlaywrightSession implements BrowserSession {
     this.cdpSession = newCdp;
   }
 
-  async contextCookies(): Promise<import("./types.js").Cookie[]> {
+  async contextCookies(): Promise<import('./types.js').Cookie[]> {
     const cookies = await this.context.cookies();
     return cookies.map((c) => ({
-      name: c.name, value: c.value, domain: c.domain, path: c.path,
-      httpOnly: c.httpOnly ?? false, secure: c.secure ?? false,
-      sameSite: (c.sameSite as "Strict" | "Lax" | "None") ?? "Lax",
+      name: c.name,
+      value: c.value,
+      domain: c.domain,
+      path: c.path,
+      httpOnly: c.httpOnly ?? false,
+      secure: c.secure ?? false,
+      sameSite: (c.sameSite as 'Strict' | 'Lax' | 'None') ?? 'Lax',
       expires: c.expires,
     }));
   }
@@ -351,7 +455,9 @@ class PlaywrightSession implements BrowserSession {
     await this.context.addCookies(cookies as any);
   }
 
-  async contextClearCookies(): Promise<void> { await this.context.clearCookies(); }
+  async contextClearCookies(): Promise<void> {
+    await this.context.clearCookies();
+  }
 
   async contextNewPage(): Promise<BrowserSession> {
     // Cap open pages per context so `tab_new` / repeated navigations
@@ -365,11 +471,21 @@ class PlaywrightSession implements BrowserSession {
     }
     const newPage = await this.context.newPage();
     const newCdp = await this.context.newCDPSession(newPage);
-    return new PlaywrightSession(generateSessionId(), this.type, newPage, this.context, newCdp, this.parent, this.options);
+    return new PlaywrightSession(
+      generateSessionId(),
+      this.type,
+      newPage,
+      this.context,
+      newCdp,
+      this.parent,
+      this.options,
+    );
   }
 
   contextPages(): BrowserSession[] {
-    return this.context.pages().map((p) => new PlaywrightPageSession(p, this.context, this.cdpSession, this.type));
+    return this.context
+      .pages()
+      .map((p) => new PlaywrightPageSession(p, this.context, this.cdpSession, this.type));
   }
 
   onConsole(_callback: (event: any) => void): () => void {
@@ -406,21 +522,44 @@ class PlaywrightPageSession implements BrowserSession {
 
   async navigate(url: string, options?: NavigateOptions): Promise<NavigationResult> {
     const startTime = Date.now();
-    await this.page.goto(url, { waitUntil: options?.waitUntil ?? "networkidle", timeout: options?.timeout ?? 30000 });
+    await this.page.goto(url, {
+      waitUntil: options?.waitUntil ?? 'networkidle',
+      timeout: options?.timeout ?? 30000,
+    });
     return { finalUrl: this.page.url(), statusCode: 200, loadTimeMs: Date.now() - startTime };
   }
-  async goBack(): Promise<void> { await this.page.goBack(); }
-  async goForward(): Promise<void> { await this.page.goForward(); }
-  async reload(options?: { waitUntil?: "load" | "domcontentloaded" | "networkidle" }): Promise<void> {
-    await this.page.reload({ waitUntil: options?.waitUntil ?? "networkidle" });
+  async goBack(): Promise<void> {
+    await this.page.goBack();
   }
-  url(): string { return this.page.url(); }
-  async title(): Promise<string> { return this.page.title(); }
-  async readyState(): Promise<string> { return this.page.evaluate(() => document.readyState); }
-  viewportSize(): { width: number; height: number } | null { return this.page.viewportSize() ?? null; }
-  isClosed(): boolean { return this.page.isClosed(); }
-  async close(): Promise<void> { await this.page.close(); }
-  async bringToFront(): Promise<void> { await this.page.bringToFront(); }
+  async goForward(): Promise<void> {
+    await this.page.goForward();
+  }
+  async reload(options?: {
+    waitUntil?: 'load' | 'domcontentloaded' | 'networkidle';
+  }): Promise<void> {
+    await this.page.reload({ waitUntil: options?.waitUntil ?? 'networkidle' });
+  }
+  url(): string {
+    return this.page.url();
+  }
+  async title(): Promise<string> {
+    return this.page.title();
+  }
+  async readyState(): Promise<string> {
+    return this.page.evaluate(() => document.readyState);
+  }
+  viewportSize(): { width: number; height: number } | null {
+    return this.page.viewportSize() ?? null;
+  }
+  isClosed(): boolean {
+    return this.page.isClosed();
+  }
+  async close(): Promise<void> {
+    await this.page.close();
+  }
+  async bringToFront(): Promise<void> {
+    await this.page.bringToFront();
+  }
   async rotateContext(): Promise<void> {
     // A page-session shares its parent PlaywrightSession's context. Rotation
     // is performed on the owning session; nothing to do here.
@@ -434,77 +573,139 @@ class PlaywrightPageSession implements BrowserSession {
     return els.map((el) => wrapElementHandle(el));
   }
   async waitForSelector(selector: string, options?: WaitForSelectorOptions): Promise<void> {
-    await this.page.waitForSelector(selector, { state: options?.state ?? "visible", timeout: options?.timeout ?? 30000 });
+    await this.page.waitForSelector(selector, {
+      state: options?.state ?? 'visible',
+      timeout: options?.timeout ?? 30000,
+    });
   }
-  async waitForURL(urlOrFn: string | ((url: string) => boolean), options?: { timeout?: number }): Promise<void> {
+  async waitForURL(
+    urlOrFn: string | ((url: string) => boolean),
+    options?: { timeout?: number },
+  ): Promise<void> {
     await this.page.waitForURL(urlOrFn as any, { timeout: options?.timeout });
   }
-  async waitForLoadState(state?: "load" | "domcontentloaded" | "networkidle", options?: { timeout?: number }): Promise<void> {
-    await this.page.waitForLoadState(state ?? "networkidle", { timeout: options?.timeout });
+  async waitForLoadState(
+    state?: 'load' | 'domcontentloaded' | 'networkidle',
+    options?: { timeout?: number },
+  ): Promise<void> {
+    await this.page.waitForLoadState(state ?? 'networkidle', { timeout: options?.timeout });
   }
-  async waitForTimeout(ms: number): Promise<void> { await this.page.waitForTimeout(ms); }
+  async waitForTimeout(ms: number): Promise<void> {
+    await this.page.waitForTimeout(ms);
+  }
   async waitForRequest(
     urlOrPredicate: string | ((req: { url: () => string; method: () => string }) => boolean),
     options?: { timeout?: number },
-  ): Promise<{ url: string; method: string; headers: Record<string, string>; postData: string | null; resourceType: string; response: () => Promise<{ status: number; statusText: string; headers: Record<string, string>; url: string } | null> }> {
-    const predicate = typeof urlOrPredicate === "string" ? (req: any) => req.url().includes(urlOrPredicate) : urlOrPredicate;
+  ): Promise<{
+    url: string;
+    method: string;
+    headers: Record<string, string>;
+    postData: string | null;
+    resourceType: string;
+    response: () => Promise<{
+      status: number;
+      statusText: string;
+      headers: Record<string, string>;
+      url: string;
+    } | null>;
+  }> {
+    const predicate =
+      typeof urlOrPredicate === 'string'
+        ? (req: any) => req.url().includes(urlOrPredicate)
+        : urlOrPredicate;
     const req = await this.page.waitForRequest(predicate as any, { timeout: options?.timeout });
     return {
-      url: req.url(), method: req.method(), headers: req.headers(), postData: req.postData(), resourceType: req.resourceType(),
+      url: req.url(),
+      method: req.method(),
+      headers: req.headers(),
+      postData: req.postData(),
+      resourceType: req.resourceType(),
       response: async () => {
         const r = await req.response();
-        return r ? { status: r.status(), statusText: r.statusText(), headers: r.headers(), url: r.url() } : null;
+        return r
+          ? { status: r.status(), statusText: r.statusText(), headers: r.headers(), url: r.url() }
+          : null;
       },
     };
   }
-  async evaluate<T = unknown>(fn: string | ((...args: unknown[]) => T), ...args: unknown[]): Promise<T> {
-    return typeof fn === "string" ? this.page.evaluate(fn) : this.page.evaluate(fn as any, ...args);
+  async evaluate<T = unknown>(
+    fn: string | ((...args: unknown[]) => T),
+    ...args: unknown[]
+  ): Promise<T> {
+    return typeof fn === 'string' ? this.page.evaluate(fn) : this.page.evaluate(fn as any, ...args);
   }
-  locator(selector: string): Locator { return wrapLocator(this.page.locator(selector)); }
-  async screenshot(options?: { fullPage?: boolean; clip?: BoundingBox; type?: "png" | "jpeg"; quality?: number }): Promise<Buffer> {
+  locator(selector: string): Locator {
+    return wrapLocator(this.page.locator(selector));
+  }
+  async screenshot(options?: {
+    fullPage?: boolean;
+    clip?: BoundingBox;
+    type?: 'png' | 'jpeg';
+    quality?: number;
+  }): Promise<Buffer> {
     return this.page.screenshot(options as any);
   }
   async route(urlPattern: string, handler: (route: Route) => Promise<void>): Promise<void> {
     await this.page.route(urlPattern, async (pwRoute) => {
       await handler({
-        request: { url: pwRoute.request().url(), method: pwRoute.request().method(), headers: pwRoute.request().headers(), postData: pwRoute.request().postData() },
+        request: {
+          url: pwRoute.request().url(),
+          method: pwRoute.request().method(),
+          headers: pwRoute.request().headers(),
+          postData: pwRoute.request().postData(),
+        },
         continue: () => pwRoute.continue(),
         fulfill: (opts) => pwRoute.fulfill(opts as any).then(),
       });
     });
   }
-  async unroute(urlPattern: string): Promise<void> { await this.page.unroute(urlPattern); }
+  async unroute(urlPattern: string): Promise<void> {
+    await this.page.unroute(urlPattern);
+  }
   async keyboardPress(key: string, options?: { modifiers?: string[] }): Promise<void> {
     await this.page.keyboard.press(key, options as any);
   }
   cdp(): BrowserCDPSession {
     return {
-      send: <T>(method: string, params?: Record<string, unknown>) => this.cdpSession.send(method as never, params as never) as Promise<T>,
+      send: <T>(method: string, params?: Record<string, unknown>) =>
+        this.cdpSession.send(method as never, params as never) as Promise<T>,
       on: (event, handler) => void this.cdpSession.on(event as never, handler as never),
       off: (event, handler) => void this.cdpSession.off(event as never, handler as never),
     };
   }
-  async contextCookies(): Promise<import("./types.js").Cookie[]> {
+  async contextCookies(): Promise<import('./types.js').Cookie[]> {
     const cookies = await this.context.cookies();
     return cookies.map((c) => ({
-      name: c.name, value: c.value, domain: c.domain, path: c.path,
-      httpOnly: c.httpOnly ?? false, secure: c.secure ?? false,
-      sameSite: (c.sameSite as "Strict" | "Lax" | "None") ?? "Lax",
+      name: c.name,
+      value: c.value,
+      domain: c.domain,
+      path: c.path,
+      httpOnly: c.httpOnly ?? false,
+      secure: c.secure ?? false,
+      sameSite: (c.sameSite as 'Strict' | 'Lax' | 'None') ?? 'Lax',
       expires: c.expires,
     }));
   }
   async contextAddCookies(cookies: CookieInput[]): Promise<void> {
     await this.context.addCookies(cookies as any);
   }
-  async contextClearCookies(): Promise<void> { await this.context.clearCookies(); }
+  async contextClearCookies(): Promise<void> {
+    await this.context.clearCookies();
+  }
   async contextNewPage(): Promise<BrowserSession> {
     const newPage = await this.context.newPage();
     const newCdp = await this.context.newCDPSession(newPage);
     return new PlaywrightPageSession(newPage, this.context, newCdp, this.type);
   }
   contextPages(): BrowserSession[] {
-    return this.context.pages().map((p) => new PlaywrightPageSession(p, this.context, this.cdpSession, this.type));
+    return this.context
+      .pages()
+      .map((p) => new PlaywrightPageSession(p, this.context, this.cdpSession, this.type));
   }
-  onConsole(_callback: (event: any) => void): () => void { return () => {}; }
-  onNetworkRequest(_callback: (event: any) => void): () => void { return () => {}; }
+  onConsole(_callback: (event: any) => void): () => void {
+    return () => {};
+  }
+  onNetworkRequest(_callback: (event: any) => void): () => void {
+    return () => {};
+  }
 }

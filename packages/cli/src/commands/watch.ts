@@ -1,15 +1,15 @@
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
-import { LogWatcher } from "@plumpslabs/fennec-core";
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { LogWatcher } from '@plumpslabs/fennec-core';
 
 export async function watchCommand(args: string[]): Promise<void> {
-  const fileIndex = args.indexOf("--file");
+  const fileIndex = args.indexOf('--file');
   const filePath = fileIndex !== -1 ? args[fileIndex + 1] : undefined;
   if (!filePath) {
-    console.error("Error: --file is required for watch command");
+    console.error('Error: --file is required for watch command');
     process.exit(1);
   }
-  const nameIndex = args.indexOf("--name");
+  const nameIndex = args.indexOf('--name');
   const name = nameIndex !== -1 ? args[nameIndex + 1] : undefined;
   const resolvedPath = resolve(filePath);
   if (!existsSync(resolvedPath)) {

@@ -1,7 +1,7 @@
-import type { BrowserSession } from "../browser/types.js";
+import type { BrowserSession } from '../browser/types.js';
 
 export interface ConsoleEvent {
-  level: "log" | "info" | "warn" | "error" | "debug";
+  level: 'log' | 'info' | 'warn' | 'error' | 'debug';
   message: string;
   source: string;
   timestamp: string;
@@ -41,7 +41,7 @@ export interface NetworkEvent {
   requestBody?: string;
   responseBody?: string;
   timestamp: string;
-  type: "fetch" | "xhr" | "document" | "stylesheet" | "script" | "image" | "font" | "other";
+  type: 'fetch' | 'xhr' | 'document' | 'stylesheet' | 'script' | 'image' | 'font' | 'other';
   /** Detailed timing breakdown (waterfall) — available when CDP timing data is captured */
   timing?: NetworkTiming;
 }

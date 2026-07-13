@@ -1,15 +1,15 @@
 export type EventType =
-  | "browser:console"
-  | "browser:network"
-  | "browser:error"
-  | "process:stdout"
-  | "process:stderr"
-  | "process:exit"
-  | "terminal:log"
-  | "tool:executed"
-  | "mobile:logcat"
-  | "mobile:screenshot"
-  | "mobile:ui-change";
+  | 'browser:console'
+  | 'browser:network'
+  | 'browser:error'
+  | 'process:stdout'
+  | 'process:stderr'
+  | 'process:exit'
+  | 'terminal:log'
+  | 'tool:executed'
+  | 'mobile:logcat'
+  | 'mobile:screenshot'
+  | 'mobile:ui-change';
 
 export interface BusEvent {
   type: EventType;

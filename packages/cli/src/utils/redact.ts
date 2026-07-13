@@ -9,7 +9,7 @@
  * a substitute for proper secret management) and bound/shape log output
  * so AI inspection stays controlled and predictable.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from 'node:fs';
 
 export interface RedactOptions {
   /** When false, no redaction is performed (e.g. user opted out). */
@@ -19,29 +19,38 @@ export interface RedactOptions {
 // Order matters: more specific patterns first.
 const SECRET_PATTERNS: { name: string; re: RegExp }[] = [
   // Bearer / auth tokens
-  { name: "bearer", re: /\bBearer\s+[A-Za-z0-9._\-]+/gi },
+  { name: 'bearer', re: /\bBearer\s+[A-Za-z0-9._\-]+/gi },
   // Authorization: <scheme> <token>
-  { name: "authorization", re: /\bAuthorization\s*:\s*\S+/gi },
+  { name: 'authorization', re: /\bAuthorization\s*:\s*\S+/gi },
   // Generic API keys
-  { name: "apikey", re: /\b(api[_-]?key|apikey|access[_-]?key|secret[_-]?key|private[_-]?key)\s*[:=]\s*\S+/gi },
+  {
+    name: 'apikey',
+    re: /\b(api[_-]?key|apikey|access[_-]?key|secret[_-]?key|private[_-]?key)\s*[:=]\s*\S+/gi,
+  },
   // AWS
-  { name: "aws", re: /\b(AKIA|ASIA)[0-9A-Z]{16}\b/g },
+  { name: 'aws', re: /\b(AKIA|ASIA)[0-9A-Z]{16}\b/g },
   // Slack tokens
-  { name: "slack", re: /\bxox[baprs]-[0-9A-Za-z\-]{10,}/g },
+  { name: 'slack', re: /\bxox[baprs]-[0-9A-Za-z\-]{10,}/g },
   // Stripe
-  { name: "stripe", re: /\b(sk|rk|pk)_(live|test)_[0-9A-Za-z]{16,}\b/g },
+  { name: 'stripe', re: /\b(sk|rk|pk)_(live|test)_[0-9A-Za-z]{16,}\b/g },
   // JWT
-  { name: "jwt", re: /\beyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]*/g },
+  { name: 'jwt', re: /\beyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]*/g },
   // Google API
-  { name: "google", re: /\bAIza[0-9A-Za-z_\-]{35}\b/g },
+  { name: 'google', re: /\bAIza[0-9A-Za-z_\-]{35}\b/g },
   // GitHub PAT
-  { name: "github", re: /\bgh[pousr]_[0-9A-Za-z]{36,}\b/g },
+  { name: 'github', re: /\bgh[pousr]_[0-9A-Za-z]{36,}\b/g },
   // Generic long hex/alpha tokens (>=32 chars) in common contexts
-  { name: "token", re: /\b(token|secret|password|passwd|pwd|client[_-]?secret)\s*[:=]\s*\S+/gi },
+  { name: 'token', re: /\b(token|secret|password|passwd|pwd|client[_-]?secret)\s*[:=]\s*\S+/gi },
   // Connection strings with credentials
-  { name: "connstr", re: /\b(mongodb(\+srv)?|postgres(ql)?|mysql|redis|amqp|sqlserver):\/\/[^\s:]+:[^\s@]+@/gi },
+  {
+    name: 'connstr',
+    re: /\b(mongodb(\+srv)?|postgres(ql)?|mysql|redis|amqp|sqlserver):\/\/[^\s:]+:[^\s@]+@/gi,
+  },
   // Private key blocks
-  { name: "pem", re: /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g },
+  {
+    name: 'pem',
+    re: /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,
+  },
 ];
 
 export function redactLine(line: string, opts: RedactOptions = {}): string {
@@ -70,16 +79,16 @@ export function redactionCount(line: string): number {
 // Strip ANSI escape sequences so AI sees plain text.
 const ANSI_RE = /\x1b\[[0-9;]*m/g;
 export function stripAnsi(s: string): string {
-  return s.replace(ANSI_RE, "");
+  return s.replace(ANSI_RE, '');
 }
 
-export type LogLevel = "error" | "warn" | "info" | "debug" | "other";
+export type LogLevel = 'error' | 'warn' | 'info' | 'debug' | 'other';
 
 const LEVEL_RE: { level: LogLevel; re: RegExp }[] = [
-  { level: "error", re: /\b(ERROR|FATAL|CRITICAL|EXCEPTION|UNCAUGHT)\b/i },
-  { level: "warn", re: /\b(WARN|WARNING)\b/i },
-  { level: "info", re: /\b(INFO|NOTICE)\b/i },
-  { level: "debug", re: /\b(DEBUG|TRACE)\b/i },
+  { level: 'error', re: /\b(ERROR|FATAL|CRITICAL|EXCEPTION|UNCAUGHT)\b/i },
+  { level: 'warn', re: /\b(WARN|WARNING)\b/i },
+  { level: 'info', re: /\b(INFO|NOTICE)\b/i },
+  { level: 'debug', re: /\b(DEBUG|TRACE)\b/i },
 ];
 
 /** Classify a log line by level (best-effort, keyword based). */
@@ -87,9 +96,9 @@ export function classifyLevel(line: string): LogLevel {
   for (const { level, re } of LEVEL_RE) {
     if (re.test(line)) return level;
   }
-  if (/\b(error|fail|failed|failure|denied|reject)\b/i.test(line)) return "error";
-  if (/\b(warn)\b/i.test(line)) return "warn";
-  return "other";
+  if (/\b(error|fail|failed|failure|denied|reject)\b/i.test(line)) return 'error';
+  if (/\b(warn)\b/i.test(line)) return 'warn';
+  return 'other';
 }
 
 export interface ReadLogOptions {
@@ -112,13 +121,15 @@ export function extractTimestamp(line: string): string | null {
   const m = line.match(/^\s*\[?(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)\]?/);
   if (m) return m[1]!;
   const trimmed = line.trimStart();
-  if (trimmed.startsWith("{")) {
+  if (trimmed.startsWith('{')) {
     try {
       const obj = JSON.parse(line) as Record<string, unknown>;
       const ts = obj.ts ?? obj.time ?? obj.timestamp;
-      if (typeof ts === "string") return ts;
-      if (typeof ts === "number") return new Date(ts).toISOString();
-    } catch { /* not JSON */ }
+      if (typeof ts === 'string') return ts;
+      if (typeof ts === 'number') return new Date(ts).toISOString();
+    } catch {
+      /* not JSON */
+    }
   }
   return null;
 }
@@ -126,8 +137,8 @@ export function extractTimestamp(line: string): string | null {
 /** Read a log file, apply redaction + time filter, and enforce a tail budget. */
 export function readLogLines(path: string, opts: ReadLogOptions = {}): string[] {
   if (!existsSync(path)) return [];
-  const raw = readFileSync(path, "utf-8");
-  let lines = raw.split("\n").filter(Boolean);
+  const raw = readFileSync(path, 'utf-8');
+  let lines = raw.split('\n').filter(Boolean);
   const now = Date.now();
 
   if (opts.sinceMs && opts.parseTimestamp) {
@@ -158,6 +169,6 @@ export function parseDuration(input: string): number | null {
   if (!m) return null;
   const n = parseInt(m[1]!, 10);
   const unit = m[2]!.toLowerCase();
-  const mul = unit === "s" ? 1000 : unit === "m" ? 60_000 : unit === "h" ? 3_600_000 : 86_400_000;
+  const mul = unit === 's' ? 1000 : unit === 'm' ? 60_000 : unit === 'h' ? 3_600_000 : 86_400_000;
   return n * mul;
 }

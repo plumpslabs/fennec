@@ -10,12 +10,12 @@
  *   - other tools' launch commands (tracked.json) embed secrets (KEY=val)
  *   - a local ./.fennec exists in this repo but is NOT gitignored
  */
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { execSync } from "node:child_process";
-import { StoreManager } from "@plumpslabs/fennec-core";
-import pc from "picocolors";
-import { renderError } from "../utils/format.js";
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { execSync } from 'node:child_process';
+import { StoreManager } from '@plumpslabs/fennec-core';
+import pc from 'picocolors';
+import { renderError } from '../utils/format.js';
 
 export async function doctorCommand(): Promise<void> {
   const mgr = new StoreManager(false);
@@ -39,17 +39,19 @@ export async function doctorCommand(): Promise<void> {
 
   // 3. secret surface
   const scan = mgr.scan();
-  const sess = scan.find((s) => s.kind === "session");
+  const sess = scan.find((s) => s.kind === 'session');
   if (sess && sess.count > 0) {
     notes.push(
       `${sess.count} auth session(s) with cookies/localStorage stored on disk.\n` +
         `      Values are masked by default in 'fennec store session info'; use --show-secrets to reveal.`,
     );
   }
-  const proc = scan.find((s) => s.kind === "process");
+  const proc = scan.find((s) => s.kind === 'process');
   if (proc && proc.count > 0) {
-    const tracked = mgr.fileFor("process", "");
-    const cmds = existsSync(tracked) ? (JSON.parse(readFileSync(tracked, "utf-8")) as Array<{ command?: string }>) : [];
+    const tracked = mgr.fileFor('process', '');
+    const cmds = existsSync(tracked)
+      ? (JSON.parse(readFileSync(tracked, 'utf-8')) as Array<{ command?: string }>)
+      : [];
     // Flag bareword env assignments (KEY=value), not `--flag=val` or `x=1` in quotes.
     const secretCmds = cmds.filter(
       (c) => c.command && /(?:^|[\s;|&])([A-Za-z_][A-Za-z0-9_]*)=/.test(c.command),
@@ -63,15 +65,15 @@ export async function doctorCommand(): Promise<void> {
   }
 
   // 4. local .fennec not gitignored
-  const localFen = join(process.cwd(), ".fennec");
+  const localFen = join(process.cwd(), '.fennec');
   if (existsSync(localFen)) {
     let ignored = false;
     try {
-      execSync("git check-ignore -q .fennec", { cwd: process.cwd(), stdio: "ignore" });
+      execSync('git check-ignore -q .fennec', { cwd: process.cwd(), stdio: 'ignore' });
       ignored = true;
     } catch (err) {
       // git absent (ENOENT) -> can't determine; skip the warning rather than false-alarm.
-      ignored = (err as NodeJS.ErrnoException)?.code === "ENOENT";
+      ignored = (err as NodeJS.ErrnoException)?.code === 'ENOENT';
     }
     if (!ignored) {
       problems.push(
@@ -81,13 +83,13 @@ export async function doctorCommand(): Promise<void> {
     }
   }
 
-  console.error(`\n  ${pc.bold("Fennec Doctor")}\n`);
-  console.error(`  ${pc.dim("Store:")} ${base}\n`);
+  console.error(`\n  ${pc.bold('Fennec Doctor')}\n`);
+  console.error(`  ${pc.dim('Store:')} ${base}\n`);
 
   if (problems.length === 0 && notes.length === 0) {
-    console.error(`  ${pc.green("✓")} No issues found.\n`);
+    console.error(`  ${pc.green('✓')} No issues found.\n`);
     return;
   }
-  for (const p of problems) console.error(`  ${pc.red("✗")} ${p}\n`);
-  for (const n of notes) console.error(`  ${pc.yellow("!")} ${n}\n`);
+  for (const p of problems) console.error(`  ${pc.red('✗')} ${p}\n`);
+  for (const n of notes) console.error(`  ${pc.yellow('!')} ${n}\n`);
 }

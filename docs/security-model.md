@@ -12,8 +12,8 @@ Fennec ships with **all security features enabled by default (Sandbox ON)**. Dev
 
 ```yaml
 security:
-  allowProcessSpawn: true     # AI can spawn processes
-  allowProcessKill: false     # AI cannot kill processes it didn't spawn
+  allowProcessSpawn: true # AI can spawn processes
+  allowProcessKill: false # AI cannot kill processes it didn't spawn
 ```
 
 - Process spawning uses an **allowlist** of permitted commands
@@ -25,9 +25,9 @@ security:
 
 ```yaml
 security:
-  allowedDomains: []          # empty = all domains allowed
-  blockedDomains: []          # no domains blocked by default
-  allowFileProtocol: false    # file:// URLs disabled
+  allowedDomains: [] # empty = all domains allowed
+  blockedDomains: [] # no domains blocked by default
+  allowFileProtocol: false # file:// URLs disabled
 ```
 
 - Domains can be restricted to a specific allowlist
@@ -38,7 +38,7 @@ security:
 
 ```yaml
 security:
-  allowCDPRawAccess: false    # raw CDP access disabled
+  allowCDPRawAccess: false # raw CDP access disabled
 ```
 
 - Raw Chrome DevTools Protocol access is disabled by default
@@ -49,7 +49,7 @@ security:
 
 ```yaml
 security:
-  exportPath: "./.fennec/exports"
+  exportPath: './.fennec/exports'
   maxExportSizeMB: 10
 ```
 

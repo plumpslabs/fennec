@@ -24,9 +24,9 @@
  *   }
  */
 
-import type { MiddlewareFn } from "./Pipeline.js";
-import type { LazyContext } from "./LazyContext.js";
-import { getLogger } from "../utils/logger.js";
+import type { MiddlewareFn } from './Pipeline.js';
+import type { LazyContext } from './LazyContext.js';
+import { getLogger } from '../utils/logger.js';
 
 // ─── Level 1: Summary Middleware ────────────────────────────────
 
@@ -71,13 +71,11 @@ export function createLazyLevel1(
       const resultObj = result as Record<string, unknown>;
       const hasErrors =
         resultObj.success === false ||
-        (ctx.session && ctx.session.consoleBuffer.filter((l) => l.level === "error").length > 0);
+        (ctx.session && ctx.session.consoleBuffer.filter((l) => l.level === 'error').length > 0);
 
       // Determine if Level 1 should be attached
       const shouldAttach =
-        detail === "summary" ||
-        detail === "full" ||
-        (opts.autoOnError && hasErrors);
+        detail === 'summary' || detail === 'full' || (opts.autoOnError && hasErrors);
 
       if (shouldAttach) {
         // Get pulse from the response meta if available
@@ -86,13 +84,13 @@ export function createLazyLevel1(
         const pulseObj = pulse
           ? {
               level: 0 as const,
-              status: (pulse.status as "healthy" | "warning" | "error") ?? "healthy",
+              status: (pulse.status as 'healthy' | 'warning' | 'error') ?? 'healthy',
               consoleErrors: (pulse.consoleErrors as number) ?? 0,
               consoleWarnings: (pulse.consoleWarnings as number) ?? 0,
               corsWarnings: (pulse.corsWarnings as number) ?? 0,
               networkFailures: (pulse.networkFailures as number) ?? 0,
               networkSlow: (pulse.networkSlow as number) ?? 0,
-              summary: (pulse.summary as string) ?? "",
+              summary: (pulse.summary as string) ?? '',
             }
           : undefined;
 
@@ -108,7 +106,7 @@ export function createLazyLevel1(
       }
     } catch (error) {
       // Level 1 is best-effort
-      logger.warn({ error }, "LazyLevel1: failed to attach summary");
+      logger.warn({ error }, 'LazyLevel1: failed to attach summary');
     }
 
     return result;
@@ -155,9 +153,7 @@ export function createLazyLevel2(
       const includeRaw = parsedInput.includeRaw as boolean | undefined;
 
       // Determine if Level 2 should be attached
-      const shouldAttach =
-        detail === "full" ||
-        includeRaw === true;
+      const shouldAttach = detail === 'full' || includeRaw === true;
 
       if (shouldAttach) {
         const incidentId = parsedInput.incidentId as string | undefined;
@@ -170,7 +166,7 @@ export function createLazyLevel2(
         (resultObj.meta as Record<string, unknown>).lazyLevel2 = detailData;
       }
     } catch (error) {
-      logger.warn({ error }, "LazyLevel2: failed to attach detail");
+      logger.warn({ error }, 'LazyLevel2: failed to attach detail');
     }
 
     return result;
@@ -228,7 +224,7 @@ export function createLazyLevel3(
         (resultObj.meta as Record<string, unknown>).lazyLevel3 = rawData;
       }
     } catch (error) {
-      logger.warn({ error }, "LazyLevel3: failed to attach raw data");
+      logger.warn({ error }, 'LazyLevel3: failed to attach raw data');
     }
 
     return result;

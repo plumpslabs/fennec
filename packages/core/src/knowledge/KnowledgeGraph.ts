@@ -1,10 +1,20 @@
-import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
-import { join, resolve, relative, extname } from "node:path";
-import { getLogger } from "../utils/logger.js";
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { join, resolve, relative, extname } from 'node:path';
+import { getLogger } from '../utils/logger.js';
 
 export interface GraphNode {
   id: string;
-  type: "file" | "function" | "class" | "route" | "api" | "database" | "component" | "page" | "service" | "dependency";
+  type:
+    | 'file'
+    | 'function'
+    | 'class'
+    | 'route'
+    | 'api'
+    | 'database'
+    | 'component'
+    | 'page'
+    | 'service'
+    | 'dependency';
   name: string;
   filePath?: string;
   metadata: Record<string, unknown>;
@@ -13,7 +23,17 @@ export interface GraphNode {
 export interface GraphEdge {
   source: string;
   target: string;
-  type: "imports" | "calls" | "extends" | "implements" | "defines" | "contains" | "routes_to" | "queries" | "renders" | "depends_on";
+  type:
+    | 'imports'
+    | 'calls'
+    | 'extends'
+    | 'implements'
+    | 'defines'
+    | 'contains'
+    | 'routes_to'
+    | 'queries'
+    | 'renders'
+    | 'depends_on';
   metadata?: Record<string, unknown>;
 }
 
@@ -47,7 +67,7 @@ export class KnowledgeGraph {
    */
   async scan(): Promise<void> {
     const logger = getLogger();
-    logger.info({ projectRoot: this.projectRoot }, "KnowledgeGraph: scanning project");
+    logger.info({ projectRoot: this.projectRoot }, 'KnowledgeGraph: scanning project');
 
     this.nodes.clear();
     this.edges = [];
@@ -59,7 +79,7 @@ export class KnowledgeGraph {
     this.scanned = true;
     logger.info(
       { nodes: this.nodes.size, edges: this.edges.length },
-      "KnowledgeGraph: scan complete",
+      'KnowledgeGraph: scan complete',
     );
   }
 
@@ -87,7 +107,7 @@ export class KnowledgeGraph {
   /**
    * Find nodes by type.
    */
-  findNodesByType(type: GraphNode["type"]): GraphNode[] {
+  findNodesByType(type: GraphNode['type']): GraphNode[] {
     return this.getAllNodes().filter((n) => n.type === type);
   }
 
@@ -106,11 +126,11 @@ export class KnowledgeGraph {
     const stats = {
       totalNodes: nodes.length,
       totalEdges: this.edges.length,
-      files: this.findNodesByType("file").length,
-      functions: this.findNodesByType("function").length,
-      routes: this.findNodesByType("route").length,
-      components: this.findNodesByType("component").length,
-      databases: this.findNodesByType("database").length,
+      files: this.findNodesByType('file').length,
+      functions: this.findNodesByType('function').length,
+      routes: this.findNodesByType('route').length,
+      components: this.findNodesByType('component').length,
+      databases: this.findNodesByType('database').length,
     };
 
     return {
@@ -124,7 +144,7 @@ export class KnowledgeGraph {
   /**
    * Resolve a path in the knowledge graph by following edges from a starting point.
    */
-  resolvePath(startNodeId: string, edgeType?: GraphEdge["type"]): GraphNode[] {
+  resolvePath(startNodeId: string, edgeType?: GraphEdge['type']): GraphNode[] {
     const visited = new Set<string>();
     const path: GraphNode[] = [];
     const queue = [startNodeId];
@@ -176,7 +196,7 @@ export class KnowledgeGraph {
       const incomingEdges = this.edges.filter((e) => e.target === nodeId);
       for (const edge of incomingEdges) {
         const sourceNode = this.nodes.get(edge.source);
-        if (sourceNode && (sourceNode.type === "database" || sourceNode.type === "dependency")) {
+        if (sourceNode && (sourceNode.type === 'database' || sourceNode.type === 'dependency')) {
           return true; // Found a leaf cause
         }
         if (dfs(edge.source, depth + 1)) {
@@ -190,7 +210,7 @@ export class KnowledgeGraph {
 
     dfs(errorNodeId, 0);
 
-    let explanation = "Root cause path not found";
+    let explanation = 'Root cause path not found';
     if (path.length >= 2) {
       const cause = path[path.length - 1]!;
       const affected = path[0]!;
@@ -214,7 +234,12 @@ export class KnowledgeGraph {
         const relPath = relative(this.projectRoot, fullPath);
 
         // Skip hidden dirs and node_modules
-        if (entry.name.startsWith(".") || entry.name === "node_modules" || entry.name === "dist" || entry.name === ".git") {
+        if (
+          entry.name.startsWith('.') ||
+          entry.name === 'node_modules' ||
+          entry.name === 'dist' ||
+          entry.name === '.git'
+        ) {
           continue;
         }
 
@@ -239,20 +264,20 @@ export class KnowledgeGraph {
     // Add file node
     this.addNode({
       id: fileNodeId,
-      type: "file",
-      name: relPath.split("/").pop() ?? relPath,
+      type: 'file',
+      name: relPath.split('/').pop() ?? relPath,
       filePath: relPath,
       metadata: { extension: ext, size: statSync(fullPath).size },
     });
 
     // Analyze based on extension
-    if (ext === ".ts" || ext === ".tsx" || ext === ".js" || ext === ".jsx") {
+    if (ext === '.ts' || ext === '.tsx' || ext === '.js' || ext === '.jsx') {
       this.analyzeSourceFile(relPath, fullPath, fileNodeId);
-    } else if (ext === ".json") {
+    } else if (ext === '.json') {
       this.analyzeJsonFile(relPath, fullPath, fileNodeId);
-    } else if (ext === ".prisma" || ext === ".sql") {
+    } else if (ext === '.prisma' || ext === '.sql') {
       this.analyzeSchemaFile(relPath, fullPath, fileNodeId);
-    } else if (ext === ".yaml" || ext === ".yml") {
+    } else if (ext === '.yaml' || ext === '.yml') {
       this.analyzeYamlFile(relPath, fullPath, fileNodeId);
     }
   }
@@ -262,37 +287,37 @@ export class KnowledgeGraph {
    */
   private analyzeSourceFile(relPath: string, fullPath: string, fileNodeId: string): void {
     try {
-      const content = readFileSync(fullPath, "utf-8");
+      const content = readFileSync(fullPath, 'utf-8');
 
       // Detect imports/requires (edges)
       const importRegex = /import\s+(?:\{[^}]*\}\s+from\s+)?['"]([^'"]+)['"]/g;
       let match: RegExpExecArray | null;
       while ((match = importRegex.exec(content)) !== null) {
         const importPath = match[1]!;
-        if (importPath.startsWith(".")) {
+        if (importPath.startsWith('.')) {
           // Relative import — resolve to a file node
-          const dir = relPath.split("/").slice(0, -1).join("/");
+          const dir = relPath.split('/').slice(0, -1).join('/');
           const resolvedImport = resolve(join(dir, importPath));
           const relativeImport = relative(this.projectRoot, resolvedImport);
           // Normalize extension
-          const normalizedImport = relativeImport.replace(/\.(ts|tsx|js|jsx)$/, "");
+          const normalizedImport = relativeImport.replace(/\.(ts|tsx|js|jsx)$/, '');
           const targetFileId = `file:${normalizedImport}.ts`;
 
           this.addEdge({
             source: fileNodeId,
             target: targetFileId,
-            type: "imports",
+            type: 'imports',
           });
         } else {
           // External dependency
           const depId = `dependency:${importPath}`;
           this.addNode({
             id: depId,
-            type: "dependency",
+            type: 'dependency',
             name: importPath,
-            metadata: { kind: "external" },
+            metadata: { kind: 'external' },
           });
-          this.addEdge({ source: fileNodeId, target: depId, type: "depends_on" });
+          this.addEdge({ source: fileNodeId, target: depId, type: 'depends_on' });
         }
       }
 
@@ -302,12 +327,12 @@ export class KnowledgeGraph {
         const funcId = `function:${match[1]}`;
         this.addNode({
           id: funcId,
-          type: "function",
+          type: 'function',
           name: match[1]!,
           filePath: relPath,
           metadata: {},
         });
-        this.addEdge({ source: fileNodeId, target: funcId, type: "contains" });
+        this.addEdge({ source: fileNodeId, target: funcId, type: 'contains' });
       }
 
       // Detect class declarations
@@ -316,26 +341,27 @@ export class KnowledgeGraph {
         const classId = `class:${match[1]}`;
         this.addNode({
           id: classId,
-          type: "class",
+          type: 'class',
           name: match[1]!,
           filePath: relPath,
           metadata: {},
         });
-        this.addEdge({ source: fileNodeId, target: classId, type: "contains" });
+        this.addEdge({ source: fileNodeId, target: classId, type: 'contains' });
       }
 
       // Detect React components (function starting with uppercase)
-      const componentRegex = /(?:export\s+)?(?:default\s+)?(?:function|const)\s+([A-Z]\w+)\s*(?:=|:)/g;
+      const componentRegex =
+        /(?:export\s+)?(?:default\s+)?(?:function|const)\s+([A-Z]\w+)\s*(?:=|:)/g;
       while ((match = componentRegex.exec(content)) !== null) {
         const compId = `component:${match[1]}`;
         this.addNode({
           id: compId,
-          type: "component",
+          type: 'component',
           name: match[1]!,
           filePath: relPath,
           metadata: {},
         });
-        this.addEdge({ source: fileNodeId, target: compId, type: "contains" });
+        this.addEdge({ source: fileNodeId, target: compId, type: 'contains' });
       }
 
       // Detect API routes (Express/Next.js)
@@ -344,34 +370,34 @@ export class KnowledgeGraph {
         const routeId = `route:${match[2]}`;
         this.addNode({
           id: routeId,
-          type: "route",
+          type: 'route',
           name: `${match[1]!.toUpperCase()} ${match[2]}`,
           filePath: relPath,
           metadata: { method: match[1]!, path: match[2] },
         });
-        this.addEdge({ source: fileNodeId, target: routeId, type: "contains" });
+        this.addEdge({ source: fileNodeId, target: routeId, type: 'contains' });
       }
 
       // Detect page components (Next.js file-based routing)
-      if (relPath.includes("/pages/") || relPath.includes("/app/")) {
+      if (relPath.includes('/pages/') || relPath.includes('/app/')) {
         const routePath = relPath
-          .replace(/^.*?\/pages\//, "/")
-          .replace(/^.*?\/app\//, "/")
-          .replace(/\/page\.(tsx|jsx)$/, "")
-          .replace(/\/route\.(ts|js)$/, "")
-          .replace(/\.(tsx|jsx)$/, "")
-          .replace(/\/index$/, "/")
-          .replace(/\[(\w+)\]/g, ":$1");
+          .replace(/^.*?\/pages\//, '/')
+          .replace(/^.*?\/app\//, '/')
+          .replace(/\/page\.(tsx|jsx)$/, '')
+          .replace(/\/route\.(ts|js)$/, '')
+          .replace(/\.(tsx|jsx)$/, '')
+          .replace(/\/index$/, '/')
+          .replace(/\[(\w+)\]/g, ':$1');
 
         const routeId = `route:${routePath}`;
         this.addNode({
           id: routeId,
-          type: "route",
+          type: 'route',
           name: routePath,
           filePath: relPath,
-          metadata: { framework: "Next.js" },
+          metadata: { framework: 'Next.js' },
         });
-        this.addEdge({ source: fileNodeId, target: routeId, type: "defines" });
+        this.addEdge({ source: fileNodeId, target: routeId, type: 'defines' });
       }
     } catch {
       // Skip files we can't read
@@ -380,18 +406,20 @@ export class KnowledgeGraph {
 
   private analyzeJsonFile(relPath: string, fullPath: string, fileNodeId: string): void {
     try {
-      const content = readFileSync(fullPath, "utf-8");
+      const content = readFileSync(fullPath, 'utf-8');
       const data = JSON.parse(content);
 
-      if (relPath === "package.json") {
+      if (relPath === 'package.json') {
         if (data.dependencies) {
           for (const dep of Object.keys(data.dependencies)) {
             const depId = `dependency:${dep}`;
             this.addNode({
-              id: depId, type: "dependency", name: dep,
-              metadata: { kind: "runtime", version: data.dependencies[dep] },
+              id: depId,
+              type: 'dependency',
+              name: dep,
+              metadata: { kind: 'runtime', version: data.dependencies[dep] },
             });
-            this.addEdge({ source: fileNodeId, target: depId, type: "depends_on" });
+            this.addEdge({ source: fileNodeId, target: depId, type: 'depends_on' });
           }
         }
         if (data.devDependencies) {
@@ -399,29 +427,33 @@ export class KnowledgeGraph {
             const depId = `dependency:${dep}`;
             if (!this.nodes.has(depId)) {
               this.addNode({
-                id: depId, type: "dependency", name: dep,
-                metadata: { kind: "dev", version: data.devDependencies[dep] },
+                id: depId,
+                type: 'dependency',
+                name: dep,
+                metadata: { kind: 'dev', version: data.devDependencies[dep] },
               });
             }
           }
         }
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   private analyzeSchemaFile(relPath: string, fullPath: string, fileNodeId: string): void {
     try {
-      const content = readFileSync(fullPath, "utf-8");
+      const content = readFileSync(fullPath, 'utf-8');
 
-      const dbId = `database:${relPath.replace(/\.[^.]+$/, "")}`;
+      const dbId = `database:${relPath.replace(/\.[^.]+$/, '')}`;
       this.addNode({
         id: dbId,
-        type: "database",
-        name: relPath.split("/").pop() ?? relPath,
+        type: 'database',
+        name: relPath.split('/').pop() ?? relPath,
         filePath: relPath,
-        metadata: { type: extname(fullPath) === ".prisma" ? "Prisma" : "SQL" },
+        metadata: { type: extname(fullPath) === '.prisma' ? 'Prisma' : 'SQL' },
       });
-      this.addEdge({ source: fileNodeId, target: dbId, type: "defines" });
+      this.addEdge({ source: fileNodeId, target: dbId, type: 'defines' });
 
       // Detect model/table names
       const modelRegex = /(?:model|table|CREATE TABLE)\s+(\w+)/gi;
@@ -429,32 +461,42 @@ export class KnowledgeGraph {
       while ((match = modelRegex.exec(content)) !== null) {
         const modelId = `database:${match[1]}`;
         this.addNode({
-          id: modelId, type: "database", name: match[1]!,
-          filePath: relPath, metadata: { kind: "table" },
+          id: modelId,
+          type: 'database',
+          name: match[1]!,
+          filePath: relPath,
+          metadata: { kind: 'table' },
         });
-        this.addEdge({ source: dbId, target: modelId, type: "contains" });
+        this.addEdge({ source: dbId, target: modelId, type: 'contains' });
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   private analyzeYamlFile(relPath: string, fullPath: string, fileNodeId: string): void {
     try {
-      const content = readFileSync(fullPath, "utf-8");
+      const content = readFileSync(fullPath, 'utf-8');
 
       // Detect Docker services
-      if (relPath.includes("docker-compose")) {
+      if (relPath.includes('docker-compose')) {
         const serviceRegex = /^\s{2}(\w+):\s*$/gm;
         let match: RegExpExecArray | null;
         while ((match = serviceRegex.exec(content)) !== null) {
           const serviceId = `service:${match[1]}`;
           this.addNode({
-            id: serviceId, type: "service", name: match[1]!,
-            filePath: relPath, metadata: { kind: "docker" },
+            id: serviceId,
+            type: 'service',
+            name: match[1]!,
+            filePath: relPath,
+            metadata: { kind: 'docker' },
           });
-          this.addEdge({ source: fileNodeId, target: serviceId, type: "contains" });
+          this.addEdge({ source: fileNodeId, target: serviceId, type: 'contains' });
         }
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   /**
@@ -484,10 +526,10 @@ export class KnowledgeGraph {
   private generateInsights(): string[] {
     const insights: string[] = [];
     const nodes = this.getAllNodes();
-    const routes = this.findNodesByType("route");
-    const components = this.findNodesByType("component");
-    const databases = this.findNodesByType("database");
-    const dependencies = this.findNodesByType("dependency");
+    const routes = this.findNodesByType('route');
+    const components = this.findNodesByType('component');
+    const databases = this.findNodesByType('database');
+    const dependencies = this.findNodesByType('dependency');
 
     if (routes.length > 0) {
       insights.push(`Found ${routes.length} API routes/pages`);

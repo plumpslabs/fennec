@@ -4,9 +4,9 @@
  * a persistent process registry accessible from both CLI (`fennec ps`)
  * and MCP tools (`process_get_tracked`).
  */
-import { existsSync, writeFileSync, readFileSync, mkdirSync } from "node:fs";
-import { resolve, dirname } from "node:path";
-import { homedir } from "node:os";
+import { existsSync, writeFileSync, readFileSync, mkdirSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { homedir } from 'node:os';
 
 export interface TrackedEntry {
   name: string;
@@ -31,14 +31,14 @@ export interface TrackedEntry {
   /** Optional group this entry belongs to (enables group-scoped bulk ops). */
   group?: string;
   /** Log capture mode (mirrors CLI). */
-  logMode?: "text" | "json";
+  logMode?: 'text' | 'json';
 }
 
 export function getTrackedPath(): string {
   const dir = process.env.FENNEC_DATA_DIR
     ? resolve(process.env.FENNEC_DATA_DIR)
-    : resolve(homedir(), ".fennec");
-  return resolve(dir, "tracked.json");
+    : resolve(homedir(), '.fennec');
+  return resolve(dir, 'tracked.json');
 }
 
 /** Absolute path to an app's on-disk log file. MUST match the CLI's
@@ -47,15 +47,15 @@ export function getTrackedPath(): string {
 export function logPathFor(name: string): string {
   const dir = process.env.FENNEC_DATA_DIR
     ? resolve(process.env.FENNEC_DATA_DIR)
-    : resolve(homedir(), ".fennec");
-  return resolve(dir, "logs", `${name}.log`);
+    : resolve(homedir(), '.fennec');
+  return resolve(dir, 'logs', `${name}.log`);
 }
 
 export function readTracked(): TrackedEntry[] {
   try {
     const path = getTrackedPath();
     if (!existsSync(path)) return [];
-    return JSON.parse(readFileSync(path, "utf-8"));
+    return JSON.parse(readFileSync(path, 'utf-8'));
   } catch {
     return [];
   }
@@ -65,9 +65,12 @@ export function saveTracked(processes: TrackedEntry[]): void {
   try {
     const path = getTrackedPath();
     mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, JSON.stringify(processes, null, 2), "utf-8");
+    writeFileSync(path, JSON.stringify(processes, null, 2), 'utf-8');
   } catch (err) {
-    console.error("[fennec] Failed to save tracked processes:", err instanceof Error ? err.message : String(err));
+    console.error(
+      '[fennec] Failed to save tracked processes:',
+      err instanceof Error ? err.message : String(err),
+    );
   }
 }
 
@@ -94,11 +97,11 @@ export function removeTrackedByPid(pid: number): void {
 // operations the CLI now supports.
 
 export type Target =
-  | { kind: "single"; value: string }
-  | { kind: "names"; values: string[] }
-  | { kind: "group"; group: string }
-  | { kind: "all" }
-  | { kind: "none" };
+  | { kind: 'single'; value: string }
+  | { kind: 'names'; values: string[] }
+  | { kind: 'group'; group: string }
+  | { kind: 'all' }
+  | { kind: 'none' };
 
 /** Extract a flag's value from an args array (e.g. --group backend). */
 export function extractFlagValue(args: string[], flag: string, alias?: string): string | undefined {
@@ -125,17 +128,17 @@ export function getGroups(): string[] {
  *   kill web                -> { kind: "single", value: "web" }
  */
 export function resolveTargets(args: string[]): Target {
-  const groupFlag = extractFlagValue(args, "--group", "-g");
-  if (groupFlag) return { kind: "group", group: groupFlag };
+  const groupFlag = extractFlagValue(args, '--group', '-g');
+  if (groupFlag) return { kind: 'group', group: groupFlag };
 
-  const allFlag = args.includes("--all") || args.includes("-a");
-  if (allFlag) return { kind: "all" };
+  const allFlag = args.includes('--all') || args.includes('-a');
+  if (allFlag) return { kind: 'all' };
 
-  const positionals = args.filter((a) => !a.startsWith("-") && a !== "all");
-  if (positionals.length > 1) return { kind: "names", values: positionals };
-  if (positionals.length === 1) return { kind: "single", value: positionals[0]! };
+  const positionals = args.filter((a) => !a.startsWith('-') && a !== 'all');
+  if (positionals.length > 1) return { kind: 'names', values: positionals };
+  if (positionals.length === 1) return { kind: 'single', value: positionals[0]! };
 
-  return { kind: "none" };
+  return { kind: 'none' };
 }
 
 /** Rebuild the argv for re-spawning a tracked entry (mirrors CLI). */
@@ -160,4 +163,3 @@ export function setGroup(name: string, group: string): boolean {
   saveTracked(tracked);
   return true;
 }
-

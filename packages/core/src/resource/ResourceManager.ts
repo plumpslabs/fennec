@@ -1,14 +1,14 @@
-import { getLogger } from "../utils/logger.js";
+import { getLogger } from '../utils/logger.js';
 
-export type ResourceType = 
-  | "browser_context" 
-  | "browser_page" 
-  | "cdp_session" 
-  | "process" 
-  | "file_watcher" 
-  | "pipe_watcher" 
-  | "network_interceptor" 
-  | "profiling_session";
+export type ResourceType =
+  | 'browser_context'
+  | 'browser_page'
+  | 'cdp_session'
+  | 'process'
+  | 'file_watcher'
+  | 'pipe_watcher'
+  | 'network_interceptor'
+  | 'profiling_session';
 
 export interface Resource {
   id: string;
@@ -68,14 +68,14 @@ export class ResourceManager {
     this.idleTimeoutMs = idleTimeoutSecs * 1000;
 
     // Initialize groups
-    this.initGroup("browser_context", this.limits.maxBrowserContexts);
-    this.initGroup("browser_page", this.limits.maxBrowserPages);
-    this.initGroup("cdp_session", this.limits.maxCdpSessions);
-    this.initGroup("process", this.limits.maxProcesses);
-    this.initGroup("file_watcher", this.limits.maxFileWatchers);
-    this.initGroup("pipe_watcher", this.limits.maxFileWatchers);
-    this.initGroup("network_interceptor", this.limits.maxNetworkInterceptors);
-    this.initGroup("profiling_session", this.limits.maxProfilingSessions);
+    this.initGroup('browser_context', this.limits.maxBrowserContexts);
+    this.initGroup('browser_page', this.limits.maxBrowserPages);
+    this.initGroup('cdp_session', this.limits.maxCdpSessions);
+    this.initGroup('process', this.limits.maxProcesses);
+    this.initGroup('file_watcher', this.limits.maxFileWatchers);
+    this.initGroup('pipe_watcher', this.limits.maxFileWatchers);
+    this.initGroup('network_interceptor', this.limits.maxNetworkInterceptors);
+    this.initGroup('profiling_session', this.limits.maxProfilingSessions);
   }
 
   private initGroup(type: ResourceType, maxSize: number): void {
@@ -88,7 +88,7 @@ export class ResourceManager {
   register(resource: Resource): boolean {
     const group = this.groups.get(resource.type);
     if (!group) {
-      getLogger().warn({ resourceType: resource.type }, "ResourceManager: unknown resource type");
+      getLogger().warn({ resourceType: resource.type }, 'ResourceManager: unknown resource type');
       return false;
     }
 
@@ -102,7 +102,7 @@ export class ResourceManager {
     if (group.resources.size >= group.maxSize) {
       getLogger().warn(
         { resourceType: resource.type, maxSize: group.maxSize },
-        "ResourceManager: resource limit reached",
+        'ResourceManager: resource limit reached',
       );
       return false;
     }
@@ -110,7 +110,7 @@ export class ResourceManager {
     group.resources.set(resource.id, resource);
     getLogger().debug(
       { resourceId: resource.id, type: resource.type },
-      "ResourceManager: resource registered",
+      'ResourceManager: resource registered',
     );
     return true;
   }
@@ -210,11 +210,14 @@ export class ResourceManager {
     try {
       await resource.cleanup();
     } catch (error) {
-      getLogger().error({ resourceId: id, error }, "ResourceManager: cleanup failed");
+      getLogger().error({ resourceId: id, error }, 'ResourceManager: cleanup failed');
     }
 
     this.unregister(id, type);
-    getLogger().debug({ resourceId: id, type: resource.type }, "ResourceManager: resource released");
+    getLogger().debug(
+      { resourceId: id, type: resource.type },
+      'ResourceManager: resource released',
+    );
     return true;
   }
 
@@ -224,7 +227,7 @@ export class ResourceManager {
   async releaseAll(): Promise<void> {
     const all = this.getAll();
     await Promise.allSettled(all.map((r) => this.release(r.id, r.type)));
-    getLogger().info({ count: all.length }, "ResourceManager: all resources released");
+    getLogger().info({ count: all.length }, 'ResourceManager: all resources released');
   }
 
   /**
@@ -257,11 +260,11 @@ export class ResourceManager {
 
     this.cleanupIntervalId = setInterval(() => {
       this.cleanupIdle().catch((error) => {
-        getLogger().error({ error }, "ResourceManager: auto-cleanup failed");
+        getLogger().error({ error }, 'ResourceManager: auto-cleanup failed');
       });
     }, intervalMs);
 
-    getLogger().info({ intervalMs }, "ResourceManager: auto-cleanup started");
+    getLogger().info({ intervalMs }, 'ResourceManager: auto-cleanup started');
   }
 
   /**
@@ -275,7 +278,7 @@ export class ResourceManager {
       if (!report.healthy) {
         getLogger().warn(
           { zombieCount: report.zombieCount, totalResources: report.totalResources },
-          "ResourceManager: health check found issues",
+          'ResourceManager: health check found issues',
         );
         // Auto-cleanup zombies
         for (const zombie of report.zombieResources) {
@@ -284,7 +287,7 @@ export class ResourceManager {
       }
     }, intervalMs);
 
-    getLogger().info({ intervalMs }, "ResourceManager: health checks started");
+    getLogger().info({ intervalMs }, 'ResourceManager: health checks started');
   }
 
   /**
@@ -328,12 +331,15 @@ export class ResourceManager {
         await this.release(resource.id, resource.type);
         cleaned++;
       } catch (error) {
-        getLogger().error({ resourceId: resource.id, error }, "ResourceManager: idle cleanup failed");
+        getLogger().error(
+          { resourceId: resource.id, error },
+          'ResourceManager: idle cleanup failed',
+        );
       }
     }
 
     if (cleaned > 0) {
-      getLogger().info({ cleaned }, "ResourceManager: idle resources cleaned up");
+      getLogger().info({ cleaned }, 'ResourceManager: idle resources cleaned up');
     }
 
     return cleaned;
@@ -344,7 +350,8 @@ export class ResourceManager {
    */
   async runHealthCheck(): Promise<HealthReport> {
     const byType: Record<string, { count: number; healthy: number; unhealthy: number }> = {};
-    const zombieResources: Array<{ id: string; type: ResourceType; name: string; reason: string }> = [];
+    const zombieResources: Array<{ id: string; type: ResourceType; name: string; reason: string }> =
+      [];
 
     for (const [type, group] of this.groups) {
       let healthy = 0;
@@ -362,7 +369,7 @@ export class ResourceManager {
                 id: resource.id,
                 type: resource.type,
                 name: resource.name,
-                reason: "Health check failed",
+                reason: 'Health check failed',
               });
             }
           } catch {
@@ -371,7 +378,7 @@ export class ResourceManager {
               id: resource.id,
               type: resource.type,
               name: resource.name,
-              reason: "Health check threw error",
+              reason: 'Health check threw error',
             });
           }
         } else {
@@ -403,11 +410,11 @@ export class ResourceManager {
     const counts = this.countByType();
 
     // Rough per-resource memory estimates
-    estimate += (counts.browser_context ?? 0) * 20;   // ~20MB per context
-    estimate += (counts.browser_page ?? 0) * 15;       // ~15MB per page
-    estimate += (counts.cdp_session ?? 0) * 1;         // ~1MB per CDP session
-    estimate += (counts.process ?? 0) * 5;              // ~5MB per process tracking
-    estimate += (counts.file_watcher ?? 0) * 0.5;       // ~0.5MB per file watcher
+    estimate += (counts.browser_context ?? 0) * 20; // ~20MB per context
+    estimate += (counts.browser_page ?? 0) * 15; // ~15MB per page
+    estimate += (counts.cdp_session ?? 0) * 1; // ~1MB per CDP session
+    estimate += (counts.process ?? 0) * 5; // ~5MB per process tracking
+    estimate += (counts.file_watcher ?? 0) * 0.5; // ~0.5MB per file watcher
     estimate += (counts.network_interceptor ?? 0) * 0.1; // ~0.1MB per interceptor
 
     return Math.round(estimate);

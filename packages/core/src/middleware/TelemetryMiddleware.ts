@@ -1,6 +1,6 @@
-import type { MiddlewareFn } from "./Pipeline.js";
-import { getLogger } from "../utils/logger.js";
-import type { PerformanceMetrics } from "../utils/PerformanceMetrics.js";
+import type { MiddlewareFn } from './Pipeline.js';
+import { getLogger } from '../utils/logger.js';
+import type { PerformanceMetrics } from '../utils/PerformanceMetrics.js';
 
 export function createTelemetryMiddleware(metrics?: PerformanceMetrics): MiddlewareFn {
   const logger = getLogger();
@@ -15,7 +15,7 @@ export function createTelemetryMiddleware(metrics?: PerformanceMetrics): Middlew
         args: sanitizeArgs(ctx.input),
         sessionId: ctx.session?.id ?? null,
       },
-      "Telemetry: tool started",
+      'Telemetry: tool started',
     );
 
     try {
@@ -23,14 +23,13 @@ export function createTelemetryMiddleware(metrics?: PerformanceMetrics): Middlew
       const duration = Date.now() - startTime;
 
       const isError =
-        result &&
-        typeof result === "object" &&
-        "success" in result &&
-        result.success === false;
+        result && typeof result === 'object' && 'success' in result && result.success === false;
 
       const errorCode: string | undefined = isError
-        ? String(((result as Record<string, unknown>).error as Record<string, unknown> | undefined)
-            ?.code ?? "UNKNOWN")
+        ? String(
+            ((result as Record<string, unknown>).error as Record<string, unknown> | undefined)
+              ?.code ?? 'UNKNOWN',
+          )
         : undefined;
 
       logger.info(
@@ -40,7 +39,7 @@ export function createTelemetryMiddleware(metrics?: PerformanceMetrics): Middlew
           isError: !!isError,
           errorCode: errorCode ?? null,
         },
-        "Telemetry: tool completed",
+        'Telemetry: tool completed',
       );
 
       // Record performance metric
@@ -58,7 +57,7 @@ export function createTelemetryMiddleware(metrics?: PerformanceMetrics): Middlew
 
       // Attach elapsed time to meta
       const resultObj = result as Record<string, unknown>;
-      if (resultObj.meta && typeof resultObj.meta === "object") {
+      if (resultObj.meta && typeof resultObj.meta === 'object') {
         (resultObj.meta as Record<string, unknown>).elapsed = duration;
       }
 
@@ -72,7 +71,7 @@ export function createTelemetryMiddleware(metrics?: PerformanceMetrics): Middlew
           durationMs: duration,
           error: String(error),
         },
-        "Telemetry: tool failed",
+        'Telemetry: tool failed',
       );
 
       // Record failure metric
@@ -82,7 +81,7 @@ export function createTelemetryMiddleware(metrics?: PerformanceMetrics): Middlew
           category: ctx.category,
           durationMs: duration,
           success: false,
-          errorCode: "EXCEPTION",
+          errorCode: 'EXCEPTION',
           timestamp: Date.now(),
           sessionId: ctx.session?.id,
         });
@@ -95,11 +94,19 @@ export function createTelemetryMiddleware(metrics?: PerformanceMetrics): Middlew
 
 function sanitizeArgs(args: Record<string, unknown>): Record<string, unknown> {
   const sanitized: Record<string, unknown> = {};
-  const sensitiveKeys = ["password", "token", "secret", "apiKey", "api_key", "authorization", "auth"];
+  const sensitiveKeys = [
+    'password',
+    'token',
+    'secret',
+    'apiKey',
+    'api_key',
+    'authorization',
+    'auth',
+  ];
 
   for (const [key, value] of Object.entries(args)) {
     if (sensitiveKeys.some((sk) => key.toLowerCase().includes(sk))) {
-      sanitized[key] = "***REDACTED***";
+      sanitized[key] = '***REDACTED***';
     } else {
       sanitized[key] = value;
     }

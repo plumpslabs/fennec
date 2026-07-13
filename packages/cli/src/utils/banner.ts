@@ -9,23 +9,23 @@
  * All picocolors-based, no additional dependencies.
  */
 
-import pc from "picocolors";
+import pc from 'picocolors';
 
 // ─── Hex color helper ──────────────────────────────────────────
 
 export function hexColor(color: string): (s: string) => string {
-  if (typeof (pc as any).hex === "function") {
+  if (typeof (pc as any).hex === 'function') {
     return (pc as any).hex(color);
   }
   return (s: string) => s;
 }
 
-const fennecOrange = hexColor("#FF6432");
-const fennecGold = hexColor("#FFB347");
+const fennecOrange = hexColor('#FF6432');
+const fennecGold = hexColor('#FFB347');
 
 // ─── Version ────────────────────────────────────────────────────
 
-export const VERSION = "1.14.3";
+export const VERSION = '1.14.3';
 
 // ─── Banner generation ──────────────────────────────────────────
 
@@ -41,12 +41,12 @@ function generateBanner(): string {
   if (cachedBanner) return cachedBanner;
 
   const logo = [
-    "███████╗███████╗███╗   ██╗███╗   ██╗███████╗ ██████╗",
-    "██╔════╝██╔════╝████╗  ██║████╗  ██║██╔════╝██╔════╝",
-    "█████╗  █████╗  ██╔██╗ ██║██╔██╗ ██║█████╗  ██║     ",
-    "██╔══╝  ██╔══╝  ██║╚██╗██║██║╚██╗██║██╔══╝  ██║     ",
-    "██║     ███████╗██║ ╚████║██║ ╚████║███████╗╚██████╗",
-    "╚═╝     ╚══════╝╚═╝  ╚═══╝╚═╝  ╚═══╝╚══════╝ ╚═════╝",
+    '███████╗███████╗███╗   ██╗███╗   ██╗███████╗ ██████╗',
+    '██╔════╝██╔════╝████╗  ██║████╗  ██║██╔════╝██╔════╝',
+    '█████╗  █████╗  ██╔██╗ ██║██╔██╗ ██║█████╗  ██║     ',
+    '██╔══╝  ██╔══╝  ██║╚██╗██║██║╚██╗██║██╔══╝  ██║     ',
+    '██║     ███████╗██║ ╚████║██║ ╚████║███████╗╚██████╗',
+    '╚═╝     ╚══════╝╚═╝  ╚═══╝╚═╝  ╚═══╝╚══════╝ ╚═════╝',
   ];
 
   // Apply gradient: orange → gold
@@ -57,9 +57,9 @@ function generateBanner(): string {
       const color = ratio < 0.5 ? fennecOrange : fennecGold;
       return color(line);
     })
-    .join("\n");
+    .join('\n');
 
-  const tagline = pc.dim("ears everywhere in your stack.") + pc.dim(` v${VERSION}`);
+  const tagline = pc.dim('ears everywhere in your stack.') + pc.dim(` v${VERSION}`);
 
   cachedBanner = `\n${bannerStr}\n  ${tagline}\n`;
   return cachedBanner;
@@ -70,7 +70,7 @@ function generateBanner(): string {
  */
 function generateCompactBanner(): string {
   if (cachedCompact) return cachedCompact;
-  cachedCompact = `${pc.redBright("  🦊")} ${pc.bold("Fennec")} ${pc.dim(`v${VERSION}`)}`;
+  cachedCompact = `${pc.redBright('  🦊')} ${pc.bold('Fennec')} ${pc.dim(`v${VERSION}`)}`;
   return cachedCompact;
 }
 

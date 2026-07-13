@@ -1,8 +1,17 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID } from 'node:crypto';
 
 export interface RecordedAction {
   id: string;
-  type: "navigate" | "click" | "type" | "select" | "scroll" | "screenshot" | "wait" | "evaluate" | "custom";
+  type:
+    | 'navigate'
+    | 'click'
+    | 'type'
+    | 'select'
+    | 'scroll'
+    | 'screenshot'
+    | 'wait'
+    | 'evaluate'
+    | 'custom';
   description: string;
   params: Record<string, unknown>;
   timestamp: number;
@@ -40,7 +49,7 @@ export interface ReplayResult {
   skipped: number;
   actions: Array<{
     actionId: string;
-    status: "success" | "failed" | "skipped";
+    status: 'success' | 'failed' | 'skipped';
     duration: number;
     error?: string;
     difference?: number; // similarity score 0-1 for screenshot comparison
@@ -59,7 +68,7 @@ export class Recorder {
   /**
    * Start a new recording session.
    */
-  startRecording(name = ""): string {
+  startRecording(name = ''): string {
     const id = `rec_${randomUUID().slice(0, 8)}`;
     this.currentRecording = {
       id,
@@ -93,7 +102,7 @@ export class Recorder {
    * Record an action.
    */
   recordAction(
-    type: RecordedAction["type"],
+    type: RecordedAction['type'],
     description: string,
     params: Record<string, unknown>,
     context: {
@@ -190,7 +199,7 @@ export class Recorder {
     const result: ReplayResult = {
       recordingId,
       startedAt: new Date().toISOString(),
-      completedAt: "",
+      completedAt: '',
       totalActions: recording.actions.length,
       succeeded: 0,
       failed: 0,
@@ -205,7 +214,7 @@ export class Recorder {
         result.skipped++;
         result.actions.push({
           actionId: action.id,
-          status: "skipped",
+          status: 'skipped',
           duration: 0,
         });
         continue;
@@ -229,7 +238,7 @@ export class Recorder {
         result.succeeded++;
         result.actions.push({
           actionId: action.id,
-          status: "success",
+          status: 'success',
           duration: Date.now() - actionStart,
         });
       } catch (error) {
@@ -237,7 +246,7 @@ export class Recorder {
         result.failed++;
         result.actions.push({
           actionId: action.id,
-          status: "failed",
+          status: 'failed',
           duration,
           error: String(error),
         });
@@ -250,9 +259,7 @@ export class Recorder {
 
     result.completedAt = new Date().toISOString();
     result.successRate =
-      result.totalActions > 0
-        ? Math.round((result.succeeded / result.totalActions) * 100)
-        : 0;
+      result.totalActions > 0 ? Math.round((result.succeeded / result.totalActions) * 100) : 0;
 
     return result;
   }

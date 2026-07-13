@@ -1,10 +1,10 @@
-import { randomUUID } from "node:crypto";
-import { getLogger } from "../utils/logger.js";
-import type { FennecSession, ConsoleEvent, NetworkEvent, SessionMeta } from "./types.js";
-import { SessionStore } from "./SessionStore.js";
-import type { FennecConfig } from "../config/defaults.js";
-import type { EventBus } from "../correlation/EventBus.js";
-import type { BrowserEngine, BrowserInstance } from "../browser/types.js";
+import { randomUUID } from 'node:crypto';
+import { getLogger } from '../utils/logger.js';
+import type { FennecSession, ConsoleEvent, NetworkEvent, SessionMeta } from './types.js';
+import { SessionStore } from './SessionStore.js';
+import type { FennecConfig } from '../config/defaults.js';
+import type { EventBus } from '../correlation/EventBus.js';
+import type { BrowserEngine, BrowserInstance } from '../browser/types.js';
 
 export class SessionManager {
   private sessions: Map<string, FennecSession> = new Map();
@@ -63,11 +63,11 @@ export class SessionManager {
 
   async initialize(): Promise<void> {
     const logger = getLogger();
-    logger.info("Initializing Fennec session manager");
+    logger.info('Initializing Fennec session manager');
 
     // Create engine if not already set (backward compat: default to Playwright)
     if (!this.engine) {
-      const { PlaywrightEngineFactory } = await import("../browser/playwright-engine.js");
+      const { PlaywrightEngineFactory } = await import('../browser/playwright-engine.js');
       const factory = new PlaywrightEngineFactory();
       this.engine = factory.create(this.config.browser.type);
     }
@@ -75,7 +75,7 @@ export class SessionManager {
     this.browserInstance = await this.engine.launch({
       headless: this.config.browser.headless,
       slowMo: this.config.browser.slowMo,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
       ignoreHTTPSErrors: this.config.browser.ignoreHTTPSErrors,
       viewport: this.config.browser.viewport,
       locale: this.config.browser.locale,
@@ -88,7 +88,7 @@ export class SessionManager {
 
   private async createDefaultSession(): Promise<FennecSession> {
     if (!this.browserInstance) {
-      throw new Error("Browser not initialized");
+      throw new Error('Browser not initialized');
     }
 
     const browserSession = await this.browserInstance.createSession({
@@ -116,7 +116,7 @@ export class SessionManager {
 
   async createSession(name?: string): Promise<FennecSession> {
     if (!this.browserInstance) {
-      throw new Error("Browser not initialized");
+      throw new Error('Browser not initialized');
     }
 
     // Check max sessions
@@ -212,7 +212,7 @@ export class SessionManager {
 
     // Publish to EventBus for scheduler auto-trigger
     if (this.eventBus) {
-      this.eventBus.publish("browser:console", {
+      this.eventBus.publish('browser:console', {
         level: event.level,
         message: event.message,
         source: event.source,
@@ -232,7 +232,7 @@ export class SessionManager {
 
     // Publish to EventBus for scheduler auto-trigger
     if (this.eventBus) {
-      this.eventBus.publish("browser:network", {
+      this.eventBus.publish('browser:network', {
         method: event.method,
         url: event.url,
         status: event.status,
@@ -244,7 +244,10 @@ export class SessionManager {
     }
   }
 
-  getConsoleBuffer(sessionId: string, options?: { level?: string; limit?: number; since?: string; keyword?: string }): ConsoleEvent[] {
+  getConsoleBuffer(
+    sessionId: string,
+    options?: { level?: string; limit?: number; since?: string; keyword?: string },
+  ): ConsoleEvent[] {
     const session = this.sessions.get(sessionId);
     if (!session) return [];
 
@@ -304,14 +307,25 @@ export class SessionManager {
     error: unknown,
     session?: FennecSession | null,
     options?: { suggestions?: string[]; context?: Record<string, unknown> },
-  ): { success: false; error: { code: string; message: string; suggestions: string[]; context: Record<string, unknown> }; meta: SessionMeta } {
+  ): {
+    success: false;
+    error: {
+      code: string;
+      message: string;
+      suggestions: string[];
+      context: Record<string, unknown>;
+    };
+    meta: SessionMeta;
+  } {
     const err = error instanceof Error ? error : new Error(String(error));
-    const meta = session ? this.buildMeta(session) : { elapsed: 0, sessionId: "", timestamp: new Date().toISOString() };
+    const meta = session
+      ? this.buildMeta(session)
+      : { elapsed: 0, sessionId: '', timestamp: new Date().toISOString() };
 
     return {
       success: false,
       error: {
-        code: "UNKNOWN",
+        code: 'UNKNOWN',
         message: err.message,
         suggestions: options?.suggestions ?? [],
         context: options?.context ?? {},
@@ -375,11 +389,18 @@ export class SessionManager {
    * in-flight agent interaction.
    */
   private startRotation(): void {
-    this.rotationTimer = setInterval(() => {
-      this.rotateSessions().catch(() => {});
-    }, Math.max(this.rotationIntervalMs, 60000));
+    this.rotationTimer = setInterval(
+      () => {
+        this.rotateSessions().catch(() => {});
+      },
+      Math.max(this.rotationIntervalMs, 60000),
+    );
 
-    if (this.rotationTimer && typeof this.rotationTimer === 'object' && 'unref' in this.rotationTimer) {
+    if (
+      this.rotationTimer &&
+      typeof this.rotationTimer === 'object' &&
+      'unref' in this.rotationTimer
+    ) {
       (this.rotationTimer as ReturnType<typeof setInterval>).unref();
     }
   }
@@ -401,8 +422,8 @@ export class SessionManager {
     const prevUrl = session.browser.url();
     await session.browser.rotateContext();
     // Restore the agent's current view on the new context.
-    if (prevUrl && prevUrl !== "about:blank") {
-      await session.browser.navigate(prevUrl, { waitUntil: "domcontentloaded" }).catch(() => {});
+    if (prevUrl && prevUrl !== 'about:blank') {
+      await session.browser.navigate(prevUrl, { waitUntil: 'domcontentloaded' }).catch(() => {});
     }
     session.lastRotatedAt = Date.now();
     if (this.onRotate) {

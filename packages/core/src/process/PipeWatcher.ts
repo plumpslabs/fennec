@@ -1,5 +1,5 @@
-import { getLogger } from "../utils/logger.js";
-import { detectLogLevel, type LogLevel } from "../utils/levelDetector.js";
+import { getLogger } from '../utils/logger.js';
+import { detectLogLevel, type LogLevel } from '../utils/levelDetector.js';
 
 export interface PipeEntry {
   line: string;
@@ -23,7 +23,7 @@ export class PipeWatcher {
       const buffer = this.buffers.get(pipeId);
       if (!buffer) return;
 
-      const lines = data.split("\n").filter((l) => l.trim());
+      const lines = data.split('\n').filter((l) => l.trim());
       for (const line of lines) {
         const level = detectLogLevel(line);
         buffer.push({ line, level, timestamp: new Date().toISOString() });

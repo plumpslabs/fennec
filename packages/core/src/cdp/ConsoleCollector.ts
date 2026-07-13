@@ -1,6 +1,6 @@
-import type { BrowserCDPSession } from "../browser/types.js";
-import type { ConsoleEvent } from "../session/types.js";
-import { getLogger } from "../utils/logger.js";
+import type { BrowserCDPSession } from '../browser/types.js';
+import type { ConsoleEvent } from '../session/types.js';
+import { getLogger } from '../utils/logger.js';
 
 type ConsoleCallback = (event: ConsoleEvent) => void;
 
@@ -12,30 +12,78 @@ export class ConsoleCollector {
     if (this.enabled) return;
 
     try {
-      await cdpSession.send("Console.enable");
-      await cdpSession.send("Runtime.enable");
+      await cdpSession.send('Console.enable');
+      await cdpSession.send('Runtime.enable');
 
-      cdpSession.on("Console.messageAdded", (msg: unknown) => {
-        this.handleConsoleEvent(msg as { message: { level: string; text: string; source: string; url?: string; line?: number; stackTrace?: { callFrames: Array<{ functionName: string; url: string; lineNumber: number; columnNumber: number }> } } });
+      cdpSession.on('Console.messageAdded', (msg: unknown) => {
+        this.handleConsoleEvent(
+          msg as {
+            message: {
+              level: string;
+              text: string;
+              source: string;
+              url?: string;
+              line?: number;
+              stackTrace?: {
+                callFrames: Array<{
+                  functionName: string;
+                  url: string;
+                  lineNumber: number;
+                  columnNumber: number;
+                }>;
+              };
+            };
+          },
+        );
       });
 
-      cdpSession.on("Runtime.exceptionThrown", (msg: unknown) => {
-        this.handleExceptionEvent(msg as { exceptionDetails: { text: string; url?: string; lineNumber?: number; stackTrace?: { callFrames: Array<{ functionName: string; url: string; lineNumber: number; columnNumber: number }> } } });
+      cdpSession.on('Runtime.exceptionThrown', (msg: unknown) => {
+        this.handleExceptionEvent(
+          msg as {
+            exceptionDetails: {
+              text: string;
+              url?: string;
+              lineNumber?: number;
+              stackTrace?: {
+                callFrames: Array<{
+                  functionName: string;
+                  url: string;
+                  lineNumber: number;
+                  columnNumber: number;
+                }>;
+              };
+            };
+          },
+        );
       });
 
       this.enabled = true;
     } catch (error) {
-      getLogger().error({ error }, "Failed to enable console collector");
+      getLogger().error({ error }, 'Failed to enable console collector');
     }
   }
 
-  private handleConsoleEvent(msg: { message: { level: string; text: string; source: string; url?: string; line?: number; stackTrace?: { callFrames: Array<{ functionName: string; url: string; lineNumber: number; columnNumber: number }> } } }): void {
+  private handleConsoleEvent(msg: {
+    message: {
+      level: string;
+      text: string;
+      source: string;
+      url?: string;
+      line?: number;
+      stackTrace?: {
+        callFrames: Array<{
+          functionName: string;
+          url: string;
+          lineNumber: number;
+          columnNumber: number;
+        }>;
+      };
+    };
+  }): void {
     const event: ConsoleEvent = {
-      level: msg.message.level as ConsoleEvent["level"],
+      level: msg.message.level as ConsoleEvent['level'],
       message: msg.message.text,
-      source: msg.message.url
-        ? `${msg.message.url}:${msg.message.line ?? 0}`
-        : msg.message.source,
+      source: msg.message.url ? `${msg.message.url}:${msg.message.line ?? 0}` : msg.message.source,
       timestamp: new Date().toISOString(),
     };
 
@@ -48,11 +96,25 @@ export class ConsoleCollector {
     this.emit(event);
   }
 
-  private handleExceptionEvent(msg: { exceptionDetails: { text: string; url?: string; lineNumber?: number; stackTrace?: { callFrames: Array<{ functionName: string; url: string; lineNumber: number; columnNumber: number }> } } }): void {
+  private handleExceptionEvent(msg: {
+    exceptionDetails: {
+      text: string;
+      url?: string;
+      lineNumber?: number;
+      stackTrace?: {
+        callFrames: Array<{
+          functionName: string;
+          url: string;
+          lineNumber: number;
+          columnNumber: number;
+        }>;
+      };
+    };
+  }): void {
     const event: ConsoleEvent = {
-      level: "error",
+      level: 'error',
       message: msg.exceptionDetails.text,
-      source: msg.exceptionDetails.url ?? "unknown",
+      source: msg.exceptionDetails.url ?? 'unknown',
       timestamp: new Date().toISOString(),
     };
 

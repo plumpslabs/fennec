@@ -25,10 +25,10 @@
  * ```
  */
 
-export { PlaywrightEngineFactory } from "./playwright-engine.js";
-export { selectAdapter } from "./AdapterSelector.js";
-export type { AdapterResult, AdapterType } from "./AdapterSelector.js";
-export { createEngine } from "./EngineSelector.js";
+export { PlaywrightEngineFactory } from './playwright-engine.js';
+export { selectAdapter } from './AdapterSelector.js';
+export type { AdapterResult, AdapterType } from './AdapterSelector.js';
+export { createEngine } from './EngineSelector.js';
 export type {
   BrowserEngine,
   BrowserInstance,
@@ -49,4 +49,4 @@ export type {
   ScreenshotOpts,
   LoadEvent,
   EngineFactory,
-} from "./types.js";
+} from './types.js';

@@ -8,8 +8,8 @@
  * (Playwright, Puppeteer, CDP Direct, etc.).
  */
 
-import type { FennecModule, ModuleContext } from "../../module/index.js";
-import type { ToolDefinition } from "../../tools/_registry.js";
+import type { FennecModule, ModuleContext } from '../../module/index.js';
+import type { ToolDefinition } from '../../tools/_registry.js';
 
 // Import all browser tools
 import {
@@ -19,7 +19,7 @@ import {
   browserReload,
   browserGetCurrentUrl,
   browserWaitForNavigation,
-} from "../../tools/navigation/index.js";
+} from '../../tools/navigation/index.js';
 import {
   browserClick,
   browserType,
@@ -31,7 +31,7 @@ import {
   browserClear,
   browserUploadFile,
   browserDragDrop,
-} from "../../tools/interaction/index.js";
+} from '../../tools/interaction/index.js';
 import {
   browserScreenshot,
   browserGetElementText,
@@ -43,14 +43,14 @@ import {
   browserGetPageText,
   browserGetPageTitle,
   browserGetMeta,
-} from "../../tools/dom/index.js";
+} from '../../tools/dom/index.js';
 import {
   devtoolsGetConsoleLogs,
   devtoolsClearConsole,
   devtoolsEvaluate,
   devtoolsGetJsErrors,
   devtoolsWatchConsole,
-} from "../../tools/devtools/console.js";
+} from '../../tools/devtools/console.js';
 import {
   networkGetLogs,
   networkGetFailedRequests,
@@ -62,7 +62,7 @@ import {
   networkWaitForRequest,
   networkGetRequestDetail,
   networkWaitForApiResponse,
-} from "../../tools/devtools/network.js";
+} from '../../tools/devtools/network.js';
 import {
   devtoolsGetPerformanceMetrics,
   devtoolsGetMemoryUsage,
@@ -70,7 +70,7 @@ import {
   devtoolsStartProfiling,
   devtoolsStopProfiling,
   devtoolsSimulateNetwork,
-} from "../../tools/devtools/performance.js";
+} from '../../tools/devtools/performance.js';
 import {
   storageGetLocal,
   storageSetLocal,
@@ -84,7 +84,7 @@ import {
   storageGetIndexedDB,
   storageExportState,
   storageImportState,
-} from "../../tools/storage/index.js";
+} from '../../tools/storage/index.js';
 import {
   authFillLoginForm,
   authSaveSession,
@@ -92,7 +92,7 @@ import {
   authListSessions,
   authDeleteSession,
   authCheckLoggedIn,
-} from "../../tools/auth/index.js";
+} from '../../tools/auth/index.js';
 import {
   tabNew,
   tabClose,
@@ -102,7 +102,7 @@ import {
   contextNew,
   contextClose,
   contextRotate,
-} from "../../tools/tabs/index.js";
+} from '../../tools/tabs/index.js';
 import {
   smartWait,
   smartNavigate,
@@ -115,18 +115,19 @@ import {
   compareSessions,
   testWithState,
   browserGetElementComponent,
-} from "../../tools/smart/index.js";
+} from '../../tools/smart/index.js';
 import {
   diagnosePage,
   diagnoseElement,
   diagnoseNetwork,
   diagnoseAuth,
   diagnosePerformance,
-} from "../../tools/diagnostic/index.js";
+} from '../../tools/diagnostic/index.js';
 
 export const browserModule: FennecModule = {
-  name: "browser",
-  description: "Browser automation and DevTools — navigation, interaction, DOM, console, network, storage, auth, tabs, diagnostic",
+  name: 'browser',
+  description:
+    'Browser automation and DevTools — navigation, interaction, DOM, console, network, storage, auth, tabs, diagnostic',
 
   tools: [
     // Navigation
@@ -231,9 +232,9 @@ export const browserModule: FennecModule = {
     diagnosePerformance,
   ] as ToolDefinition[],
 
-  capabilities: ["browser-automation", "cdp"],
+  capabilities: ['browser-automation', 'cdp'],
 
   initialize: async (context: ModuleContext) => {
-    context.logger.info("Browser module initialized");
+    context.logger.info('Browser module initialized');
   },
 };

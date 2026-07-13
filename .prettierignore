@@ -1,0 +1,8 @@
+node_modules
+dist
+coverage
+.claude
+.agent
+*.log
+pnpm-lock.yaml
+CHANGELOG.md

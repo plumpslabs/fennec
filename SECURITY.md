@@ -2,8 +2,8 @@
 
 ## Supported Versions
 
-| Version | Supported          |
-| ------- | ------------------ |
+| Version | Supported             |
+| ------- | --------------------- |
 | 0.1.x   | ✅ Active development |
 
 ## Reporting a Vulnerability

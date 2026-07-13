@@ -1,8 +1,8 @@
-import { watch, type FSWatcher } from "node:fs";
-import { readFileSync, existsSync, statSync } from "node:fs";
-import { getLogger } from "../utils/logger.js";
-import { detectLogLevel, type LogLevel } from "../utils/levelDetector.js";
-import type { EventBus } from "../correlation/EventBus.js";
+import { watch, type FSWatcher } from 'node:fs';
+import { readFileSync, existsSync, statSync } from 'node:fs';
+import { getLogger } from '../utils/logger.js';
+import { detectLogLevel, type LogLevel } from '../utils/levelDetector.js';
+import type { EventBus } from '../correlation/EventBus.js';
 
 export interface WatcherLogEntry {
   line: string;
@@ -12,7 +12,16 @@ export interface WatcherLogEntry {
 }
 
 export class LogWatcher {
-  private watchers: Map<string, { watcher: FSWatcher; name: string; buffer: WatcherLogEntry[]; filePath: string; fileSize: number }> = new Map();
+  private watchers: Map<
+    string,
+    {
+      watcher: FSWatcher;
+      name: string;
+      buffer: WatcherLogEntry[];
+      filePath: string;
+      fileSize: number;
+    }
+  > = new Map();
   private maxLines: number;
   private eventBus: EventBus | null = null;
 
@@ -38,16 +47,16 @@ export class LogWatcher {
     const fileSize = statSync(resolvedPath).size;
 
     const watcher: FSWatcher = watch(resolvedPath, (eventType) => {
-      if (eventType === "change") {
+      if (eventType === 'change') {
         try {
           const currentSize = statSync(resolvedPath).size;
           const entry = this.watchers.get(watcherId);
           if (!entry) return;
 
           if (currentSize > entry.fileSize) {
-            const fd = readFileSync(resolvedPath, "utf-8");
+            const fd = readFileSync(resolvedPath, 'utf-8');
             const newContent = fd.slice(entry.fileSize);
-            const lines = newContent.split("\n").filter((l) => l.trim());
+            const lines = newContent.split('\n').filter((l) => l.trim());
 
             for (const line of lines) {
               const level = detectLogLevel(line);
@@ -62,8 +71,12 @@ export class LogWatcher {
               }
 
               // Publish error-level log lines to EventBus
-              if (this.eventBus && (level === "error" || /error|Error|ERROR|exception|Exception|FATAL|fatal/.test(line))) {
-                this.eventBus.publish("process:stderr", {
+              if (
+                this.eventBus &&
+                (level === 'error' ||
+                  /error|Error|ERROR|exception|Exception|FATAL|fatal/.test(line))
+              ) {
+                this.eventBus.publish('process:stderr', {
                   line,
                   source: resolvedPath,
                   watcherId,
@@ -87,11 +100,14 @@ export class LogWatcher {
       fileSize,
     });
 
-    getLogger().info({ watcherId, filePath }, "Log watcher started");
+    getLogger().info({ watcherId, filePath }, 'Log watcher started');
     return watcherId;
   }
 
-  getLogs(watcherId: string, options?: { lines?: number; level?: LogLevel; since?: string; keyword?: string }): WatcherLogEntry[] {
+  getLogs(
+    watcherId: string,
+    options?: { lines?: number; level?: LogLevel; since?: string; keyword?: string },
+  ): WatcherLogEntry[] {
     const entry = this.watchers.get(watcherId);
     if (!entry) {
       throw new Error(`Watcher not found: ${watcherId}`);
@@ -118,7 +134,7 @@ export class LogWatcher {
   }
 
   getErrors(watcherId: string, since?: string): WatcherLogEntry[] {
-    return this.getLogs(watcherId, { level: "error", since });
+    return this.getLogs(watcherId, { level: 'error', since });
   }
 
   stop(watcherId: string): boolean {
@@ -127,7 +143,7 @@ export class LogWatcher {
 
     entry.watcher.close();
     this.watchers.delete(watcherId);
-    getLogger().info({ watcherId }, "Log watcher stopped");
+    getLogger().info({ watcherId }, 'Log watcher stopped');
     return true;
   }
 

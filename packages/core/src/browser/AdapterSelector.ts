@@ -16,9 +16,9 @@
  * Detection is lazy — don't check dependencies until session creation.
  */
 
-import { getLogger } from "../utils/logger.js";
+import { getLogger } from '../utils/logger.js';
 
-export type AdapterType = "cdp" | "playwright";
+export type AdapterType = 'cdp' | 'playwright';
 
 export interface AdapterResult {
   adapter: AdapterType;
@@ -32,14 +32,14 @@ export interface AdapterResult {
 async function detectChrome(): Promise<boolean> {
   try {
     // Check if Chrome is already running with remote debugging
-    const resp = await fetch("http://127.0.0.1:9222/json/version").catch(() => null);
+    const resp = await fetch('http://127.0.0.1:9222/json/version').catch(() => null);
     if (resp?.ok) return true;
 
     // Check for Chrome binary using common paths
-    const { execSync } = await import("node:child_process");
+    const { execSync } = await import('node:child_process');
     try {
-      execSync("which google-chrome chromium chromium-browser chrome", {
-        stdio: "ignore",
+      execSync('which google-chrome chromium chromium-browser chrome', {
+        stdio: 'ignore',
         timeout: 2000,
       });
       return true;
@@ -56,7 +56,7 @@ async function detectChrome(): Promise<boolean> {
  */
 async function detectPlaywright(): Promise<boolean> {
   try {
-    await import("playwright");
+    await import('playwright');
     return true;
   } catch {
     return false;
@@ -77,38 +77,41 @@ export async function selectAdapter(
   const logger = getLogger();
 
   switch (adapterConfig) {
-    case "cdp":
-      return { adapter: "cdp", reason: "Config override: CDP" };
+    case 'cdp':
+      return { adapter: 'cdp', reason: 'Config override: CDP' };
 
-    case "playwright":
-      return { adapter: "playwright", reason: "Config override: Playwright" };
+    case 'playwright':
+      return { adapter: 'playwright', reason: 'Config override: Playwright' };
 
-    case "auto":
+    case 'auto':
     default: {
       // If automation needed (click/type/upload), prefer Playwright
       if (needsAutomation) {
         const hasPlaywright = await detectPlaywright();
         if (hasPlaywright) {
-          return { adapter: "playwright", reason: "Automation required, Playwright available" };
+          return { adapter: 'playwright', reason: 'Automation required, Playwright available' };
         }
-        logger.warn("Automation needed but Playwright not installed. CDP has limited automation.");
-        return { adapter: "cdp", reason: "Automation needed, Playwright unavailable — using CDP (limited)" };
+        logger.warn('Automation needed but Playwright not installed. CDP has limited automation.');
+        return {
+          adapter: 'cdp',
+          reason: 'Automation needed, Playwright unavailable — using CDP (limited)',
+        };
       }
 
       // Observation-only: try CDP first for zero-deps lightweight mode
       const hasChrome = await detectChrome();
       if (hasChrome) {
-        return { adapter: "cdp", reason: "Chrome detected, using CDP (zero-dependency)" };
+        return { adapter: 'cdp', reason: 'Chrome detected, using CDP (zero-dependency)' };
       }
 
       // Playwright fallback
       const hasPlaywright = await detectPlaywright();
       if (hasPlaywright) {
-        return { adapter: "playwright", reason: "Chrome not detected, falling back to Playwright" };
+        return { adapter: 'playwright', reason: 'Chrome not detected, falling back to Playwright' };
       }
 
       // Neither available — CDP is the safer bet since it can launch Chrome
-      return { adapter: "cdp", reason: "No browser detected — CDP will attempt to launch Chrome" };
+      return { adapter: 'cdp', reason: 'No browser detected — CDP will attempt to launch Chrome' };
     }
   }
 }

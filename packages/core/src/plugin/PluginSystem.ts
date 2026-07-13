@@ -1,5 +1,5 @@
-import { randomUUID } from "node:crypto";
-import { getLogger } from "../utils/logger.js";
+import { randomUUID } from 'node:crypto';
+import { getLogger } from '../utils/logger.js';
 
 export interface PluginManifest {
   name: string;
@@ -12,15 +12,15 @@ export interface PluginManifest {
 }
 
 export type PluginHookType =
-  | "beforeTool"
-  | "afterTool"  
-  | "onError"
-  | "onSessionCreate"
-  | "onSessionDestroy"
-  | "onServerStart"
-  | "onServerShutdown"
-  | "onWorkflowStep"
-  | "onRecordingAction";
+  | 'beforeTool'
+  | 'afterTool'
+  | 'onError'
+  | 'onSessionCreate'
+  | 'onSessionDestroy'
+  | 'onServerStart'
+  | 'onServerShutdown'
+  | 'onWorkflowStep'
+  | 'onRecordingAction';
 
 export interface PluginAPI {
   logger: typeof getLogger;
@@ -29,7 +29,10 @@ export interface PluginAPI {
   getConfig: (key: string) => unknown;
   setConfig: (key: string, value: unknown) => void;
   publishEvent: (eventType: string, data: Record<string, unknown>) => void;
-  subscribeEvent: (eventType: string, handler: (data: Record<string, unknown>) => void) => () => void;
+  subscribeEvent: (
+    eventType: string,
+    handler: (data: Record<string, unknown>) => void,
+  ) => () => void;
 }
 
 export type HookHandler = (
@@ -50,23 +53,31 @@ type PluginFactory = (api: PluginAPI) => Promise<PluginManifest>;
 
 export class PluginSystem {
   private plugins: Map<string, PluginInstance> = new Map();
-  private hookRegistry: Map<PluginHookType, Array<{ pluginId: string; hookId: string; handler: HookHandler; priority: number }>> = new Map();
+  private hookRegistry: Map<
+    PluginHookType,
+    Array<{ pluginId: string; hookId: string; handler: HookHandler; priority: number }>
+  > = new Map();
   private eventBus: Map<string, Set<(data: Record<string, unknown>) => void>> = new Map();
   private globalConfig: Record<string, unknown> = {};
   private pluginDir: string;
   private eventLog: Array<{ pluginId: string; event: string; timestamp: number }> = [];
 
-  constructor(pluginDir = "./.fennec/plugins") {
+  constructor(pluginDir = './.fennec/plugins') {
     this.pluginDir = pluginDir;
     this.initHookRegistry();
   }
 
   private initHookRegistry(): void {
     const hookTypes: PluginHookType[] = [
-      "beforeTool", "afterTool", "onError",
-      "onSessionCreate", "onSessionDestroy",
-      "onServerStart", "onServerShutdown",
-      "onWorkflowStep", "onRecordingAction",
+      'beforeTool',
+      'afterTool',
+      'onError',
+      'onSessionCreate',
+      'onSessionDestroy',
+      'onServerStart',
+      'onServerShutdown',
+      'onWorkflowStep',
+      'onRecordingAction',
     ];
     for (const type of hookTypes) {
       this.hookRegistry.set(type, []);
@@ -76,7 +87,10 @@ export class PluginSystem {
   /**
    * Register a plugin from a factory function.
    */
-  async register(factory: PluginFactory, config: Record<string, unknown> = {}): Promise<PluginInstance> {
+  async register(
+    factory: PluginFactory,
+    config: Record<string, unknown> = {},
+  ): Promise<PluginInstance> {
     const logger = getLogger();
     const instanceId = `plugin_${randomUUID().slice(0, 8)}`;
 
@@ -97,22 +111,25 @@ export class PluginSystem {
 
     this.plugins.set(instanceId, instance);
 
-    logger.info({ plugin: manifest.name, version: manifest.version }, "Plugin registered");
+    logger.info({ plugin: manifest.name, version: manifest.version }, 'Plugin registered');
     return instance;
   }
 
   /**
    * Load a plugin from disk by path.
    */
-  async loadFromFile(pluginPath: string, config?: Record<string, unknown>): Promise<PluginInstance | null> {
+  async loadFromFile(
+    pluginPath: string,
+    config?: Record<string, unknown>,
+  ): Promise<PluginInstance | null> {
     try {
       const pluginModule = await import(pluginPath);
-      if (typeof pluginModule.default !== "function") {
+      if (typeof pluginModule.default !== 'function') {
         throw new Error(`Plugin at ${pluginPath} must export a default factory function`);
       }
       return await this.register(pluginModule.default, config);
     } catch (error) {
-      getLogger().error({ pluginPath, error }, "Failed to load plugin");
+      getLogger().error({ pluginPath, error }, 'Failed to load plugin');
       return null;
     }
   }
@@ -166,7 +183,7 @@ export class PluginSystem {
     this.removeAllHooks(instanceId);
     this.plugins.delete(instanceId);
 
-    getLogger().info({ plugin: plugin.manifest.name }, "Plugin unregistered");
+    getLogger().info({ plugin: plugin.manifest.name }, 'Plugin unregistered');
     return true;
   }
 
@@ -186,15 +203,18 @@ export class PluginSystem {
 
       try {
         const result = await hook.handler(ctx, plugin.api);
-        if (result && typeof result === "object") {
+        if (result && typeof result === 'object') {
           ctx = { ...ctx, ...result };
         }
       } catch (error) {
-        getLogger().error({
-          plugin: hook.pluginId,
-          hookType,
-          error: String(error),
-        }, "Plugin hook execution failed");
+        getLogger().error(
+          {
+            plugin: hook.pluginId,
+            hookType,
+            error: String(error),
+          },
+          'Plugin hook execution failed',
+        );
       }
     }
 
@@ -245,7 +265,11 @@ export class PluginSystem {
         const handlers = system.eventBus.get(eventType);
         if (handlers) {
           for (const handler of handlers) {
-            try { handler(data); } catch { /* ignore */ }
+            try {
+              handler(data);
+            } catch {
+              /* ignore */
+            }
           }
         }
       },
@@ -255,7 +279,9 @@ export class PluginSystem {
           system.eventBus.set(eventType, new Set());
         }
         system.eventBus.get(eventType)!.add(handler);
-        return () => { system.eventBus.get(eventType)?.delete(handler); };
+        return () => {
+          system.eventBus.get(eventType)?.delete(handler);
+        };
       },
     };
   }

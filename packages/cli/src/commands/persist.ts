@@ -16,38 +16,52 @@
  * `enable` ran (baked into the unit's environment), so it works whatever
  * `FENNEC_DATA_DIR` is set to later.
  */
-import pc from "picocolors";
-import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync, chmodSync } from "node:fs";
-import { resolve, dirname } from "node:path";
-import { homedir, platform } from "node:os";
-import { execFileSync } from "node:child_process";
-import { renderError, renderKV } from "../utils/format.js";
-import { getFennecDir } from "./tracker.js";
+import pc from 'picocolors';
+import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync, chmodSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { homedir, platform } from 'node:os';
+import { execFileSync } from 'node:child_process';
+import { renderError, renderKV } from '../utils/format.js';
+import { getFennecDir } from './tracker.js';
 
-type Backend = "systemd" | "launchd" | "windows" | "unsupported";
+type Backend = 'systemd' | 'launchd' | 'windows' | 'unsupported';
 
 function detectBackend(): Backend {
   const p = platform();
-  if (p === "linux" || p === "freebsd") {
+  if (p === 'linux' || p === 'freebsd') {
     // Only user services are safe/simple here.
-    return "systemd";
+    return 'systemd';
   }
-  if (p === "darwin") return "launchd";
-  if (p === "win32") return "windows";
-  return "unsupported";
+  if (p === 'darwin') return 'launchd';
+  if (p === 'win32') return 'windows';
+  return 'unsupported';
 }
 
 function unitPaths(backend: Backend): { unit: string; extra?: string } {
   const fennecDir = getFennecDir();
   switch (backend) {
-    case "systemd":
-      return { unit: resolve(homedir(), ".config", "systemd", "user", "fennec-supervisor.service") };
-    case "launchd":
-      return { unit: resolve(homedir(), "Library", "LaunchAgents", "io.fennec.supervisor.plist") };
-    case "windows":
-      return { unit: resolve(homedir(), "AppData", "Roaming", "Microsoft", "Windows", "Start Menu", "Programs", "Startup", "fennec-supervisor.bat") };
+    case 'systemd':
+      return {
+        unit: resolve(homedir(), '.config', 'systemd', 'user', 'fennec-supervisor.service'),
+      };
+    case 'launchd':
+      return { unit: resolve(homedir(), 'Library', 'LaunchAgents', 'io.fennec.supervisor.plist') };
+    case 'windows':
+      return {
+        unit: resolve(
+          homedir(),
+          'AppData',
+          'Roaming',
+          'Microsoft',
+          'Windows',
+          'Start Menu',
+          'Programs',
+          'Startup',
+          'fennec-supervisor.bat',
+        ),
+      };
     default:
-      return { unit: resolve(fennecDir, "persist.unit") };
+      return { unit: resolve(fennecDir, 'persist.unit') };
   }
 }
 
@@ -59,10 +73,10 @@ function unitPaths(backend: Backend): { unit: string; extra?: string } {
  */
 function buildUnit(backend: Backend, dataDir: string): string {
   const nodeBin = process.execPath;
-  const cli = process.argv[1] ?? "fennec";
+  const cli = process.argv[1] ?? 'fennec';
   const envLine = `FENNEC_DATA_DIR=${dataDir}`;
 
-  if (backend === "systemd") {
+  if (backend === 'systemd') {
     return `[Unit]
 Description=Fennec process supervisor (auto-restarts managed apps)
 After=network.target
@@ -78,7 +92,7 @@ WantedBy=default.target
 `;
   }
 
-  if (backend === "launchd") {
+  if (backend === 'launchd') {
     return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -115,11 +129,13 @@ set FENNEC_DATA_DIR=${dataDir}
 
 function run(cmd: string, args: string[]): { ok: boolean; out: string } {
   try {
-    const out = execFileSync(cmd, args, { stdio: ["ignore", "pipe", "pipe"] }).toString().trim();
+    const out = execFileSync(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+      .toString()
+      .trim();
     return { ok: true, out };
   } catch (err) {
     const e = err as { stdout?: Buffer; stderr?: Buffer; status?: number };
-    const out = (e.stdout ?? e.stderr ?? Buffer.from("")).toString().trim();
+    const out = (e.stdout ?? e.stderr ?? Buffer.from('')).toString().trim();
     return { ok: false, out };
   }
 }
@@ -137,30 +153,37 @@ export function persistEnabled(backend = detectBackend()): boolean {
  */
 export function ensurePersistEnabled(): boolean {
   const backend = detectBackend();
-  if (backend === "unsupported") return false;
+  if (backend === 'unsupported') return false;
   if (persistEnabled(backend)) return false;
   persistEnable(backend);
   return true;
 }
 
 export async function persistCommand(args: string[]): Promise<void> {
-  const sub = args[0] ?? "status";
+  const sub = args[0] ?? 'status';
   const backend = detectBackend();
 
-  if (backend === "unsupported") {
-    console.error(renderError("Unsupported platform", `Boot persistence isn't available on ${platform()}. You can still run "fennec supervisor start" manually.`));
+  if (backend === 'unsupported') {
+    console.error(
+      renderError(
+        'Unsupported platform',
+        `Boot persistence isn't available on ${platform()}. You can still run "fennec supervisor start" manually.`,
+      ),
+    );
     process.exit(1);
   }
 
   switch (sub) {
-    case "enable":
+    case 'enable':
       return persistEnable(backend);
-    case "disable":
+    case 'disable':
       return persistDisable(backend);
-    case "status":
+    case 'status':
       return persistStatus(backend);
     default:
-      console.error(renderError("Unknown sub-command", `"${sub}" — use: enable | disable | status`));
+      console.error(
+        renderError('Unknown sub-command', `"${sub}" — use: enable | disable | status`),
+      );
       process.exit(1);
   }
 }
@@ -169,86 +192,105 @@ function persistEnable(backend: Backend): void {
   const dataDir = getFennecDir();
   const { unit } = unitPaths(backend);
   mkdirSync(dirname(unit), { recursive: true });
-  writeFileSync(unit, buildUnit(backend, dataDir), "utf-8");
-  if (backend === "windows") {
+  writeFileSync(unit, buildUnit(backend, dataDir), 'utf-8');
+  if (backend === 'windows') {
     // Nothing to register; the script runs at next login.
-    console.error(`\n  ${pc.green("✓")} ${pc.bold("Boot script installed")} ${pc.dim(`(runs at next login)`)}`);
-    console.error(`  ${renderKV("Path", pc.cyan(unit))}`);
-    console.error(`  ${pc.dim("Supervisor will start automatically when you log in.")}\n`);
+    console.error(
+      `\n  ${pc.green('✓')} ${pc.bold('Boot script installed')} ${pc.dim(`(runs at next login)`)}`,
+    );
+    console.error(`  ${renderKV('Path', pc.cyan(unit))}`);
+    console.error(`  ${pc.dim('Supervisor will start automatically when you log in.')}\n`);
     return;
   }
 
-  if (backend === "systemd") {
-    const reg = run("systemctl", ["--user", "enable", "--now", resolve(unit)]);
+  if (backend === 'systemd') {
+    const reg = run('systemctl', ['--user', 'enable', '--now', resolve(unit)]);
     if (!reg.ok) {
       // Fall back to plain enable (some systems can't --now without a running manager)
-      run("systemctl", ["--user", "enable", resolve(unit)]);
+      run('systemctl', ['--user', 'enable', resolve(unit)]);
       // Try to start the daemon directly so it's alive now.
-      run("systemctl", ["--user", "start", "fennec-supervisor.service"]);
+      run('systemctl', ['--user', 'start', 'fennec-supervisor.service']);
     }
     // Always enable lingering so the user service keeps running after logout —
     // otherwise closing the session kills the supervisor (and every app it
     // manages), defeating the whole point of "survive reboot".
-    const linger = run("loginctl", ["enable-linger"]);
+    const linger = run('loginctl', ['enable-linger']);
     if (!linger.ok) {
-      console.error(`  ${pc.yellow("⚠")} ${pc.dim("Could not enable user linger — the supervisor may stop when you log out.")}`);
+      console.error(
+        `  ${pc.yellow('⚠')} ${pc.dim('Could not enable user linger — the supervisor may stop when you log out.')}`,
+      );
     }
-    console.error(`\n  ${pc.green("✓")} ${pc.bold("Boot persistence enabled")} ${pc.dim("(systemd user service)")}`);
-    console.error(`  ${renderKV("Unit", pc.cyan("fennec-supervisor.service"))}`);
-    console.error(`  ${renderKV("Data dir", pc.cyan(dataDir))}`);
-    console.error(`  ${pc.dim("The supervisor (and all --restart apps) will start at login and keep running after logout.")}\n`);
+    console.error(
+      `\n  ${pc.green('✓')} ${pc.bold('Boot persistence enabled')} ${pc.dim('(systemd user service)')}`,
+    );
+    console.error(`  ${renderKV('Unit', pc.cyan('fennec-supervisor.service'))}`);
+    console.error(`  ${renderKV('Data dir', pc.cyan(dataDir))}`);
+    console.error(
+      `  ${pc.dim('The supervisor (and all --restart apps) will start at login and keep running after logout.')}\n`,
+    );
     return;
   }
 
-  if (backend === "launchd") {
-    run("launchctl", ["load", resolve(unit)]);
-    console.error(`\n  ${pc.green("✓")} ${pc.bold("Boot persistence enabled")} ${pc.dim("(launchd agent)")}`);
-    console.error(`  ${renderKV("Label", pc.cyan("io.fennec.supervisor"))}`);
-    console.error(`  ${renderKV("Data dir", pc.cyan(dataDir))}`);
-    console.error(`  ${pc.dim("The supervisor will start at login.")}\n`);
+  if (backend === 'launchd') {
+    run('launchctl', ['load', resolve(unit)]);
+    console.error(
+      `\n  ${pc.green('✓')} ${pc.bold('Boot persistence enabled')} ${pc.dim('(launchd agent)')}`,
+    );
+    console.error(`  ${renderKV('Label', pc.cyan('io.fennec.supervisor'))}`);
+    console.error(`  ${renderKV('Data dir', pc.cyan(dataDir))}`);
+    console.error(`  ${pc.dim('The supervisor will start at login.')}\n`);
     return;
   }
 }
 
 function persistDisable(backend: Backend): void {
   const { unit } = unitPaths(backend);
-  if (backend === "systemd") {
-    run("systemctl", ["--user", "disable", "--now", "fennec-supervisor.service"]);
-  } else if (backend === "launchd") {
-    run("launchctl", ["unload", resolve(unit)]);
+  if (backend === 'systemd') {
+    run('systemctl', ['--user', 'disable', '--now', 'fennec-supervisor.service']);
+  } else if (backend === 'launchd') {
+    run('launchctl', ['unload', resolve(unit)]);
   }
   try {
     if (existsSync(unit)) unlinkSync(unit);
-  } catch { /* best-effort */ }
-  console.error(`\n  ${pc.green("✓")} ${pc.bold("Boot persistence disabled")}\n`);
+  } catch {
+    /* best-effort */
+  }
+  console.error(`\n  ${pc.green('✓')} ${pc.bold('Boot persistence disabled')}\n`);
 }
 
 function persistStatus(backend: Backend): void {
   const { unit } = unitPaths(backend);
   const installed = existsSync(unit);
-  const label = backend === "systemd" ? "fennec-supervisor.service" : backend === "launchd" ? "io.fennec.supervisor" : "fennec-supervisor.bat";
+  const label =
+    backend === 'systemd'
+      ? 'fennec-supervisor.service'
+      : backend === 'launchd'
+        ? 'io.fennec.supervisor'
+        : 'fennec-supervisor.bat';
 
-  console.error(`\n  ${pc.bold("Fennec Boot Persistence")} ${pc.dim(`(${backend})`)}`);
+  console.error(`\n  ${pc.bold('Fennec Boot Persistence')} ${pc.dim(`(${backend})`)}`);
   if (!installed) {
-    console.error(`  ${pc.red("○")} ${pc.dim("not installed — run ")}${pc.cyan("fennec persist enable")}${pc.dim(" to auto-start apps after reboot")}`);
+    console.error(
+      `  ${pc.red('○')} ${pc.dim('not installed — run ')}${pc.cyan('fennec persist enable')}${pc.dim(' to auto-start apps after reboot')}`,
+    );
     console.error();
     return;
   }
 
-  if (backend === "systemd") {
-    const en = run("systemctl", ["--user", "is-enabled", "fennec-supervisor.service"]).out;
-    const ac = run("systemctl", ["--user", "is-active", "fennec-supervisor.service"]).out;
-    console.error(`  ${pc.green("●")} ${pc.bold("installed")}`);
-    console.error(`  ${renderKV("Enabled", en || "?")}`);
-    console.error(`  ${renderKV("Active", ac || "?")}`);
-  } else if (backend === "launchd") {
-    const loaded = run("launchctl", ["list", "io.fennec.supervisor"]).ok;
-    console.error(`  ${pc.green("●")} ${pc.bold("installed")}`);
-    console.error(`  ${renderKV("Loaded", loaded ? pc.green("yes") : pc.red("no"))}`);
+  if (backend === 'systemd') {
+    const en = run('systemctl', ['--user', 'is-enabled', 'fennec-supervisor.service']).out;
+    const ac = run('systemctl', ['--user', 'is-active', 'fennec-supervisor.service']).out;
+    console.error(`  ${pc.green('●')} ${pc.bold('installed')}`);
+    console.error(`  ${renderKV('Enabled', en || '?')}`);
+    console.error(`  ${renderKV('Active', ac || '?')}`);
+  } else if (backend === 'launchd') {
+    const loaded = run('launchctl', ['list', 'io.fennec.supervisor']).ok;
+    console.error(`  ${pc.green('●')} ${pc.bold('installed')}`);
+    console.error(`  ${renderKV('Loaded', loaded ? pc.green('yes') : pc.red('no'))}`);
   } else {
-    console.error(`  ${pc.green("●")} ${pc.bold("installed")} ${pc.dim("(runs at login)")}`);
+    console.error(`  ${pc.green('●')} ${pc.bold('installed')} ${pc.dim('(runs at login)')}`);
   }
-  console.error(`  ${renderKV("Unit", pc.cyan(label))}`);
-  console.error(`  ${renderKV("Path", pc.cyan(unit))}`);
+  console.error(`  ${renderKV('Unit', pc.cyan(label))}`);
+  console.error(`  ${renderKV('Path', pc.cyan(unit))}`);
   console.error();
 }

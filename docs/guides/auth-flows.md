@@ -6,29 +6,29 @@ Fennec makes it easy to handle authentication in your AI-driven browser sessions
 
 ```javascript
 // 1. Navigate to login page
-browser_navigate({ url: "https://app.example.com/login" })
+browser_navigate({ url: 'https://app.example.com/login' });
 
 // 2. Wait for the login form
 browser_wait_for_element({
   selector: 'input[type="email"]',
-  state: "visible"
-})
+  state: 'visible',
+});
 
 // 3. Auto-fill login form
 auth_fill_login_form({
-  username: "user@example.com",
-  password: "securepassword123",
-  submitAfter: true
-})
+  username: 'user@example.com',
+  password: 'securepassword123',
+  submitAfter: true,
+});
 
 // 4. Wait for successful login
 browser_wait_for_navigation({
-  urlPattern: "/dashboard",
-  timeout: 10000
-})
+  urlPattern: '/dashboard',
+  timeout: 10000,
+});
 
 // 5. Verify login state
-auth_check_logged_in()
+auth_check_logged_in();
 // → { loggedIn: true, confidence: 0.95 }
 ```
 
@@ -38,10 +38,10 @@ Save an authenticated session so you don't need to log in again:
 
 ```javascript
 // After successful login:
-auth_save_session({ name: "myapp-prod" })
+auth_save_session({ name: 'myapp-prod' });
 
 // Next conversation — skip login entirely:
-auth_load_session({ name: "myapp-prod" })
+auth_load_session({ name: 'myapp-prod' });
 // → { cookiesLoaded: 8, storageLoaded: 12 }
 ```
 
@@ -51,18 +51,18 @@ Test features that require different user roles:
 
 ```javascript
 // Session 1: Admin user
-auth_save_session({ name: "admin-user" })
+auth_save_session({ name: 'admin-user' });
 
 // Create a new context (isolated session)
-context_new()
-auth_load_session({ name: "admin-user" })
+context_new();
+auth_load_session({ name: 'admin-user' });
 
 // Session 2: Regular user
-auth_save_session({ name: "regular-user" })
+auth_save_session({ name: 'regular-user' });
 
 // Switch contexts
-context_new()
-auth_load_session({ name: "regular-user" })
+context_new();
+auth_load_session({ name: 'regular-user' });
 ```
 
 ## Login Detection
@@ -74,6 +74,7 @@ The `auth_check_logged_in` tool detects authentication state by:
 3. Detecting login/sign-in links
 
 Confidence levels:
+
 - **0.95**: Auth cookie + logout link found
 - **0.70**: Either auth cookie or logout link found
 - **0.30**: No auth indicators detected
@@ -91,14 +92,14 @@ If `auth_fill_login_form` can't find the login form:
 ```javascript
 browser_type({
   selector: 'input[name="email"]',
-  text: "user@example.com",
-  clear: true
-})
+  text: 'user@example.com',
+  clear: true,
+});
 browser_type({
   selector: 'input[name="password"]',
-  text: "securepassword123"
-})
-browser_click({ selector: 'button[type="submit"]' })
+  text: 'securepassword123',
+});
+browser_click({ selector: 'button[type="submit"]' });
 ```
 
 ### Session Not Loading
