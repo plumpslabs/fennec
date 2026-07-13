@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { join } from "node:path";
 import { createTool } from "../_registry.js";
 import { detectFormFields, matchField, fillField, findSubmitButton } from "../smart/index.js";
 
@@ -166,9 +167,10 @@ export const authFillLoginForm = createTool({
 export const authSaveSession = createTool({
   name: "auth_save_session",
   category: "auth",
-  description: "`<use_case>Auth</use_case> 💾 Save the current auth state (cookies + localStorage) to a named session for later reuse. Returns sessionId and savedAt timestamp. Use AFTER successful login to persist the session — next time you can use auth_load_session to restore auth instantly without re-entering credentials. List saved sessions with auth_list_sessions. Delete with auth_delete_session.`",
+  description: "`<use_case>Auth</use_case> 💾 Save the current auth state (cookies + localStorage) to a named session for later reuse. Returns sessionId, savedAt, and filePath (where it was written, e.g. ./.fennec/sessions/<name>.json). Use AFTER successful login to persist the session — next time you can use auth_load_session to restore auth instantly without re-entering credentials. Pass filePath to write to a custom location. List saved sessions with auth_list_sessions. Delete with auth_delete_session.`",
   inputSchema: z.object({
     name: z.string().describe("Session name to save as"),
+    filePath: z.string().optional().describe("Custom path to save the session JSON (defaults to ./.fennec/sessions/<name>.json)"),
     sessionId: z.string().optional().describe("Browser session ID"),
   }),
   handler: async (input, { sessionManager, responseBuilder, sessionStore }) => {
@@ -186,7 +188,7 @@ export const authSaveSession = createTool({
         return items;
       }).catch(() => ({} as Record<string, string>));
 
-      sessionStore.save(input.name, {
+      const payload = {
         cookies: cookies.map((c) => ({
           name: c.name, value: c.value, domain: c.domain, path: c.path,
           httpOnly: c.httpOnly, secure: c.secure, sameSite: c.sameSite,
@@ -194,11 +196,19 @@ export const authSaveSession = createTool({
         localStorage: storage,
         sessionStorage: {},
         origin,
-      });
+      };
+
+      const filePath = input.filePath ?? sessionStore.pathFor(input.name);
+      if (input.filePath) {
+        sessionStore.saveToPath(input.name, payload, input.filePath);
+      } else {
+        sessionStore.save(input.name, payload);
+      }
 
       return responseBuilder.success({
         sessionId: session.id,
         savedAt: new Date().toISOString(),
+        filePath,
       }, sessionManager.buildMeta(session));
     } catch (error) {
       return responseBuilder.error(error);
@@ -209,19 +219,30 @@ export const authSaveSession = createTool({
 export const authLoadSession = createTool({
   name: "auth_load_session",
   category: "auth",
-  description: "`<use_case>Auth</use_case> 🔓 Load a previously saved auth session (from auth_save_session) into the browser. Restores cookies + localStorage + navigates to origin. Returns cookiesLoaded and storageLoaded counts. Use to quickly restore authenticated state without re-logging in. Get available session names from auth_list_sessions. For one-off cookie setting, use storage_set_cookie instead.`",
+  description: "`<use_case>Auth</use_case> 🔓 Load a previously saved auth session (from auth_save_session) into the browser. Restores cookies + localStorage + navigates to origin. Returns cookiesLoaded and storageLoaded counts. Use to quickly restore authenticated state without re-logging in. Pass filePath to load from a specific .json, or name to load from ./.fennec/sessions/<name>.json (auto-discovered). Get available session names from auth_list_sessions. For one-off cookie setting, use storage_set_cookie instead.`",
   inputSchema: z.object({
-    name: z.string().describe("Session name to load"),
+    name: z.string().describe("Session name to load (resolved from ./.fennec/sessions/<name>.json)"),
+    filePath: z.string().optional().describe("Explicit path to the saved session .json file (overrides name)"),
     sessionId: z.string().optional().describe("Browser session ID"),
   }),
   handler: async (input, { sessionManager, responseBuilder, sessionStore }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const saved = sessionStore.load(input.name);
+      let saved = null as ReturnType<typeof sessionStore.load>;
+      if (input.filePath) {
+        saved = sessionStore.loadFromPath(input.filePath);
+      } else {
+        saved = sessionStore.load(input.name);
+        if (!saved) {
+          // Auto-discover in cwd .fennec/sessions
+          const discovered = sessionStore.loadFromPath(join(process.cwd(), ".fennec", "sessions", `${input.name}.json`));
+          if (discovered) saved = discovered;
+        }
+      }
       if (!saved) {
         return responseBuilder.error(
           new Error(`Session not found: ${input.name}`),
-          { code: "SESSION_NOT_FOUND", suggestions: ["Use auth_list_sessions to see available sessions"] },
+          { code: "SESSION_NOT_FOUND", suggestions: ["Use auth_list_sessions to see available sessions", "Pass filePath to load a specific .json"] },
         );
       }
 
@@ -253,12 +274,20 @@ export const authLoadSession = createTool({
 export const authListSessions = createTool({
   name: "auth_list_sessions",
   category: "auth",
-  description: "`<use_case>Auth</use_case> 📋 List all saved auth sessions with their names, origins, and save dates. Returns sessions[] and count. Use to discover available sessions before loading one with auth_load_session or deleting with auth_delete_session. Sessions are persisted on disk, so they survive browser restarts.`",
+  description: "`<use_case>Auth</use_case> 📋 List all saved auth sessions with their names, origins, save dates, and filePath. Also auto-discovers sessions in the cwd ./.fennec/sessions directory. Returns sessions[] and count. Use to discover available sessions before loading one with auth_load_session or deleting with auth_delete_session. Sessions are persisted on disk, so they survive browser restarts.`",
   inputSchema: z.object({}),
   handler: async (input, { responseBuilder, sessionStore }) => {
-    const sessions = sessionStore.list();
+    const byName = new Map<string, { name: string; savedAt: string; origin: string; filePath: string }>();
+    const add = (s: { name: string; savedAt: string; origin: string }, filePath: string) => {
+      if (!byName.has(s.name)) byName.set(s.name, { name: s.name, savedAt: s.savedAt, origin: s.origin, filePath });
+    };
+    for (const s of sessionStore.list()) add(s, sessionStore.pathFor(s.name));
+    for (const s of sessionStore.listFromDir(join(process.cwd(), ".fennec", "sessions"))) {
+      add(s, join(process.cwd(), ".fennec", "sessions", `${s.name}.json`));
+    }
+    const sessions = Array.from(byName.values());
     return responseBuilder.success({
-      sessions: sessions.map((s) => ({ name: s.name, savedAt: s.savedAt, origin: s.origin })),
+      sessions,
       count: sessions.length,
     });
   },

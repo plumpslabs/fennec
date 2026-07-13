@@ -267,7 +267,7 @@ class PlaywrightSession implements BrowserSession {
 
   // ── Screenshot ──
 
-  async screenshot(options?: { fullPage?: boolean; clip?: BoundingBox; type?: "png" | "jpeg" }): Promise<Buffer> {
+  async screenshot(options?: { fullPage?: boolean; clip?: BoundingBox; type?: "png" | "jpeg"; quality?: number }): Promise<Buffer> {
     return this.page.screenshot(options as any);
   }
 
@@ -414,7 +414,7 @@ class PlaywrightPageSession implements BrowserSession {
     return typeof fn === "string" ? this.page.evaluate(fn) : this.page.evaluate(fn as any, ...args);
   }
   locator(selector: string): Locator { return wrapLocator(this.page.locator(selector)); }
-  async screenshot(options?: { fullPage?: boolean; clip?: BoundingBox; type?: "png" | "jpeg" }): Promise<Buffer> {
+  async screenshot(options?: { fullPage?: boolean; clip?: BoundingBox; type?: "png" | "jpeg"; quality?: number }): Promise<Buffer> {
     return this.page.screenshot(options as any);
   }
   async route(urlPattern: string, handler: (route: Route) => Promise<void>): Promise<void> {

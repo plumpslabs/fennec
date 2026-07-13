@@ -94,7 +94,7 @@ export const devtoolsClearConsole = createTool({
 export const devtoolsEvaluate = createTool({
   name: "devtools_evaluate",
   category: "devtools",
-  description: "`<use_case>Code execution</use_case> ⚡ Execute JavaScript code directly in the browser page context. Returns the result and its type. Requires security.allowJSEvaluation to be enabled. Use for advanced DOM manipulation, reading page variables, or calling JS functions that aren't exposed via other tools. Safer alternatives: browser_get_dom_snapshot for DOM, storage_get_local for localStorage.`",
+  description: "`<use_case>Code execution</use_case> ⚡ Execute JavaScript code directly in the browser page context. Returns ok:true with result + type on success, or ok:false with the explicit error message, error name, and FULL stack trace on failure (so you can see exactly where it broke). Requires security.allowJSEvaluation to be enabled. Use for advanced DOM manipulation, reading page variables, or calling JS functions that aren't exposed via other tools. Safer alternatives: browser_get_dom_snapshot for DOM, storage_get_local for localStorage.`",
   inputSchema: z.object({
     expression: z.string().describe("JavaScript expression to evaluate"),
     awaitResult: z.boolean().optional().default(true).describe("Wait for promise resolution"),
@@ -104,7 +104,7 @@ export const devtoolsEvaluate = createTool({
     if (!config.security.allowJSEvaluation) {
       return responseBuilder.error(
         new Error("JavaScript evaluation is disabled in security settings"),
-        { code: "INVALID_INPUT" },
+        { code: "JS_EVAL_DISABLED" },
       );
     }
 
@@ -112,17 +112,20 @@ export const devtoolsEvaluate = createTool({
     try {
       const result = await session.browser.evaluate(input.expression);
       return responseBuilder.success({
+        ok: true,
         result,
         type: typeof result,
       }, sessionManager.buildMeta(session));
     } catch (error) {
-      return responseBuilder.error(error, {
-        code: "INVALID_INPUT",
-        suggestions: [
-          "Check the JavaScript syntax",
-          "Ensure the page supports the APIs being called",
-        ],
-      });
+      const err = error as Error & { name?: string; stack?: string };
+      return responseBuilder.success({
+        ok: false,
+        code: "JS_EVAL_ERROR",
+        error: err?.message ?? String(error),
+        name: err?.name ?? "Error",
+        stack: err?.stack ?? undefined,
+        expression: input.expression,
+      }, sessionManager.buildMeta(session));
     }
   },
 });

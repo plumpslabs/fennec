@@ -182,6 +182,8 @@ export interface ScreenshotOpts {
   fullPage?: boolean;
   clip?: BoundingBox;
   type?: "png" | "jpeg";
+  /** JPEG quality (0-100). Only applies to `jpeg`. Defaults to 50 in takeScreenshot. */
+  quality?: number;
 }
 
 // ─── Network Route ───────────────────────────────────────────────

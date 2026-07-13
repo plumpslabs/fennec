@@ -2,6 +2,22 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.14.0] - 2026-07-13
+
+### Added (MCP tool improvements — token burn & UX)
+- **Screenshot compression by default.** `browser_screenshot` now defaults to **JPEG quality 50** instead of raw PNG, cutting inline base64 ~10x. New `quality` (1-100) and `fullResolution` (forces lossless PNG) inputs.
+- **Screenshot `output: "file_path"`.** Write the image to disk and return only the path — no base64 dumped into the model context. (`browser_screenshot`, `output`, `outputDir`.)
+- **`browser_get_element_text(selector)`.** Cheap text extraction for one element (e.g. a price/status label) via `innerText`; far smaller than a screenshot or DOM dump.
+- **Auth `filePath` + path visibility.** `auth_save_session` now returns `filePath` (`./.fennec/sessions/<name>.json`) and accepts a custom `filePath`; `auth_load_session` accepts `filePath`; `auth_list_sessions` returns each session's `filePath`.
+- **Session auto-discovery.** `auth_list_sessions` also scans `./.fennec/sessions`; `auth_load_session` resolves a name from that dir even if not in the default store.
+- **`network_wait_for_api_response`.** Blocks until the API *response* comes back (not just the request leaving), returning status, headers, parsed body, duration, and size.
+- **Tool token tiers + budget hint.** `tools/list` now tags each tool with `_tokenTier` (low/medium/high) and a `_hint` describing the per-response token budget, so agents prefer cheap state/text tools before screenshots.
+
+### Changed
+- **`network_get_cors_issues`** now excludes OPTIONS preflight noise by default (`excludePreflight`, default true).
+- **`smart_navigate`** returns a structured JSON result (url, title, textPreview, elementCount, availableElements) and only attaches a screenshot when `screenshot: true` is set — no image by default.
+- **`devtools_evaluate`** returns `ok: false` with the explicit error `message`, `name`, and full `stack` on failure (instead of a generic error), so you can see exactly where the script broke.
+
 ## [1.13.9] - 2026-07-11
 
 ### Fixed

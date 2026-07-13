@@ -642,7 +642,11 @@ class CDPBrowserSession implements BrowserSession {
   // ── Screenshot ──
 
   async screenshot(options?: ScreenshotOpts): Promise<Buffer> {
-    const params: Record<string, unknown> = { format: options?.type ?? "png" };
+    const format = options?.type ?? "png";
+    const params: Record<string, unknown> = { format };
+    if (format === "jpeg" && options?.quality != null) {
+      params.quality = options.quality;
+    }
     if (options?.fullPage) {
       // Get full page dimensions
       const { result } = await this.client.send<any>("Runtime.evaluate", {

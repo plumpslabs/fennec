@@ -68,8 +68,9 @@ export const networkGetFailedRequests = createTool({
 export const networkGetCorsIssues = createTool({
   name: "network_get_cors_issues",
   category: "devtools",
-  description: "`<use_case>Network inspector</use_case> 🔒 Detect CORS-related issues from network logs. Returns issues[] with affected URLs, methods, and reason. Use when you see blocked requests in console or cross-origin errors. CORS errors show as status=0 or missing access-control-allow-origin headers.`",
+  description: "`<use_case>Network inspector</use_case> 🔒 Detect REAL CORS-related issues from network logs (preflight OPTIONS noise excluded by default). Returns issues[] with affected URLs, methods, and reason. Use when you see blocked requests in console or cross-origin errors. Genuine CORS failures show as status=0 on a non-preflight request.`",
   inputSchema: z.object({
+    excludePreflight: z.boolean().optional().default(true).describe("Exclude OPTIONS preflight requests from results (they're normal noise, not errors)"),
     sessionId: z.string().optional().describe("Session ID"),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
@@ -78,15 +79,15 @@ export const networkGetCorsIssues = createTool({
     const issues: Array<{ url: string; method: string; reason: string }> = [];
 
     for (const req of session.networkBuffer) {
+      // OPTIONS preflight is normal browser behavior, not a failure.
+      if (input.excludePreflight && req.method.toUpperCase() === "OPTIONS") continue;
+
       if (req.status === 0) {
         issues.push({
           url: req.url,
           method: req.method,
           reason: "Request blocked (status 0) - likely CORS or mixed content",
         });
-      }
-      if (req.responseHeaders?.["access-control-allow-origin"] === undefined && req.status >= 400) {
-        // Potential CORS issue
       }
     }
 
@@ -161,6 +162,75 @@ export const networkWaitForRequest = createTool({
           "Check if the page is making the expected request",
         ],
       });
+    }
+  },
+});
+
+export const networkWaitForApiResponse = createTool({
+  name: "network_wait_for_api_response",
+  category: "devtools",
+  description: "`<use_case>Network inspector</use_case> ⏳ Block until an API RESPONSE comes back (not just the request leaving). Provide a URL pattern and optional HTTP method/status filter. Polls the network buffer and returns the full response: status, headers, body, duration, and size. Use after clicking a button or submitting a form when you need the API result before continuing — unlike network_wait_for_request, this guarantees the response has arrived. Has timeout (default 30s).`",
+  inputSchema: z.object({
+    urlPattern: z.string().describe("URL or pattern to wait for (substring match)"),
+    method: z.string().optional().describe("HTTP method filter (GET, POST, etc.)"),
+    statusMin: z.number().optional().default(200).describe("Minimum acceptable status code (default 200). Set 0 to match even failed/blocked responses."),
+    timeout: z.number().optional().default(30000).describe("Timeout in milliseconds"),
+    sessionId: z.string().optional().describe("Session ID"),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    const start = Date.now();
+    const deadline = start + (input.timeout ?? 30000);
+    const method = input.method?.toUpperCase();
+
+    try {
+      let match: (typeof session.networkBuffer)[number] | undefined;
+      while (Date.now() < deadline) {
+        match = session.networkBuffer.find((r) => {
+          const urlOk = r.url.includes(input.urlPattern);
+          const methodOk = method ? r.method.toUpperCase() === method : true;
+          // status 0 = no response yet (pending/blocked); wait until a real status arrives
+          const statusOk = r.status >= (input.statusMin ?? 0);
+          return urlOk && methodOk && statusOk;
+        });
+        if (match) break;
+        await new Promise((res) => setTimeout(res, 100));
+      }
+
+      if (!match) {
+        return responseBuilder.error(
+          new Error(`No API response matching "${input.urlPattern}" within ${input.timeout}ms`),
+          {
+            code: "RESPONSE_TIMEOUT",
+            suggestions: [
+              "Try broadening the URL pattern",
+              "Check if the expected API call was actually made",
+              "Use network_get_logs to inspect what requests happened",
+            ],
+          },
+        );
+      }
+
+      const body = match.responseBody;
+      let parsed: unknown = undefined;
+      if (body) {
+        try { parsed = JSON.parse(body); } catch { parsed = body; }
+      }
+
+      return responseBuilder.success({
+        url: match.url,
+        method: match.method,
+        status: match.status,
+        statusText: match.statusText,
+        duration: match.duration,
+        responseHeaders: match.responseHeaders,
+        responseBody: parsed,
+        responseBodyRaw: body,
+        responseSize: body ? Buffer.byteLength(body) : 0,
+        elapsed: Date.now() - start,
+      }, sessionManager.buildMeta(session));
+    } catch (error) {
+      return responseBuilder.error(error, { code: "RESPONSE_WAIT_ERROR" });
     }
   },
 });

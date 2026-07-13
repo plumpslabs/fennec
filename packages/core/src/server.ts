@@ -557,6 +557,13 @@ export class FennecServer {
       const selectedCategories = categories?.length ? categories : defaultCategories;
       const tools = this.toolRegistry.getByCategories(selectedCategories);
 
+      // Token tier per tool helps the agent prefer cheap tools before expensive ones.
+      const HIGH_BANDWIDTH = /(screenshot|dom_snapshot|screenshot_diff|screenshot_export|screenshot_annotated)/;
+      const MED_BANDWIDTH = /(network_get_logs|storage_export|console|performance|get_dom|get_accessibility)/;
+      const tokenTier = (name: string): "low" | "medium" | "high" =>
+        HIGH_BANDWIDTH.test(name) ? "high" : MED_BANDWIDTH.test(name) ? "medium" : "low";
+
+      const maxTokens = this.config.tokenBudget.maxResponseTokens ?? 8000;
       return {
         tools: tools.map((t) => {
           const { $schema, ...schema } = zodToJsonSchema(t.inputSchema) as any;
@@ -565,11 +572,14 @@ export class FennecServer {
             description: t.description,
             inputSchema: schema,
             _category: t.category,
+            _tokenTier: tokenTier(t.name),
           };
         }),
         _categories: this.toolRegistry.getCategories(),
         _hint: "Use ?categories=[...] to load specific tool groups. Available categories: " +
-          this.toolRegistry.getCategories().join(", "),
+          this.toolRegistry.getCategories().join(", ") +
+          `. Prefer _tokenTier:"low" tools (text/state-based) before "high" ones (screenshots / DOM dumps). ` +
+          `Each tool response is truncated at ~${maxTokens} tokens.`,
       };
     });
 

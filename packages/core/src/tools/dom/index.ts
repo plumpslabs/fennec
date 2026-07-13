@@ -6,27 +6,85 @@ import { takeScreenshot } from "../../utils/screenshot.js";
 export const browserScreenshot = createTool({
   name: "browser_screenshot",
   category: "dom",
-  description: "`<use_case>DOM/Visual</use_case> 📸 Take a screenshot of the current page. Supports fullPage (scrollable content), selector-scoped (specific element), and png/jpeg format. Returns base64 image, dimensions, timestamp. For annotated screenshots with numbered elements, use browser_screenshot_annotated. For visual diffs, use browser_screenshot_diff.`",
+  description: "`<use_case>DOM/Visual</use_case> 📸 Take a screenshot of the current page. Supports fullPage (scrollable content), selector-scoped (specific element), and png/jpeg format. Defaults to compressed JPEG (quality 50) to minimize token usage when returned inline. Returns base64 image, dimensions, timestamp. Set output:'file_path' to write the image to disk and return only a path (no base64 in context). For annotated screenshots, use browser_screenshot_annotated. For visual diffs, use browser_screenshot_diff.`",
   inputSchema: z.object({
     fullPage: z.boolean().optional().default(false).describe("Capture full page (including scrollable content)"),
     selector: z.string().optional().describe("Element selector to capture (instead of viewport)"),
-    format: z.enum(["png", "jpeg"]).optional().default("png").describe("Image format"),
+    format: z.enum(["png", "jpeg"]).optional().default("jpeg").describe("Image format. Defaults to jpeg (compressed). Use png only when lossless is required."),
+    quality: z.number().min(1).max(100).optional().default(50).describe("JPEG quality (1-100). Lower = smaller, faster. Ignored for png."),
+    fullResolution: z.boolean().optional().default(false).describe("Lossless full-resolution capture (forces png, quality ignored)."),
+    output: z.enum(["base64", "file_path"]).optional().default("base64").describe("Return base64 inline, or write to a file and return the path only (saves tokens)."),
+    outputDir: z.string().optional().describe("Directory for file_path output. Defaults to a temp dir."),
     sessionId: z.string().optional().describe("Session ID"),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
+      const format = input.fullResolution ? "png" : input.format;
       const result = await takeScreenshot(session.browser, {
         fullPage: input.fullPage,
         selector: input.selector,
-        format: input.format,
+        format,
+        quality: input.fullResolution ? undefined : input.quality,
+        output: input.output,
+        outputDir: input.outputDir,
       });
 
-      return responseBuilder.success(result, sessionManager.buildMeta(session));
+      const payload = input.output === "file_path"
+        ? {
+            filePath: result.filePath,
+            width: result.width,
+            height: result.height,
+            contentType: result.contentType,
+            timestamp: result.timestamp,
+          }
+        : result;
+
+      return responseBuilder.success(payload, sessionManager.buildMeta(session));
     } catch (error) {
       return responseBuilder.error(error, {
         code: "CDP_ERROR",
         suggestions: ["Check if the page is still open and accessible"],
+      });
+    }
+  },
+});
+
+export const browserGetElementText = createTool({
+  name: "browser_get_element_text",
+  category: "dom",
+  description: "`<use_case>DOM inspection</use_case> 🔤 Extract the visible text content of a single element matched by selector (element.innerText). Far cheaper than screenshotting or dumping the DOM when you only need the text of one element (e.g. a heading, price, status label). Returns text, charCount, truncated flag. Use includeHidden to also capture textContent.`",
+  inputSchema: z.object({
+    selector: z.string().describe("CSS selector of the element whose text to read"),
+    includeHidden: z.boolean().optional().default(false).describe("Use textContent instead of innerText (includes hidden text)"),
+    maxLength: z.number().optional().default(4000).describe("Max characters to return (longer text is truncated)"),
+    sessionId: z.string().optional().describe("Session ID"),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    try {
+      const result = await session.browser.evaluate(
+        function readText({ selector, includeHidden, maxLength }: { selector: string; includeHidden: boolean; maxLength: number }): { found: boolean; text: string; charCount: number; truncated: boolean } {
+          const el = document.querySelector(selector);
+          if (!el) return { found: false, text: "", charCount: 0, truncated: false };
+          const raw = includeHidden ? el.textContent ?? "" : (el as HTMLElement).innerText ?? "";
+          const text = raw.replace(/\s+/g, " ").trim();
+          const truncated = text.length > maxLength;
+          return {
+            found: true,
+            text: truncated ? text.slice(0, maxLength) + "…" : text,
+            charCount: text.length,
+            truncated,
+          };
+        },
+        { selector: input.selector, includeHidden: input.includeHidden, maxLength: input.maxLength } as never
+      );
+
+      return responseBuilder.success(result, sessionManager.buildMeta(session));
+    } catch (error) {
+      return responseBuilder.error(error, {
+        code: "ELEMENT_NOT_FOUND",
+        suggestions: ["Verify the selector is correct and the element is present on the page"],
       });
     }
   },

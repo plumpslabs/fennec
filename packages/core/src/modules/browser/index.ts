@@ -34,6 +34,7 @@ import {
 } from "../../tools/interaction/index.js";
 import {
   browserScreenshot,
+  browserGetElementText,
   browserGetDomSnapshot,
   browserGetAccessibilityTree,
   browserFindElements,
@@ -60,6 +61,7 @@ import {
   networkMockResponse,
   networkWaitForRequest,
   networkGetRequestDetail,
+  networkWaitForApiResponse,
 } from "../../tools/devtools/network.js";
 import {
   devtoolsGetPerformanceMetrics,
@@ -142,6 +144,7 @@ export const browserModule: FennecModule = {
     browserDragDrop,
     // DOM
     browserScreenshot,
+    browserGetElementText,
     browserGetDomSnapshot,
     browserGetAccessibilityTree,
     browserFindElements,
@@ -166,6 +169,7 @@ export const browserModule: FennecModule = {
     networkMockResponse,
     networkWaitForRequest,
     networkGetRequestDetail,
+    networkWaitForApiResponse,
     // DevTools Performance
     devtoolsGetPerformanceMetrics,
     devtoolsGetMemoryUsage,

@@ -1519,7 +1519,7 @@ export const smartNavigate = createTool({
   name: "smart_navigate",
   category: "smart",
   description:
-    "`<use_case>Smart</use_case> 🚀 Navigate to a URL with smart post-load analysis. After navigation, automatically collects: page title, visible text preview, DOM element snapshot (interactable elements), and element count. Returns url, title, textPreview, elementCount, availableElements[]. Use instead of browser_navigate when you want the AI to automatically understand the new page — saves an extra browser_get_dom_snapshot call.`",
+    "`<use_case>Smart</use_case> 🚀 Navigate to a URL with smart post-load analysis. Returns a STRUCTURED JSON result (no screenshot by default): url, title, textPreview, elementCount, availableElements[]. Use instead of browser_navigate when you want the AI to automatically understand the new page — saves an extra browser_get_dom_snapshot call. Set screenshot:true only if you also need an image.`",
   inputSchema: z.object({
     url: z.string().describe("URL to navigate to"),
     waitUntil: z
@@ -1532,6 +1532,11 @@ export const smartNavigate = createTool({
       .optional()
       .default(30000)
       .describe("Timeout in milliseconds"),
+    screenshot: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe("Include a compressed JPEG screenshot in the result. Off by default to save tokens."),
     sessionId: z.string().optional().describe("Session ID"),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
@@ -1587,16 +1592,20 @@ export const smartNavigate = createTool({
           .catch(() => []),
       ]);
 
-      return responseBuilder.success(
-        {
-          url: page.url(),
-          title,
-          textPreview: pageText.slice(0, 3000),
-          elementCount: domSnapshot.length,
-          availableElements: domSnapshot.slice(0, 30),
-        },
-        sessionManager.buildMeta(session),
-      );
+      const result: Record<string, unknown> = {
+        url: page.url(),
+        title,
+        textPreview: pageText.slice(0, 3000),
+        elementCount: domSnapshot.length,
+        availableElements: domSnapshot.slice(0, 30),
+      };
+
+      if (input.screenshot) {
+        const shot = await takeScreenshot(session.browser, { format: "jpeg", quality: 50 }).catch(() => null);
+        if (shot) result.screenshot = shot.base64;
+      }
+
+      return responseBuilder.success(result, sessionManager.buildMeta(session));
     } catch (error) {
       return responseBuilder.error(error, {
         code: "NAVIGATION_FAILED",
