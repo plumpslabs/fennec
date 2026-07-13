@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { createTool } from "../_registry.js";
 import { PortDetector } from "../../process/PortDetector.js";
-import { readTracked, addTracked, removeTracked, removeTrackedByPid, saveTracked, logPathFor } from "../../process/tracking.js";
-import { isProcessRunning, getProcessCmdline, getProcessCwd } from "../../utils/system-process.js";
+import { readTracked, addTracked, removeTracked, removeTrackedByPid, saveTracked, logPathFor, resolveTargets, resolveArgs, buildSpawnEnv, setGroup, type TrackedEntry } from "../../process/tracking.js";
+import { isProcessRunning, getProcessCmdline, getProcessCwd, killTree, getProcessMemRss } from "../../utils/system-process.js";
 import { detectLogLevel } from "../../utils/levelDetector.js";
 import { existsSync, unlinkSync, renameSync, createWriteStream, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
@@ -28,6 +28,7 @@ export const processSpawn = createTool({
     cwd: z.string().optional().describe("Working directory"),
     env: z.record(z.string(), z.string()).optional().describe("Environment variables"),
     name: z.string().optional().describe("Process name for identification"),
+    group: z.string().optional().describe("Optional group to assign (enables group-scoped bulk ops like process_kill --group)"),
     port: z.number().optional().describe("Port the app listens on. If already occupied by a running process, fennec adopts it instead of spawning a duplicate."),
   }),
   handler: async (input, { config, responseBuilder, processManager }) => {
@@ -54,6 +55,7 @@ export const processSpawn = createTool({
             port: input.port,
             cwd: input.cwd,
             env: input.env,
+            group: input.group,
             startedAt: new Date().toISOString(),
             autoRestart: true,
           });
@@ -92,6 +94,7 @@ export const processSpawn = createTool({
         port: input.port,
         cwd: input.cwd,
         env: input.env,
+        group: input.group,
         startedAt: proc.startedAt.toISOString(),
         autoRestart: true,
       });
@@ -242,9 +245,10 @@ export const processGetStatus = createTool({
   handler: async (input, { responseBuilder, processManager }) => {
     try {
       const status = processManager.getStatus(input.processId);
+      const memKb = status.running ? getProcessMemRss(status.pid) : null;
       return responseBuilder.success({
         running: status.running, pid: status.pid, uptime: status.uptime,
-        memoryMB: null as number | null, cpuPercent: null as number | null,
+        memoryMB: memKb ? Math.round(memKb / 1024) : null, cpuPercent: null as number | null,
       });
     } catch (error) {
       return responseBuilder.error(error, { code: "PROCESS_NOT_FOUND" });
@@ -269,9 +273,12 @@ export const processSendInput = createTool({
 export const processKill = createTool({
   name: "process_kill",
   category: "process",
-  description: "`<use_case>PERMANENTLY removing an app</use_case> Kill an MCP-managed process and REMOVE it from tracked.json (permanent). Supports: SIGTERM (graceful), SIGKILL (force), SIGINT (interrupt). To temporarily stop a process while keeping it in tracked.json for later re-spawn, use process_stop_tracked instead. Requires security.allowProcessKill. Returns: killed (bool).`",
+  description: "`<use_case>PERMANENTLY removing an app</use_case> Kill process(es) and REMOVE them from tracked.json (permanent). Supports: SIGTERM (graceful), SIGKILL (force), SIGINT (interrupt). Kills the ENTIRE process tree (no orphaned children). A SINGLE processId/name, MULTIPLE names (array), a whole --group, or --all (every tracked app) can be killed at once. To temporarily stop a process while keeping it for later re-spawn, use process_stop_tracked instead. Requires security.allowProcessKill. Returns: killed[], notFound[], count.",
   inputSchema: z.object({
-    processId: z.string().describe("Process ID to kill"),
+    processId: z.string().optional().describe("ID/name of ONE process to kill (MCP-managed or tracked)"),
+    names: z.array(z.string()).optional().describe("Names of MULTIPLE tracked processes to kill"),
+    group: z.string().optional().describe("Kill all processes in this group (other groups untouched)"),
+    all: z.boolean().optional().describe("Kill ALL tracked processes (every group)"),
     signal: z.enum(["SIGTERM", "SIGKILL", "SIGINT"]).optional().default("SIGTERM").describe("Signal to send"),
   }),
   handler: async (input, { config, responseBuilder, processManager }) => {
@@ -279,14 +286,39 @@ export const processKill = createTool({
       return responseBuilder.error(new Error("Process killing is disabled"), { code: "INVALID_INPUT" });
     }
     try {
-      const killed = processManager.kill(input.processId, input.signal);
+      const positionals = input.names && input.names.length ? input.names : input.processId ? [input.processId] : [];
+      const args: string[] = [...positionals];
+      if (input.group) args.push("--group", input.group);
+      if (input.all) args.push("--all");
+      const target = resolveTargets(args);
 
-      // Sync to tracked.json — remove by processId name
-      if (killed) {
-        removeTracked(input.processId);
-      }
+      const tracked = readTracked();
+      const killed: { name: string; pid: number }[] = [];
+      const notFound: string[] = [];
 
-      return responseBuilder.success({ killed });
+      const killOne = (nameOrPid: string) => {
+        // Try tracked name first, then a raw PID.
+        let m = tracked.find((t) => t.name === nameOrPid);
+        if (!m && /^\d+$/.test(nameOrPid)) {
+          const pid = parseInt(nameOrPid, 10);
+          m = tracked.find((t) => t.pid === pid);
+        }
+        if (!m) { notFound.push(nameOrPid); return; }
+        if (killTree(m.pid, input.signal ?? "SIGTERM")) {
+          removeTracked(m.name);
+          killed.push({ name: m.name, pid: m.pid });
+        } else {
+          notFound.push(nameOrPid);
+        }
+      };
+
+      if (target.kind === "single") killOne(target.value!);
+      else if (target.kind === "names") target.values!.forEach(killOne);
+      else if (target.kind === "group") tracked.filter((t) => t.group === target.group).forEach((t) => killOne(t.name));
+      else if (target.kind === "all") tracked.forEach((t) => killOne(t.name));
+      else return responseBuilder.error(new Error("Provide processId, names, group, or all"), { code: "INVALID_INPUT" });
+
+      return responseBuilder.success({ killed, notFound, count: killed.length });
     } catch (error) {
       return responseBuilder.error(error, { code: "PROCESS_NOT_FOUND" });
     }
@@ -296,10 +328,12 @@ export const processKill = createTool({
 export const processGetTracked = createTool({
   name: "process_get_tracked",
   category: "process",
-  description: "`<use_case>VIEWING all tracked apps</use_case> Get ALL tracked processes from tracked.json (same as fennec ps). This is the COMPLETE view — unlike process_list which only shows MCP-spawned processes, this includes everything started via CLI (fennec start) AND MCP (process_spawn). Best entry point for checking what apps are running. Returns: name, pid, status (running/stopped), port, command, cwd, uptime, runningCount, summary.`",
-  inputSchema: z.object({}),
+  description: "`<use_case>VIEWING all tracked apps</use_case> Get ALL tracked processes from tracked.json (same as fennec ps). This is the COMPLETE view — unlike process_list which only shows MCP-spawned processes, this includes everything started via CLI (fennec start) AND MCP (process_spawn). Supports an optional `group` filter (only that group) and returns a cross-platform `memMB` (resident RSS) per process. Best entry point for checking what apps are running. Returns: name, pid, status (running/stopped), group, port, command, cwd, memMB, uptime, runningCount, summary.`",
+  inputSchema: z.object({
+    group: z.string().optional().describe("Only return tracked processes in this group"),
+  }),
   handler: async (input, { responseBuilder }) => {
-    const tracked = readTracked();
+    const tracked = readTracked().filter((t) => !input.group || t.group === input.group);
     const processes = tracked.map((t) => {
       const running = isProcessRunning(t.pid);
       const uptime = running
@@ -309,9 +343,11 @@ export const processGetTracked = createTool({
         name: t.name,
         pid: t.pid,
         status: running ? "running" : "stopped",
+        group: t.group ?? null,
         port: t.port ?? null,
         command: t.command,
         cwd: t.cwd ?? null,
+        memMB: running ? (() => { const kb = getProcessMemRss(t.pid); return kb ? Math.round(kb / 1024) : null; })() : null,
         startedAt: t.startedAt,
         uptime,
       };
@@ -323,7 +359,7 @@ export const processGetTracked = createTool({
       processes,
       count: processes.length,
       runningCount,
-      summary: `${runningCount}/${processes.length} processes running`,
+      summary: `${runningCount}/${processes.length} processes running` + (input.group ? ` (group: ${input.group})` : ""),
     });
   },
 });
@@ -335,101 +371,131 @@ export const processGetTracked = createTool({
 export const processStopTracked = createTool({
   name: "process_stop_tracked",
   category: "process",
-  description: "`<use_case>PAUSING an app temporarily</use_case> Stop a tracked process but KEEP it in tracked.json (same as fennec stop). The process can be re-spawned later via process_spawn_tracked. Unlike process_kill which PERMANENTLY removes the entry, this is for temporary pauses. Use this when you want to keep the app config but stop it. Returns: name, status, pid.`",
+  description: "`<use_case>PAUSING an app temporarily</use_case> Stop tracked process(es) but KEEP them in tracked.json (same as fennec stop). The process(es) can be re-spawned later via process_spawn_tracked. Unlike process_kill which PERMANENTLY removes the entry, this is for temporary pauses. Supports a SINGLE name, MULTIPLE names (array), a whole --group, or --all (every tracked app). Stops the ENTIRE process tree so no orphaned children are left. Already-stopped entries are skipped. Returns: stopped[], skipped[] (already stopped), notFound[].",
   inputSchema: z.object({
-    name: z.string().describe("Name of the tracked process to stop"),
+    name: z.string().optional().describe("Name of ONE tracked process to stop"),
+    names: z.array(z.string()).optional().describe("Names of MULTIPLE tracked processes to stop (e.g. ['be-crm','fe-crm'])"),
+    group: z.string().optional().describe("Stop all running processes in this group (other groups untouched)"),
+    all: z.boolean().optional().describe("Stop ALL running tracked processes (every group)"),
+    force: z.boolean().optional().describe("Skip the confirmation-style checks (always stop)"),
   }),
   handler: async (input, { responseBuilder }) => {
+    const positionals = input.names && input.names.length ? input.names : input.name ? [input.name] : [];
+    const args: string[] = [...positionals];
+    if (input.group) args.push("--group", input.group);
+    if (input.all) args.push("--all");
+    const target = resolveTargets(args);
+
     const tracked = readTracked();
-    const match = tracked.find((t) => t.name === input.name);
+    const stopped: { name: string; pid: number }[] = [];
+    const skipped: string[] = [];
+    const notFound: string[] = [];
 
-    if (!match) {
-      return responseBuilder.error(new Error(`No tracked process named "${input.name}"`), {
-        code: "PROCESS_NOT_FOUND", suggestions: ["Use process_get_tracked to see all tracked processes"],
-      });
-    }
+    const stopOne = (name: string) => {
+      const m = tracked.find((t) => t.name === name);
+      if (!m) { notFound.push(name); return; }
+      if (!isProcessRunning(m.pid)) { skipped.push(name); return; }
+      if (killTree(m.pid, "SIGTERM")) stopped.push({ name: m.name, pid: m.pid });
+      else notFound.push(name);
+    };
 
-    if (!isProcessRunning(match.pid)) {
-      return responseBuilder.success({ name: input.name, status: "already_stopped", pid: match.pid });
-    }
+    if (target.kind === "single") stopOne(target.value!);
+    else if (target.kind === "names") target.values!.forEach(stopOne);
+    else if (target.kind === "group") tracked.filter((t) => t.group === target.group).forEach((t) => stopOne(t.name));
+    else if (target.kind === "all") tracked.forEach((t) => stopOne(t.name));
+    else return responseBuilder.error(new Error("Provide name, names, group, or all"), { code: "INVALID_INPUT" });
 
-    try {
-      process.kill(match.pid, "SIGTERM");
-      // Don't remove from tracked.json (unlike process_kill)
-      return responseBuilder.success({ name: input.name, status: "stopped", pid: match.pid });
-    } catch (err) {
-      return responseBuilder.error(err, { code: "KILL_FAILED", suggestions: ["Try with a different signal", "Check permissions"] });
-    }
+    return responseBuilder.success({ stopped, skipped, notFound, count: stopped.length });
   },
 });
 
 export const processSpawnTracked = createTool({
   name: "process_spawn_tracked",
   category: "process",
-  description: "`<use_case>RESUMING a paused app</use_case> Re-spawn a stopped tracked process from its saved command (same as fennec spawn). Use this to RESUME a previously stopped process. For first-time starts, use process_spawn instead. Automatically pipes logs to ~/.fennec/logs/<name>.log. Returns: name, status (spawned), pid, command.`",
+  description: "`<use_case>RESUMING a paused app</use_case> Re-spawn STOPPED tracked process(es) from their saved commands (same as fennec spawn). Use this to RESUME previously stopped processes. Supports a SINGLE name, MULTIPLE names (array), a whole --group, or --all (every stopped tracked app). Already-running entries are skipped (reported as already_running) so you never double-spawn. For first-time starts, use process_spawn instead. Automatically pipes logs to ~/.fennec/logs/<name>.log. Returns: spawned[], skipped[] (already running / no command), notFound[].",
   inputSchema: z.object({
-    name: z.string().describe("Name of the tracked process to re-spawn"),
+    name: z.string().optional().describe("Name of ONE tracked process to re-spawn"),
+    names: z.array(z.string()).optional().describe("Names of MULTIPLE tracked processes to re-spawn"),
+    group: z.string().optional().describe("Re-spawn all stopped processes in this group"),
+    all: z.boolean().optional().describe("Re-spawn ALL stopped tracked processes (every group)"),
   }),
   handler: async (input, { responseBuilder }) => {
+    const positionals = input.names && input.names.length ? input.names : input.name ? [input.name] : [];
+    const args: string[] = [...positionals];
+    if (input.group) args.push("--group", input.group);
+    if (input.all) args.push("--all");
+    const target = resolveTargets(args);
+
     const tracked = readTracked();
-    const match = tracked.find((t) => t.name === input.name);
+    const spawned: { name: string; pid: number; command: string }[] = [];
+    const skipped: { name: string; reason: string }[] = [];
+    const notFound: string[] = [];
 
-    if (!match) {
-      return responseBuilder.error(new Error(`No tracked process named "${input.name}"`), {
-        code: "PROCESS_NOT_FOUND", suggestions: ["Use process_get_tracked to see available processes"],
-      });
+    const spawnOne = (name: string) => {
+      const m = tracked.find((t) => t.name === name);
+      if (!m) { notFound.push(name); return; }
+      if (isProcessRunning(m.pid)) { skipped.push({ name: m.name, reason: "already_running" }); return; }
+      if (!m.command) { skipped.push({ name: m.name, reason: "no_command" }); return; }
+
+      try {
+        const cmdParts = resolveArgs(m);
+        const logFilePath = logPathFor(m.name);
+        const child = spawn(cmdParts[0]!, cmdParts.slice(1), {
+          cwd: m.cwd,
+          env: buildSpawnEnv(m.env),
+          stdio: ["ignore", "pipe", "pipe"],
+          detached: true,
+        });
+        const newPid = child.pid ?? 0;
+        mkdirSync(dirname(logFilePath), { recursive: true });
+        const logStream = createWriteStream(logFilePath, { flags: "a" });
+        if (child.stdout) child.stdout.pipe(logStream);
+        if (child.stderr) child.stderr.pipe(logStream);
+        child.unref();
+        addTracked({
+          name: m.name,
+          pid: newPid,
+          command: m.command,
+          args: m.args,
+          port: m.port,
+          cwd: m.cwd,
+          env: m.env,
+          group: m.group,
+          logMode: m.logMode,
+          startedAt: new Date().toISOString(),
+        });
+        spawned.push({ name: m.name, pid: newPid, command: m.command });
+      } catch (err) {
+        skipped.push({ name: m.name, reason: `spawn_failed: ${err instanceof Error ? err.message : String(err)}` });
+      }
+    };
+
+    if (target.kind === "single") spawnOne(target.value!);
+    else if (target.kind === "names") target.values!.forEach(spawnOne);
+    else if (target.kind === "group") tracked.filter((t) => t.group === target.group).forEach((t) => spawnOne(t.name));
+    else if (target.kind === "all") tracked.forEach((t) => spawnOne(t.name));
+    else return responseBuilder.error(new Error("Provide name, names, group, or all"), { code: "INVALID_INPUT" });
+
+    return responseBuilder.success({ spawned, skipped, notFound, count: spawned.length });
+  },
+});
+
+export const processSetGroup = createTool({
+  name: "process_set_group",
+  category: "process",
+  description: "`<use_case>GROUPING apps</use_case> Assign (or clear) a group for one or more tracked processes so you can later bulk-operate them with --group (process_stop_tracked --group <g>, process_kill --group <g>, process_spawn_tracked --group <g>, process_restart --group <g>). Pass an empty string to REMOVE a process from its group. Returns: updated[], notFound[].",
+  inputSchema: z.object({
+    names: z.array(z.string()).describe("Names of the tracked processes to group"),
+    group: z.string().describe("Group name to assign (empty string \"\" removes the group)"),
+  }),
+  handler: async (input, { responseBuilder }) => {
+    const updated: string[] = [];
+    const notFound: string[] = [];
+    for (const name of input.names) {
+      if (setGroup(name, input.group)) updated.push(name);
+      else notFound.push(name);
     }
-
-    if (isProcessRunning(match.pid)) {
-      return responseBuilder.success({ name: input.name, status: "already_running", pid: match.pid });
-    }
-
-    if (!match.command) {
-      return responseBuilder.error(new Error(`"${input.name}" has no saved command and cannot be re-spawned`), {
-        code: "NO_COMMAND", suggestions: ["Use process_spawn to create a new process instead"],
-      });
-    }
-
-    const cmdParts = match.command.split(/\s+/);
-    const logFilePath = logPathFor(match.name);
-
-    try {
-      const child = spawn(cmdParts[0]!, cmdParts.slice(1), {
-        cwd: match.cwd,
-        env: { ...process.env },
-        stdio: ["ignore", "pipe", "pipe"],
-        detached: true,
-      });
-
-      const newPid = child.pid ?? 0;
-
-      // Pipe logs to file (same as CLI fennec spawn)
-      mkdirSync(dirname(logFilePath), { recursive: true });
-      const logStream = createWriteStream(logFilePath, { flags: "a" });
-      if (child.stdout) child.stdout.pipe(logStream);
-      if (child.stderr) child.stderr.pipe(logStream);
-
-      child.unref();
-
-      // Update tracked.json with new PID
-      addTracked({
-        name: match.name,
-        pid: newPid,
-        command: match.command,
-        port: match.port,
-        cwd: match.cwd,
-        startedAt: new Date().toISOString(),
-      });
-
-      return responseBuilder.success({
-        name: input.name,
-        status: "spawned",
-        pid: newPid,
-        command: match.command,
-      });
-    } catch (err) {
-      return responseBuilder.error(err, { code: "SPAWN_FAILED", suggestions: ["Verify the saved command is valid"] });
-    }
+    return responseBuilder.success({ updated, notFound, count: updated.length });
   },
 });
 
@@ -524,31 +590,77 @@ export const processClearLogs = createTool({
 export const processRestart = createTool({
   name: "process_restart",
   category: "process",
-  description: "`<use_case>RESTARTING an app</use_case> Restart an MCP-managed process by killing and re-spawning it with the same config. Use this to apply changes or recover from errors. For tracked processes (CLI-started), use process_stop_tracked + process_spawn_tracked instead. Returns: processId, pid, startedAt.`",
+  description: "`<use_case>RESTARTING an app</use_case> Restart process(es) by killing and re-spawning them with the same config. Supports a SINGLE processId/name, MULTIPLE names (array), a whole --group, or --all (every tracked app). For MCP-managed processes it re-spawns via the process manager; for CLI-tracked entries it re-spawns from their saved command (same as fennec restart). Use this to apply changes or recover from errors. Returns: restarted[], skipped[], notFound[].",
   inputSchema: z.object({
-    processId: z.string().describe("Process ID to restart"),
+    processId: z.string().optional().describe("ID/name of ONE process to restart (MCP-managed or tracked)"),
+    names: z.array(z.string()).optional().describe("Names of MULTIPLE tracked processes to restart"),
+    group: z.string().optional().describe("Restart all processes in this group (other groups untouched)"),
+    all: z.boolean().optional().describe("Restart ALL tracked processes (every group)"),
   }),
   handler: async (input, { config, responseBuilder, processManager }) => {
     if (!config.security.allowProcessSpawn) {
       return responseBuilder.error(new Error("Process spawning is disabled"), { code: "INVALID_INPUT" });
     }
     try {
-      const newProc = await processManager.restart(input.processId);
+      const positionals = input.names && input.names.length ? input.names : input.processId ? [input.processId] : [];
+      const args: string[] = [...positionals];
+      if (input.group) args.push("--group", input.group);
+      if (input.all) args.push("--all");
+      const target = resolveTargets(args);
 
-      // Sync to tracked.json — update with new PID
-      addTracked({
-        name: newProc.name,
-        pid: newProc.pid,
-        command: newProc.command,
-        cwd: newProc.cwd,
-        startedAt: newProc.startedAt.toISOString(),
-      });
+      const tracked = readTracked();
+      const restarted: { name: string; pid: number }[] = [];
+      const skipped: string[] = [];
+      const notFound: string[] = [];
 
-      return responseBuilder.success({
-        processId: newProc.processId,
-        pid: newProc.pid,
-        startedAt: newProc.startedAt.toISOString(),
-      }, { elapsed: 0, sessionId: "", timestamp: new Date().toISOString() });
+      const restartTracked = (name: string) => {
+        const m = tracked.find((t) => t.name === name);
+        if (!m) { notFound.push(name); return; }
+        if (isProcessRunning(m.pid)) killTree(m.pid, "SIGTERM");
+        if (!m.command) { skipped.push(name); return; }
+        try {
+          const cmdParts = resolveArgs(m);
+          const logFilePath = logPathFor(m.name);
+          const child = spawn(cmdParts[0]!, cmdParts.slice(1), {
+            cwd: m.cwd,
+            env: buildSpawnEnv(m.env),
+            stdio: ["ignore", "pipe", "pipe"],
+            detached: true,
+          });
+          const newPid = child.pid ?? 0;
+          mkdirSync(dirname(logFilePath), { recursive: true });
+          const logStream = createWriteStream(logFilePath, { flags: "a" });
+          if (child.stdout) child.stdout.pipe(logStream);
+          if (child.stderr) child.stderr.pipe(logStream);
+          child.unref();
+          removeTrackedByPid(m.pid);
+          addTracked({
+            name: m.name, pid: newPid, command: m.command, args: m.args,
+            port: m.port, cwd: m.cwd, env: m.env, group: m.group,
+            logMode: m.logMode, startedAt: new Date().toISOString(),
+          });
+          restarted.push({ name: m.name, pid: newPid });
+        } catch {
+          skipped.push(name);
+        }
+      };
+
+      if (target.kind === "single") {
+        const mcp = tracked.find((t) => t.name === target.value);
+        if (mcp && processManager.list().some((p) => p.name === mcp.name)) {
+          const newProc = await processManager.restart(target.value!);
+          addTracked({ name: newProc.name, pid: newProc.pid, command: newProc.command, cwd: newProc.cwd, startedAt: newProc.startedAt.toISOString() });
+          restarted.push({ name: newProc.name, pid: newProc.pid });
+        } else {
+          restartTracked(target.value!);
+        }
+      }
+      else if (target.kind === "names") target.values!.forEach(restartTracked);
+      else if (target.kind === "group") tracked.filter((t) => t.group === target.group).forEach((t) => restartTracked(t.name));
+      else if (target.kind === "all") tracked.forEach((t) => restartTracked(t.name));
+      else return responseBuilder.error(new Error("Provide processId, names, group, or all"), { code: "INVALID_INPUT" });
+
+      return responseBuilder.success({ restarted, skipped, notFound, count: restarted.length });
     } catch (error) {
       return responseBuilder.error(error, { code: "PROCESS_NOT_FOUND", suggestions: ["Use process_list to see available processes"] });
     }

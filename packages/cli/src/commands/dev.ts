@@ -39,7 +39,7 @@ import { readTracked, addTracked, isTrackedRunning, spawnDaemon, buildSpawnEnv, 
 import type { TrackedProcess } from "./tracker.js";
 import { ensureSupervisorRunning } from "./supervisor.js";
 import { ensurePersistEnabled } from "./persist.js";
-import { checkPort } from "../utils/system-process.js";
+import { checkPort, killTree } from "../utils/system-process.js";
 import yaml from "js-yaml";
 
 interface AppConfig {
@@ -141,7 +141,7 @@ async function startApp(app: AppConfig, baseDir: string): Promise<StartResult> {
 
   const wasRunning = !!(existing && isTrackedRunning(existing));
   if (wasRunning) {
-    try { process.kill(existing!.pid, "SIGTERM"); } catch { /* best-effort */ }
+    try { killTree(existing!.pid, "SIGTERM"); } catch { /* best-effort */ }
   }
 
   // Idempotent-by-port: if an EXTERNAL process (e.g. started via raw bash by
@@ -268,7 +268,7 @@ function devDown(): void {
   console.error(`\n  ${symbols.fox} ${pc.bold("fennec dev down")} ${pc.dim(`— stopping ${tracked.length} app(s)`)}`);
   for (const t of tracked) {
     try {
-      if (isTrackedRunning(t)) process.kill(t.pid, "SIGTERM");
+      if (isTrackedRunning(t)) killTree(t.pid, "SIGTERM");
     } catch { /* best-effort */ }
     // Disable auto-restart so the supervisor doesn't revive them.
     t.autoRestart = false;

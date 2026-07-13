@@ -20,6 +20,8 @@ export interface FennecConfig {
   session: {
     maxSessions: number;
     idleTimeoutSecs: number;
+    maxSessionAgeSecs: number;
+    rotationIntervalSecs: number;
     persistPath: string;
   };
   process: {
@@ -103,6 +105,8 @@ export const defaultConfig: FennecConfig = {
   session: {
     maxSessions: 10,
     idleTimeoutSecs: 1800,
+    maxSessionAgeSecs: 0,
+    rotationIntervalSecs: 0,
     persistPath: resolve(STORE_BASE, "sessions"),
   },
   process: {

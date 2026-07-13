@@ -1,6 +1,6 @@
 # Fennec Tool Reference
 
-Fennec provides **118 MCP tools** organized into **15 categories**. Each tool is designed to be consumed by AI agents, with structured input/output and actionable error messages.
+Fennec provides **127 MCP tools** organized into **15 categories**. Each tool is designed to be consumed by AI agents, with structured input/output and actionable error messages.
 
 > 💡 **Token-Efficient**: MCP clients can request specific categories to reduce context window usage. Every tool response also carries a `_tokenTier` (low/medium/high) in `tools/list` so agents prefer cheap tools first. Screenshots default to compressed JPEG and `smart_navigate` returns structured JSON (no image) unless you ask for one.
 
@@ -119,7 +119,7 @@ Authentication: auto-fill login forms, save/load sessions, check auth state.
 | `auth_delete_session` | Delete session |
 | `auth_check_logged_in` | Check login state |
 
-### [Tabs & Contexts](tabs.md) (7 tools)
+### [Tabs & Contexts](tabs.md) (8 tools)
 Multi-tab and multi-context (incognito) management.
 
 | Tool | Description |
@@ -131,19 +131,28 @@ Multi-tab and multi-context (incognito) management.
 | `tab_get_current` | Get current tab info |
 | `context_new` | Create isolated context |
 | `context_close` | Close context |
+| `context_rotate` | Recycle a context (free memory, keep cookies/URL) |
 
-### [Process](process.md) (11 tools)
+### [Process](process.md) (19 tools)
 Spawn, monitor, attach, and manage processes. Works **without browser**.
 
 | Tool | Description |
 |---|---|
-| `process_spawn` | Spawn a process |
-| `process_list` | List managed processes |
-| `process_get_logs` | Get process logs |
-| `process_get_status` | Get process status |
-| `process_send_input` | Send input to process |
-| `process_kill` | Kill a process |
-| `process_restart` | Restart a process |
+| `process_spawn` | Spawn a new process (idempotent; adopts if port busy) |
+| `process_spawn_tracked` | Re-spawn STOPPED tracked app from saved config |
+| `process_get_tracked` | Get ALL tracked processes (CLI + MCP), memMB + group filter |
+| `process_list` | List MCP-managed processes |
+| `process_get_status` | Get process status (cpu/mem) |
+| `process_get_logs` | Get process logs (redacted) |
+| `process_clear_logs` | Delete a process log file |
+| `process_send_input` | Send input to process stdin |
+| `process_stop_tracked` | Stop tracked app(s) but keep in registry (group/multi/all) |
+| `process_kill` | Kill process(es) + remove from registry (group/multi/all) |
+| `process_restart` | Restart process(es) (group/multi/all) |
+| `process_set_group` | Assign/clear a group for bulk ops |
+| `process_rename_tracked` | Rename a tracked process + log file |
+| `process_cleanup_tracked` | Remove dead tracked entries |
+| `process_adopt` | Take control of an already-running process |
 | `process_wait_for_ready` | Wait for ready pattern |
 | `process_run_and_wait` | Run a process and block until it exits |
 | `process_attach_pid` | Attach by PID |
@@ -230,16 +239,16 @@ Multi-step execution planning from natural language goals.
 | DevTools Performance | 6 | ✅ |
 | Storage | 12 | ✅ |
 | Auth | 6 | ⚠️ Partial |
-| Tabs & Contexts | 7 | ✅ |
-| Process | 11 | ❌ |
+| Tabs & Contexts | 8 | ✅ |
+| Process | 19 | ❌ |
 | Terminal | 7 | ❌ |
 | Diagnostic | 6 | ⚠️ Partial |
 | Scheduler | 7 | ❌ |
 | Smart | 12 | ✅ |
 | Planner | 5 | ❌ |
-| **Total** | **118** | **42 without browser** |
+| **Total** | **127** | **50 without browser** |
 
-> **42 tools work without Playwright/browser engines** — process, terminal, storage (basic), scheduler, planner, and partial auth + diagnostic.
+> **50 tools work without Playwright/browser engines** — process, terminal, storage (basic), scheduler, planner, and partial auth + diagnostic.
 
 ---
 

@@ -13,6 +13,7 @@ Tools for managing multiple browser tabs and isolated browser contexts (incognit
 | `tab_get_current` | Get current active tab info: URL, title, readyState | sessionId? |
 | `context_new` | Create a new isolated browser context (separate cookies/storage) | options?, sessionId? |
 | `context_close` | Close a browser context by sessionId | sessionId |
+| `context_rotate` | Recycle a session's BrowserContext (frees memory, keeps cookies/URL) | sessionId |
 
 ## Examples
 
@@ -44,6 +45,7 @@ Each browser context provides isolated storage (cookies, localStorage, IndexedDB
 
 - **`context_new`**: Creates a new browser context with its own storage
 - **`context_close`**: Destroys the context and all its tabs
+- **`context_rotate`**: Recycles a long-lived context in place — frees accumulated DOM/listener/worker/cache memory while preserving cookies/localStorage (via storageState) and reloading the current URL
 - The default context cannot be closed
 
 Use `tab_switch` to change the active tab within the same context. Use `context_new` + `tab_new` for multi-user testing.

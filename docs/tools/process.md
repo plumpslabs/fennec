@@ -6,13 +6,21 @@ Tools for spawning, monitoring, and managing processes. These tools work **witho
 
 | Tool | Description | Parameters |
 |------|-------------|------------|
-| `process_spawn` | Spawn a new process (dev server, build tool, etc.) | command, args?, cwd?, env?, name? |
-| `process_list` | List all managed processes with status | — |
+| `process_spawn` | Spawn a NEW process (dev server, build tool, etc.). Idempotent: adopts an existing process if the port is already served. | command, args?, cwd?, env?, name?, group? |
+| `process_spawn_tracked` | Re-spawn STOPPED tracked app(s) from saved config (CLI `fennec spawn`). Skips already-running entries. | name?, names[], group?, all? |
+| `process_get_tracked` | Get ALL tracked processes (CLI **and** MCP) with live status, `group`, and cross-platform `memMB` (RSS). Optional `group` filter. | group? |
+| `process_list` | List MCP-managed processes with status | — |
+| `process_get_status` | Get process status: running, pid, uptime, cpu %, **memoryMB** | processId |
 | `process_get_logs` | Get logs from a managed process, filterable by level/lines/since. **Secrets are redacted** before returning. | processId, lines?, level?, since? |
-| `process_get_status` | Get process status: running, pid, uptime | processId |
+| `process_clear_logs` | Delete a process log file (free disk); process keeps running | name |
 | `process_send_input` | Send input to a process's stdin | processId, input |
-| `process_kill` | Kill a process (SIGTERM/SIGKILL/SIGINT) | processId, signal? |
-| `process_restart` | Restart a process with same configuration | processId |
+| `process_stop_tracked` | Stop tracked app(s) but KEEP them in the registry for later re-spawn (CLI `fennec stop`). | name?, names[], group?, all? |
+| `process_kill` | Kill process(es) and remove from registry (CLI `fennec kill`). Kills the ENTIRE process tree. Supports a single name/PID, MULTIPLE names, `--group`, or `--all`. | processId?, names[], group?, all?, signal? |
+| `process_restart` | Restart process(es) from saved config. Supports single / MULTIPLE names / `--group` / `--all`. | name?, names[], group?, all? |
+| `process_set_group` | Assign (or clear) a group on one or more tracked processes for scoped bulk ops. | names[], group? |
+| `process_rename_tracked` | Rename a tracked process + its log file | oldName, newName |
+| `process_cleanup_tracked` | Remove dead tracked entries that can't be re-spawned | — |
+| `process_adopt` | Take control of an ALREADY-RUNNING process (no restart) | command?, pid?, port?, name? |
 | `process_wait_for_ready` | Wait for process to output a ready pattern | processId, pattern?, timeout? |
 | `process_attach_pid` | Look up a running process by PID | pid, name? |
 | `process_attach_port` | Look up a process by port number | port, name? |
@@ -54,6 +62,25 @@ const attached = await toolRegistry.call("process_attach_port", {
 });
 // Returns: { processId: "existing-server", pid: N, command: "node", port: 3000 }
 ```
+
+## Bulk ops, groups & memory parity (CLI ↔ core)
+
+The CLI (`fennec start/kill/stop/spawn/restart/ps`) and these MCP tools are kept in
+sync — same behavior, same flags:
+
+- **Multiple names at once** — pass `names: ["be-crm","fe-crm"]` (or space-separated
+  positionals on the CLI) for one-shot bulk ops. Already-running entries are skipped
+  ("already running"); already-stopped ones too ("skipped").
+- **Logical groups** — tag apps with `process_spawn({ group })` / `fennec start --group`,
+  or retroactively with `process_set_group` / `fennec group <name> <g>`. Then scope bulk
+  ops to just that group: `process_kill({ group })`, `process_stop_tracked({ group })`,
+  `process_spawn_tracked({ group })`, `process_restart({ group })`, `fennec ps --group <g>`.
+- **`--all` is GLOBAL** — `process_kill({ all: true })` / `fennec kill --all` hits **every**
+  tracked app across all groups. Grouped `stop --all` is intentionally not supported.
+- **Memory (MEM)** — `process_get_tracked` and `process_get_status` return a cross-platform
+  `memMB` (resident RSS), and `fennec ps` shows a live **MEM** column, so you can spot
+  leaks from long-lived apps. Process-tree kills (POSIX `kill(-pid)` / Windows `taskkill /T /F`)
+  mean no orphaned children are left "nyampah".
 
 ## AI-safe observability
 

@@ -148,10 +148,11 @@ Fennec is both an MCP server **and** a CLI you can use directly in your terminal
 | `fennec ps [options]` | List Fennec-tracked apps with live status. |
 | `fennec status [name]` | System overview + top processes (tracked and system). |
 | `fennec log <name\|pid> [options]` | Show (and follow) logs for a tracked app. |
-| `fennec spawn [name] [--all]` | Re-spawn a stopped tracked app from its saved config. |
-| `fennec stop <name\|--all>` | Stop (pause) a tracked app but keep it in the registry. Add `-y/--yes` to skip the confirmation prompt. |
-| `fennec restart <name\|pid>` | Stop and re-spawn a tracked app from its saved config. |
-| `fennec kill <pid\|name\|all>` | Kill a process and remove it from the registry. Add `-y/--yes` to skip the confirmation prompt. |
+| `fennec spawn [name] [name...] [--all]` | Re-spawn a stopped tracked app from its saved config. Accepts MULTIPLE names at once. |
+| `fennec stop <name\|--all> [name...]` | Stop (pause) a tracked app but keep it in the registry. Accepts MULTIPLE names. Add `-y/--yes` to skip the confirmation prompt. |
+| `fennec restart <name\|pid> [name...]` | Stop and re-spawn a tracked app from its saved config. Accepts MULTIPLE names at once. |
+| `fennec kill <pid\|name\|all> [name...]` | Kill a process and remove it from the registry. Accepts MULTIPLE names at once. Add `-y/--yes` to skip the confirmation prompt. |
+| `fennec group [name] [group]` | Assign a logical group to tracked apps (or list them). `--unset` to clear. |
 | `fennec adopt <pid> [--name <name>] [--port <port>]` | Adopt an externally-started process into Fennec tracking. |
 | `fennec supervisor <start\|stop\|restart\|status>` | Manage the background supervisor that keeps `--restart` apps alive. |
 | `fennec persist <enable\|disable\|status>` | Survive reboots — auto-start tracked apps after login (systemd/launchd/Windows). |
@@ -160,9 +161,11 @@ Fennec is both an MCP server **and** a CLI you can use directly in your terminal
 | `fennec info <name>` | Detailed info for a tracked app. |
 | `fennec rename <old> <new>` | Rename a tracked app. |
 
-**`start` / `run` options:** `--name <name>` (recommended), `--port <port>` (Fennec waits until it accepts connections), `--cwd <dir>`, `--restart` (auto-restart on crash / port-down, survives terminal close), `--jsonl` (structured JSON-lines logs).
+**`start` / `run` options:** `--name <name>` (recommended), `--port <port>` (Fennec waits until it accepts connections), `--cwd <dir>`, `--restart` (auto-restart on crash / port-down, survives terminal close), `--group <group>` (tag for scoped bulk ops), `--jsonl` (structured JSON-lines logs).
 
-**`ps` options:** `-w/--watch` (live refresh), `--system/-a/--all` (include non-Fennec system processes), `--json`, `--name <filter>`, `--sort <cpu|mem|pid|name>`.
+**`ps` options:** `-w/--watch` (live refresh), `--system/-a/--all` (include non-Fennec system processes), `--json`, `--name <filter>`, `--group <g>` (show only apps in group `<g>`), `--sort <cpu|mem|pid|name>`. The `MEM` column shows each running app's resident memory (RSS) cross-platform, so you can spot leaks from long-lived apps.
+
+**Logical groups + bulk (multiple names):** tag apps with `fennec start <cmd> --name <n> --group <g>`, or retroactively with `fennec group <name> <g>` (existing entries too — `fennec group <name> --unset` clears). Then scope bulk ops to just that group: `fennec kill --group <g>`, `fennec stop --group <g>`, `fennec spawn --group <g>`, `fennec restart --group <g>`, `fennec ps --group <g>`. A bare group name as the positional (e.g. `fennec kill <g>`) is also accepted as shorthand. You can ALSO pass MULTIPLE names at once for one-shot bulk ops: `fennec stop be-crm fe-crm`, `fennec kill be-crm fe-crm -y`, `fennec restart be-crm fe-crm -y`, `fennec spawn be-crm fe-crm`. Already-running entries in scope are reported as "already running" (never double-spawned); `--all` still targets **every** tracked app across all groups.
 
 **`log` options:** `-f/--follow`, `--lines N`, `--since 10m|1h|2d`, `--level error|warn|info|debug`, `--json` (bounded, redacted, machine-readable for AI), `--no-redact`, `--clear`.
 
@@ -240,6 +243,28 @@ fennec dev up                 # bring the stack up (skips what's already running
 fennec dev status             # see every app's health
 fennec dev restart web        # restart just one app
 fennec dev down               # stop everything (keeps it in the registry)
+```
+
+### Bulk operations & groups
+
+```bash
+# Tag apps into groups when starting (or retroactively with `fennec group`)
+fennec start "npm run dev-be" --name be-crm --group crm
+fennec start "npm run dev-fe" --name fe-crm --group crm
+
+# One-shot bulk: pass MULTIPLE names at once
+fennec stop  be-crm fe-crm          # pause both, keep them in the registry
+fennec spawn be-crm fe-crm          # re-spawn both paused apps
+fennec kill  be-crm fe-crm -y        # kill + forget both
+fennec restart be-crm fe-crm -y     # restart both from saved config
+
+# Group-scoped bulk: only that group is touched (other groups safe)
+fennec kill  --group crm -y
+fennec stop  --group crm
+fennec ps --group crm               # MEM column shows each app's live RSS
+
+# Global: --all still hits EVERY tracked app across all groups
+fennec stop --all
 ```
 
 ### Adopt a process an AI agent started via raw bash
@@ -378,6 +403,18 @@ FENNEC_BROWSER_TYPE=webkit fennec start
 - [Configuration Reference](https://github.com/plumpslabs/fennec/blob/main/docs/configuration.md)
 - [Security Model](https://github.com/plumpslabs/fennec/blob/main/docs/security-model.md)
 - [GitHub Repository](https://github.com/plumpslabs/fennec)
+
+## Memory & Garbage Safety
+
+Fennec is built to **not** leak memory or orphan processes on your machine:
+
+- 🌳 **Process-tree kills** — `stop`/`kill`/`spawn`/`restart` tear down the *entire* process tree (npm → vite → esbuild on POSIX; `taskkill /T /F` on Windows), so no orphaned children are left "nyampah".
+- 🧹 **Browser contexts are fully torn down** on session destroy (page **and** its `BrowserContext` — cookies, cache, service workers), not just the page.
+- ⏳ **Idle-session GC** runs on a timer (not only when the session cap is hit): idle sessions and over-TTL sessions are destroyed automatically.
+- 📑 **Tab caps** — opening many tabs (`tab_new` / `context_new`) auto-closes the oldest non-active page so contexts can't accumulate.
+- ♻️ **Context rotation** — long-lived contexts are periodically recycled (`config.session.rotationIntervalSecs`, default 0 = off). The old `BrowserContext` is closed and a fresh one built with your cookies/localStorage preserved (via storageState) and the current URL reloaded, so a session that's open for hours can't grow unbounded in DOM/listeners/workers. Trigger on demand with the `context_rotate` tool too.
+- 🪵 **Bounded logs** — app logs are rotated (10 MB × 3 files) so disk never fills.
+- 🔌 **Graceful shutdown** — `SIGTERM`/`SIGINT` closes the browser and all tracked daemons; `ps` even shows a live **MEM** (RSS) column so you can spot leaks.
 
 ## License
 

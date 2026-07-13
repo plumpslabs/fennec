@@ -11,7 +11,7 @@ import { FennecServer } from "@plumpslabs/fennec-core";
 import pc from "picocolors";
 import { printBanner } from "../utils/banner.js";
 import { symbols, renderKV, renderAppName, renderError, divider, createSpinner } from "../utils/format.js";
-import { readTracked, addTracked, removeTracked, spawnDaemon, resolveArgs, isTrackedRunning, buildSpawnEnv, logFilePathFor, adoptExternalOnPort } from "./tracker.js";
+import { readTracked, addTracked, removeTracked, spawnDaemon, resolveArgs, isTrackedRunning, buildSpawnEnv, logFilePathFor, adoptExternalOnPort, extractFlagValue } from "./tracker.js";
 import { ensureSupervisorRunning } from "./supervisor.js";
 import { ensurePersistEnabled } from "./persist.js";
 import { isProcessRunning, checkPort } from "../utils/system-process.js";
@@ -112,6 +112,7 @@ export async function runCommand(args: string[]): Promise<void> {
   const cwd = cwdIndex !== -1 ? resolve(args[cwdIndex + 1]!) : process.cwd();
   const restartFlag = args.includes("--restart");
   const jsonlFlag = args.includes("--jsonl");
+  const group = extractFlagValue(args, "--group", "-g");
 
   const stopFlags = [nameIndex, portIndex, cwdIndex].filter((i) => i !== -1) as number[];
   const cmdEnd = Math.min(...stopFlags, Infinity);
@@ -159,6 +160,7 @@ export async function runCommand(args: string[]): Promise<void> {
   if (port) console.error(`  ${renderKV("Port", String(port))}`);
   if (cwd) console.error(`  ${renderKV("Directory", cwd)}`);
   if (restartFlag) console.error(`  ${renderKV("Auto-restart", pc.green("enabled"))}`);
+  if (group) console.error(`  ${renderKV("Group", group)}`);
   console.error(`  ${divider()}`);
 
   try {
@@ -185,6 +187,7 @@ export async function runCommand(args: string[]): Promise<void> {
       startedAt: new Date().toISOString(),
       autoRestart: restartFlag,
       logMode: jsonlFlag ? "jsonl" : "text",
+      group,
     });
 
     console.error(`  ${pc.green("✓")} ${pc.bold(appName)} ${pc.dim(`started (PID: ${pid})`)}`);

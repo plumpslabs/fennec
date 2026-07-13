@@ -158,7 +158,7 @@ class PlaywrightInstance implements BrowserInstance {
     });
     const page = await context.newPage();
     const cdpSession = await context.newCDPSession(page);
-    return new PlaywrightSession(generateSessionId(), this.type, page, context, cdpSession);
+    return new PlaywrightSession(generateSessionId(), this.type, page, context, cdpSession, this.browser, options);
   }
 
   async close(): Promise<void> {
@@ -174,13 +174,17 @@ class PlaywrightSession implements BrowserSession {
   private page: Page;
   private context: BrowserContext;
   private cdpSession: CDPSession;
+  private parent: Browser;
+  private options?: BrowserSessionOptions;
 
-  constructor(id: string, type: BrowserType, page: Page, context: BrowserContext, cdpSession: CDPSession) {
+  constructor(id: string, type: BrowserType, page: Page, context: BrowserContext, cdpSession: CDPSession, parent: Browser, options?: BrowserSessionOptions) {
     this.id = id;
     this.type = type;
     this.page = page;
     this.context = context;
     this.cdpSession = cdpSession;
+    this.parent = parent;
+    this.options = options;
   }
 
   // ── Navigation ──
@@ -209,7 +213,14 @@ class PlaywrightSession implements BrowserSession {
   async readyState(): Promise<string> { return this.page.evaluate(() => document.readyState); }
   viewportSize(): { width: number; height: number } | null { return this.page.viewportSize() ?? null; }
   isClosed(): boolean { return this.page.isClosed(); }
-  async close(): Promise<void> { await this.page.close(); }
+  async close(): Promise<void> {
+    // Close the PAGE *and* its BrowserContext. Closing only the page
+    // leaks the context (cookies, cache, service workers, network
+    // state) — over many sessions that's exactly the "nyampah" memory
+    // growth we want to avoid. The whole context must be torn down.
+    await this.page.close().catch(() => {});
+    await this.context.close().catch(() => {});
+  }
   async bringToFront(): Promise<void> { await this.page.bringToFront(); }
 
   // ── Element Discovery ──
@@ -303,6 +314,29 @@ class PlaywrightSession implements BrowserSession {
 
   // ── Context-level operations ──
 
+  async rotateContext(): Promise<void> {
+    // Tear down the current context and build a fresh one. This frees the
+    // memory accumulated in a long-lived context (DOM, listeners, network
+    // state, service workers) without losing the logged-in session — cookies
+    // and localStorage are preserved via storageState.
+    const storageState = await this.context.storageState().catch(() => null);
+    await this.page.close().catch(() => {});
+    await this.context.close().catch(() => {});
+
+    const newContext = await this.parent.newContext({
+      ...(storageState ? { storageState } : {}),
+      viewport: this.options?.viewport,
+      locale: this.options?.locale,
+      timezoneId: this.options?.timezoneId,
+      userAgent: this.options?.userAgent,
+    });
+    const newPage = await newContext.newPage();
+    const newCdp = await newContext.newCDPSession(newPage);
+    this.context = newContext;
+    this.page = newPage;
+    this.cdpSession = newCdp;
+  }
+
   async contextCookies(): Promise<import("./types.js").Cookie[]> {
     const cookies = await this.context.cookies();
     return cookies.map((c) => ({
@@ -320,9 +354,18 @@ class PlaywrightSession implements BrowserSession {
   async contextClearCookies(): Promise<void> { await this.context.clearCookies(); }
 
   async contextNewPage(): Promise<BrowserSession> {
+    // Cap open pages per context so `tab_new` / repeated navigations
+    // can't accumulate untracked pages ("nyampah"). When at the cap,
+    // close the oldest non-active page first.
+    const MAX_PAGES_PER_CONTEXT = 20;
+    const pages = this.context.pages();
+    if (pages.length >= MAX_PAGES_PER_CONTEXT) {
+      const oldest = pages.find((p) => p !== this.page);
+      if (oldest) await oldest.close().catch(() => {});
+    }
     const newPage = await this.context.newPage();
     const newCdp = await this.context.newCDPSession(newPage);
-    return new PlaywrightSession(generateSessionId(), this.type, newPage, this.context, newCdp);
+    return new PlaywrightSession(generateSessionId(), this.type, newPage, this.context, newCdp, this.parent, this.options);
   }
 
   contextPages(): BrowserSession[] {
@@ -378,6 +421,10 @@ class PlaywrightPageSession implements BrowserSession {
   isClosed(): boolean { return this.page.isClosed(); }
   async close(): Promise<void> { await this.page.close(); }
   async bringToFront(): Promise<void> { await this.page.bringToFront(); }
+  async rotateContext(): Promise<void> {
+    // A page-session shares its parent PlaywrightSession's context. Rotation
+    // is performed on the owning session; nothing to do here.
+  }
   async $(selector: string): Promise<ElementHandle | null> {
     const el = await this.page.$(selector);
     return el ? wrapElementHandle(el) : null;
@@ -446,12 +493,14 @@ class PlaywrightPageSession implements BrowserSession {
       expires: c.expires,
     }));
   }
-  async contextAddCookies(cookies: CookieInput[]): Promise<void> { await this.context.addCookies(cookies as any); }
+  async contextAddCookies(cookies: CookieInput[]): Promise<void> {
+    await this.context.addCookies(cookies as any);
+  }
   async contextClearCookies(): Promise<void> { await this.context.clearCookies(); }
   async contextNewPage(): Promise<BrowserSession> {
     const newPage = await this.context.newPage();
     const newCdp = await this.context.newCDPSession(newPage);
-    return new PlaywrightSession(generateSessionId(), this.type, newPage, this.context, newCdp);
+    return new PlaywrightPageSession(newPage, this.context, newCdp, this.type);
   }
   contextPages(): BrowserSession[] {
     return this.context.pages().map((p) => new PlaywrightPageSession(p, this.context, this.cdpSession, this.type));

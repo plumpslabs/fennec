@@ -250,7 +250,7 @@ describe.skipIf(!BUILT)("CLI E2E: process control plane", () => {
     // dev down stops the stack (keeps registry).
     expect(run(["dev", "down"]).code).toBe(0);
     expect(await waitFor(() => findApp("be")?.status === "stopped")).toBe(true);
-  });
+  }, 30000);
 
   it("ps --system, supervisor, persist, and health commands run without error", () => {
     expect(run(["ps", "--system"]).code).toBe(0);

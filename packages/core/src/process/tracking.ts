@@ -28,6 +28,10 @@ export interface TrackedEntry {
   startedAt: string;
   /** When true, the supervisor daemon auto-restarts this app if it dies. */
   autoRestart?: boolean;
+  /** Optional group this entry belongs to (enables group-scoped bulk ops). */
+  group?: string;
+  /** Log capture mode (mirrors CLI). */
+  logMode?: "text" | "json";
 }
 
 export function getTrackedPath(): string {
@@ -83,3 +87,77 @@ export function removeTrackedByPid(pid: number): void {
   const tracked = readTracked();
   saveTracked(tracked.filter((t) => t.pid !== pid));
 }
+
+// ─── Group + multi-target resolution (CLI parity) ───────────────
+// Lets MCP tools do `process_kill --group backend`, `process_stop_tracked
+// be-crm fe-crm`, `process_spawn_tracked --all`, etc. — the same bulk
+// operations the CLI now supports.
+
+export type Target =
+  | { kind: "single"; value: string }
+  | { kind: "names"; values: string[] }
+  | { kind: "group"; group: string }
+  | { kind: "all" }
+  | { kind: "none" };
+
+/** Extract a flag's value from an args array (e.g. --group backend). */
+export function extractFlagValue(args: string[], flag: string, alias?: string): string | undefined {
+  const idx = args.findIndex((a) => a === flag || (alias && a === alias));
+  if (idx === -1) return undefined;
+  return args[idx + 1];
+}
+
+/** List all distinct group names currently in tracked.json. */
+export function getGroups(): string[] {
+  const tracked = readTracked();
+  const groups = new Set<string>();
+  for (const t of tracked) if (t.group) groups.add(t.group);
+  return [...groups];
+}
+
+/**
+ * Resolve a list of positional args (+ flags) into a single/multi/group/all
+ * target. Mirrors the CLI's `resolveTargets`.
+ *
+ *   kill be-crm fe-crm      -> { kind: "names", values: [...] }
+ *   kill --group backend     -> { kind: "group", group: "backend" }
+ *   kill --all / -a         -> { kind: "all" }
+ *   kill web                -> { kind: "single", value: "web" }
+ */
+export function resolveTargets(args: string[]): Target {
+  const groupFlag = extractFlagValue(args, "--group", "-g");
+  if (groupFlag) return { kind: "group", group: groupFlag };
+
+  const allFlag = args.includes("--all") || args.includes("-a");
+  if (allFlag) return { kind: "all" };
+
+  const positionals = args.filter((a) => !a.startsWith("-") && a !== "all");
+  if (positionals.length > 1) return { kind: "names", values: positionals };
+  if (positionals.length === 1) return { kind: "single", value: positionals[0]! };
+
+  return { kind: "none" };
+}
+
+/** Rebuild the argv for re-spawning a tracked entry (mirrors CLI). */
+export function resolveArgs(proc: TrackedEntry): string[] {
+  if (proc.args && proc.args.length > 0) return [...proc.args];
+  if (proc.command) return proc.command.split(/\s+/);
+  return [proc.name];
+}
+
+/** Re-apply captured env on re-spawn so the app keeps its variables. */
+export function buildSpawnEnv(env?: Record<string, string>): Record<string, string> {
+  return { ...(process.env as Record<string, string>), ...(env ?? {}) };
+}
+
+/** Assign a group to an existing tracked entry (or remove by passing group:""). */
+export function setGroup(name: string, group: string): boolean {
+  const tracked = readTracked();
+  const match = tracked.find((t) => t.name === name);
+  if (!match) return false;
+  if (group) match.group = group;
+  else delete match.group;
+  saveTracked(tracked);
+  return true;
+}
+

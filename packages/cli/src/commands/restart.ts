@@ -1,36 +1,55 @@
 /**
- * Command: restart — Kill and re-spawn a tracked process from tracked.json config.
- * Fixed: now actually re-spawns (instead of just killing + suggesting manual re-run).
+ * Command: restart — Stop and re-spawn a tracked app from its saved config.
+ * Supports a single name/pid, MULTIPLE names (`restart a b c`), or a
+ * group (`--group <g>`). Unlike `fennec kill` (permanent), restart
+ * re-spawns from saved config.
  */
 import pc from "picocolors";
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
-import { homedir } from "node:os";
 import { renderError, renderCommand, createSpinner, confirmPrompt } from "../utils/format.js";
-import { killProcess as sysKill, isProcessRunning } from "../utils/system-process.js";
-import { readTracked, addTracked, removeTrackedByPid, spawnDaemon, resolveArgs, buildSpawnEnv } from "./tracker.js";
+import { killTree as sysKill, isProcessRunning } from "../utils/system-process.js";
+import { readTracked, addTracked, removeTrackedByPid, spawnDaemon, resolveArgs, buildSpawnEnv, extractFlagValue, getGroups, resolveTargets, logFilePathFor, type TrackedProcess } from "./tracker.js";
 
 export async function restartCommand(args: string[]): Promise<void> {
-  const raw = args[0];
-  if (!raw) { console.error(renderError("Missing process name/pid", "Usage: fennec restart <name|pid> [-y]")); process.exit(1); }
+  const force = args.includes("-y") || args.includes("--yes");
+  const target = resolveTargets(args);
 
+  if (target.kind === "group") {
+    await restartGroup(target.group!, force);
+    return;
+  }
+  if (target.kind === "names") {
+    for (const n of target.values!) await restartOne(n, force, true);
+    return;
+  }
+  if (target.kind === "single") {
+    await restartOne(target.value!, force, false);
+    return;
+  }
+
+  console.error(renderError("Missing process name/pid", "Usage: fennec restart <name|pid> [-y] [--group <group>]"));
+  process.exit(1);
+}
+
+/**
+ * Restart ONE target (resolved by tracked name OR tracked PID). In `multi`
+ * mode, failures print an error and return (instead of exiting) so the
+ * rest of the batch can still be processed.
+ */
+async function restartOne(raw: string, force: boolean, multi: boolean): Promise<void> {
   const tracked = readTracked();
   const pidNum = parseInt(raw, 10);
-  // Resolve by tracked name OR by a tracked PID. Intentionally NOT falling back
-  // to a system-wide name search — restart is only meaningful for Fennec-tracked
-  // apps (it re-spawns from saved config). Killing arbitrary system processes by
-  // name here would be a footgun (see the kill -all incident).
   const trackedEntry =
     tracked.find((t) => t.name === raw) ??
     (!isNaN(pidNum) && String(pidNum) === raw ? tracked.find((t) => t.pid === pidNum) : undefined);
 
   if (!trackedEntry) {
-    console.error(renderError("Not tracked", `No tracked process named or with PID "${raw}".\nfennec restart only re-spawns Fennec-tracked apps (from their saved config).`));
+    const msg = `No tracked process named or with PID "${raw}".\nfennec restart only re-spawns Fennec-tracked apps (from their saved config).`;
+    if (multi) { console.error(renderError("Not tracked", msg)); return; }
+    console.error(renderError("Not tracked", msg));
     process.exit(1);
   }
 
   const targetPid = trackedEntry.pid;
-  const force = args.includes("-y") || args.includes("--yes");
   const confirmed = force || (await confirmPrompt(`Restart ${pc.bold(`${trackedEntry.name} (PID ${targetPid})`)}?`, false));
   if (!confirmed) { console.error(`  ${pc.dim("Cancelled")}`); return; }
 
@@ -50,13 +69,10 @@ export async function restartCommand(args: string[]): Promise<void> {
   const respawnSpinner = createSpinner(`Re-spawning ${trackedEntry.name}...`);
   try {
     const cmdParts = resolveArgs(trackedEntry);
-    const logDir = resolve(homedir(), ".fennec", "logs");
-    mkdirSync(logDir, { recursive: true });
-    const logFilePath = resolve(logDir, `${trackedEntry.name}.log`);
+    const logFilePath = logFilePathFor(trackedEntry.name);
 
     const child = spawnDaemon({ cmdParts, name: trackedEntry.name, cwd: trackedEntry.cwd, logFilePath, env: buildSpawnEnv(trackedEntry.env), logMode: trackedEntry.logMode });
 
-    // Remove old PID entry, add new one (only after successful spawn)
     removeTrackedByPid(targetPid);
     addTracked({
       name: trackedEntry.name,
@@ -75,5 +91,45 @@ export async function restartCommand(args: string[]): Promise<void> {
   } catch (error) {
     respawnSpinner.fail(`Failed to re-spawn ${trackedEntry.name}: ${String(error)}`);
     console.error(`  ${pc.dim("Config preserved. Re-run manually:")} ${renderCommand(trackedEntry.command)}`);
+  }
+}
+
+async function restartGroup(group: string, force: boolean): Promise<void> {
+  const tracked = readTracked();
+  const inGroup = tracked.filter((t) => t.group === group);
+  if (inGroup.length === 0) {
+    console.error(renderError("Empty group", `No tracked entries in group "${group}".\nKnown groups: ${pc.cyan(getGroups().join(", ") || "(none)")}`));
+    process.exit(1);
+  }
+
+  const confirmed = force || (await confirmPrompt(`Restart ${pc.bold(`${inGroup.length}`)} process(es) in group ${pc.cyan(group)}?`, false));
+  if (!confirmed) { console.error(`  ${pc.dim("Cancelled")}`); return; }
+
+  for (const trackedEntry of inGroup) {
+    const spinner = createSpinner(`Restarting ${trackedEntry.name}...`);
+    try {
+      const cmdParts = resolveArgs(trackedEntry);
+      const logFilePath = logFilePathFor(trackedEntry.name);
+
+      const child = spawnDaemon({ cmdParts, name: trackedEntry.name, cwd: trackedEntry.cwd, logFilePath, env: buildSpawnEnv(trackedEntry.env), logMode: trackedEntry.logMode });
+
+      removeTrackedByPid(trackedEntry.pid);
+      addTracked({
+        name: trackedEntry.name,
+        pid: child.pid ?? 0,
+        command: trackedEntry.command,
+        args: cmdParts,
+        port: trackedEntry.port,
+        cwd: trackedEntry.cwd,
+        env: trackedEntry.env,
+        startedAt: new Date().toISOString(),
+        autoRestart: trackedEntry.autoRestart,
+        logMode: trackedEntry.logMode,
+      });
+      spinner.succeed(`${trackedEntry.name} restarted (PID: ${child.pid})`);
+    } catch (error) {
+      spinner.fail(`Failed to re-spawn ${trackedEntry.name}: ${String(error)}`);
+      console.error(`  ${pc.dim("Config preserved. Re-run manually:")} ${renderCommand(trackedEntry.command)}`);
+    }
   }
 }

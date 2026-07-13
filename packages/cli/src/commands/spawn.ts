@@ -13,33 +13,61 @@ import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { homedir } from "node:os";
 import { symbols, renderError, renderKV, renderAppName, createSpinner, selectPrompt } from "../utils/format.js";
-import { readTracked, addTracked, spawnDaemon, resolveArgs, isTrackedRunning, buildSpawnEnv } from "./tracker.js";
+import { readTracked, addTracked, spawnDaemon, resolveArgs, isTrackedRunning, buildSpawnEnv, resolveTargets, getGroups } from "./tracker.js";
 import type { TrackedProcess } from "./tracker.js";
 import { ensureSupervisorRunning } from "./supervisor.js";
 import { ensurePersistEnabled } from "./persist.js";
 import { psCommand } from "./ps.js";
 
 export async function spawnCommand(args: string[]): Promise<void> {
-  const spawnAll = args.includes("--all") || args.includes("-a");
-  const name = args[0];
+  const target = resolveTargets(args);
 
-  if (spawnAll) {
-    await spawnAllStopped();
+  if (target.kind === "single") {
+    await spawnOne(target.value!, false);
     return;
   }
 
-  if (!name) {
-    // No args: list stopped processes for selection
-    await spawnList();
+  if (target.kind === "names") {
+    for (const name of target.values!) {
+      await spawnOne(name, true);
+    }
     return;
   }
 
-  // With name: find and re-spawn
+  if (target.kind === "group") {
+    const group = target.group!;
+    const tracked = readTracked();
+    const inGroup = tracked.filter((t) => t.group === group && !isTrackedRunning(t) && t.command);
+    if (inGroup.length === 0) {
+      console.error(renderError("Empty group", `No stopped entries with a saved command in group "${group}".\nKnown groups: ${pc.cyan(getGroups().join(", ") || "(none)")}`));
+      process.exit(1);
+    }
+    await spawnAllStopped(inGroup);
+    return;
+  }
+
+  if (target.kind === "all") {
+    await spawnAllStopped(readTracked().filter((t) => !isTrackedRunning(t) && t.command));
+    return;
+  }
+
+  // none: list stopped processes for selection
+  await spawnList();
+}
+
+/**
+ * Re-spawn ONE stopped tracked process by name (used for both single and
+ * multi-name spawns). In `multi` mode, resolution failures print an
+ * error and return (instead of exiting) so the rest of the batch proceeds.
+ */
+async function spawnOne(name: string, multi: boolean): Promise<void> {
   const tracked = readTracked();
   const match = tracked.find((t) => t.name === name);
 
   if (!match) {
-    console.error(renderError("Not found", `No tracked process named "${name}". Use ${pc.cyan("fennec spawn")} to see available processes, or ${pc.cyan("fennec start <command> --name <name>")} to create a new one.`));
+    const msg = `No tracked process named "${name}". Use ${pc.cyan("fennec spawn")} to see available processes, or ${pc.cyan("fennec start <command> --name <name>")} to create a new one.`;
+    if (multi) { console.error(renderError("Not found", msg)); return; }
+    console.error(renderError("Not found", msg));
     process.exit(1);
   }
 
@@ -47,11 +75,14 @@ export async function spawnCommand(args: string[]): Promise<void> {
     console.error(`\n  ${pc.yellow("⚠")} ${pc.bold(name)} ${pc.dim("is already running (PID:")} ${match.pid}${pc.dim(")")}`);
     console.error(`  ${pc.dim("Use")} ${pc.cyan(`fennec stop ${name}`)} ${pc.dim("to stop it first.")}`);
     console.error();
-    process.exit(0);
+    if (!multi) process.exit(0);
+    return;
   }
 
   if (!match.command) {
-    console.error(renderError("No command saved", `"${name}" has no saved command and cannot be re-spawned.`));
+    const msg = `"${name}" has no saved command and cannot be re-spawned.`;
+    if (multi) { console.error(renderError("No command saved", msg)); return; }
+    console.error(renderError("No command saved", msg));
     process.exit(1);
   }
 
@@ -61,9 +92,8 @@ export async function spawnCommand(args: string[]): Promise<void> {
 /**
  * Re-spawn ALL stopped tracked processes that have saved commands.
  */
-async function spawnAllStopped(): Promise<void> {
-  const tracked = readTracked();
-  const toSpawn = tracked.filter((t) => !isTrackedRunning(t) && t.command);
+async function spawnAllStopped(procs: TrackedProcess[]): Promise<void> {
+  const toSpawn = procs;
 
   if (toSpawn.length === 0) {
     console.error(`\n  ${pc.dim("No stopped processes with saved commands to spawn.")}\n`);

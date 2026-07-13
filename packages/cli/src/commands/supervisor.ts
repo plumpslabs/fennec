@@ -21,7 +21,7 @@ import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync, openSyn
 import { spawn } from "node:child_process";
 import { dirname } from "node:path";
 import { symbols, renderError, renderKV, createSpinner } from "../utils/format.js";
-import { isProcessRunning, checkPort, checkHttp, resolveHealthUrl } from "../utils/system-process.js";
+import { isProcessRunning, checkPort, checkHttp, resolveHealthUrl, killTree } from "../utils/system-process.js";
 import {
   readTracked,
   respawnTracked,
@@ -130,7 +130,7 @@ function supervisorStop(): void {
     return;
   }
   try {
-    process.kill(pid, "SIGTERM");
+    killTree(pid, "SIGTERM");
     console.error(`\n  ${pc.green("✓")} ${pc.bold("Supervisor stopped")} ${pc.dim(`(PID ${pid})`)}\n`);
   } catch (err) {
     console.error(renderError("Failed to stop supervisor", String(err)));

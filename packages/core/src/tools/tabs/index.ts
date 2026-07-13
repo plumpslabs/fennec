@@ -196,3 +196,23 @@ export const contextClose = createTool({
     }
   },
 });
+
+export const contextRotate = createTool({
+  name: "context_rotate",
+  category: "tabs",
+  description: "`<use_case>Session management</use_case> ♻️ Recycle a session's underlying BrowserContext to free memory (DOM, listeners, workers, cache) accumulated by a long-lived context. Cookies and localStorage are preserved via storageState, and the current page URL is reloaded so your place is kept. Useful as proactive garbage-collection for sessions left open for a long time.`",
+  inputSchema: z.object({
+    sessionId: z.string().describe("Session (context) ID to rotate"),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    try {
+      await sessionManager.rotateSession(input.sessionId);
+      return responseBuilder.success(
+        { rotated: true },
+        { elapsed: 0, sessionId: input.sessionId, timestamp: new Date().toISOString() },
+      );
+    } catch (error) {
+      return responseBuilder.error(error);
+    }
+  },
+});

@@ -103,6 +103,8 @@ export interface BrowserSession {
   cdp(): BrowserCDPSession;
 
   // ── Context-level operations ──
+  /** Recycle the underlying BrowserContext to free memory. Preserves cookies/localStorage via storageState. The current page URL is NOT restored by this method — callers should re-navigate if needed. */
+  rotateContext(): Promise<void>;
   contextCookies(): Promise<Cookie[]>;
   contextAddCookies(cookies: CookieInput[]): Promise<void>;
   contextClearCookies(): Promise<void>;

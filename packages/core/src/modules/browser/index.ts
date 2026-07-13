@@ -101,6 +101,7 @@ import {
   tabGetCurrent,
   contextNew,
   contextClose,
+  contextRotate,
 } from "../../tools/tabs/index.js";
 import {
   smartWait,
@@ -209,6 +210,7 @@ export const browserModule: FennecModule = {
     tabGetCurrent,
     contextNew,
     contextClose,
+    contextRotate,
     // Smart
     smartWait,
     smartNavigate,

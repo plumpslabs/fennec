@@ -29,6 +29,7 @@ import { cleanupCommand } from "./commands/cleanup.js";
 import { infoCommand } from "./commands/info.js";
 import { renameCommand } from "./commands/rename.js";
 import { exportCommand, importCommand } from "./commands/export-import.js";
+import { groupCommand } from "./commands/group.js";
 
 const [, , command, ...args] = process.argv;
 
@@ -94,6 +95,8 @@ async function main(): Promise<void> {
     await cleanupCommand();
   } else if (command === "rename") {
     await renameCommand(args);
+  } else if (command === "group") {
+    await groupCommand(args);
   } else if (command === "export") {
     await exportCommand(args);
   } else if (command === "import") {

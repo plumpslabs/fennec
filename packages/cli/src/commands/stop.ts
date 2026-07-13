@@ -5,38 +5,61 @@
  */
 import pc from "picocolors";
 import { renderError, createSpinner, confirmPrompt } from "../utils/format.js";
-import { killProcess as sysKill, isProcessRunning } from "../utils/system-process.js";
-import { readTracked, isTrackedRunning, setAutoRestart } from "./tracker.js";
+import { killTree as sysKill, isProcessRunning } from "../utils/system-process.js";
+import { readTracked, isTrackedRunning, setAutoRestart, resolveTargets } from "./tracker.js";
 import { psCommand } from "./ps.js";
 
 export async function stopCommand(args: string[]): Promise<void> {
-  const stopAll = args.includes("--all") || args.includes("-a");
+  const target = resolveTargets(args);
 
-  if (stopAll) {
+  if (target.kind === "group") {
+    await stopAllTracked(args, target.group!);
+    return;
+  }
+
+  if (target.kind === "all") {
     await stopAllTracked(args);
     return;
   }
 
-  const rawTarget = args[0];
-
-  if (!rawTarget) {
-    console.error(renderError("Missing name", "Usage: fennec stop <name|--all>"));
-    process.exit(1);
+  if (target.kind === "single") {
+    await stopOne(target.value!, args);
+    return;
   }
 
+  if (target.kind === "names") {
+    for (const name of target.values!) {
+      await stopOne(name, args, true);
+    }
+    return;
+  }
+
+  console.error(renderError("Missing name", "Usage: fennec stop <name|--all> [--group <group>] [-y]"));
+  process.exit(1);
+}
+
+/**
+ * Stop ONE tracked process by name (used for both single and multi-name stops).
+ * In `multi` mode, resolution failures print an error and return (instead of
+ * exiting) so the rest of the batch can still be processed.
+ */
+async function stopOne(rawTarget: string, args: string[], multi: boolean = false): Promise<void> {
   // Only works on tracked processes
   const tracked = readTracked();
   const trackedMatch = tracked.find((t) => t.name === rawTarget);
 
   if (!trackedMatch) {
-    console.error(renderError("Not found", `No tracked process named "${rawTarget}". Use ${pc.cyan("fennec kill <pid>")} to kill a system process.`));
+    const msg = `No tracked process named "${rawTarget}". Use ${pc.cyan("fennec kill <pid>")} to kill a system process.`;
+    if (multi) { console.error(renderError("Not found", msg)); return; }
+    console.error(renderError("Not found", msg));
     process.exit(1);
   }
 
   if (!isTrackedRunning(trackedMatch)) {
     console.error(`\n  ${pc.yellow("⚠")} ${pc.bold(rawTarget)} ${pc.dim("is already stopped")}`);
     console.error();
-    process.exit(0);
+    if (!multi) process.exit(0);
+    return;
   }
 
   const displayName = `${trackedMatch.name} (PID ${trackedMatch.pid})`;
@@ -50,18 +73,20 @@ export async function stopCommand(args: string[]): Promise<void> {
 }
 
 /**
- * Stop all running tracked processes (keep them in tracked.json).
+ * Stop running tracked processes (keep them in tracked.json). Optionally
+ * scoped to a single group via `group`.
  */
-async function stopAllTracked(args: string[]): Promise<void> {
+async function stopAllTracked(args: string[], group?: string): Promise<void> {
   const tracked = readTracked();
-  const running = tracked.filter((t) => isTrackedRunning(t));
+  const running = tracked.filter((t) => isTrackedRunning(t) && (!group || t.group === group));
 
   if (running.length === 0) {
-    console.error(`\n  ${pc.dim("No running tracked processes to stop.")}\n`);
+    console.error(`\n  ${pc.dim(group ? `No running tracked processes in group "${group}".` : "No running tracked processes to stop.")}\n`);
     return;
   }
 
-  console.error(`\n  ${pc.yellow("⚠")} ${pc.bold(`Stop all ${running.length} running process(es)?`)} ${pc.dim("(They can be re-spawned later)")}\n`);
+  const scope = group ? ` group ${pc.cyan(group)}` : "";
+  console.error(`\n  ${pc.yellow("⚠")} ${pc.bold(`Stop all ${running.length} running process(es)${scope}?`)} ${pc.dim("(They can be re-spawned later)")}\n`);
   for (const t of running) {
     console.error(`  ${pc.green("●")} ${pc.bold(t.name)} ${pc.dim(`(PID ${t.pid})`)}`);
   }

@@ -6,7 +6,7 @@ import { existsSync, writeFileSync, readFileSync, mkdirSync, renameSync, statSyn
 import { spawn, type ChildProcess } from "node:child_process";
 import { resolve, dirname, basename } from "node:path";
 import { homedir } from "node:os";
-import { isProcessRunning, getProcessCmdline, getProcessEnviron, getProcessCwd, findPidOnPort } from "../utils/system-process.js";
+import { isProcessRunning, getProcessCmdline, getProcessEnviron, getProcessCwd, findPidOnPort, killTree } from "../utils/system-process.js";
 
 export interface TrackedProcess {
   name: string;
@@ -45,6 +45,76 @@ export interface TrackedProcess {
   /** HTTP readiness URL (resolved at spawn) — supervisor health-checks this
    *  instead of a bare TCP port when present. */
   healthCheck?: string;
+  /** Optional logical group this entry belongs to (e.g. "crm", "staging"). */
+  group?: string;
+}
+
+export type TargetKind = "single" | "names" | "group" | "all" | "none";
+export interface Target {
+  kind: TargetKind;
+  /** name or pid string for kind === "single" */
+  value?: string;
+  /** multiple names/pids for kind === "names" (e.g. `kill a b c`) */
+  values?: string[];
+  /** group name for kind === "group" */
+  group?: string;
+}
+
+/** Extract `--flag value`, `--flag=value`, or `-f value` from args. */
+export function extractFlagValue(args: string[], long: string, short?: string): string | undefined {
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i]!;
+    if (a === long || (short && a === short)) return args[i + 1];
+    if (a.startsWith(`${long}=`)) return a.slice(long.length + 1);
+    if (short && a.startsWith(`${short}=`)) return a.slice(short.length + 1);
+  }
+  return undefined;
+}
+
+/** Distinct non-empty groups present in tracked.json, sorted. */
+export function getGroups(): string[] {
+  const tracked = readTracked();
+  const groups = new Set<string>();
+  for (const t of tracked) if (t.group) groups.add(t.group);
+  return [...groups].sort();
+}
+
+/**
+ * Resolve a bulk command's scope from its args:
+ *  - `--group X` / `-g X`              → group X
+ *  - positional matching a known group → group X (shorthand)
+ *  - positional otherwise              → single name/pid
+ *  - `--all` / `-a`                    → all tracked
+ *  - nothing                           → none (caller decides)
+ */
+export function resolveTargets(args: string[]): Target {
+  const groupFlag = extractFlagValue(args, "--group", "-g");
+  const all = args.includes("--all") || args.includes("-a");
+  // All non-flag, non `--key=value` positionals (names/pids passed directly).
+  const positionals = args.filter((a) => !a.startsWith("-") && !a.includes("="));
+  const groups = getGroups();
+
+  if (groupFlag) return { kind: "group", group: groupFlag };
+  // Legacy bare `kill all` / `stop all` / `spawn all` — means "all tracked".
+  if (positionals.length === 1 && positionals[0] === "all") return { kind: "all" };
+  if (all) return { kind: "all" };
+  // Single positional that matches a known group → group shorthand.
+  if (positionals.length === 1 && groups.includes(positionals[0]!)) {
+    return { kind: "group", group: positionals[0] };
+  }
+  if (positionals.length === 1) return { kind: "single", value: positionals[0] };
+  if (positionals.length > 1) return { kind: "names", values: positionals };
+  return { kind: "none" };
+}
+
+/** Assign (or clear, with `undefined`) a group on an existing tracked entry. */
+export function setGroup(name: string, group?: string): boolean {
+  const tracked = readTracked();
+  const idx = tracked.findIndex((t) => t.name === name);
+  if (idx === -1) return false;
+  tracked[idx] = { ...tracked[idx]!, group };
+  saveTracked(tracked);
+  return true;
 }
 
 /** Marker line written to a log when the supervisor restarts an app. */
@@ -341,9 +411,10 @@ export function respawnTracked(proc: TrackedProcess, cause?: string): number {
   if (cause) annotateRestart(logFilePath, cause);
   // Kill the (possibly still-alive) previous instance so a "port-down"
   // restart doesn't leave an orphan holding the port (which would then
-  // cause an EADDRINUSE cascade on the new instance).
+  // cause an EADDRINUSE cascade on the new instance). Kill the whole
+  // tree so grandchildren (npm → vite → esbuild) don't survive.
   if (isProcessRunning(proc.pid)) {
-    try { process.kill(proc.pid, "SIGTERM"); } catch { /* best-effort */ }
+    try { killTree(proc.pid, "SIGTERM"); } catch { /* best-effort */ }
   }
   const child = spawnDaemon({
     cmdParts,

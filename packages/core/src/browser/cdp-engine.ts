@@ -510,6 +510,11 @@ class CDPBrowserSession implements BrowserSession {
     } catch { /* ignore */ }
   }
 
+  async rotateContext(): Promise<void> {
+    // CDP sessions attach to an existing browser target; there is no
+    // Fennec-owned BrowserContext to recycle. Rotation is a no-op here.
+  }
+
   // ── Element Discovery (minimal — only via evaluate) ──
 
   async $(selector: string): Promise<ElementHandle | null> {

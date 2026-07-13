@@ -1,45 +1,70 @@
 /**
  * Command: kill — Kill process by PID, name, or kill all Fennec-tracked apps.
+ * Supports: a single name/pid, MULTIPLE names (`kill a b c`), a group
+ * (`--group <g>` or a bare group name), or `--all` / `all` (everything).
  */
 import pc from "picocolors";
 import { renderError, createSpinner, selectPrompt, confirmPrompt } from "../utils/format.js";
-import { killProcess as sysKill, isProcessRunning } from "../utils/system-process.js";
-import { readTracked, removeTrackedByPid, isTrackedRunning } from "./tracker.js";
+import { killTree as sysKill, isProcessRunning } from "../utils/system-process.js";
+import { readTracked, removeTrackedByPid, isTrackedRunning, resolveTargets, getGroups, type TrackedProcess } from "./tracker.js";
 
 export async function killCommand(args: string[]): Promise<void> {
-  const rawTarget = args[0];
   const signalIndex = args.indexOf("--signal");
   const signalRaw = signalIndex !== -1 ? args[signalIndex + 1] : "SIGTERM";
   const signal = (signalRaw ?? "SIGTERM") as NodeJS.Signals;
   const force = args.includes("-y") || args.includes("--yes");
+  const target = resolveTargets(args);
 
-  if (rawTarget === "all" || args.includes("--all") || args.includes("-a")) {
+  if (target.kind === "single") {
+    await killOne(target.value!, signal, force, false);
+    return;
+  }
+
+  if (target.kind === "names") {
+    for (const name of target.values!) {
+      await killOne(name, signal, force, true);
+    }
+    return;
+  }
+
+  if (target.kind === "group") {
+    await killGroup(target.group!, signal, force);
+    return;
+  }
+
+  if (target.kind === "all") {
     await killAll(signal, force);
     return;
   }
 
-  if (!rawTarget) {
-    console.error(renderError("Missing target", "Usage: fennec kill <pid|name|all> [--signal SIGTERM|SIGKILL|SIGINT]"));
-    process.exit(1);
-  }
+  console.error(renderError("Missing target", "Usage: fennec kill <pid|name|all> [--signal SIGTERM|SIGKILL|SIGINT] [--group <group>] [-y]"));
+  process.exit(1);
+}
 
+/**
+ * Kill ONE target (resolved by tracked name or system PID). In `multi` mode,
+ * resolution failures print an error and return (instead of exiting) so the
+ * other names in the batch can still be processed.
+ */
+async function killOne(rawTarget: string, signal: NodeJS.Signals, force: boolean, multi: boolean): Promise<void> {
   let targetPid: number;
   let displayName: string;
   const pid = parseInt(rawTarget, 10);
 
   if (!isNaN(pid) && String(pid) === rawTarget) {
-    if (!isProcessRunning(pid)) { console.error(renderError("Process not found", `No process with PID ${pid} is running`)); process.exit(1); }
+    if (!isProcessRunning(pid)) {
+      const msg = `No process with PID ${pid} is running`;
+      if (multi) { console.error(renderError("Process not found", msg)); return; }
+      console.error(renderError("Process not found", msg));
+      process.exit(1);
+    }
     targetPid = pid;
     displayName = `PID ${pid}`;
   } else {
-    // First check tracked processes (from fennec start / tracked.json)
     const tracked = readTracked();
     const trackedMatch = tracked.find((t) => t.name === rawTarget);
     if (trackedMatch) {
       if (!isTrackedRunning(trackedMatch)) {
-        // Already stopped — nothing to signal. `kill` means "permanently
-        // remove", so just deregister it from tracked.json (don't leave a
-        // zombie entry the user can't get rid of).
         removeTrackedByPid(trackedMatch.pid);
         console.error(`\n  ${pc.green("✓")} ${pc.bold(rawTarget)} ${pc.dim("removed from tracked apps (was already stopped)")}`);
         console.error();
@@ -48,10 +73,9 @@ export async function killCommand(args: string[]): Promise<void> {
       targetPid = trackedMatch.pid;
       displayName = `${trackedMatch.name} (PID ${targetPid})`;
     } else {
-      // Scope to Fennec-tracked apps only. Killing arbitrary user processes by
-      // name (e.g. `fennec kill node`) is a footgun — an explicit PID is the
-      // supported way to target a system process.
-      console.error(renderError("Not tracked", `No tracked process named "${rawTarget}".\nUse ${pc.cyan(`fennec kill <pid>`)} to kill a system process by its PID.`));
+      const msg = `No tracked process named "${rawTarget}".\nUse ${pc.cyan("fennec kill <pid>")} to kill a system process by its PID.`;
+      if (multi) { console.error(renderError("Not tracked", msg)); return; }
+      console.error(renderError("Not tracked", msg));
       process.exit(1);
     }
   }
@@ -88,6 +112,38 @@ export async function killCommand(args: string[]): Promise<void> {
   }
 }
 
+async function killGroup(group: string, signal: NodeJS.Signals, force: boolean): Promise<void> {
+  const tracked = readTracked();
+  const inGroup = tracked.filter((t) => t.group === group);
+  if (inGroup.length === 0) {
+    console.error(renderError("Empty group", `No tracked entries in group "${group}".\nKnown groups: ${pc.cyan(getGroups().join(", ") || "(none)")}`));
+    process.exit(1);
+  }
+
+  const running = inGroup.filter((t) => isTrackedRunning(t));
+  const stopped = inGroup.filter((t) => !isTrackedRunning(t));
+
+  console.error(`\n  ${pc.bold(`Kill group ${pc.cyan(group)}: ${running.length} running + remove ${stopped.length} stopped?`)}`);
+  console.error(`  ${pc.dim("Permanently removes only apps in this group — other groups are untouched.")}\n`);
+
+  const confirmed = force || (await confirmPrompt(`${pc.red("Are you sure?")} ${pc.dim("This cannot be undone")}`, false));
+  if (!confirmed) { console.error(`  ${pc.dim("Cancelled.")}`); return; }
+
+  const spinner = createSpinner(`Killing ${running.length} + removing ${stopped.length} tracked app(s) in ${group}...`);
+  let killed = 0, failed = 0;
+  for (const t of running) {
+    if (sysKill(t.pid, signal)) { killed++; } else { failed++; }
+    removeTrackedByPid(t.pid);
+  }
+  for (const t of stopped) {
+    removeTrackedByPid(t.pid);
+  }
+  await new Promise((r) => setTimeout(r, 300));
+  const total = running.length + stopped.length;
+  total > 0 ? spinner.succeed(`${killed} killed, ${stopped.length} stopped entries removed from group ${group}`) : spinner.fail("Failed to kill apps");
+  if (failed > 0) console.error(`  ${pc.yellow(`${failed} running app(s) could not be killed`)}`);
+}
+
 async function killAll(signal: NodeJS.Signals, force: boolean): Promise<void> {
   // Scope strictly to Fennec-tracked apps — NEVER all user processes.
   const tracked = readTracked();
@@ -114,6 +170,6 @@ async function killAll(signal: NodeJS.Signals, force: boolean): Promise<void> {
   }
   await new Promise((r) => setTimeout(r, 300));
   const total = running.length + stopped.length;
-  total > 0 ? spinner.succeed(`${killed} killed, ${stopped.length} stopped entr${stopped.length === 1 ? "y" : "ies"} removed`) : spinner.fail("Failed to kill apps");
+  total > 0 ? spinner.succeed(`${killed} killed, ${stopped.length} stopped entries removed`) : spinner.fail("Failed to kill apps");
   if (failed > 0) console.error(`  ${pc.yellow(`${failed} running app(s) could not be killed`)}`);
 }

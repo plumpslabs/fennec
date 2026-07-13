@@ -2,6 +2,7 @@
  * System process utilities — shared between CLI and MCP tools.
  */
 import { readFileSync, readlinkSync } from "node:fs";
+import { execSync } from "node:child_process";
 
 /**
  * Check if a process is running by sending signal 0.
@@ -31,6 +32,76 @@ export function getProcessCmdline(pid: number): string | null {
 export function getProcessCwd(pid: number): string | null {
   try {
     return readlinkSync(`/proc/${pid}/cwd`) || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Kill a process AND its entire descendant tree (cross-platform).
+ *
+ * Apps are spawned `detached`, making the direct child a process-GROUP
+ * leader on POSIX. A plain `kill(pid)` only stops that leader (e.g. `npm`),
+ * leaving its children (`node` -> `vite` -> `esbuild`) as ORPHANS that keep
+ * running and leaking CPU/memory/ports.
+ *
+ * - POSIX (Linux/macOS): signal the whole group via negative PID.
+ * - Windows: `taskkill /T /F` kills the process and all descendants.
+ */
+export function killTree(pid: number, signal: NodeJS.Signals = "SIGTERM"): boolean {
+  if (process.platform === "win32") {
+    try {
+      execSync(`taskkill /pid ${pid} /T /F`, { stdio: "ignore", timeout: 5000 });
+      return true;
+    } catch {
+      try { process.kill(pid, signal); return true; } catch { return false; }
+    }
+  }
+  try {
+    process.kill(-pid, signal);
+    return true;
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code === "ESRCH") return false;
+    try { process.kill(pid, signal); return true; } catch { return false; }
+  }
+}
+
+/**
+ * Cheaply read a single process's resident memory (RSS) in KB.
+ * Unlike enumerating every process, this only touches the one target — so
+ * calling it for a handful of tracked apps in a listing stays fast.
+ */
+export function getProcessMemRss(pid: number): number | null {
+  if (process.platform === "win32") {
+    try {
+      const out = execSync(`tasklist /fi "PID eq ${pid}" /fo csv /nh 2>nul`, { encoding: "utf-8", timeout: 3000 });
+      for (const raw of out.split("\n")) {
+        if (!raw.trim()) continue;
+        const parts = raw.split('","').map((p) => p.replace(/^"|"$/g, ""));
+        if (parseInt(parts[1] ?? "", 10) !== pid) continue;
+        const memKb = parseInt((parts[4] ?? "").replace(/[^\d]/g, ""), 10);
+        return isNaN(memKb) ? null : memKb;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+  if (process.platform === "darwin" || process.platform === "freebsd" || process.platform === "openbsd" || process.platform === "netbsd") {
+    try {
+      const { execSync } = require("node:child_process");
+      const out = execSync(`ps -o rss= -p ${pid} 2>/dev/null`, { encoding: "utf-8", timeout: 3000 }).trim();
+      const kb = parseInt(out, 10);
+      return isNaN(kb) ? null : kb;
+    } catch {
+      return null;
+    }
+  }
+  try {
+    const status = readFileSync(`/proc/${pid}/status`, "utf-8");
+    const m = status.match(/VmRSS:\s+(\d+)/);
+    return m ? parseInt(m[1]!, 10) : null;
   } catch {
     return null;
   }

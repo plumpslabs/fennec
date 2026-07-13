@@ -11,6 +11,7 @@ import { browserModule } from './modules/browser/index.js';
 import { processModule } from './modules/process/index.js';
 import { mobileModule } from './modules/mobile/index.js';
 import { SessionManager } from './session/SessionManager.js';
+import type { FennecSession } from './session/types.js';
 import { SessionStore } from './session/SessionStore.js';
 import { ResponseBuilder } from './response/ResponseBuilder.js';
 import { ConfigLoader } from './config/ConfigLoader.js';
@@ -519,30 +520,33 @@ export class FennecServer {
     return this.config;
   }
 
-  private async setupSessionCDPMonitoring(): Promise<void> {
+  private async setupSessionCDPMonitoring(session?: FennecSession): Promise<void> {
     const logger = getLogger();
     try {
-      const session = this.sessionManager.getOrDefault();
-      if (!session) {
+      const target = session ?? this.sessionManager.getOrDefault();
+      if (!target) {
         logger.warn('No session available for CDP monitoring');
         return;
       }
 
+      // (Re)create collectors and enable them on the session's CURRENT cdp.
+      // After a context rotation the cdp is a fresh object, so we re-enable
+      // here to keep capturing console/network on the recycled context.
       const consoleCollector = new ConsoleCollector();
       const networkCollector = new NetworkCollector();
 
       consoleCollector.on('smart-hook', (event) => {
-        this.sessionManager.addConsoleEvent(session.id, event);
+        this.sessionManager.addConsoleEvent(target.id, event);
       });
 
       networkCollector.on('smart-hook', (event) => {
-        this.sessionManager.addNetworkEvent(session.id, event);
+        this.sessionManager.addNetworkEvent(target.id, event);
       });
 
-      await consoleCollector.enable(session.browser.cdp());
-      await networkCollector.enable(session.browser.cdp());
+      await consoleCollector.enable(target.browser.cdp());
+      await networkCollector.enable(target.browser.cdp());
 
-      logger.info('CDP monitoring enabled for session');
+      logger.info(`CDP monitoring enabled for session ${target.id}`);
     } catch (error) {
       logger.warn({ error }, 'Failed to setup CDP monitoring (non-fatal)');
     }
@@ -804,6 +808,17 @@ export class FennecServer {
     }
 
     await this.sessionManager.initialize();
+
+    // After a context rotation the underlying CDPSession is replaced, so
+    // re-enable the console/network collectors on the fresh context.
+    this.sessionManager.setOnRotate(async (id: string) => {
+      try {
+        const session = this.sessionManager.getSession(id);
+        await this.setupSessionCDPMonitoring(session);
+      } catch {
+        // session may already be gone — ignore
+      }
+    });
 
     await this.setupSessionCDPMonitoring();
 

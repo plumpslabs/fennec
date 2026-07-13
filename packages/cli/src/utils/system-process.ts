@@ -368,6 +368,47 @@ export function killProcess(pid: number, signal: NodeJS.Signals = "SIGTERM"): bo
 }
 
 /**
+ * Kill a process AND its entire descendant tree (cross-platform).
+ *
+ * Why this matters: apps are spawned `detached`, which makes the direct child a
+ * process-GROUP leader on POSIX. A plain `kill(pid)` only stops that leader
+ * (e.g. `npm`), leaving its children (`node` -> `vite` -> `esbuild`) as
+ * ORPHANS that keep running and leaking CPU/memory/ports ("nyampah").
+ *
+ * - POSIX (Linux/macOS): signal the whole group via the negative PID
+ *   (`process.kill(-pid, signal)`). Falls back to a direct PID kill when the
+ *   target was not a group leader (e.g. ESRCH/EPERM paths).
+ * - Windows: `process.kill(-pid)` is unsupported, so use `taskkill /T /F`
+ *   which kills the process and all descendants natively.
+ *
+ * Best-effort: returns true if the root was signaled, false if it was
+ * already gone. Never throws.
+ */
+export function killTree(pid: number, signal: NodeJS.Signals = "SIGTERM"): boolean {
+  if (process.platform === "win32") {
+    try {
+      // /T = tree, /F = force. Windows has no clean SIGTERM-tree equivalent;
+      // /F is the practical choice for stop/kill here.
+      execSync(`taskkill /pid ${pid} /T /F`, { stdio: "ignore", timeout: 5000 });
+      return true;
+    } catch {
+      try { process.kill(pid, signal); return true; } catch { return false; }
+    }
+  }
+
+  // POSIX: negative PID targets the entire process group.
+  try {
+    process.kill(-pid, signal);
+    return true;
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code === "ESRCH") return false; // already gone
+    // EPERM or other: try a plain single-PID kill as a last resort.
+    try { process.kill(pid, signal); return true; } catch { return false; }
+  }
+}
+
+/**
  * Check if a process is running.
  */
 export function isProcessRunning(pid: number): boolean {
@@ -376,6 +417,51 @@ export function isProcessRunning(pid: number): boolean {
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Cheaply read a single process's resident memory (RSS) in KB.
+ *
+ * Unlike `getProcessByPid` (which enumerates EVERY process), this only
+ * touches the one target process — so calling it for a handful of tracked
+ * apps in `ps` stays fast. Returns null if the process is gone or the
+ * platform lookup fails.
+ */
+export function getProcessMemRss(pid: number): number | null {
+  if (process.platform === "win32") {
+    try {
+      const out = execSync(`tasklist /fi "PID eq ${pid}" /fo csv /nh 2>nul`, { encoding: "utf-8", timeout: 3000 });
+      for (const raw of out.split("\n")) {
+        if (!raw.trim()) continue;
+        const parts = raw.split('","').map((p) => p.replace(/^"|"$/g, ""));
+        if (parseInt(parts[1] ?? "", 10) !== pid) continue;
+        const memKb = parseInt((parts[4] ?? "").replace(/[^\d]/g, ""), 10);
+        return isNaN(memKb) ? null : memKb;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  if (process.platform === "darwin" || process.platform === "freebsd" || process.platform === "openbsd" || process.platform === "netbsd") {
+    try {
+      const out = execSync(`ps -o rss= -p ${pid} 2>/dev/null`, { encoding: "utf-8", timeout: 3000 }).trim();
+      const kb = parseInt(out, 10);
+      return isNaN(kb) ? null : kb;
+    } catch {
+      return null;
+    }
+  }
+
+  // Linux / other /proc systems
+  try {
+    const status = readFileSync(`/proc/${pid}/status`, "utf-8");
+    const m = status.match(/VmRSS:\s+(\d+)/);
+    return m ? parseInt(m[1]!, 10) : null;
+  } catch {
+    return null;
   }
 }
 

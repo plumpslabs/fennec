@@ -4,14 +4,15 @@
 import pc from "picocolors";
 import { printBanner } from "../utils/banner.js";
 import { symbols, renderTable, renderError, renderCommand, createSpinner, timestamp, type Column, type Row } from "../utils/format.js";
-import { getSystemProcesses, formatProcessState } from "../utils/system-process.js";
-import { readTracked, formatUptime, isTrackedRunning } from "./tracker.js";
+import { getSystemProcesses, formatProcessState, getProcessMemRss } from "../utils/system-process.js";
+import { readTracked, formatUptime, isTrackedRunning, extractFlagValue } from "./tracker.js";
 
 export async function psCommand(args: string[]): Promise<void> {
   const watchFlag = args.includes("-w") || args.includes("--watch");
   const systemFlag = args.includes("--system") || args.includes("-a") || args.includes("--all");
   const jsonFlag = args.includes("--json");
   const nameFilter = args.includes("--name") ? args[args.indexOf("--name") + 1] : undefined;
+  const groupFilter = extractFlagValue(args, "--group", "-g");
   const sortBy = args.includes("--sort")
     ? (args[args.indexOf("--sort") + 1] as "cpu" | "mem" | "pid" | "name")
     : "name";
@@ -54,9 +55,10 @@ export async function psCommand(args: string[]): Promise<void> {
     return;
   }
 
-  const tracked = readTracked();
+  const trackedAll = readTracked();
+  const tracked = groupFilter ? trackedAll.filter((t) => t.group === groupFilter) : trackedAll;
   if (tracked.length === 0) {
-    console.error(`\n  ${pc.dim("No tracked processes.")}`);
+    console.error(`\n  ${pc.dim(groupFilter ? `No tracked processes in group "${groupFilter}".` : "No tracked processes.")}`);
     console.error(`  ${pc.dim("Start an app with:")} ${pc.cyan("fennec start <command> --name <name>")}\n`);
     return;
   }
@@ -65,7 +67,9 @@ export async function psCommand(args: string[]): Promise<void> {
     { key: "name", label: "App", format: (v) => pc.bold(String(v)) },
     { key: "pid", label: "PID", align: "right" },
     { key: "status", label: "Status", format: (v) => { const s = v as string; return s === "running" ? pc.green("● running") : pc.red("○ stopped"); } },
+    { key: "group", label: "Group", format: (v) => { const g = String(v); return g === "-" ? pc.dim("-") : pc.cyan(g); } },
     { key: "port", label: "Port", format: (v) => { const p = v as number | null; return p ? pc.yellow(`:${p}`) : pc.dim("-"); } },
+    { key: "mem", label: "MEM", align: "right", format: (v) => { const kb = v as number | null; return kb && kb > 0 ? pc.dim(`${(kb / 1024).toFixed(0)}MB`) : pc.dim("-"); } },
     { key: "command", label: "Command", format: (v) => { const c = String(v); return c.length > 50 ? c.slice(0, 50) + "…" : c; } },
     { key: "uptime", label: "Uptime", format: (v) => pc.dim(String(v)) },
   ];
@@ -73,17 +77,20 @@ export async function psCommand(args: string[]): Promise<void> {
   const rows: Row[] = tracked.map((t) => {
     const running = isTrackedRunning(t);
     const uptime = running ? formatUptime(Math.floor((Date.now() - new Date(t.startedAt).getTime()) / 1000)) : "-";
-    return { name: t.name, pid: running ? String(t.pid) : pc.dim(String(t.pid)), status: running ? "running" : "stopped", port: t.port ?? null, command: t.command, uptime };
+    const memKb = running ? (getProcessMemRss(t.pid) ?? null) : null;
+    return { name: t.name, pid: running ? String(t.pid) : pc.dim(String(t.pid)), status: running ? "running" : "stopped", group: t.group ?? "-", port: t.port ?? null, mem: memKb, command: t.command, uptime };
   });
 
   const runningCount = tracked.filter((t) => isTrackedRunning(t)).length;
-  console.error(`\n  ${symbols.fox} ${pc.bold("Fennec Apps")} ${pc.dim(`(${runningCount}/${tracked.length} running)`)}\n`);
+  const scope = groupFilter ? ` in group ${pc.cyan(groupFilter)}` : "";
+  console.error(`\n  ${symbols.fox} ${pc.bold("Fennec Apps")} ${pc.dim(`(${runningCount}/${tracked.length} running${scope})`)}\n`);
   console.error(renderTable(columns, rows));
   console.error(`  ${pc.dim("Use")} ${pc.cyan("fennec start <command> --name <name> --port <port>")} ${pc.dim("to add more apps.")}`);
   console.error(`  ${pc.dim("Use")} ${pc.cyan("fennec log <name>")} ${pc.dim("to view logs.")}`);
   console.error(`  ${pc.dim("Use")} ${pc.cyan("fennec stop <name>")} ${pc.dim("to pause an app.")}`);
   console.error(`  ${pc.dim("Use")} ${pc.cyan("fennec spawn <name>")} ${pc.dim("to resume a paused app.")}`);
   console.error(`  ${pc.dim("Use")} ${pc.cyan("fennec kill <name>")} ${pc.dim("to permanently remove an app.")}`);
+  console.error(`  ${pc.dim("Filter by group with:")} ${pc.cyan("fennec ps --group <group>")}`);
   console.error();
 }
 
@@ -101,6 +108,8 @@ async function psJson(): Promise<void> {
       port: t.port ?? null,
       command: t.command,
       cwd: t.cwd ?? null,
+      group: t.group ?? null,
+      memMB: running ? (() => { const kb = getProcessMemRss(t.pid); return kb ? Math.round(kb / 1024) : null; })() : null,
       startedAt: t.startedAt,
       uptime: running ? Math.floor((Date.now() - new Date(t.startedAt).getTime()) / 1000) : null,
     };

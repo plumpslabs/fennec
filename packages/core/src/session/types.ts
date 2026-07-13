@@ -51,6 +51,8 @@ export interface FennecSession {
   name?: string;
   createdAt: Date;
   lastUsedAt: Date;
+  /** Epoch ms of the last context rotation — used by SessionManager for periodic rotation */
+  lastRotatedAt?: number;
   /** Browser session abstraction — engine-agnostic */
   browser: BrowserSession;
   consoleBuffer: ConsoleEvent[];
