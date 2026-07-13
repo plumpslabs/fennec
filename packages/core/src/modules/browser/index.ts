@@ -103,7 +103,7 @@ import {
   contextClose,
   contextRotate,
   sessionRecover,
-} from "../../tools/tabs/index.js";
+} from '../../tools/tabs/index.js';
 import {
   smartWait,
   smartNavigate,

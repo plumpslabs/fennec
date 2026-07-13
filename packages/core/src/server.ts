@@ -671,7 +671,9 @@ export class FennecServer {
         // died (e.g. cross-scheme navigation), recreate it before the call
         // so the agent never sees a wall of "Unable to connect" errors.
         try {
-          await this.sessionManager.ensureAlive((parsed as Record<string, unknown>).sessionId as string | undefined);
+          await this.sessionManager.ensureAlive(
+            (parsed as Record<string, unknown>).sessionId as string | undefined,
+          );
         } catch {
           // best-effort — the tool call itself will surface any real error
         }

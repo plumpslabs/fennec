@@ -468,9 +468,9 @@ export class SessionManager {
       if (this.onRotate) {
         await this.onRotate(session.id);
       }
-      logger.warn({ sessionId }, "Recovered a dead browser session by recreating its page");
+      logger.warn({ sessionId }, 'Recovered a dead browser session by recreating its page');
     } catch (error) {
-      logger.warn({ sessionId, error }, "Session recovery (recreate) failed");
+      logger.warn({ sessionId, error }, 'Session recovery (recreate) failed');
     }
   }
 

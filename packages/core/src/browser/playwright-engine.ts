@@ -285,7 +285,9 @@ class PlaywrightSession implements BrowserSession {
     this.page = newPage;
     this.cdpSession = newCdp;
   }
-  async bringToFront(): Promise<void> { await this.page.bringToFront(); }
+  async bringToFront(): Promise<void> {
+    await this.page.bringToFront();
+  }
 
   // ── Element Discovery ──
 
@@ -569,18 +571,15 @@ class PlaywrightPageSession implements BrowserSession {
   async close(): Promise<void> {
     await this.page.close();
   }
+  isAlive(): boolean {
+    return !this.page.isClosed();
+  }
+  async recreate(): Promise<void> {
+    /* page shares the parent context; recovery is done on the owner session */
+  }
   async bringToFront(): Promise<void> {
     await this.page.bringToFront();
   }
-  url(): string { return this.page.url(); }
-  async title(): Promise<string> { return this.page.title(); }
-  async readyState(): Promise<string> { return this.page.evaluate(() => document.readyState); }
-  viewportSize(): { width: number; height: number } | null { return this.page.viewportSize() ?? null; }
-  isClosed(): boolean { return this.page.isClosed(); }
-  async close(): Promise<void> { await this.page.close(); }
-  isAlive(): boolean { return !this.page.isClosed(); }
-  async recreate(): Promise<void> { /* page shares the parent context; recovery is done on the owner session */ }
-  async bringToFront(): Promise<void> { await this.page.bringToFront(); }
   async rotateContext(): Promise<void> {
     // A page-session shares its parent PlaywrightSession's context. Rotation
     // is performed on the owning session; nothing to do here.

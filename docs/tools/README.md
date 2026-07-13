@@ -131,16 +131,16 @@ Authentication: auto-fill login forms, save/load sessions, check auth state.
 
 Multi-tab and multi-context (incognito) management.
 
-| Tool | Description |
-|---|---|
-| `tab_new` | Create new tab |
-| `tab_close` | Close tab |
-| `tab_list` | List open tabs |
-| `tab_switch` | Switch to tab |
-| `tab_get_current` | Get current tab info |
-| `context_new` | Create isolated context |
-| `context_close` | Close context |
-| `context_rotate` | Recycle a context (free memory, keep cookies/URL) |
+| Tool                      | Description                                                  |
+| ------------------------- | ------------------------------------------------------------ |
+| `tab_new`                 | Create new tab                                               |
+| `tab_close`               | Close tab                                                    |
+| `tab_list`                | List open tabs                                               |
+| `tab_switch`              | Switch to tab                                                |
+| `tab_get_current`         | Get current tab info                                         |
+| `context_new`             | Create isolated context                                      |
+| `context_close`           | Close context                                                |
+| `context_rotate`          | Recycle a context (free memory, keep cookies/URL)            |
 | `browser_session_recover` | Recover a dead session (recreate page, re-attach collectors) |
 
 ### [Process](process.md) (19 tools)
@@ -245,24 +245,24 @@ Multi-step execution planning from natural language goals.
 
 ## Quick Stats
 
-| Category | Tools | Requires Browser |
-|----------|-------|:----------------:|
-| Navigation | 6 | ✅ |
-| Interaction | 10 | ✅ |
-| DOM & Page | 9 | ✅ |
-| DevTools Console | 5 | ✅ |
-| DevTools Network | 9 | ✅ |
-| DevTools Performance | 6 | ✅ |
-| Storage | 12 | ✅ |
-| Auth | 6 | ⚠️ Partial |
-| Tabs & Contexts | 9 | ✅ |
-| Process | 19 | ❌ |
-| Terminal | 7 | ❌ |
-| Diagnostic | 6 | ⚠️ Partial |
-| Scheduler | 7 | ❌ |
-| Smart | 12 | ✅ |
-| Planner | 5 | ❌ |
-| **Total** | **128** | **50 without browser** |
+| Category             | Tools   |    Requires Browser    |
+| -------------------- | ------- | :--------------------: |
+| Navigation           | 6       |           ✅           |
+| Interaction          | 10      |           ✅           |
+| DOM & Page           | 9       |           ✅           |
+| DevTools Console     | 5       |           ✅           |
+| DevTools Network     | 9       |           ✅           |
+| DevTools Performance | 6       |           ✅           |
+| Storage              | 12      |           ✅           |
+| Auth                 | 6       |       ⚠️ Partial       |
+| Tabs & Contexts      | 9       |           ✅           |
+| Process              | 19      |           ❌           |
+| Terminal             | 7       |           ❌           |
+| Diagnostic           | 6       |       ⚠️ Partial       |
+| Scheduler            | 7       |           ❌           |
+| Smart                | 12      |           ✅           |
+| Planner              | 5       |           ❌           |
+| **Total**            | **128** | **50 without browser** |
 
 > **50 tools work without Playwright/browser engines** — process, terminal, storage (basic), scheduler, planner, and partial auth + diagnostic.
 
