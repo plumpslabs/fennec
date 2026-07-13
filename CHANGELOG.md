@@ -2,6 +2,11 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.14.5] - 2026-07-13
+
+### Fixed
+- **Republish with corrected CLI banner.** `v1.14.4`'s npm artifacts were built from a stale banner (`VERSION = '1.14.3'`); this rebuilds and republishes `@plumpslabs/fennec-core` and `@plumpslabs/fennec-cli` with the banner reporting `1.14.5`. No functional changes vs `1.14.4`.
+
 ## [1.14.4] - 2026-07-13
 
 ### Added
