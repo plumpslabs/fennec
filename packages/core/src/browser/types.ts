@@ -73,6 +73,15 @@ export interface BrowserSession {
   close(): Promise<void>;
   bringToFront(): Promise<void>;
 
+  /**
+   * Best-effort liveness check. Returns false when the underlying page/target
+   * has been torn down (e.g. cross-scheme navigation detaching the CDP
+   * target), so callers can recover instead of failing every call.
+   */
+  isAlive(): boolean;
+  /** Re-create the page (and CDPSession) inside the same context to recover a dead session. No-op when nothing is wrong. */
+  recreate(): Promise<void>;
+
   // ── Element Discovery ──
   $(selector: string): Promise<ElementHandle | null>;
   $$(selector: string): Promise<ElementHandle[]>;

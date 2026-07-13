@@ -515,6 +515,15 @@ class CDPBrowserSession implements BrowserSession {
     // Fennec-owned BrowserContext to recycle. Rotation is a no-op here.
   }
 
+  isAlive(): boolean {
+    // CDP target is managed externally; assume alive unless a call fails.
+    return true;
+  }
+
+  async recreate(): Promise<void> {
+    // No Fennec-owned page/context to rebuild; recovery is a no-op here.
+  }
+
   // ── Element Discovery (minimal — only via evaluate) ──
 
   async $(selector: string): Promise<ElementHandle | null> {

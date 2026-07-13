@@ -197,6 +197,40 @@ export const contextClose = createTool({
   },
 });
 
+export const sessionRecover = createTool({
+  name: "browser_session_recover",
+  category: "tabs",
+  description: "`<use_case>Session recovery</use_case> 🔧 Recover a browser session whose page/CDP target died silently (e.g. after a cross-scheme https→http navigation that detached the CDP target — issue #4). Recreates the page inside the same context and re-attaches console/network collectors, so subsequent tool calls work again without restarting Fennec. Returns whether a recovery was performed. Defaults to the active session when sessionId is omitted.`",
+  inputSchema: z.object({
+    sessionId: z.string().optional().describe("Session to recover (defaults to the active session)"),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    try {
+      const before = (() => {
+        try {
+          return sessionManager.getOrDefault(input.sessionId).browser.isAlive();
+        } catch {
+          return false;
+        }
+      })();
+      await sessionManager.ensureAlive(input.sessionId);
+      const after = (() => {
+        try {
+          return sessionManager.getOrDefault(input.sessionId).browser.isAlive();
+        } catch {
+          return false;
+        }
+      })();
+      return responseBuilder.success(
+        { recovered: !before && after, aliveAfter: after, aliveBefore: before },
+        { elapsed: 0, sessionId: input.sessionId ?? "", timestamp: new Date().toISOString() },
+      );
+    } catch (error) {
+      return responseBuilder.error(error);
+    }
+  },
+});
+
 export const contextRotate = createTool({
   name: "context_rotate",
   category: "tabs",

@@ -221,6 +221,20 @@ class PlaywrightSession implements BrowserSession {
     await this.page.close().catch(() => {});
     await this.context.close().catch(() => {});
   }
+  isAlive(): boolean {
+    // `page.isClosed()` flips to true when the target is detached
+    // (e.g. cross-scheme https->http navigation killing the CDP target).
+    return !this.page.isClosed();
+  }
+  async recreate(): Promise<void> {
+    if (!this.page.isClosed()) {
+      await this.page.close().catch(() => {});
+    }
+    const newPage = await this.context.newPage();
+    const newCdp = await this.context.newCDPSession(newPage);
+    this.page = newPage;
+    this.cdpSession = newCdp;
+  }
   async bringToFront(): Promise<void> { await this.page.bringToFront(); }
 
   // ── Element Discovery ──
@@ -420,6 +434,8 @@ class PlaywrightPageSession implements BrowserSession {
   viewportSize(): { width: number; height: number } | null { return this.page.viewportSize() ?? null; }
   isClosed(): boolean { return this.page.isClosed(); }
   async close(): Promise<void> { await this.page.close(); }
+  isAlive(): boolean { return !this.page.isClosed(); }
+  async recreate(): Promise<void> { /* page shares the parent context; recovery is done on the owner session */ }
   async bringToFront(): Promise<void> { await this.page.bringToFront(); }
   async rotateContext(): Promise<void> {
     // A page-session shares its parent PlaywrightSession's context. Rotation
