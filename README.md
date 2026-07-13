@@ -174,6 +174,7 @@ AI: auth_save_session("myapp-prod")
 # In another conversation  
 AI: auth_load_session("myapp-prod")  # skip login entirely!
 ```
+Sessions persist to a single global store (`~/.fennec`, overridable via `FENNEC_HOME`) and are manageable from **any directory** with the **`fennec store`** command. Run **`fennec doctor`** to catch secret leakage — world-readable permissions, stores living under synced directories (chezmoi/Dropbox/OneDrive), or secrets embedded in tracked launch commands.
 
 ### 🔍 Self-Observability
 Fennec monitors its own performance — track tool call durations, memory usage, error rates. Use the `PerformanceMetrics` API to check Fennec's health:

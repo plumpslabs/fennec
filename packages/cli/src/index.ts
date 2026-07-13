@@ -20,7 +20,8 @@ import { inspectCommand } from "./commands/inspect.js";
 import { devCommand } from "./commands/dev.js";
 import { logCommand } from "./commands/log.js";
 import { attachCommand } from "./commands/attach.js";
-import { sessionsCommand } from "./commands/sessions.js";
+import { storeCommand } from "./commands/store.js";
+import { doctorCommand } from "./commands/doctor.js";
 import { setupCommand } from "./commands/setup.js";
 import { installBrowsersCommand, initCommand } from "./commands/management.js";
 import { healthCommand } from "./commands/health.js";
@@ -107,8 +108,14 @@ async function main(): Promise<void> {
     await attachPortCommand(args);
   } else if (command === "watch") {
     await watchCommand(args);
+  } else if (command === "store") {
+    printBanner();
+    await storeCommand(args);
+  } else if (command === "doctor") {
+    printBanner();
+    await doctorCommand();
   } else if (command === "sessions") {
-    await sessionsCommand();
+    await storeCommand(["session"]);
   } else if (command === "setup") {
     await setupCommand();
   } else if (command === "install-browsers") {

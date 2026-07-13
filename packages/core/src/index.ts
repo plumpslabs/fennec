@@ -4,6 +4,8 @@
 export { FennecServer } from "./server.js";
 export { SessionManager } from "./session/SessionManager.js";
 export { SessionStore } from "./session/SessionStore.js";
+export { StoreManager, redactSession } from "./store/StoreManager.js";
+export type { StoreKind, StoreScanEntry } from "./store/StoreManager.js";
 export { ToolRegistry, createTool } from "./tools/_registry.js";
 export { ResponseBuilder } from "./response/ResponseBuilder.js";
 export { ErrorEnricher } from "./response/ErrorEnricher.js";

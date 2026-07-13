@@ -186,6 +186,19 @@ Fennec is both an MCP server **and** a CLI you can use directly in your terminal
 | `fennec import <file>` | Import tracked apps from a file. |
 | `fennec cleanup` | Remove dead/stale entries from the tracked registry. |
 
+### Store & Doctor
+
+Fennec persists everything — auth sessions, tracked processes, exports, plugin/workflow state — under **one global store**, by default `~/.fennec` (honors `FENNEC_HOME` / `FENNEC_DATA_DIR`), manageable from **any directory**. `--local` targets the per-project `.fennec` instead.
+
+| Command | Description |
+|---------|-------------|
+| `fennec store` | Overview of everything in the global store (counts, size, age). |
+| `fennec store --local` | Same, for the project `.fennec`. |
+| `fennec store session` | List saved auth sessions. |
+| `fennec store session info <name>` | Show a session — cookie/localStorage **values are masked**; add `--show-secrets` to reveal. |
+| `fennec store session rm <name>` | Delete a session (confirm prompt). |
+| `fennec doctor` | Health + secret-surface checks: store permissions, synced-home leakage, embedded secrets in launch commands. |
+
 ### Configuration & Misc
 
 | Command | Description |
@@ -193,7 +206,9 @@ Fennec is both an MCP server **and** a CLI you can use directly in your terminal
 | `fennec init` | Generate a `fennec.config.yaml` in the current directory. |
 | `fennec setup` | Interactively configure your MCP client for Fennec. |
 | `fennec install-browsers` | Install Playwright browser engines. |
-| `fennec sessions` | List saved browser auth sessions. |
+| `fennec sessions` | List saved browser auth sessions (alias of `fennec store session`). |
+| `fennec store` | Unified view of everything Fennec persists (sessions, processes, exports). |
+| `fennec doctor` | Health + secret-surface checks for the store. |
 | `fennec health` | Health check of the Fennec environment. |
 | `fennec help [command]` | Show help, or detailed help for a command. |
 

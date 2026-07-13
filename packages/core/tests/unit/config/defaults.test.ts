@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
+import { homedir } from "node:os";
+import { resolve } from "node:path";
 import { defaultConfig } from "../../../src/config/defaults.js";
+
+/** Mirror defaults.ts STORE_BASE precedence. */
+function expectedStoreBase(): string {
+  return resolve(process.env.FENNEC_HOME ?? process.env.FENNEC_DATA_DIR ?? homedir(), ".fennec");
+}
 
 describe("defaultConfig", () => {
   it("should have all required browser configs", () => {
@@ -15,7 +22,8 @@ describe("defaultConfig", () => {
   it("should have reasonable session defaults", () => {
     expect(defaultConfig.session.maxSessions).toBe(10);
     expect(defaultConfig.session.idleTimeoutSecs).toBe(1800);
-    expect(defaultConfig.session.persistPath).toBe("./.fennec/sessions");
+    expect(defaultConfig.session.persistPath).toBe(resolve(expectedStoreBase(), "sessions"));
+    expect(defaultConfig.security.exportPath).toBe(resolve(expectedStoreBase(), "exports"));
   });
 
   it("should have secure process defaults", () => {

@@ -1,3 +1,9 @@
+import { homedir } from "node:os";
+import { resolve } from "node:path";
+
+/** Global store base: FENNEC_HOME | FENNEC_DATA_DIR | ~/.fennec (matches process tracking). */
+const STORE_BASE = resolve(process.env.FENNEC_HOME ?? process.env.FENNEC_DATA_DIR ?? homedir(), ".fennec");
+
 export interface FennecConfig {
   browser: {
     adapter: "auto" | "cdp" | "playwright";
@@ -97,7 +103,7 @@ export const defaultConfig: FennecConfig = {
   session: {
     maxSessions: 10,
     idleTimeoutSecs: 1800,
-    persistPath: "./.fennec/sessions",
+    persistPath: resolve(STORE_BASE, "sessions"),
   },
   process: {
     maxProcesses: 10,
@@ -145,7 +151,7 @@ export const defaultConfig: FennecConfig = {
     allowFileProtocol: false,
     allowCDPRawAccess: false,
     allowJSEvaluation: true,
-    exportPath: "./.fennec/exports",
+    exportPath: resolve(STORE_BASE, "exports"),
     maxExportSizeMB: 10,
   },
   transport: {

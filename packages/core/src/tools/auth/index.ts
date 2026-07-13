@@ -2,6 +2,7 @@ import { z } from "zod";
 import { join } from "node:path";
 import { createTool } from "../_registry.js";
 import { detectFormFields, matchField, fillField, findSubmitButton } from "../smart/index.js";
+import { StoreManager } from "../../store/StoreManager.js";
 
 // Fallback selectors when smart field detection returns no results
 const LOGIN_SELECTORS = {
@@ -171,7 +172,7 @@ export const authSaveSession = createTool({
   inputSchema: z.object({
     name: z.string().describe("Session name to save as"),
     metadata: z.record(z.unknown()).optional().describe("Free-form context to remember with this session: user, role, workspace, notes, etc. Shown by auth_list_sessions."),
-    filePath: z.string().optional().describe("Custom path to save the session JSON (defaults to ./.fennec/sessions/<name>.json)"),
+    filePath: z.string().optional().describe("Custom path to save the session JSON (defaults to the global Fennec store ~/.fennec/sessions/<origin>/<name>.json)"),
     sessionId: z.string().optional().describe("Browser session ID"),
   }),
   handler: async (input, { sessionManager, responseBuilder, sessionStore }) => {
@@ -200,11 +201,12 @@ export const authSaveSession = createTool({
         metadata: input.metadata,
       };
 
-      const filePath = input.filePath ?? sessionStore.pathFor(input.name);
+      let filePath: string;
       if (input.filePath) {
         sessionStore.saveToPath(input.name, payload, input.filePath);
+        filePath = input.filePath;
       } else {
-        sessionStore.save(input.name, payload);
+        filePath = sessionStore.save(input.name, payload);
       }
 
       return responseBuilder.success({
@@ -222,9 +224,9 @@ export const authSaveSession = createTool({
 export const authLoadSession = createTool({
   name: "auth_load_session",
   category: "auth",
-  description: "`<use_case>Auth</use_case> 🔓 Load a previously saved auth session (from auth_save_session) into the browser. Restores cookies + localStorage + navigates to origin. Returns cookiesLoaded and storageLoaded counts. Use to quickly restore authenticated state without re-logging in. Pass filePath to load from a specific .json, or name to load from ./.fennec/sessions/<name>.json (auto-discovered). Get available session names from auth_list_sessions. For one-off cookie setting, use storage_set_cookie instead.`",
+   description: "`<use_case>Auth</use_case> 🔓 Load a previously saved auth session (from auth_save_session) into the browser. Restores cookies + localStorage + navigates to origin. Returns cookiesLoaded and storageLoaded counts. Use to quickly restore authenticated state without re-logging in. Pass filePath to load from a specific .json, or name to load from the global store ~/.fennec/sessions/<origin>/<name>.json (auto-discovered, including cwd ./.fennec/sessions). Get available session names from auth_list_sessions. For one-off cookie setting, use storage_set_cookie instead.`",
   inputSchema: z.object({
-    name: z.string().describe("Session name to load (resolved from ./.fennec/sessions/<name>.json)"),
+    name: z.string().describe("Session name to load (resolved from the global Fennec store ~/.fennec/sessions/<origin>/<name>.json, or cwd ./.fennec/sessions)"),
     filePath: z.string().optional().describe("Explicit path to the saved session .json file (overrides name)"),
     sessionId: z.string().optional().describe("Browser session ID"),
   }),
@@ -237,9 +239,8 @@ export const authLoadSession = createTool({
       } else {
         saved = sessionStore.load(input.name);
         if (!saved) {
-          // Auto-discover in cwd .fennec/sessions
-          const discovered = sessionStore.loadFromPath(join(process.cwd(), ".fennec", "sessions", `${input.name}.json`));
-          if (discovered) saved = discovered;
+          // Auto-discover in the cwd .fennec/sessions (recursive: namespaced + legacy)
+          saved = sessionStore.loadFromDir(join(process.cwd(), ".fennec", "sessions"), input.name);
         }
       }
       if (!saved) {
@@ -284,9 +285,9 @@ export const authListSessions = createTool({
     const add = (s: { name: string; savedAt: string; origin: string; metadata?: Record<string, unknown> }, filePath: string) => {
       if (!byName.has(s.name)) byName.set(s.name, { name: s.name, savedAt: s.savedAt, origin: s.origin, filePath, metadata: s.metadata });
     };
-    for (const s of sessionStore.list()) add(s, sessionStore.pathFor(s.name));
+    for (const s of sessionStore.list()) add(s, sessionStore.pathFor(s.name, s.origin));
     for (const s of sessionStore.listFromDir(join(process.cwd(), ".fennec", "sessions"))) {
-      add(s, join(process.cwd(), ".fennec", "sessions", `${s.name}.json`));
+      add(s, sessionStore.pathFor(s.name, s.origin));
     }
     const sessions = Array.from(byName.values());
     return responseBuilder.success({
