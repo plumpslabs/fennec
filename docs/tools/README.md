@@ -1,6 +1,6 @@
 # Fennec Tool Reference
 
-Fennec provides **118 MCP tools** organized into **15 categories**. Each tool is designed to be consumed by AI agents, with structured input/output and actionable error messages.
+Fennec provides **119 MCP tools** organized into **15 categories**. Each tool is designed to be consumed by AI agents, with structured input/output and actionable error messages.
 
 > 💡 **Token-Efficient**: MCP clients can request specific categories to reduce context window usage. Every tool response also carries a `_tokenTier` (low/medium/high) in `tools/list` so agents prefer cheap tools first. Screenshots default to compressed JPEG and `smart_navigate` returns structured JSON (no image) unless you ask for one.
 
@@ -118,6 +118,7 @@ Authentication: auto-fill login forms, save/load sessions, check auth state.
 | `auth_list_sessions` | List saved sessions |
 | `auth_delete_session` | Delete session |
 | `auth_check_logged_in` | Check login state |
+| `auth_ensure_session` | Load matching session before testing (or signal needsAuth) |
 
 ### [Tabs & Contexts](tabs.md) (7 tools)
 Multi-tab and multi-context (incognito) management.
@@ -229,7 +230,7 @@ Multi-step execution planning from natural language goals.
 | DevTools Network | 9 | ✅ |
 | DevTools Performance | 6 | ✅ |
 | Storage | 12 | ✅ |
-| Auth | 6 | ⚠️ Partial |
+| Auth | 7 | ⚠️ Partial |
 | Tabs & Contexts | 7 | ✅ |
 | Process | 11 | ❌ |
 | Terminal | 7 | ❌ |
@@ -237,9 +238,9 @@ Multi-step execution planning from natural language goals.
 | Scheduler | 7 | ❌ |
 | Smart | 12 | ✅ |
 | Planner | 5 | ❌ |
-| **Total** | **118** | **42 without browser** |
+| **Total** | **119** | **43 without browser** |
 
-> **42 tools work without Playwright/browser engines** — process, terminal, storage (basic), scheduler, planner, and partial auth + diagnostic.
+> **43 tools work without Playwright/browser engines** — process, terminal, storage (basic), scheduler, planner, and partial auth + diagnostic.
 
 ---
 

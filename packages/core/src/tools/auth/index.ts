@@ -14,12 +14,13 @@ const LOGIN_SELECTORS = {
 export const authFillLoginForm = createTool({
   name: "auth_fill_login_form",
   category: "auth",
-  description: "`<use_case>Auth</use_case> 🔑 Auto-detect and fill a login form (username/email + password). Smart field detection matches by label, name, id, placeholder, aria-label, data-testid. Options: submitAfter (submit form after filling), saveAfterLogin (auto-save auth session on success). Returns formFound, fieldsDetected, submitted, sessionSaved. Use as the PRIMARY way to log into sites — smarter than manually finding fields with browser_type. For non-login forms, use smart_fill_form instead. For checking auth state, use auth_check_logged_in or diagnose_auth.`",
+  description: "`<use_case>Auth</use_case> 🔑 Auto-detect and fill a login form (username/email + password). Smart field detection matches by label, name, id, placeholder, aria-label, data-testid. Options: submitAfter (submit form after filling), saveAfterLogin (auto-save auth session on success — DEFAULT ON), sessionName (name for the saved session, e.g. 'myapp-prod'). Returns formFound, fieldsDetected, submitted, sessionSaved. Use as the PRIMARY way to log into sites — smarter than manually finding fields with browser_type. For non-login forms, use smart_fill_form instead. For checking auth state, use auth_check_logged_in or diagnose_auth.`",
   inputSchema: z.object({
     username: z.string().describe("Username or email to fill"),
     password: z.string().describe("Password to fill"),
     submitAfter: z.boolean().optional().default(false).describe("Submit the form after filling"),
-    saveAfterLogin: z.boolean().optional().default(false).describe("Auto-save session after successful login detection"),
+    saveAfterLogin: z.boolean().optional().default(true).describe("Auto-save session after successful login (DEFAULT ON). Set false to skip."),
+    sessionName: z.string().optional().describe("Name to save the session as (e.g. 'myapp-prod'). Defaults to auto-<domain>."),
     sessionId: z.string().optional().describe("Session ID"),
   }),
   handler: async (input, { sessionManager, responseBuilder, sessionStore }) => {
@@ -109,7 +110,7 @@ export const authFillLoginForm = createTool({
         }
       }
 
-      // Phase 4: Auto-save session if requested
+      // Phase 4: Auto-save session after login (DEFAULT ON)
       let sessionSaved = false;
       let sessionName = "";
 
@@ -121,10 +122,9 @@ export const authFillLoginForm = createTool({
         const cookies = await session.browser.contextCookies();
         const hasAuthCookie = cookies.some((c) => /token|session|auth|jwt|sid|connect/i.test(c.name));
 
-        if (hasAuthCookie) {
+        if (hasAuthCookie || input.sessionName) {
           const origin = new URL(page.url()).origin;
-          const domain = new URL(page.url()).hostname;
-          sessionName = `auto-${domain}`;
+          sessionName = input.sessionName || `auto-${new URL(page.url()).hostname}`;
 
           const storage = await page.evaluate(() => {
             const items: Record<string, string> = {};
@@ -307,6 +307,60 @@ export const authDeleteSession = createTool({
   handler: async (input, { responseBuilder, sessionStore }) => {
     const deleted = sessionStore.delete(input.name);
     return responseBuilder.success({ deleted }, { elapsed: 0, sessionId: "", timestamp: new Date().toISOString() });
+  },
+});
+
+export const authEnsureSession = createTool({
+  name: "auth_ensure_session",
+  category: "auth",
+  description: "`<use_case>Auth</use_case> 🔐 ALWAYS call this BEFORE navigating to or interacting with a browser app that requires login (e.g. before testing a web app). It loads the matching saved auth session for the target origin (or a named session), so you start authenticated without re-logging in. If no matching session exists, it returns needsAuth=true with a prompt telling you to either log in with auth_fill_login_form (which auto-saves the session) or ask the developer if they have an account. Returns loaded + sessionName/origin, or needsAuth + prompt.",
+  inputSchema: z.object({
+    appUrl: z.string().describe("The app URL you're about to test/drive, e.g. https://app.example.com/dashboard"),
+    sessionName: z.string().optional().describe("Specific saved session name to load (optional; if omitted, matches by origin)"),
+    sessionId: z.string().optional().describe("Browser session ID"),
+  }),
+  handler: async (input, { sessionManager, responseBuilder, sessionStore }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    let origin: string;
+    try {
+      origin = new URL(input.appUrl).origin;
+    } catch {
+      return responseBuilder.error(new Error(`Invalid appUrl: ${input.appUrl}`));
+    }
+    const cwdDir = join(process.cwd(), ".fennec", "sessions");
+    const all = [...sessionStore.list(), ...sessionStore.listFromDir(cwdDir)];
+    const match = input.sessionName
+      ? all.find((s) => s.name === input.sessionName)
+      : all.find((s) => s.origin === origin);
+    if (match) {
+      await session.browser.contextAddCookies(match.cookies.map((c) => {
+        const cc = c as Record<string, unknown>;
+        return {
+          name: cc.name as string,
+          value: cc.value as string,
+          domain: cc.domain as string | undefined,
+          path: (cc.path as string) ?? "/",
+          httpOnly: cc.httpOnly as boolean | undefined,
+          secure: cc.secure as boolean | undefined,
+          sameSite: cc.sameSite as "Strict" | "Lax" | "None" | undefined,
+        };
+      }));
+      await session.browser.navigate(match.origin).catch(() => {});
+      for (const [key, value] of Object.entries(match.localStorage)) {
+        await session.browser.evaluate(({ k, v }) => localStorage.setItem(k, v), { k: key, v: value }).catch(() => {});
+      }
+      return responseBuilder.success({
+        loaded: true,
+        sessionName: match.name,
+        origin: match.origin,
+      }, sessionManager.buildMeta(session));
+    }
+    return responseBuilder.success({
+      loaded: false,
+      needsAuth: true,
+      origin,
+      prompt: `No saved session for ${origin}${input.sessionName ? ` (name "${input.sessionName}")` : ""}. Ask the developer if they have an account, or run auth_fill_login_form (it auto-saves the session for next time).`,
+    }, sessionManager.buildMeta(session));
   },
 });
 

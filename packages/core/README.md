@@ -39,7 +39,7 @@
 |--------|-------------|
 | `session/` | Browser session manager — CDP or Playwright engine, tabs, multi-session, CDP monitoring |
 | `store/` | **StoreManager** — single source of truth for persisted state: global `~/.fennec` (or `FENNEC_HOME`/`FENNEC_DATA_DIR`) vs per-project `--local`, perms lockdown, scan, `redactSession` |
-| `tools/` | 140+ MCP tool definitions across 17 categories (navigation, interaction, dom, devtools console/network/performance, storage, auth, tabs, process, terminal, diagnostic, scheduler, smart, planner, mobile, **ai**) |
+| `tools/` | 141+ MCP tool definitions across 17 categories (navigation, interaction, dom, devtools console/network/performance, storage, auth, tabs, process, terminal, diagnostic, scheduler, smart, planner, mobile, **ai**) |
 | `tools/ai/` | **AI-Native API** — `observe()`, `ai_diagnose()`, `correlate()`, `summarize()`, `explain()`, `investigate()`, `predict()` |
 | `incident/` | **Incident Engine** — formal incident type, lifecycle management, confidence scoring, auto-detection via EventBus |
 | `modules/` | Modular system with `FennecModule` interface + `ModuleRegistry`. Modules: **browser**, **process**, **mobile** (Android/ADB: 11 tools) |

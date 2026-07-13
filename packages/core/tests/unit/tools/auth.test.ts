@@ -58,14 +58,38 @@ describe("auth_fill_login_form tool", () => {
     }
   });
 
-  it("should default saveAfterLogin to false", () => {
+  it("should default saveAfterLogin to true", () => {
     const result = authFillLoginForm.inputSchema.safeParse({
       username: "user",
       password: "pass",
     });
     expect(result.success).toBe(true);
     if (result.success) {
+      expect(result.data.saveAfterLogin).toBe(true);
+    }
+  });
+
+  it("should accept saveAfterLogin: false to opt out", () => {
+    const result = authFillLoginForm.inputSchema.safeParse({
+      username: "user",
+      password: "pass",
+      saveAfterLogin: false,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
       expect(result.data.saveAfterLogin).toBe(false);
+    }
+  });
+
+  it("should accept a sessionName for the saved session", () => {
+    const result = authFillLoginForm.inputSchema.safeParse({
+      username: "user",
+      password: "pass",
+      sessionName: "myapp-prod",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.sessionName).toBe("myapp-prod");
     }
   });
 
