@@ -126,7 +126,7 @@ export const defaultConfig: FennecConfig = {
     captureRequestBody: true,
     captureResponseBody: true,
     captureHeaders: true,
-    slowRequestThresholdMs: 1000,
+    slowRequestThresholdMs: 2000,
   },
   console: {
     bufferSize: 500,

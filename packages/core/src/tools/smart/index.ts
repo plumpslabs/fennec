@@ -1730,13 +1730,13 @@ export const smartNavigate = createTool({
   name: 'smart_navigate',
   category: 'smart',
   description:
-    "`<use_case>Smart</use_case> 🚀 Navigate to a URL with smart post-load analysis. Returns a STRUCTURED JSON result (no screenshot by default): url, title, textPreview, elementCount, availableElements[]. Use instead of browser_navigate when you want the AI to automatically understand the new page — saves an extra browser_get_dom_snapshot call. Set screenshot:true only if you also need an image. Use compact:true for minimal tokens (url/title/errorCount/top5) or mode:'verify' for a pass/fail assertion.`",
+    "`<use_case>Smart</use_case> 🚀 Navigate to a URL with smart post-load analysis. Returns a STRUCTURED JSON result (no screenshot by default): url, title, textPreview, elementCount, availableElements[]. Use instead of browser_navigate when you want the AI to automatically understand the new page — saves an extra browser_get_dom_snapshot call. Set screenshot:true only if you also need an image. Use compact:true for minimal tokens (url/title/errorCount/top5) or mode:'verify' for a pass/fail assertion. waitUntil defaults to 'domcontentloaded' (SPA-friendly; use 'networkidle' only when you truly need no in-flight requests).`",
   inputSchema: z.object({
     url: z.string().describe('URL to navigate to'),
     waitUntil: z
       .enum(['load', 'domcontentloaded', 'networkidle', 'commit'])
       .optional()
-      .default('networkidle')
+      .default('domcontentloaded')
       .describe('When to consider navigation complete'),
     timeout: z.number().optional().default(30000).describe('Timeout in milliseconds'),
     screenshot: z
@@ -2017,8 +2017,8 @@ export const compareSessions = createTool({
       const b = sessionManager.getOrDefault(input.sessionB);
       if (input.url) {
         await Promise.all([
-          a.browser.navigate(input.url, { waitUntil: 'networkidle' }).catch(() => {}),
-          b.browser.navigate(input.url, { waitUntil: 'networkidle' }).catch(() => {}),
+          a.browser.navigate(input.url, { waitUntil: 'domcontentloaded' }).catch(() => {}),
+          b.browser.navigate(input.url, { waitUntil: 'domcontentloaded' }).catch(() => {}),
         ]);
       }
       const [va, vb] = await Promise.all([capturePageView(a.browser), capturePageView(b.browser)]);
@@ -2116,7 +2116,7 @@ export const testWithState = createTool({
 
       // Reload so the app reads the injected state.
       await page.reload?.().catch(() => {});
-      await page.navigate(target, { waitUntil: 'networkidle' }).catch(() => {});
+      await page.navigate(target, { waitUntil: 'domcontentloaded' }).catch(() => {});
 
       const title = await page.title().catch(() => 'unknown');
       const errorCount = session.consoleBuffer.filter((l) => l.level === 'error').length;

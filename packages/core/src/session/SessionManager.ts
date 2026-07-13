@@ -4,7 +4,7 @@ import type { FennecSession, ConsoleEvent, NetworkEvent, SessionMeta } from './t
 import { SessionStore } from './SessionStore.js';
 import type { FennecConfig } from '../config/defaults.js';
 import type { EventBus } from '../correlation/EventBus.js';
-import type { BrowserEngine, BrowserInstance } from '../browser/types.js';
+import type { BrowserEngine, BrowserInstance, BrowserSession } from '../browser/types.js';
 
 export class SessionManager {
   private sessions: Map<string, FennecSession> = new Map();
@@ -163,6 +163,16 @@ export class SessionManager {
     } catch {
       return this.getSession(this.defaultSessionId!);
     }
+  }
+
+  /**
+   * Point a session's active page at a different BrowserSession (e.g. a freshly
+   * opened tab). Keeps `session.browser` in sync with what the agent sees as
+   * the "current" tab, so tools like devtools_get_page_text read the right page.
+   */
+  setActivePage(id: string, page: BrowserSession): void {
+    const session = this.sessions.get(id);
+    if (session) session.browser = page;
   }
 
   async destroySession(id: string): Promise<void> {

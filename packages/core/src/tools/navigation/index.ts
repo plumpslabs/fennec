@@ -6,13 +6,13 @@ export const browserNavigate = createTool({
   name: 'browser_navigate',
   category: 'navigation',
   description:
-    "`<use_case>Navigation</use_case> 🚀 Navigate the browser to a URL. Supports waitUntil options: 'networkidle' (default, waits for no network activity), 'load', 'domcontentloaded', 'commit'. Returns finalUrl (in case of redirects), statusCode, loadTime. Use as the primary way to load pages. For smarter navigation with auto-DOM summary, use smart_navigate instead. Built-in retry: set maxRetries (default 0) and retryOn (default ['timeout','navigation_error']) to auto-retry flaky loads. For going back/forward in history, use browser_go_back / browser_go_forward.`",
+    "`<use_case>Navigation</use_case> 🚀 Navigate the browser to a URL. Supports waitUntil options: 'domcontentloaded' (default — fast, SPA-friendly, does not wait for the HMR websocket/long-poll to go idle), 'load', 'networkidle' (opt-in only; on Vite/React SPAs the HMR socket keeps a connection open so networkidle resolves slowly), 'commit'. Returns finalUrl (in case of redirects), statusCode, loadTime. Use as the primary way to load pages. For smarter navigation with auto-DOM summary, use smart_navigate instead. Built-in retry: set maxRetries (default 0) and retryOn (default ['timeout','navigation_error']) to auto-retry flaky loads. For going back/forward in history, use browser_go_back / browser_go_forward.`",
   inputSchema: z.object({
     url: z.string().url().describe('The URL to navigate to'),
     waitUntil: z
       .enum(['load', 'domcontentloaded', 'networkidle', 'commit'])
       .optional()
-      .default('networkidle')
+      .default('domcontentloaded')
       .describe('When to consider navigation complete'),
     timeout: z.number().optional().default(30000).describe('Timeout in milliseconds'),
     maxRetries: z
@@ -41,6 +41,39 @@ export const browserNavigate = createTool({
       const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
       if (msg.includes('timeout') || msg.includes('timed out')) return 'timeout';
       return 'navigation_error';
+    };
+
+    // Richer, human-readable error taxonomy so the agent can tell *why* a
+    // navigation failed instead of a generic "Unable to connect".
+    const describeError = (err: unknown): { code: string; reason: string } => {
+      const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+      if (msg.includes('timeout') || msg.includes('timed out'))
+        return { code: 'TIMEOUT', reason: 'Navigation exceeded the timeout.' };
+      if (
+        msg.includes('dns') ||
+        msg.includes('enotfound') ||
+        msg.includes('name or service not known')
+      )
+        return {
+          code: 'URL_UNREACHABLE',
+          reason: 'DNS resolution failed — the host cannot be resolved.',
+        };
+      if (msg.includes('econnrefused') || msg.includes('connection refused'))
+        return {
+          code: 'CONNECTION_REFUSED',
+          reason: 'Connection refused — no server is listening at that host/port.',
+        };
+      if (msg.includes('mixed content') || msg.includes('insecure') || msg.includes('cors'))
+        return {
+          code: 'MIXED_CONTENT_OR_CORS',
+          reason: 'Mixed-content or CORS block — an insecure/blocked request was rejected.',
+        };
+      if (msg.includes('target') && msg.includes('close'))
+        return {
+          code: 'SESSION_DEAD',
+          reason: 'The browser/CDP session died — recover it with browser_session_recover.',
+        };
+      return { code: 'NAVIGATION_FAILED', reason: 'Navigation failed for an unspecified reason.' };
     };
 
     let lastError: unknown;
@@ -75,9 +108,11 @@ export const browserNavigate = createTool({
     }
 
     const elapsed = Date.now() - startTime;
+    const diag = describeError(lastError);
     return responseBuilder.error(lastError, {
-      code: 'NAVIGATION_FAILED',
+      code: diag.code,
       suggestions: [
+        diag.reason,
         'Check if the URL is accessible from your network',
         'Try increasing the timeout parameter',
         'Verify the URL format includes protocol (http:// or https://)',
