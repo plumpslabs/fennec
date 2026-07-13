@@ -4,38 +4,38 @@ Tools for managing multiple browser tabs and isolated browser contexts (incognit
 
 ## Tools
 
-| Tool | Description | Parameters |
-|------|-------------|------------|
-| `tab_new` | Create a new browser tab (optionally navigate to URL) | url?, sessionId? |
-| `tab_close` | Close a tab by its URL (tabId) | tabId, sessionId? |
-| `tab_list` | List all open tabs with URL, title, and active status | sessionId? |
-| `tab_switch` | Switch to a tab by its URL | tabId, sessionId? |
-| `tab_get_current` | Get current active tab info: URL, title, readyState | sessionId? |
-| `context_new` | Create a new isolated browser context (separate cookies/storage) | options?, sessionId? |
-| `context_close` | Close a browser context by sessionId | sessionId |
-| `context_rotate` | Recycle a session's BrowserContext (frees memory, keeps cookies/URL) | sessionId |
+| Tool              | Description                                                          | Parameters           |
+| ----------------- | -------------------------------------------------------------------- | -------------------- |
+| `tab_new`         | Create a new browser tab (optionally navigate to URL)                | url?, sessionId?     |
+| `tab_close`       | Close a tab by its URL (tabId)                                       | tabId, sessionId?    |
+| `tab_list`        | List all open tabs with URL, title, and active status                | sessionId?           |
+| `tab_switch`      | Switch to a tab by its URL                                           | tabId, sessionId?    |
+| `tab_get_current` | Get current active tab info: URL, title, readyState                  | sessionId?           |
+| `context_new`     | Create a new isolated browser context (separate cookies/storage)     | options?, sessionId? |
+| `context_close`   | Close a browser context by sessionId                                 | sessionId            |
+| `context_rotate`  | Recycle a session's BrowserContext (frees memory, keeps cookies/URL) | sessionId            |
 
 ## Examples
 
 ```typescript
 // Open a new tab
-const newTab = await toolRegistry.call("tab_new", {
-  url: "https://example.com"
+const newTab = await toolRegistry.call('tab_new', {
+  url: 'https://example.com',
 });
 // Returns: { tabId: "https://example.com", sessionId: "..." }
 
 // List all open tabs
-const tabs = await toolRegistry.call("tab_list", {});
+const tabs = await toolRegistry.call('tab_list', {});
 // Returns: { tabs: [{url, title, active}], activeTabId: "..." }
 
 // Switch to a tab
-await toolRegistry.call("tab_switch", {
-  tabId: "https://other-page.com"
+await toolRegistry.call('tab_switch', {
+  tabId: 'https://other-page.com',
 });
 // Returns: { url: "...", title: "..." }
 
 // Create isolated context (separate cookies/session)
-const ctx = await toolRegistry.call("context_new", {});
+const ctx = await toolRegistry.call('context_new', {});
 // Returns: { contextId: "sess_..." }
 ```
 

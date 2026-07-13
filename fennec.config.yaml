@@ -12,19 +12,19 @@ browser:
 session:
   maxSessions: 10
   idleTimeoutSecs: 1800
-  persistPath: ".fennec/sessions"
+  persistPath: '.fennec/sessions'
 
 process:
   maxProcesses: 10
   logBufferLines: 2000
   spawnAllowlist:
-    - "npm"
-    - "node"
-    - "pnpm"
-    - "yarn"
-    - "bun"
-    - "python"
-    - "python3"
+    - 'npm'
+    - 'node'
+    - 'pnpm'
+    - 'yarn'
+    - 'bun'
+    - 'python'
+    - 'python3'
 
 terminal:
   logBufferLines: 2000
@@ -58,13 +58,13 @@ security:
   blockedDomains: []
   allowFileProtocol: false
   allowCDPRawAccess: false
-  exportPath: ".fennec/exports"
+  exportPath: '.fennec/exports'
   maxExportSizeMB: 10
 
 transport:
   type: stdio
   port: 3333
-  host: "127.0.0.1"
+  host: '127.0.0.1'
 
 logging:
   level: info

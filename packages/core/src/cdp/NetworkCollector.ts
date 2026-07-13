@@ -1,7 +1,7 @@
-import type { BrowserCDPSession } from "../browser/types.js";
-import type { NetworkEvent } from "../session/types.js";
-import { getLogger } from "../utils/logger.js";
-import { exportAsHar, type HarLog } from "./HarExporter.js";
+import type { BrowserCDPSession } from '../browser/types.js';
+import type { NetworkEvent } from '../session/types.js';
+import { getLogger } from '../utils/logger.js';
+import { exportAsHar, type HarLog } from './HarExporter.js';
 
 type NetworkCallback = (event: NetworkEvent) => void;
 
@@ -58,7 +58,10 @@ interface CDPLoadingFinished {
  * Parse CDP timing data into a NetworkTiming breakdown (waterfall).
  * All CDP timing values are relative to `requestTime` in seconds.
  */
-function parseTimingWaterfall(requestTime: number, timing: CDPResponse["timing"]): import("../session/types.js").NetworkTiming | undefined {
+function parseTimingWaterfall(
+  requestTime: number,
+  timing: CDPResponse['timing'],
+): import('../session/types.js').NetworkTiming | undefined {
   if (!timing) return undefined;
 
   // Convert seconds to ms, relative to request start
@@ -87,7 +90,10 @@ function parseTimingWaterfall(requestTime: number, timing: CDPResponse["timing"]
 
 export class NetworkCollector {
   private listeners: Map<string, NetworkCallback> = new Map();
-  private pendingRequests: Map<string, { request: CDPRequest; method: string; url: string; timestamp: string; type: string }> = new Map();
+  private pendingRequests: Map<
+    string,
+    { request: CDPRequest; method: string; url: string; timestamp: string; type: string }
+  > = new Map();
   private collectedEvents: NetworkEvent[] = [];
   private maxCollectedEvents = 1000;
   private enabled = false;
@@ -96,23 +102,23 @@ export class NetworkCollector {
     if (this.enabled) return;
 
     try {
-      await cdpSession.send("Network.enable");
+      await cdpSession.send('Network.enable');
 
-      cdpSession.on("Network.requestWillBeSent", (msg: unknown) => {
+      cdpSession.on('Network.requestWillBeSent', (msg: unknown) => {
         this.handleRequestSent(msg as CDPRequestWillBeSent);
       });
 
-      cdpSession.on("Network.responseReceived", (msg: unknown) => {
+      cdpSession.on('Network.responseReceived', (msg: unknown) => {
         this.handleResponseReceived(msg as CDPResponseReceived);
       });
 
-      cdpSession.on("Network.loadingFinished", (msg: unknown) => {
+      cdpSession.on('Network.loadingFinished', (msg: unknown) => {
         this.handleLoadingFinished(msg as CDPLoadingFinished);
       });
 
       this.enabled = true;
     } catch (error) {
-      getLogger().error({ error }, "Failed to enable network collector");
+      getLogger().error({ error }, 'Failed to enable network collector');
     }
   }
 
@@ -122,7 +128,7 @@ export class NetworkCollector {
       method: msg.request.method,
       url: msg.request.url,
       timestamp: new Date(msg.timestamp * 1000).toISOString(),
-      type: msg.type ?? "other",
+      type: msg.type ?? 'other',
     });
   }
 
@@ -131,9 +137,10 @@ export class NetworkCollector {
     if (!pending) return;
 
     // Parse timing waterfall from CDP timing data
-    const timingBreakdown = msg.response.timing && msg.response.timing.requestTime != null
-      ? parseTimingWaterfall(msg.response.timing.requestTime, msg.response.timing)
-      : undefined;
+    const timingBreakdown =
+      msg.response.timing && msg.response.timing.requestTime != null
+        ? parseTimingWaterfall(msg.response.timing.requestTime, msg.response.timing)
+        : undefined;
 
     const event: NetworkEvent = {
       requestId: msg.requestId,
@@ -146,7 +153,7 @@ export class NetworkCollector {
       responseHeaders: msg.response.headers,
       requestBody: pending.request.postData,
       timestamp: pending.timestamp,
-      type: pending.type as NetworkEvent["type"],
+      type: pending.type as NetworkEvent['type'],
       timing: timingBreakdown, // 🔥 NEW: timing waterfall data
     };
 
@@ -165,8 +172,13 @@ export class NetworkCollector {
 
       // Content download = total - everything before headers received
       // Everything before headers = queuing + dns + tcp + ssl + ttfb + sending
-      const beforeContent = existing.timing.queuing + existing.timing.dns + existing.timing.tcp +
-        existing.timing.ssl + existing.timing.ttfb + existing.timing.sending;
+      const beforeContent =
+        existing.timing.queuing +
+        existing.timing.dns +
+        existing.timing.tcp +
+        existing.timing.ssl +
+        existing.timing.ttfb +
+        existing.timing.sending;
       existing.timing.contentDownload = Math.max(0, totalMs - beforeContent);
     }
   }

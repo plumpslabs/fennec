@@ -1,7 +1,7 @@
-import { readFileSync, existsSync } from "node:fs";
-import { resolve, extname } from "node:path";
-import { defaultConfig, type FennecConfig } from "./defaults.js";
-import { load as parseYaml } from "js-yaml";
+import { readFileSync, existsSync } from 'node:fs';
+import { resolve, extname } from 'node:path';
+import { defaultConfig, type FennecConfig } from './defaults.js';
+import { load as parseYaml } from 'js-yaml';
 
 export class ConfigLoader {
   private config: FennecConfig;
@@ -17,15 +17,15 @@ export class ConfigLoader {
       const resolvedPath = resolve(configPath);
       if (existsSync(resolvedPath)) {
         try {
-          const content = readFileSync(resolvedPath, "utf-8");
+          const content = readFileSync(resolvedPath, 'utf-8');
           const ext = extname(configPath).toLowerCase();
-          
-          if (ext === ".json") {
+
+          if (ext === '.json') {
             const partial = JSON.parse(content) as Partial<FennecConfig>;
             return this.deepMerge(merged, partial);
           }
-          
-          if (ext === ".yaml" || ext === ".yml") {
+
+          if (ext === '.yaml' || ext === '.yml') {
             const partial = parseYaml(content) as Partial<FennecConfig>;
             return this.deepMerge(merged, partial);
           }
@@ -37,10 +37,10 @@ export class ConfigLoader {
 
     // Override with environment variables
     if (process.env.FENNEC_BROWSER_TYPE) {
-      merged.browser.type = process.env.FENNEC_BROWSER_TYPE as FennecConfig["browser"]["type"];
+      merged.browser.type = process.env.FENNEC_BROWSER_TYPE as FennecConfig['browser']['type'];
     }
     if (process.env.FENNEC_HEADLESS) {
-      merged.browser.headless = process.env.FENNEC_HEADLESS !== "false";
+      merged.browser.headless = process.env.FENNEC_HEADLESS !== 'false';
     }
     if (process.env.FENNEC_DEFAULT_TIMEOUT) {
       merged.browser.defaultTimeout = parseInt(process.env.FENNEC_DEFAULT_TIMEOUT, 10);
@@ -52,25 +52,27 @@ export class ConfigLoader {
       merged.browser.viewport.height = parseInt(process.env.FENNEC_VIEWPORT_HEIGHT, 10);
     }
     if (process.env.FENNEC_TRANSPORT_TYPE) {
-      merged.transport.type = process.env.FENNEC_TRANSPORT_TYPE as "stdio" | "sse";
+      merged.transport.type = process.env.FENNEC_TRANSPORT_TYPE as 'stdio' | 'sse';
     }
     if (process.env.FENNEC_PORT) {
       merged.transport.port = parseInt(process.env.FENNEC_PORT, 10);
     }
     if (process.env.FENNEC_LOG_LEVEL) {
-      merged.logging.level = process.env.FENNEC_LOG_LEVEL as FennecConfig["logging"]["level"];
+      merged.logging.level = process.env.FENNEC_LOG_LEVEL as FennecConfig['logging']['level'];
     }
     if (process.env.FENNEC_SANDBOX) {
-      merged.security.sandbox = process.env.FENNEC_SANDBOX !== "false";
+      merged.security.sandbox = process.env.FENNEC_SANDBOX !== 'false';
     }
     if (process.env.FENNEC_SECURITY_ALLOW_PROCESS_SPAWN) {
-      merged.security.allowProcessSpawn = process.env.FENNEC_SECURITY_ALLOW_PROCESS_SPAWN !== "false";
+      merged.security.allowProcessSpawn =
+        process.env.FENNEC_SECURITY_ALLOW_PROCESS_SPAWN !== 'false';
     }
     if (process.env.FENNEC_SECURITY_ALLOW_PROCESS_KILL) {
-      merged.security.allowProcessKill = process.env.FENNEC_SECURITY_ALLOW_PROCESS_KILL !== "false";
+      merged.security.allowProcessKill = process.env.FENNEC_SECURITY_ALLOW_PROCESS_KILL !== 'false';
     }
     if (process.env.FENNEC_SECURITY_ALLOW_JS_EVALUATION) {
-      merged.security.allowJSEvaluation = process.env.FENNEC_SECURITY_ALLOW_JS_EVALUATION !== "false";
+      merged.security.allowJSEvaluation =
+        process.env.FENNEC_SECURITY_ALLOW_JS_EVALUATION !== 'false';
     }
 
     return merged;
@@ -82,7 +84,7 @@ export class ConfigLoader {
     for (const key of Object.keys(partial) as (keyof FennecConfig)[]) {
       const val = partial[key];
       if (val !== undefined) {
-        if (typeof val === "object" && !Array.isArray(val) && val !== null) {
+        if (typeof val === 'object' && !Array.isArray(val) && val !== null) {
           result[key] = { ...result[key], ...val };
         } else {
           result[key] = val;

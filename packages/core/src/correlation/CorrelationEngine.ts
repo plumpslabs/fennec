@@ -7,13 +7,13 @@
  * - Deduplication of similar incidents
  * - Richer pattern matching with severity levels
  */
-import { EventBus, type BusEvent } from "./EventBus.js";
-import { RootCauseInferrer } from "./RootCauseInferrer.js";
+import { EventBus, type BusEvent } from './EventBus.js';
+import { RootCauseInferrer } from './RootCauseInferrer.js';
 
 export interface TimelineEntry {
   at: number;
   relativeMs: number;
-  layer: "browser" | "server" | "terminal";
+  layer: 'browser' | 'server' | 'terminal';
   event: string;
   detail?: string;
 }
@@ -34,10 +34,7 @@ export class CorrelationEngine {
   private correlationWindowMs: number;
   private minConfidence: number;
 
-  constructor(
-    eventBus: EventBus,
-    options: { windowMs?: number; minConfidence?: number } = {},
-  ) {
+  constructor(eventBus: EventBus, options: { windowMs?: number; minConfidence?: number } = {}) {
     this.eventBus = eventBus;
     this.rootCauseInferrer = new RootCauseInferrer();
     this.correlationWindowMs = options.windowMs ?? 500;
@@ -75,28 +72,28 @@ export class CorrelationEngine {
     }));
   }
 
-  private eventTypeToLayer(type: string): "browser" | "server" | "terminal" {
-    if (type.startsWith("browser")) return "browser";
-    if (type.startsWith("process")) return "server";
-    return "terminal";
+  private eventTypeToLayer(type: string): 'browser' | 'server' | 'terminal' {
+    if (type.startsWith('browser')) return 'browser';
+    if (type.startsWith('process')) return 'server';
+    return 'terminal';
   }
 
   private eventToDescription(event: BusEvent): string {
     const { type, data } = event;
     switch (type) {
-      case "browser:console":
+      case 'browser:console':
         return `[${data.level}] ${data.message}`;
-      case "browser:network":
+      case 'browser:network':
         return `${data.method} ${data.url} -> ${data.status}`;
-      case "browser:error":
+      case 'browser:error':
         return `Error: ${data.message}`;
-      case "process:stdout":
+      case 'process:stdout':
         return `[stdout] ${data.line}`;
-      case "process:stderr":
+      case 'process:stderr':
         return `[stderr] ${data.line}`;
-      case "process:exit":
+      case 'process:exit':
         return `Process exited (code: ${data.code})`;
-      case "terminal:log":
+      case 'terminal:log':
         return `[${data.source}] ${data.line}`;
       default:
         return `Event: ${type}`;

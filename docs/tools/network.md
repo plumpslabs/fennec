@@ -4,17 +4,17 @@ Tools for monitoring, intercepting, and mocking network requests.
 
 ## Tools
 
-| Tool | Description | Parameters |
-|------|-------------|------------|
-| `network_get_logs` | Get network request logs, filterable by status, method, URL pattern | status?, method?, urlPattern?, limit?, sessionId? |
-| `network_get_failed_requests` | Get all failed requests (status >= 400) | since?, sessionId? |
-| `network_get_cors_issues` | Detect CORS-related issues from network logs | sessionId? |
-| `network_clear_logs` | Clear all network request logs from buffer | sessionId? |
-| `network_wait_for_request` | Wait for a network request matching URL pattern + method | urlPattern, method?, timeout?, sessionId? |
-| `network_get_request_detail` | Get full detail of a request by URL or requestId | url?, requestId?, sessionId? |
-| `network_intercept` | Intercept requests matching URL pattern (returns interceptorId) | urlPattern, sessionId? |
-| `network_remove_intercept` | Remove a previously set network intercept by interceptorId | interceptorId, sessionId? |
-| `network_mock_response` | Mock a response for a URL pattern (custom status, body, headers) | urlPattern, statusCode?, body?, contentType?, headers?, sessionId? |
+| Tool                          | Description                                                         | Parameters                                                         |
+| ----------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `network_get_logs`            | Get network request logs, filterable by status, method, URL pattern | status?, method?, urlPattern?, limit?, sessionId?                  |
+| `network_get_failed_requests` | Get all failed requests (status >= 400)                             | since?, sessionId?                                                 |
+| `network_get_cors_issues`     | Detect CORS-related issues from network logs                        | sessionId?                                                         |
+| `network_clear_logs`          | Clear all network request logs from buffer                          | sessionId?                                                         |
+| `network_wait_for_request`    | Wait for a network request matching URL pattern + method            | urlPattern, method?, timeout?, sessionId?                          |
+| `network_get_request_detail`  | Get full detail of a request by URL or requestId                    | url?, requestId?, sessionId?                                       |
+| `network_intercept`           | Intercept requests matching URL pattern (returns interceptorId)     | urlPattern, sessionId?                                             |
+| `network_remove_intercept`    | Remove a previously set network intercept by interceptorId          | interceptorId, sessionId?                                          |
+| `network_mock_response`       | Mock a response for a URL pattern (custom status, body, headers)    | urlPattern, statusCode?, body?, contentType?, headers?, sessionId? |
 
 ## Return Data
 
@@ -39,23 +39,23 @@ Network tools return request objects with:
 
 ```typescript
 // Get all 500 errors
-const failed = await toolRegistry.call("network_get_failed_requests", {});
+const failed = await toolRegistry.call('network_get_failed_requests', {});
 // Returns: { requests: [...], count: N }
 
 // Mock an API response
-const mock = await toolRegistry.call("network_mock_response", {
-  urlPattern: "**/api/users",
+const mock = await toolRegistry.call('network_mock_response', {
+  urlPattern: '**/api/users',
   statusCode: 200,
   body: JSON.stringify({ users: [] }),
-  contentType: "application/json"
+  contentType: 'application/json',
 });
 // Returns: { mockId: "mock_...", active: true }
 
 // Wait for login request
-const login = await toolRegistry.call("network_wait_for_request", {
-  urlPattern: "/api/login",
-  method: "POST",
-  timeout: 10000
+const login = await toolRegistry.call('network_wait_for_request', {
+  urlPattern: '/api/login',
+  method: 'POST',
+  timeout: 10000,
 });
 // Returns: { request: {...}, response: {...}, elapsed: N }
 ```

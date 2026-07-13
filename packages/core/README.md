@@ -35,28 +35,28 @@
 
 ## What's inside
 
-| Module | Description |
-|--------|-------------|
-| `session/` | Browser session manager — CDP or Playwright engine, tabs, multi-session, CDP monitoring |
-| `store/` | **StoreManager** — single source of truth for persisted state: global `~/.fennec` (or `FENNEC_HOME`/`FENNEC_DATA_DIR`) vs per-project `--local`, perms lockdown, scan, `redactSession` |
-| `tools/` | 149+ MCP tool definitions across 17 categories (navigation, interaction, dom, devtools console/network/performance, storage, auth, tabs, process, terminal, diagnostic, scheduler, smart, planner, mobile, **ai**) |
-| `tools/ai/` | **AI-Native API** — `observe()`, `ai_diagnose()`, `correlate()`, `summarize()`, `explain()`, `investigate()`, `predict()` |
-| `incident/` | **Incident Engine** — formal incident type, lifecycle management, confidence scoring, auto-detection via EventBus |
-| `modules/` | Modular system with `FennecModule` interface + `ModuleRegistry`. Modules: **browser**, **process**, **mobile** (Android/ADB: 11 tools) |
-| `process/` | Process spawner (idempotent adopt-by-port), supervisor (auto-restart + flapping detection), log watcher, pipe watcher, **cross-platform** port detector (`/proc` on Linux, `lsof` on macOS, `netstat`/`wmic` on Windows) |
-| `browser/` | Browser engine abstraction — `BrowserSession` interface + 2 implementations: **Playwright** (full automation) + **CDP Observer** (zero-deps). Auto-switch via `EngineSelector` + `AdapterSelector` |
-| `cdp/` | Chrome DevTools Protocol collectors (console, network, performance) |
-| `correlation/` | Event bus, timeline builder, root cause inference engine, **Event Normalizer** |
-| `middleware/` | Pipeline with telemetry, permission guard, retry handler, smart hook, audit log, **PulseContext** (Lazy Context L0), **LazyLevels L1-L3**, **EventBusMiddleware** |
-| `middleware/LazyContext.ts` | **Lazy Context** — Levels 1 (Summary), 2 (Detail), 3 (Raw). Config-driven conditional middleware |
-| `response/` | Response builder and error enricher with context (no auto-screenshots) |
-| `config/` | Configuration loader with defaults, JSON/YAML support, and env var overrides |
-| `state/` | State machine with context switch detection and session state tracking |
-| `resource/` | Resource manager with health checks, auto-cleanup, and memory estimation |
-| `capability/` | Project framework detector (Next.js, React, Vue, Laravel, etc.) |
-| `recorder/` | Session recording and replay engine |
-| `planner/` | Action planning and execution |
-| `scheduler/` | Workflow scheduler with auto-trigger rules |
+| Module                      | Description                                                                                                                                                                                                              |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `session/`                  | Browser session manager — CDP or Playwright engine, tabs, multi-session, CDP monitoring                                                                                                                                  |
+| `store/`                    | **StoreManager** — single source of truth for persisted state: global `~/.fennec` (or `FENNEC_HOME`/`FENNEC_DATA_DIR`) vs per-project `--local`, perms lockdown, scan, `redactSession`                                   |
+| `tools/`                    | 149+ MCP tool definitions across 17 categories (navigation, interaction, dom, devtools console/network/performance, storage, auth, tabs, process, terminal, diagnostic, scheduler, smart, planner, mobile, **ai**)       |
+| `tools/ai/`                 | **AI-Native API** — `observe()`, `ai_diagnose()`, `correlate()`, `summarize()`, `explain()`, `investigate()`, `predict()`                                                                                                |
+| `incident/`                 | **Incident Engine** — formal incident type, lifecycle management, confidence scoring, auto-detection via EventBus                                                                                                        |
+| `modules/`                  | Modular system with `FennecModule` interface + `ModuleRegistry`. Modules: **browser**, **process**, **mobile** (Android/ADB: 11 tools)                                                                                   |
+| `process/`                  | Process spawner (idempotent adopt-by-port), supervisor (auto-restart + flapping detection), log watcher, pipe watcher, **cross-platform** port detector (`/proc` on Linux, `lsof` on macOS, `netstat`/`wmic` on Windows) |
+| `browser/`                  | Browser engine abstraction — `BrowserSession` interface + 2 implementations: **Playwright** (full automation) + **CDP Observer** (zero-deps). Auto-switch via `EngineSelector` + `AdapterSelector`                       |
+| `cdp/`                      | Chrome DevTools Protocol collectors (console, network, performance)                                                                                                                                                      |
+| `correlation/`              | Event bus, timeline builder, root cause inference engine, **Event Normalizer**                                                                                                                                           |
+| `middleware/`               | Pipeline with telemetry, permission guard, retry handler, smart hook, audit log, **PulseContext** (Lazy Context L0), **LazyLevels L1-L3**, **EventBusMiddleware**                                                        |
+| `middleware/LazyContext.ts` | **Lazy Context** — Levels 1 (Summary), 2 (Detail), 3 (Raw). Config-driven conditional middleware                                                                                                                         |
+| `response/`                 | Response builder and error enricher with context (no auto-screenshots)                                                                                                                                                   |
+| `config/`                   | Configuration loader with defaults, JSON/YAML support, and env var overrides                                                                                                                                             |
+| `state/`                    | State machine with context switch detection and session state tracking                                                                                                                                                   |
+| `resource/`                 | Resource manager with health checks, auto-cleanup, and memory estimation                                                                                                                                                 |
+| `capability/`               | Project framework detector (Next.js, React, Vue, Laravel, etc.)                                                                                                                                                          |
+| `recorder/`                 | Session recording and replay engine                                                                                                                                                                                      |
+| `planner/`                  | Action planning and execution                                                                                                                                                                                            |
+| `scheduler/`                | Workflow scheduler with auto-trigger rules                                                                                                                                                                               |
 
 ## Installation
 
@@ -79,7 +79,7 @@ Browserless features (terminal watching, process management, correlation engine)
 ## Quick Start (Programmatic Usage)
 
 ```ts
-import { FennecServer, SessionStore } from "@plumpslabs/fennec-core";
+import { FennecServer, SessionStore } from '@plumpslabs/fennec-core';
 
 const server = new FennecServer();
 await server.start();
@@ -129,36 +129,46 @@ await server.start();
 ## Features
 
 ### 🦊 Lazy Context — 200x Token Savings
+
 Information delivered in levels, config-driven:
+
 - **Level 0** (Pulse): Always sent — `"healthy | 3 warnings | 1 critical"`
 - **Level 1** (Summary): Auto-attached on errors — `"Critical: DB timeout"`
 - **Level 2** (Detail): On expand — timeline + correlation
 - **Level 3** (Raw): On explicit request — raw logs + DOM
 
 ### 🧠 AI-Native API (7 Tools)
+
 `observe()`, `ai_diagnose()`, `correlate()`, `summarize()`, `explain()`, `investigate()`, `predict()` — designed for **AI consumption first**.
 
 ### 🚀 Dual Browser Engine
+
 - **CDP Observer** (default, zero deps) — lightweight observation via Chrome DevTools Protocol
 - **Playwright** (optional) — full automation (click, type, upload, drag-drop)
 - **Auto-switch**: Config-driven via `browser.adapter: "auto" | "cdp" | "playwright"`
 
 ### 🔗 Event Bus Centralization
+
 All tool executions publish `tool:executed` events to the EventBus. The Incident Engine auto-subscribes for real-time pattern matching and root cause inference.
 
 ### 📊 Token-Efficient Tool Registry
+
 Tools are grouped into 17 categories. MCP clients can request specific categories to reduce context window usage.
 
 ### Self-Observability
+
 Track Fennec's own performance metrics: tool call durations, memory usage, error rates. Access via the PerformanceMetrics API.
 
 ### Audit Logging
+
 Every tool call is recorded with timestamp, session ID, input, result, and duration for security auditing and debugging.
 
 ### Cross-Browser Support (Playwright Mode)
+
 Full support for Chromium, Firefox, and WebKit via Playwright. Configure via `browser.type` in config or `FENNEC_BROWSER_TYPE` env var.
 
 ### Cross-Platform Process Management
+
 Process introspection and port discovery are platform-aware: Linux uses `/proc`, macOS uses `lsof`/`ps`, and Windows uses `netstat`/`tasklist`/`wmic`. `fennec start` adopts an existing process already holding the requested port (idempotent), so agents never spawn conflicting duplicates. On Windows an app's `cwd` isn't readable via built-ins and shows as empty.
 
 ## Security Features

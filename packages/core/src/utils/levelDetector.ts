@@ -1,4 +1,4 @@
-export type LogLevel = "error" | "warn" | "info" | "debug";
+export type LogLevel = 'error' | 'warn' | 'info' | 'debug';
 
 const LEVEL_PATTERNS: Record<LogLevel, RegExp[]> = {
   error: [/error/i, /exception/i, /fatal/i, /uncaught/i, /unhandled/i, /✗/, /×/],
@@ -15,9 +15,9 @@ export function detectLogLevel(line: string): LogLevel {
       }
     }
   }
-  return "info";
+  return 'info';
 }
 
 export function isErrorLine(line: string): boolean {
-  return detectLogLevel(line) === "error";
+  return detectLogLevel(line) === 'error';
 }

@@ -14,7 +14,9 @@ vi.mock('../../src/session/SessionManager.js', () => ({
       networkBuffer: [],
     }),
     getSession: vi.fn(),
-    buildMeta: vi.fn().mockReturnValue({ elapsed: 0, sessionId: 'sess_test', timestamp: new Date().toISOString() }),
+    buildMeta: vi
+      .fn()
+      .mockReturnValue({ elapsed: 0, sessionId: 'sess_test', timestamp: new Date().toISOString() }),
     addConsoleEvent: vi.fn(),
     addNetworkEvent: vi.fn(),
     close: vi.fn().mockResolvedValue(undefined),
@@ -34,7 +36,10 @@ vi.mock('../../src/session/SessionStore.js', () => ({
 vi.mock('../../src/response/ResponseBuilder.js', () => ({
   ResponseBuilder: vi.fn().mockImplementation(() => ({
     success: vi.fn().mockImplementation((data) => ({ success: true, data })),
-    error: vi.fn().mockImplementation((err, opts) => ({ success: false, error: { code: opts?.code ?? 'UNKNOWN', message: err.message } })),
+    error: vi.fn().mockImplementation((err, opts) => ({
+      success: false,
+      error: { code: opts?.code ?? 'UNKNOWN', message: err.message },
+    })),
   })),
 }));
 
@@ -50,16 +55,49 @@ vi.mock('../../src/correlation/EventBus.js', () => ({
 vi.mock('../../src/config/ConfigLoader.js', () => ({
   ConfigLoader: vi.fn().mockImplementation(() => ({
     getConfig: vi.fn().mockReturnValue({
-      browser: { type: 'chromium', headless: true, slowMo: 0, defaultTimeout: 30000, viewport: { width: 1280, height: 720 }, userAgent: null, locale: 'en-US', timezone: 'Asia/Jakarta', ignoreHTTPSErrors: false },
+      browser: {
+        type: 'chromium',
+        headless: true,
+        slowMo: 0,
+        defaultTimeout: 30000,
+        viewport: { width: 1280, height: 720 },
+        userAgent: null,
+        locale: 'en-US',
+        timezone: 'Asia/Jakarta',
+        ignoreHTTPSErrors: false,
+      },
       session: { maxSessions: 10, idleTimeoutSecs: 1800, persistPath: './.fennec/sessions' },
       process: { maxProcesses: 10, logBufferLines: 2000, spawnAllowlist: ['npm', 'node'] },
       terminal: { logBufferLines: 2000, watchDebounceMs: 50 },
-      network: { bufferSize: 1000, captureRequestBody: true, captureResponseBody: true, captureHeaders: true, slowRequestThresholdMs: 1000 },
+      network: {
+        bufferSize: 1000,
+        captureRequestBody: true,
+        captureResponseBody: true,
+        captureHeaders: true,
+        slowRequestThresholdMs: 1000,
+      },
       console: { bufferSize: 500, levels: ['log', 'info', 'warn', 'error', 'debug'] },
       correlation: { windowMs: 500, enableRootCauseInference: true, minConfidence: 0.7 },
       lazyContext: { level1: true, level2: false, level3: false },
-      tokenBudget: { maxResponseTokens: 8000, level1MaxTokens: 100, level2MaxTokens: 500, level3MaxTokens: 2000 },
-      security: { sandbox: true, readOnly: false, allowProcessSpawn: true, allowProcessKill: false, allowedDomains: [], blockedDomains: [], allowFileProtocol: false, allowCDPRawAccess: false, allowJSEvaluation: true, exportPath: './.fennec/exports', maxExportSizeMB: 10 },
+      tokenBudget: {
+        maxResponseTokens: 8000,
+        level1MaxTokens: 100,
+        level2MaxTokens: 500,
+        level3MaxTokens: 2000,
+      },
+      security: {
+        sandbox: true,
+        readOnly: false,
+        allowProcessSpawn: true,
+        allowProcessKill: false,
+        allowedDomains: [],
+        blockedDomains: [],
+        allowFileProtocol: false,
+        allowCDPRawAccess: false,
+        allowJSEvaluation: true,
+        exportPath: './.fennec/exports',
+        maxExportSizeMB: 10,
+      },
       transport: { type: 'stdio', port: 3333, host: '127.0.0.1' },
       logging: { level: 'info', format: 'pretty', file: null },
     }),
@@ -69,7 +107,9 @@ vi.mock('../../src/config/ConfigLoader.js', () => ({
 vi.mock('../../src/config/defaults.js', () => ({ defaultConfig: {} }));
 vi.mock('../../src/utils/logger.js', () => ({
   createLogger: vi.fn(),
-  getLogger: vi.fn().mockReturnValue({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
+  getLogger: vi
+    .fn()
+    .mockReturnValue({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
 }));
 vi.mock('../../src/middleware/Pipeline.js', () => ({
   Pipeline: vi.fn().mockImplementation(() => ({
@@ -112,7 +152,9 @@ vi.mock('../../src/workflow/WorkflowEngine.js', () => ({
     findByTag: vi.fn().mockReturnValue([]),
     setToolExecutor: vi.fn(),
     planToWorkflow: vi.fn(),
-    executePlan: vi.fn().mockResolvedValue({ id: 'exec_test', status: 'completed', stepResults: [] }),
+    executePlan: vi
+      .fn()
+      .mockResolvedValue({ id: 'exec_test', status: 'completed', stepResults: [] }),
   })),
 }));
 
@@ -169,7 +211,11 @@ vi.mock('../../src/middleware/index.js', async (importOriginal) => {
     createRetryHandler: vi.fn().mockReturnValue(vi.fn()),
     createTelemetryMiddleware: vi.fn().mockReturnValue(vi.fn()),
     createSmartHook: vi.fn().mockReturnValue(vi.fn()),
-    createAuditLog: vi.fn().mockReturnValue({ middleware: vi.fn(), getAuditLog: vi.fn().mockReturnValue([]), clearAuditLog: vi.fn() }),
+    createAuditLog: vi.fn().mockReturnValue({
+      middleware: vi.fn(),
+      getAuditLog: vi.fn().mockReturnValue([]),
+      clearAuditLog: vi.fn(),
+    }),
   };
 });
 

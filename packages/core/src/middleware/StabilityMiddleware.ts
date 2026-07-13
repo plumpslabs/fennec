@@ -14,41 +14,43 @@
  * Uses Playwright's built-in waitForLoadState("networkidle") when available.
  * Falls back to JS-based polling for DOM mutations.
  */
-import type { MiddlewareFn, MiddlewareContext } from "./Pipeline.js";
-import { getLogger } from "../utils/logger.js";
+import type { MiddlewareFn, MiddlewareContext } from './Pipeline.js';
+import { getLogger } from '../utils/logger.js';
 
 const INTERACTION_TOOLS = new Set([
-  "browser_click",
-  "browser_type",
-  "browser_select",
-  "browser_hover",
-  "browser_scroll",
-  "browser_press_key",
-  "browser_focus",
-  "browser_clear",
-  "browser_upload_file",
-  "browser_drag_drop",
-  "browser_navigate",
-  "browser_go_back",
-  "browser_go_forward",
-  "browser_reload",
+  'browser_click',
+  'browser_type',
+  'browser_select',
+  'browser_hover',
+  'browser_scroll',
+  'browser_press_key',
+  'browser_focus',
+  'browser_clear',
+  'browser_upload_file',
+  'browser_drag_drop',
+  'browser_navigate',
+  'browser_go_back',
+  'browser_go_forward',
+  'browser_reload',
 ]);
 
 const NETWORK_IDLE_TIMEOUT = 5_000; // Max time to wait for network idle
-const MUTATION_SETTLE_TIME = 300;   // How long without mutations before settling
+const MUTATION_SETTLE_TIME = 300; // How long without mutations before settling
 
 /**
  * Wait for the page to reach network idle state.
  * Uses Playwright's native waitForLoadState when available.
  */
-async function waitForNetworkIdle(session: NonNullable<MiddlewareContext["session"]>): Promise<void> {
+async function waitForNetworkIdle(
+  session: NonNullable<MiddlewareContext['session']>,
+): Promise<void> {
   if (!session.browser?.waitForLoadState) return;
 
   try {
-    await session.browser.waitForLoadState("networkidle", { timeout: NETWORK_IDLE_TIMEOUT });
+    await session.browser.waitForLoadState('networkidle', { timeout: NETWORK_IDLE_TIMEOUT });
   } catch {
     // Timeout is non-fatal — page might have persistent connections (WebSockets, SSE)
-    getLogger().warn("StabilityMiddleware: network idle wait timed out (non-fatal)");
+    getLogger().warn('StabilityMiddleware: network idle wait timed out (non-fatal)');
   }
 }
 
@@ -56,7 +58,7 @@ async function waitForNetworkIdle(session: NonNullable<MiddlewareContext["sessio
  * Wait for DOM mutations to settle — no new mutations for MUTATION_SETTLE_TIME ms.
  * Uses a MutationObserver via page.evaluate.
  */
-async function waitForDomSettle(session: NonNullable<MiddlewareContext["session"]>): Promise<void> {
+async function waitForDomSettle(session: NonNullable<MiddlewareContext['session']>): Promise<void> {
   if (!session.browser?.evaluate) return;
 
   try {
@@ -110,7 +112,7 @@ export function createStabilityMiddleware(): MiddlewareFn {
       return next();
     }
 
-    logger.info({ tool: ctx.toolName }, "StabilityMiddleware: waiting for page stability");
+    logger.info({ tool: ctx.toolName }, 'StabilityMiddleware: waiting for page stability');
 
     // 1. Wait for network idle
     await waitForNetworkIdle(session);
@@ -118,7 +120,7 @@ export function createStabilityMiddleware(): MiddlewareFn {
     // 2. Wait for DOM mutations to settle
     await waitForDomSettle(session);
 
-    logger.info({ tool: ctx.toolName }, "StabilityMiddleware: page stable, proceeding");
+    logger.info({ tool: ctx.toolName }, 'StabilityMiddleware: page stable, proceeding');
 
     return next();
   };

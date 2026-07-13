@@ -110,17 +110,17 @@ packages/core/src/modules/mymodule/
 ```typescript
 // packages/core/src/modules/mymodule/index.ts
 
-import { z } from "zod";
-import type { FennecModule, ModuleContext } from "../../module/index.js";
-import type { ToolDefinition, ToolContext } from "../../tools/_registry.js";
-import { createTool } from "../../tools/_registry.js";
+import { z } from 'zod';
+import type { FennecModule, ModuleContext } from '../../module/index.js';
+import type { ToolDefinition, ToolContext } from '../../tools/_registry.js';
+import { createTool } from '../../tools/_registry.js';
 
 export const myTool = createTool({
-  name: "mymodule_action",
-  category: "mycategory",
-  description: "What this tool does for AI agents.",
+  name: 'mymodule_action',
+  category: 'mycategory',
+  description: 'What this tool does for AI agents.',
   inputSchema: z.object({
-    param1: z.string().describe("What param1 does"),
+    param1: z.string().describe('What param1 does'),
   }),
   handler: async (input, { responseBuilder }: ToolContext) => {
     try {
@@ -136,10 +136,10 @@ export const myTool = createTool({
 
 ```typescript
 export const myModule: FennecModule = {
-  name: "mymodule",
-  description: "What my module does",
+  name: 'mymodule',
+  description: 'What my module does',
   tools: [myTool],
-  capabilities: ["my-capability"],
+  capabilities: ['my-capability'],
   initialize: async (context: ModuleContext) => {
     // Check dependencies, start services
   },
@@ -171,10 +171,10 @@ this.moduleRegistry.register(myModule);
 Add unit tests in `packages/core/tests/unit/`:
 
 ```typescript
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from 'vitest';
 
-describe("mymodule_action", () => {
-  it("should handle valid input", async () => {
+describe('mymodule_action', () => {
+  it('should handle valid input', async () => {
     // Test implementation
   });
 });

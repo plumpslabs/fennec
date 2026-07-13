@@ -34,7 +34,7 @@ export interface PluginInstance {
   }>;
   /** Middleware to inject into the pipeline */
   middleware?: Array<{
-    position: "before" | "after";
+    position: 'before' | 'after';
     target: string;
   }>;
   /** Lifecycle hooks */
@@ -45,24 +45,29 @@ export interface PluginInstance {
 /** API object passed to plugins on initialization */
 export interface PluginAPI {
   /** Register a tool dynamically */
-  registerTool: (tool: { name: string; category: string; description: string; inputSchema: Record<string, unknown> }) => void;
+  registerTool: (tool: {
+    name: string;
+    category: string;
+    description: string;
+    inputSchema: Record<string, unknown>;
+  }) => void;
   /** Access the event bus for pub/sub */
-  eventBus: import("../correlation/EventBus.js").EventBus;
+  eventBus: import('../correlation/EventBus.js').EventBus;
   /** Logger instance */
-  logger: import("../utils/logger.js").FennecLogger;
+  logger: import('../utils/logger.js').FennecLogger;
   /** Config access (read-only) */
   config: Record<string, unknown>;
 }
 
 /** Supported hook types for plugins */
 export type PluginHookType =
-  | "beforeToolCall"
-  | "afterToolCall"
-  | "onError"
-  | "onSessionCreate"
-  | "onSessionDestroy"
-  | "onStartup"
-  | "onShutdown";
+  | 'beforeToolCall'
+  | 'afterToolCall'
+  | 'onError'
+  | 'onSessionCreate'
+  | 'onSessionDestroy'
+  | 'onStartup'
+  | 'onShutdown';
 
 /** Handler function signature for plugin hooks */
 export type HookHandler = (context: Record<string, unknown>) => Promise<void>;
@@ -80,7 +85,7 @@ export interface FennecPlugin {
     inputSchema: Record<string, unknown>;
   }>;
   middleware?: Array<{
-    position: "before" | "after";
+    position: 'before' | 'after';
     target: string;
     fn: (ctx: any, next: () => Promise<any>) => Promise<any>;
   }>;

@@ -1,13 +1,13 @@
-import type { MiddlewareFn, MiddlewareContext } from "./Pipeline.js";
-import type { BrowserSession } from "../browser/types.js";
-import { getLogger } from "../utils/logger.js";
+import type { MiddlewareFn, MiddlewareContext } from './Pipeline.js';
+import type { BrowserSession } from '../browser/types.js';
+import { getLogger } from '../utils/logger.js';
 
 /**
  * Generate alternative selectors for auto-recovery.
  * Each entry tries a different strategy to locate the element on the page.
  */
 function escapeAttr(value: string): string {
-  return value.replace(/["\\]/g, "\\$&");
+  return value.replace(/["\\]/g, '\\$&');
 }
 
 interface FallbackSelector {
@@ -17,11 +17,7 @@ interface FallbackSelector {
 
 function generateFallbackSelectors(input: string): FallbackSelector[] {
   // Don't generate fallbacks for structured selectors (they already are specific)
-  if (
-    input.startsWith("role=") ||
-    input.startsWith("xpath=") ||
-    input.startsWith("css=")
-  ) {
+  if (input.startsWith('role=') || input.startsWith('xpath=') || input.startsWith('css=')) {
     return [];
   }
 
@@ -32,40 +28,40 @@ function generateFallbackSelectors(input: string): FallbackSelector[] {
   const strategies: FallbackSelector[] = [];
 
   // 1. Playwright text selector (most reliable for visible text)
-  strategies.push({ selector: `text=${jsonStr}`, strategy: "text" });
+  strategies.push({ selector: `text=${jsonStr}`, strategy: 'text' });
 
   // 2. Button with matching text
-  strategies.push({ selector: `button:has-text(${jsonStr})`, strategy: "button-text" });
+  strategies.push({ selector: `button:has-text(${jsonStr})`, strategy: 'button-text' });
 
   // 3. Link/ anchor with matching text
-  strategies.push({ selector: `a:has-text(${jsonStr})`, strategy: "link-text" });
+  strategies.push({ selector: `a:has-text(${jsonStr})`, strategy: 'link-text' });
 
   // 4. Any element with matching aria-label
-  strategies.push({ selector: `[aria-label="${escaped}"]`, strategy: "aria-label" });
+  strategies.push({ selector: `[aria-label="${escaped}"]`, strategy: 'aria-label' });
 
   // 5. data-testid / data-test-id / data-fennec-id
-  strategies.push({ selector: `[data-testid="${escaped}"]`, strategy: "testid" });
-  strategies.push({ selector: `[data-test-id="${escaped}"]`, strategy: "testid" });
+  strategies.push({ selector: `[data-testid="${escaped}"]`, strategy: 'testid' });
+  strategies.push({ selector: `[data-test-id="${escaped}"]`, strategy: 'testid' });
 
   // 6. name attribute (common for form fields)
-  strategies.push({ selector: `[name="${escaped}"]`, strategy: "name" });
+  strategies.push({ selector: `[name="${escaped}"]`, strategy: 'name' });
 
   // 7. placeholder attribute (common for form fields)
-  strategies.push({ selector: `[placeholder="${escaped}"]`, strategy: "placeholder" });
+  strategies.push({ selector: `[placeholder="${escaped}"]`, strategy: 'placeholder' });
 
   // 8. title attribute
-  strategies.push({ selector: `[title="${escaped}"]`, strategy: "title" });
+  strategies.push({ selector: `[title="${escaped}"]`, strategy: 'title' });
 
   // 9. Any element containing the text (broad match)
-  strategies.push({ selector: `:has-text(${jsonStr})`, strategy: "text-contains" });
+  strategies.push({ selector: `:has-text(${jsonStr})`, strategy: 'text-contains' });
 
   // 10. Try as a CSS selector (if it looks like one)
   if (/^[#.[\]:a-zA-Z-]/.test(trimmed)) {
-    strategies.push({ selector: trimmed, strategy: "css" });
+    strategies.push({ selector: trimmed, strategy: 'css' });
   }
 
   // 11. Try as an id selector
-  strategies.push({ selector: `#${escaped}`, strategy: "id" });
+  strategies.push({ selector: `#${escaped}`, strategy: 'id' });
 
   return strategies;
 }
@@ -85,24 +81,22 @@ async function tryRecoverAction(
   try {
     switch (ctx.toolName) {
       // ─── Click ───────────────────────────────────────────────
-      case "browser_click": {
+      case 'browser_click': {
         const box = await loc.boundingBox();
         await loc.click({
-          button: (input.button as "left" | "right" | "middle") ?? "left",
+          button: (input.button as 'left' | 'right' | 'middle') ?? 'left',
           clickCount: (input.clickCount as number) ?? 1,
         });
         return {
           elementFound: true,
-          coordinates: box
-            ? { x: box.x, y: box.y, width: box.width, height: box.height }
-            : null,
+          coordinates: box ? { x: box.x, y: box.y, width: box.width, height: box.height } : null,
         };
       }
 
       // ─── Type ────────────────────────────────────────────────
-      case "browser_type": {
+      case 'browser_type': {
         if (input.clear) {
-          await loc.fill("");
+          await loc.fill('');
         }
         await loc.pressSequentially(input.text as string, {
           delay: (input.delay as number) ?? 0,
@@ -112,31 +106,29 @@ async function tryRecoverAction(
       }
 
       // ─── Hover ───────────────────────────────────────────────
-      case "browser_hover": {
+      case 'browser_hover': {
         const box = await loc.boundingBox();
         await loc.hover();
         return {
-          coordinates: box
-            ? { x: box.x, y: box.y, width: box.width, height: box.height }
-            : null,
+          coordinates: box ? { x: box.x, y: box.y, width: box.width, height: box.height } : null,
         };
       }
 
       // ─── Focus ───────────────────────────────────────────────
-      case "browser_focus": {
+      case 'browser_focus': {
         await loc.focus();
         return {};
       }
 
       // ─── Clear ───────────────────────────────────────────────
-      case "browser_clear": {
+      case 'browser_clear': {
         const previousValue = await loc.inputValue().catch(() => null);
-        await loc.fill("");
+        await loc.fill('');
         return { previousValue };
       }
 
       // ─── Select (dropdown) ───────────────────────────────────
-      case "browser_select": {
+      case 'browser_select': {
         await loc.selectOption(input.value as string);
         const allOptions = await browser
           .locator(`${fallback} option`)
@@ -146,25 +138,29 @@ async function tryRecoverAction(
       }
 
       // ─── Wait for element ────────────────────────────────────
-      case "browser_wait_for_element": {
-        const state = (input.state as string) ?? "visible";
+      case 'browser_wait_for_element': {
+        const state = (input.state as string) ?? 'visible';
         const timeout = (input.timeout as number) ?? 10000;
         await browser.waitForSelector(fallback, {
-          state: state as "attached" | "detached" | "visible" | "hidden",
+          state: state as 'attached' | 'detached' | 'visible' | 'hidden',
           timeout,
         });
         return { found: true, selector: fallback };
       }
 
       // ─── Get element info ────────────────────────────────────
-      case "browser_get_element_info": {
+      case 'browser_get_element_info': {
         const [visible, enabled, box] = await Promise.all([
           loc.isVisible().catch(() => false),
           loc.isEnabled().catch(() => false),
           loc.boundingBox().catch(() => null),
         ]);
-        const tagName = await loc.evaluate((el: Element) => el.tagName.toLowerCase()).catch(() => "");
-        const text = await loc.evaluate((el: Element) => (el.textContent ?? "").trim()).catch(() => "");
+        const tagName = await loc
+          .evaluate((el: Element) => el.tagName.toLowerCase())
+          .catch(() => '');
+        const text = await loc
+          .evaluate((el: Element) => (el.textContent ?? '').trim())
+          .catch(() => '');
         return {
           exists: true,
           tagName,
@@ -176,69 +172,78 @@ async function tryRecoverAction(
       }
 
       // ─── DOM snapshot (scoped to selector) ───────────────────
-      case "browser_get_dom_snapshot": {
+      case 'browser_get_dom_snapshot': {
         // Inject a data attribute on the found element so evaluate can access it
         const uniqueId = `fennec-recovered-${Date.now()}`;
         await loc.evaluate((el: Element, id: string) => {
-          el.setAttribute("data-fennec-scope", id);
+          el.setAttribute('data-fennec-scope', id);
         }, uniqueId);
 
-        const snapshot = await browser.evaluate(
-          ({ scopeId }: { scopeId: string }) => {
-            const root = document.querySelector(`[data-fennec-scope="${scopeId}"]`)
-              ?? document.documentElement;
+        const snapshot = await browser
+          .evaluate(
+            ({ scopeId }: { scopeId: string }) => {
+              const root =
+                document.querySelector(`[data-fennec-scope="${scopeId}"]`) ??
+                document.documentElement;
 
-            // Clean up the marker
-            root.removeAttribute("data-fennec-scope");
+              // Clean up the marker
+              root.removeAttribute('data-fennec-scope');
 
-            const elements: Array<{
-              tag: string;
-              id: string;
-              text: string;
-              class: string;
-              role: string;
-            }> = [];
-            const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
-            let node: Node | null;
-            let count = 0;
-            while ((node = walker.nextNode()) && count < 100) {
-              const el = node as Element;
-              const tag = el.tagName.toLowerCase();
-              const text = (el.textContent ?? "").trim().slice(0, 120);
-              if (text || el.id) {
-                elements.push({
-                  tag,
-                  id: el.id,
-                  text,
-                  class: el.className.slice(0, 100),
-                  role: el.getAttribute("role") ?? "",
-                });
+              const elements: Array<{
+                tag: string;
+                id: string;
+                text: string;
+                class: string;
+                role: string;
+              }> = [];
+              const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+              let node: Node | null;
+              let count = 0;
+              while ((node = walker.nextNode()) && count < 100) {
+                const el = node as Element;
+                const tag = el.tagName.toLowerCase();
+                const text = (el.textContent ?? '').trim().slice(0, 120);
+                if (text || el.id) {
+                  elements.push({
+                    tag,
+                    id: el.id,
+                    text,
+                    class: el.className.slice(0, 100),
+                    role: el.getAttribute('role') ?? '',
+                  });
+                }
+                count++;
               }
-              count++;
-            }
-            return elements;
-          },
-          { scopeId: uniqueId },
-        ).catch(() => []);
+              return elements;
+            },
+            { scopeId: uniqueId },
+          )
+          .catch(() => []);
 
         return { elementCount: snapshot.length, elements: snapshot.slice(0, 50) };
       }
 
       // ─── Get page text (scoped) ──────────────────────────────
-      case "browser_get_page_text": {
-        const text = await loc.evaluate((el: Element) => (el.textContent ?? "").trim()).catch(() => "");
+      case 'browser_get_page_text': {
+        const text = await loc
+          .evaluate((el: Element) => (el.textContent ?? '').trim())
+          .catch(() => '');
         return { text: text.slice(0, 5000), selector: fallback };
       }
 
       // ─── Scroll element into view ────────────────────────────
-      case "browser_scroll": {
-        await loc.evaluate((el: Element) => {
-          (el as HTMLElement).scrollIntoView({ behavior: "instant", block: "center" });
-        }).catch(() => {});
-        const scrollPos = await browser.evaluate(() => ({
-          x: window.scrollX,
-          y: window.scrollY,
-        })).catch(() => ({ x: 0, y: 0 }));
+      case 'browser_scroll': {
+        await loc
+          .evaluate((el: Element) => {
+            (el as HTMLElement).scrollIntoView({ behavior: 'instant', block: 'center' });
+          })
+          .catch(() => {});
+        const scrollPos = await browser
+          .evaluate(() => ({
+            x: window.scrollX,
+            y: window.scrollY,
+          }))
+          .catch(() => ({ x: 0, y: 0 }));
         return { scrollPosition: scrollPos };
       }
 
@@ -253,7 +258,7 @@ async function tryRecoverAction(
   } catch (error) {
     getLogger().warn(
       { tool: ctx.toolName, error, fallbackSelector: fallback },
-      "SmartHook: recovery action failed",
+      'SmartHook: recovery action failed',
     );
     return null;
   }
@@ -268,22 +273,16 @@ export function createSmartHook(): MiddlewareFn {
     const result = await next();
 
     const resultObj = result as Record<string, unknown>;
-    const isError =
-      resultObj &&
-      "success" in resultObj &&
-      resultObj.success === false;
+    const isError = resultObj && 'success' in resultObj && resultObj.success === false;
 
     if (!isError) {
       return result;
     }
 
     const errorObj = resultObj.error as Record<string, unknown> | undefined;
-    const errorCode = (errorObj?.code as string) ?? "UNKNOWN";
+    const errorCode = (errorObj?.code as string) ?? 'UNKNOWN';
 
-    logger.info(
-      { tool: ctx.toolName, errorCode },
-      "SmartHook: error detected, collecting context",
-    );
+    logger.info({ tool: ctx.toolName, errorCode }, 'SmartHook: error detected, collecting context');
 
     // === StateManager Context ===
     // Inject current session context info so AI knows which session/context it's in
@@ -319,27 +318,27 @@ export function createSmartHook(): MiddlewareFn {
       if (browser) {
         try {
           // Collect only essential context — NO SCREENSHOT (too expensive token-wise)
-          const [url] = await Promise.allSettled([
-            browser.url(),
-          ]);
+          const [url] = await Promise.allSettled([browser.url()]);
 
-          if (url.status === "fulfilled") {
+          if (url.status === 'fulfilled') {
             enrichedContext.currentUrl = url.value;
           }
 
           // Get page title
           try {
             enrichedContext.pageTitle = await browser.title();
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
 
           // Summarize console errors (just count + unique messages, not full logs)
-          const errors = ctx.session.consoleBuffer
-            .filter((l) => l.level === "error")
-            .slice(-3);
+          const errors = ctx.session.consoleBuffer.filter((l) => l.level === 'error').slice(-3);
 
           if (errors.length > 0) {
-            const uniqueErrors = [...new Set(errors.map(e => e.message.replace(/\d+/g, 'N').slice(0, 80)))];
-            enrichedContext.consoleSummary = `${errors.length} error(s): ${uniqueErrors.slice(0, 3).join("; ")}`;
+            const uniqueErrors = [
+              ...new Set(errors.map((e) => e.message.replace(/\d+/g, 'N').slice(0, 80))),
+            ];
+            enrichedContext.consoleSummary = `${errors.length} error(s): ${uniqueErrors.slice(0, 3).join('; ')}`;
           }
 
           // Summarize network failures (just count + endpoints)
@@ -348,7 +347,7 @@ export function createSmartHook(): MiddlewareFn {
             .slice(-3);
 
           if (networkFailures.length > 0) {
-            enrichedContext.networkSummary = `${networkFailures.length} failed request(s): ${networkFailures.map(r => `${r.method} ${new URL(r.url).pathname}`).join(", ")}`;
+            enrichedContext.networkSummary = `${networkFailures.length} failed request(s): ${networkFailures.map((r) => `${r.method} ${new URL(r.url).pathname}`).join(', ')}`;
           }
         } catch {
           // Enrichment is best-effort
@@ -359,7 +358,7 @@ export function createSmartHook(): MiddlewareFn {
       // Try fallback selectors when the original selector failed.
       // If a fallback finds the element AND the action succeeds,
       // return a success response so the AI can continue uninterrupted.
-      if (errorCode === "ELEMENT_NOT_FOUND" && browser && ctx.input?.selector) {
+      if (errorCode === 'ELEMENT_NOT_FOUND' && browser && ctx.input?.selector) {
         const originalSelector = String(ctx.input.selector);
         const fallbacks = generateFallbackSelectors(originalSelector);
 
@@ -379,8 +378,13 @@ export function createSmartHook(): MiddlewareFn {
 
         if (recoveryAttempt) {
           logger.info(
-            { tool: ctx.toolName, originalSelector, fallbackSelector: recoveryAttempt.selector, strategy: recoveryAttempt.strategy },
-            "SmartHook: found element via fallback selector, attempting recovery",
+            {
+              tool: ctx.toolName,
+              originalSelector,
+              fallbackSelector: recoveryAttempt.selector,
+              strategy: recoveryAttempt.strategy,
+            },
+            'SmartHook: found element via fallback selector, attempting recovery',
           );
 
           const actionResult = await tryRecoverAction(ctx, browser, recoveryAttempt.selector);
@@ -388,8 +392,13 @@ export function createSmartHook(): MiddlewareFn {
           if (actionResult) {
             // ✅ Recovery succeeded — return a success response
             logger.info(
-              { tool: ctx.toolName, originalSelector, fallbackSelector: recoveryAttempt.selector, strategy: recoveryAttempt.strategy },
-              "SmartHook: recovery succeeded",
+              {
+                tool: ctx.toolName,
+                originalSelector,
+                fallbackSelector: recoveryAttempt.selector,
+                strategy: recoveryAttempt.strategy,
+              },
+              'SmartHook: recovery succeeded',
             );
 
             return {
@@ -409,7 +418,7 @@ export function createSmartHook(): MiddlewareFn {
               attempted: true,
               recoveredSelector: recoveryAttempt.selector,
               recoveryStrategy: recoveryAttempt.strategy,
-              status: "action_failed",
+              status: 'action_failed',
               message: `Found element via ${recoveryAttempt.strategy} but could not complete the action`,
             };
           }
@@ -417,14 +426,14 @@ export function createSmartHook(): MiddlewareFn {
           // No fallback found — still helpful for AI to know what was tried
           enrichedContext.recovery = {
             attempted: true,
-            status: "no_fallback_found",
+            status: 'no_fallback_found',
             strategiesTried: fallbacks.length,
             message: `Tried ${fallbacks.length} fallback strategies but none matched any element`,
           };
         }
 
-        enrichedContext.url = enrichedContext.currentUrl ?? "unknown";
-        enrichedContext.title = enrichedContext.pageTitle ?? "unknown";
+        enrichedContext.url = enrichedContext.currentUrl ?? 'unknown';
+        enrichedContext.title = enrichedContext.pageTitle ?? 'unknown';
         enrichedContext.message =
           `Element not found on page: ${enrichedContext.url} ("${enrichedContext.title}"). ` +
           `Use browser_get_dom_snapshot to see available elements.`;
@@ -438,7 +447,7 @@ export function createSmartHook(): MiddlewareFn {
     if (ctx.workflowScheduler) {
       try {
         const lastResult = ctx.workflowScheduler.getLastScheduledResult();
-        if (lastResult && lastResult.status === "completed") {
+        if (lastResult && lastResult.status === 'completed') {
           const age = Date.now() - new Date(lastResult.completedAt!).getTime();
           // Only use results from the last 60 seconds
           if (age < 60000) {
@@ -457,7 +466,7 @@ export function createSmartHook(): MiddlewareFn {
 
             logger.info(
               { executionId: lastResult.id, workflowId: lastResult.workflowId },
-              "SmartHook: injected auto-triggered diagnosis result",
+              'SmartHook: injected auto-triggered diagnosis result',
             );
           }
         }
@@ -477,13 +486,13 @@ export function createSmartHook(): MiddlewareFn {
         }
       } catch (schedulerError) {
         // Scheduler integration is best-effort
-        logger.warn({ error: schedulerError }, "SmartHook: failed to check scheduler results");
+        logger.warn({ error: schedulerError }, 'SmartHook: failed to check scheduler results');
       }
     }
     // === End Scheduler Integration ===
 
     // For ELEMENT_NOT_FOUND: inject URL as top-level field for AI visibility
-    if (errorCode === "ELEMENT_NOT_FOUND" && enrichedContext.url) {
+    if (errorCode === 'ELEMENT_NOT_FOUND' && enrichedContext.url) {
       (resultObj as Record<string, unknown>).currentUrl = enrichedContext.url;
       (resultObj as Record<string, unknown>).pageTitle = enrichedContext.title;
     }
@@ -499,7 +508,7 @@ export function createSmartHook(): MiddlewareFn {
     // Attach enriched context to error response
     if (errorObj && Object.keys(enrichedContext).length > 0) {
       errorObj.context = {
-        ...(errorObj.context as Record<string, unknown> ?? {}),
+        ...((errorObj.context as Record<string, unknown>) ?? {}),
         ...enrichedContext,
       };
     }

@@ -4,61 +4,61 @@ Tools for spawning, monitoring, and managing processes. These tools work **witho
 
 ## Tools
 
-| Tool | Description | Parameters |
-|------|-------------|------------|
-| `process_spawn` | Spawn a NEW process (dev server, build tool, etc.). Idempotent: adopts an existing process if the port is already served. | command, args?, cwd?, env?, name?, group? |
-| `process_spawn_tracked` | Re-spawn STOPPED tracked app(s) from saved config (CLI `fennec spawn`). Skips already-running entries. | name?, names[], group?, all? |
-| `process_get_tracked` | Get ALL tracked processes (CLI **and** MCP) with live status, `group`, and cross-platform `memMB` (RSS). Optional `group` filter. | group? |
-| `process_list` | List MCP-managed processes with status | — |
-| `process_get_status` | Get process status: running, pid, uptime, cpu %, **memoryMB** | processId |
-| `process_get_logs` | Get logs from a managed process, filterable by level/lines/since. **Secrets are redacted** before returning. | processId, lines?, level?, since? |
-| `process_clear_logs` | Delete a process log file (free disk); process keeps running | name |
-| `process_send_input` | Send input to a process's stdin | processId, input |
-| `process_stop_tracked` | Stop tracked app(s) but KEEP them in the registry for later re-spawn (CLI `fennec stop`). | name?, names[], group?, all? |
-| `process_kill` | Kill process(es) and remove from registry (CLI `fennec kill`). Kills the ENTIRE process tree. Supports a single name/PID, MULTIPLE names, `--group`, or `--all`. | processId?, names[], group?, all?, signal? |
-| `process_restart` | Restart process(es) from saved config. Supports single / MULTIPLE names / `--group` / `--all`. | name?, names[], group?, all? |
-| `process_set_group` | Assign (or clear) a group on one or more tracked processes for scoped bulk ops. | names[], group? |
-| `process_rename_tracked` | Rename a tracked process + its log file | oldName, newName |
-| `process_cleanup_tracked` | Remove dead tracked entries that can't be re-spawned | — |
-| `process_adopt` | Take control of an ALREADY-RUNNING process (no restart) | command?, pid?, port?, name? |
-| `process_wait_for_ready` | Wait for process to output a ready pattern | processId, pattern?, timeout? |
-| `process_attach_pid` | Look up a running process by PID | pid, name? |
-| `process_attach_port` | Look up a process by port number | port, name? |
-| `inspect` | **AI-safe** bounded, redacted snapshot of one tracked app (status + port health + rss + recent logs + error scan). Best single call for observing BE/FE/worker/console apps. | name, tail?, since? |
-| `supervisor_control` | Control the detached supervisor daemon that keeps `--restart` apps alive and health-checks their ports. | action: start\|stop\|status\|restart |
-| `persist_control` | Manage boot persistence (survive reboots) — install/remove a boot unit that starts the supervisor at login. | action: enable\|disable\|status |
+| Tool                      | Description                                                                                                                                                                  | Parameters                                 |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `process_spawn`           | Spawn a NEW process (dev server, build tool, etc.). Idempotent: adopts an existing process if the port is already served.                                                    | command, args?, cwd?, env?, name?, group?  |
+| `process_spawn_tracked`   | Re-spawn STOPPED tracked app(s) from saved config (CLI `fennec spawn`). Skips already-running entries.                                                                       | name?, names[], group?, all?               |
+| `process_get_tracked`     | Get ALL tracked processes (CLI **and** MCP) with live status, `group`, and cross-platform `memMB` (RSS). Optional `group` filter.                                            | group?                                     |
+| `process_list`            | List MCP-managed processes with status                                                                                                                                       | —                                          |
+| `process_get_status`      | Get process status: running, pid, uptime, cpu %, **memoryMB**                                                                                                                | processId                                  |
+| `process_get_logs`        | Get logs from a managed process, filterable by level/lines/since. **Secrets are redacted** before returning.                                                                 | processId, lines?, level?, since?          |
+| `process_clear_logs`      | Delete a process log file (free disk); process keeps running                                                                                                                 | name                                       |
+| `process_send_input`      | Send input to a process's stdin                                                                                                                                              | processId, input                           |
+| `process_stop_tracked`    | Stop tracked app(s) but KEEP them in the registry for later re-spawn (CLI `fennec stop`).                                                                                    | name?, names[], group?, all?               |
+| `process_kill`            | Kill process(es) and remove from registry (CLI `fennec kill`). Kills the ENTIRE process tree. Supports a single name/PID, MULTIPLE names, `--group`, or `--all`.             | processId?, names[], group?, all?, signal? |
+| `process_restart`         | Restart process(es) from saved config. Supports single / MULTIPLE names / `--group` / `--all`.                                                                               | name?, names[], group?, all?               |
+| `process_set_group`       | Assign (or clear) a group on one or more tracked processes for scoped bulk ops.                                                                                              | names[], group?                            |
+| `process_rename_tracked`  | Rename a tracked process + its log file                                                                                                                                      | oldName, newName                           |
+| `process_cleanup_tracked` | Remove dead tracked entries that can't be re-spawned                                                                                                                         | —                                          |
+| `process_adopt`           | Take control of an ALREADY-RUNNING process (no restart)                                                                                                                      | command?, pid?, port?, name?               |
+| `process_wait_for_ready`  | Wait for process to output a ready pattern                                                                                                                                   | processId, pattern?, timeout?              |
+| `process_attach_pid`      | Look up a running process by PID                                                                                                                                             | pid, name?                                 |
+| `process_attach_port`     | Look up a process by port number                                                                                                                                             | port, name?                                |
+| `inspect`                 | **AI-safe** bounded, redacted snapshot of one tracked app (status + port health + rss + recent logs + error scan). Best single call for observing BE/FE/worker/console apps. | name, tail?, since?                        |
+| `supervisor_control`      | Control the detached supervisor daemon that keeps `--restart` apps alive and health-checks their ports.                                                                      | action: start\|stop\|status\|restart       |
+| `persist_control`         | Manage boot persistence (survive reboots) — install/remove a boot unit that starts the supervisor at login.                                                                  | action: enable\|disable\|status            |
 
 ## Examples
 
 ```typescript
 // Spawn a dev server
-const proc = await toolRegistry.call("process_spawn", {
-  command: "node",
-  args: ["server.js"],
-  name: "my-api"
+const proc = await toolRegistry.call('process_spawn', {
+  command: 'node',
+  args: ['server.js'],
+  name: 'my-api',
 });
 // Returns: { processId: "...", pid: 12345, name: "my-api", startedAt: "..." }
 
 // Wait for ready
-const ready = await toolRegistry.call("process_wait_for_ready", {
-  processId: "my-api",
-  pattern: "listening on port",
-  timeout: 30000
+const ready = await toolRegistry.call('process_wait_for_ready', {
+  processId: 'my-api',
+  pattern: 'listening on port',
+  timeout: 30000,
 });
 // Returns: { ready: true, elapsed: N, matchedLine: "..." }
 
 // Get error logs
-const logs = await toolRegistry.call("process_get_logs", {
-  processId: "my-api",
-  level: "error",
-  lines: 50
+const logs = await toolRegistry.call('process_get_logs', {
+  processId: 'my-api',
+  level: 'error',
+  lines: 50,
 });
 // Returns: { logs: [...], count: N, errorCount: N }
 
 // Attach to existing process by port
-const attached = await toolRegistry.call("process_attach_port", {
+const attached = await toolRegistry.call('process_attach_port', {
   port: 3000,
-  name: "existing-server"
+  name: 'existing-server',
 });
 // Returns: { processId: "existing-server", pid: N, command: "node", port: 3000 }
 ```
@@ -107,27 +107,29 @@ and **without wasting tokens**:
 
 ```typescript
 // Cheap, safe observation of one app (capped ≤200 lines, secrets redacted)
-const snap = await toolRegistry.call("inspect", { name: "my-api", tail: 40 });
+const snap = await toolRegistry.call('inspect', { name: 'my-api', tail: 40 });
 // Returns: { running, pid, port, portHealthy, uptimeSec, rssMb,
 //            logTail: [...], watermark, errorCount, errors: [...], redacted: true,
 //            capped: boolean }
 
 // Real-time watching WITHOUT re-downloading the whole file (token-efficient):
 // poll with the watermark from the previous response.
-const w1 = await toolRegistry.call("inspect", { name: "my-api", watch: true });
+const w1 = await toolRegistry.call('inspect', { name: 'my-api', watch: true });
 // w1.newLines = only lines written so far, w1.watermark = byte offset
-const w2 = await toolRegistry.call("inspect", {
-  name: "my-api", watch: true, sinceOffset: w1.watermark,
+const w2 = await toolRegistry.call('inspect', {
+  name: 'my-api',
+  watch: true,
+  sinceOffset: w1.watermark,
 });
 // w2.newLines = ONLY lines written since w1 (no duplicates, no full re-read)
 
 // Ensure auto-restart resilience is active
-await toolRegistry.call("supervisor_control", { action: "start" });
-const sup = await toolRegistry.call("supervisor_control", { action: "status" });
+await toolRegistry.call('supervisor_control', { action: 'start' });
+const sup = await toolRegistry.call('supervisor_control', { action: 'status' });
 // Returns: { running, pid, managedApps: [{ name, running, pid }] }
 
 // Survive reboot
-await toolRegistry.call("persist_control", { action: "enable" });
+await toolRegistry.call('persist_control', { action: 'enable' });
 ```
 
 ## Security
@@ -142,10 +144,10 @@ await toolRegistry.call("persist_control", { action: "enable" });
 
 Process logs are automatically classified into levels using pattern matching:
 
-| Level | Patterns |
-|-------|----------|
-| `error` | `error`, `Error`, `ERROR`, `ERR!`, `fatal`, `trace`, `stack trace` |
-| `warn` | `warning`, `WARN`, `WARNING`, `warn` |
-| `info` | `info`, `INFO`, `log`, `info:`, `[INFO]` |
-| `debug` | `debug`, `DEBUG`, `[DEBUG]`, `[debug]` |
-| `unknown` | Default for unclassified lines |
+| Level     | Patterns                                                           |
+| --------- | ------------------------------------------------------------------ |
+| `error`   | `error`, `Error`, `ERROR`, `ERR!`, `fatal`, `trace`, `stack trace` |
+| `warn`    | `warning`, `WARN`, `WARNING`, `warn`                               |
+| `info`    | `info`, `INFO`, `log`, `info:`, `[INFO]`                           |
+| `debug`   | `debug`, `DEBUG`, `[DEBUG]`, `[debug]`                             |
+| `unknown` | Default for unclassified lines                                     |

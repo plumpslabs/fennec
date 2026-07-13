@@ -1,5 +1,13 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, rmSync, renameSync } from "node:fs";
-import { join, resolve, dirname } from "node:path";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  readdirSync,
+  rmSync,
+  renameSync,
+} from 'node:fs';
+import { join, resolve, dirname } from 'node:path';
 
 export interface SavedSession {
   name: string;
@@ -20,7 +28,7 @@ function walkJson(dir: string): string[] {
     for (const e of readdirSync(d, { withFileTypes: true })) {
       const p = join(d, e.name);
       if (e.isDirectory()) walk(p);
-      else if (e.name.endsWith(".json")) out.push(p);
+      else if (e.name.endsWith('.json')) out.push(p);
     }
   };
   walk(dir);
@@ -43,7 +51,7 @@ export class SessionStore {
 
   /** Filesystem-safe dir name for an origin (no slashes/colons — safe on Windows too). */
   private encodeOrigin(origin: string): string {
-    return origin.replace(/[^a-zA-Z0-9._-]/g, "_");
+    return origin.replace(/[^a-zA-Z0-9._-]/g, '_');
   }
 
   /** <dir>/<encodedOrigin>/<name>.json — namespaced so sessions from different origins never collide. */
@@ -51,7 +59,7 @@ export class SessionStore {
     return join(this.persistPath, this.encodeOrigin(origin), `${name}.json`);
   }
 
-  save(name: string, data: Omit<SavedSession, "name" | "savedAt">): string {
+  save(name: string, data: Omit<SavedSession, 'name' | 'savedAt'>): string {
     this.ensureDir();
     const session: SavedSession = {
       name,
@@ -68,7 +76,7 @@ export class SessionStore {
       return target;
     }
     mkdirSync(dirname(target), { recursive: true });
-    writeFileSync(target, JSON.stringify(session, null, 2), "utf-8");
+    writeFileSync(target, JSON.stringify(session, null, 2), 'utf-8');
     return target;
   }
 
@@ -81,7 +89,7 @@ export class SessionStore {
   loadFromPath(filePath: string): SavedSession | null {
     if (!existsSync(filePath)) return null;
     try {
-      const content = readFileSync(filePath, "utf-8");
+      const content = readFileSync(filePath, 'utf-8');
       return JSON.parse(content) as SavedSession;
     } catch {
       return null;
@@ -89,13 +97,13 @@ export class SessionStore {
   }
 
   /** Save a session to an arbitrary file path (custom filePath; bypasses namespacing). */
-  saveToPath(name: string, data: Omit<SavedSession, "name" | "savedAt">, filePath: string): void {
+  saveToPath(name: string, data: Omit<SavedSession, 'name' | 'savedAt'>, filePath: string): void {
     const session: SavedSession = {
       name,
       savedAt: new Date().toISOString(),
       ...data,
     };
-    writeFileSync(filePath, JSON.stringify(session, null, 2), "utf-8");
+    writeFileSync(filePath, JSON.stringify(session, null, 2), 'utf-8');
   }
 
   /** Find a session by name (recursive across origins + legacy flat files). */

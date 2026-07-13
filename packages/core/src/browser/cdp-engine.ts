@@ -22,9 +22,9 @@
  * - Token-sensitive contexts
  */
 
-import { randomUUID } from "node:crypto";
-import { spawn, execSync, type ChildProcess } from "node:child_process";
-import { EventEmitter } from "node:events";
+import { randomUUID } from 'node:crypto';
+import { spawn, execSync, type ChildProcess } from 'node:child_process';
+import { EventEmitter } from 'node:events';
 import type {
   BrowserEngine,
   BrowserInstance,
@@ -43,21 +43,24 @@ import type {
   BrowserType,
   ScreenshotOpts,
   LoadEvent,
-} from "./types.js";
-import type { ConsoleEvent, NetworkEvent } from "../session/types.js";
-import { getLogger } from "../utils/logger.js";
+} from './types.js';
+import type { ConsoleEvent, NetworkEvent } from '../session/types.js';
+import { getLogger } from '../utils/logger.js';
 
 // ─── CDP Client — Uses WebSocket API (Node.js 21+ built-in, or polyfill) ─
 
 class CDPClient extends EventEmitter {
-  private ws: import("node:net").Socket | null = null;
+  private ws: import('node:net').Socket | null = null;
   private requestId = 0;
-  private pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
-  private messageBuffer = "";
+  private pending = new Map<
+    number,
+    { resolve: (v: unknown) => void; reject: (e: Error) => void }
+  >();
+  private messageBuffer = '';
   private connected = false;
-  private wsHost = "";
+  private wsHost = '';
   private wsPort = 0;
-  private wsPath = "";
+  private wsPath = '';
 
   async connect(host: string, port: number): Promise<void> {
     const logger = getLogger();
@@ -66,10 +69,10 @@ class CDPClient extends EventEmitter {
     const httpUrl = `http://${host}:${port}/json/version`;
     const httpResp = await fetch(httpUrl);
     const info = (await httpResp.json()) as { webSocketDebuggerUrl?: string };
-    const wsUrl = info.webSocketDebuggerUrl ?? "";
+    const wsUrl = info.webSocketDebuggerUrl ?? '';
 
     if (!wsUrl) {
-      throw new Error("No WebSocket debugger URL available");
+      throw new Error('No WebSocket debugger URL available');
     }
 
     // Step 2: Connect via Node.js built-in WebSocket (available in Node 21+)
@@ -80,11 +83,11 @@ class CDPClient extends EventEmitter {
     this.wsPath = url.pathname + url.search;
 
     // Connect using raw TCP and implement WebSocket protocol
-    const net = await import("node:net");
+    const net = await import('node:net');
     this.ws = net.createConnection(this.wsPort, this.wsHost, () => {
       // Perform WebSocket upgrade
-      const key = randomUUID().replace(/-/g, "").slice(0, 16);
-      const keyEncoded = Buffer.from(key).toString("base64");
+      const key = randomUUID().replace(/-/g, '').slice(0, 16);
+      const keyEncoded = Buffer.from(key).toString('base64');
       const upgrade = [
         `GET ${this.wsPath} HTTP/1.1`,
         `Host: ${this.wsHost}:${this.wsPort}`,
@@ -92,21 +95,22 @@ class CDPClient extends EventEmitter {
         `Connection: Upgrade`,
         `Sec-WebSocket-Key: ${keyEncoded}`,
         `Sec-WebSocket-Version: 13`,
-        ``,``,
-      ].join("\r\n");
+        ``,
+        ``,
+      ].join('\r\n');
       this.ws!.write(upgrade);
     });
 
     return new Promise((resolve, reject) => {
       let upgraded = false;
 
-      this.ws!.on("data", (data: Buffer) => {
+      this.ws!.on('data', (data: Buffer) => {
         if (!upgraded) {
-          const response = data.toString("utf-8");
-          if (response.includes("101 Switching Protocols")) {
+          const response = data.toString('utf-8');
+          if (response.includes('101 Switching Protocols')) {
             upgraded = true;
             this.connected = true;
-            logger.info("CDP WebSocket connected");
+            logger.info('CDP WebSocket connected');
             resolve();
           } else {
             reject(new Error(`WebSocket upgrade failed: ${response.slice(0, 100)}`));
@@ -159,7 +163,7 @@ class CDPClient extends EventEmitter {
 
           if (opcode === 0x1 || opcode === 0x2) {
             // Text or binary frame
-            const text = payload.toString("utf-8");
+            const text = payload.toString('utf-8');
             this.handleMessage(text);
           } else if (opcode === 0x9) {
             // Ping — send pong
@@ -173,18 +177,18 @@ class CDPClient extends EventEmitter {
         }
       });
 
-      this.ws!.on("error", (err: Error) => {
-        logger.error({ error: err.message }, "CDP WebSocket error");
+      this.ws!.on('error', (err: Error) => {
+        logger.error({ error: err.message }, 'CDP WebSocket error');
         if (!upgraded) reject(err);
       });
 
-      this.ws!.on("close", () => {
+      this.ws!.on('close', () => {
         this.connected = false;
-        this.emit("close");
+        this.emit('close');
       });
 
       setTimeout(() => {
-        if (!upgraded) reject(new Error("CDP connection timeout"));
+        if (!upgraded) reject(new Error('CDP connection timeout'));
       }, 10000);
     });
   }
@@ -212,11 +216,11 @@ class CDPClient extends EventEmitter {
 
   async send<T>(method: string, params?: Record<string, unknown>): Promise<T> {
     if (!this.ws || !this.connected) {
-      throw new Error("CDP not connected");
+      throw new Error('CDP not connected');
     }
 
     const id = ++this.requestId;
-    const payload = Buffer.from(JSON.stringify({ id, method, params: params ?? {} }), "utf-8");
+    const payload = Buffer.from(JSON.stringify({ id, method, params: params ?? {} }), 'utf-8');
 
     // Build WebSocket frame (masked client → server)
     const mask = Buffer.alloc(4);
@@ -260,7 +264,10 @@ class CDPClient extends EventEmitter {
     const frame = Buffer.concat([header, masked]);
 
     return new Promise<T>((resolve, reject) => {
-      this.pending.set(id, { resolve: resolve as (v: unknown) => void, reject: reject as (e: Error) => void });
+      this.pending.set(id, {
+        resolve: resolve as (v: unknown) => void,
+        reject: reject as (e: Error) => void,
+      });
       this.ws!.write(frame);
 
       setTimeout(() => {
@@ -278,7 +285,11 @@ class CDPClient extends EventEmitter {
       const closeFrame = Buffer.alloc(2);
       closeFrame[0] = 0x88; // FIN + close opcode
       closeFrame[1] = 0x00;
-      try { this.ws.write(closeFrame); } catch { /* ignore */ }
+      try {
+        this.ws.write(closeFrame);
+      } catch {
+        /* ignore */
+      }
       this.ws.end();
       this.ws.destroy();
     }
@@ -293,15 +304,19 @@ let chromePort = 0;
 
 async function findChromeBinary(): Promise<string> {
   const candidates = [
-    "google-chrome", "google-chrome-stable", "chromium", "chromium-browser",
-    "/usr/bin/google-chrome", "/usr/bin/chromium",
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    'google-chrome',
+    'google-chrome-stable',
+    'chromium',
+    'chromium-browser',
+    '/usr/bin/google-chrome',
+    '/usr/bin/chromium',
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   ];
 
   for (const c of candidates) {
     try {
       execSync(`command -v "${c}" 2>/dev/null || which "${c}" 2>/dev/null`, {
-        stdio: "ignore",
+        stdio: 'ignore',
         timeout: 3000,
       });
       return c;
@@ -311,7 +326,7 @@ async function findChromeBinary(): Promise<string> {
   }
 
   // Default fallback
-  return "google-chrome";
+  return 'google-chrome';
 }
 
 async function launchChrome(headless: boolean, userPort?: number): Promise<number> {
@@ -322,7 +337,7 @@ async function launchChrome(headless: boolean, userPort?: number): Promise<numbe
   try {
     const resp = await fetch(`http://127.0.0.1:${port}/json/version`);
     if (resp.ok) {
-      logger.info({ port }, "CDP Engine: Reusing existing Chrome instance");
+      logger.info({ port }, 'CDP Engine: Reusing existing Chrome instance');
       chromePort = port;
       return port;
     }
@@ -335,25 +350,25 @@ async function launchChrome(headless: boolean, userPort?: number): Promise<numbe
 
   const args = [
     `--remote-debugging-port=${port}`,
-    "--no-sandbox",
-    "--disable-setuid-sandbox",
-    "--disable-dev-shm-usage",
-    "--disable-gpu",
-    "--window-size=1280,720",
-    "about:blank",
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+    '--window-size=1280,720',
+    'about:blank',
   ];
-  if (headless) args.unshift("--headless=new");
+  if (headless) args.unshift('--headless=new');
 
-  chromeProcess = spawn(chromeBin, args, { stdio: "ignore" });
+  chromeProcess = spawn(chromeBin, args, { stdio: 'ignore' });
   chromePort = port;
-  logger.info({ port, chromeBin }, "CDP Engine: Chrome launched");
+  logger.info({ port, chromeBin }, 'CDP Engine: Chrome launched');
 
   // Wait for Chrome to be ready
   for (let i = 0; i < 30; i++) {
     try {
       const resp = await fetch(`http://127.0.0.1:${port}/json/version`);
       if (resp.ok) {
-        logger.info({ port }, "CDP Engine: Chrome ready");
+        logger.info({ port }, 'CDP Engine: Chrome ready');
         return port;
       }
     } catch {
@@ -361,14 +376,16 @@ async function launchChrome(headless: boolean, userPort?: number): Promise<numbe
     }
   }
 
-  throw new Error("Chrome did not become ready within 15 seconds");
+  throw new Error('Chrome did not become ready within 15 seconds');
 }
 
 function cleanupChrome(): void {
   if (chromeProcess) {
     try {
-      chromeProcess.kill("SIGTERM");
-    } catch { /* ignore */ }
+      chromeProcess.kill('SIGTERM');
+    } catch {
+      /* ignore */
+    }
     chromeProcess = null;
   }
 }
@@ -379,10 +396,10 @@ function cleanupChrome(): void {
 
 class CDPBrowserSession implements BrowserSession {
   readonly id: string;
-  readonly type: BrowserType = "chromium";
+  readonly type: BrowserType = 'chromium';
   private client: CDPClient;
   private targetId: string;
-  private currentUrl = "about:blank";
+  private currentUrl = 'about:blank';
   private _consoleCallbacks: Array<(event: ConsoleEvent) => void> = [];
   private _networkCallbacks: Array<(event: NetworkEvent) => void> = [];
 
@@ -392,17 +409,21 @@ class CDPBrowserSession implements BrowserSession {
     this.targetId = targetId;
 
     // Subscribe to console events
-    this.client.on("Runtime.consoleAPICalled", (params: any) => {
-      const args = params.args?.map((a: any) => a.value ?? a.description ?? "").join(" ") ?? "";
-      const level = params.type === "error" ? "error"
-        : params.type === "warning" ? "warn"
-        : params.type === "info" ? "info"
-        : "log";
+    this.client.on('Runtime.consoleAPICalled', (params: any) => {
+      const args = params.args?.map((a: any) => a.value ?? a.description ?? '').join(' ') ?? '';
+      const level =
+        params.type === 'error'
+          ? 'error'
+          : params.type === 'warning'
+            ? 'warn'
+            : params.type === 'info'
+              ? 'info'
+              : 'log';
 
       const event: ConsoleEvent = {
-        level: level as ConsoleEvent["level"],
+        level: level as ConsoleEvent['level'],
         message: args,
-        source: params.stackTrace?.callFrames?.[0]?.url ?? "unknown",
+        source: params.stackTrace?.callFrames?.[0]?.url ?? 'unknown',
         timestamp: new Date().toISOString(),
       };
 
@@ -410,17 +431,17 @@ class CDPBrowserSession implements BrowserSession {
     });
 
     // Subscribe to network events
-    this.client.on("Network.responseReceived", (params: any) => {
+    this.client.on('Network.responseReceived', (params: any) => {
       const req = params.response;
       const event: NetworkEvent = {
         requestId: params.requestId,
-        method: req.requestHeaders?.method ?? "GET",
+        method: req.requestHeaders?.method ?? 'GET',
         url: req.url,
         status: req.status,
         statusText: req.statusText,
         duration: req.timing?.receiveHeadersEnd ?? 0,
         timestamp: new Date().toISOString(),
-        type: req.type?.toLowerCase() ?? "other",
+        type: req.type?.toLowerCase() ?? 'other',
       };
 
       for (const cb of this._networkCallbacks) cb(event);
@@ -431,12 +452,12 @@ class CDPBrowserSession implements BrowserSession {
 
   async navigate(url: string, options?: NavigateOptions): Promise<NavigationResult> {
     const startTime = Date.now();
-    const result = await this.client.send<any>("Page.navigate", { url });
+    const result = await this.client.send<any>('Page.navigate', { url });
     this.currentUrl = url;
 
     // Wait for load
-    if (options?.waitUntil !== "commit") {
-      await this.waitForLoadState(options?.waitUntil ?? "load", { timeout: options?.timeout });
+    if (options?.waitUntil !== 'commit') {
+      await this.waitForLoadState(options?.waitUntil ?? 'load', { timeout: options?.timeout });
     }
 
     return {
@@ -447,16 +468,16 @@ class CDPBrowserSession implements BrowserSession {
   }
 
   async goBack(): Promise<void> {
-    await this.client.send("Page.navigateToHistoryEntry", { entryId: -1 });
+    await this.client.send('Page.navigateToHistoryEntry', { entryId: -1 });
   }
 
   async goForward(): Promise<void> {
-    await this.client.send("Page.navigateToHistoryEntry", { entryId: 1 });
+    await this.client.send('Page.navigateToHistoryEntry', { entryId: 1 });
   }
 
   async reload(options?: { waitUntil?: LoadEvent }): Promise<void> {
-    await this.client.send("Page.reload");
-    if (options?.waitUntil !== "commit") {
+    await this.client.send('Page.reload');
+    if (options?.waitUntil !== 'commit') {
       await this.waitForTimeout(2000);
     }
   }
@@ -469,24 +490,26 @@ class CDPBrowserSession implements BrowserSession {
 
   async title(): Promise<string> {
     try {
-      return await this.client.send<string>("Runtime.evaluate", {
-        expression: "document.title",
-        returnByValue: true,
-      }).then((r: any) => r.result?.value ?? "");
+      return await this.client
+        .send<string>('Runtime.evaluate', {
+          expression: 'document.title',
+          returnByValue: true,
+        })
+        .then((r: any) => r.result?.value ?? '');
     } catch {
-      return "";
+      return '';
     }
   }
 
   async readyState(): Promise<string> {
     try {
-      const r = await this.client.send<any>("Runtime.evaluate", {
-        expression: "document.readyState",
+      const r = await this.client.send<any>('Runtime.evaluate', {
+        expression: 'document.readyState',
         returnByValue: true,
       });
-      return r.result?.value ?? "unknown";
+      return r.result?.value ?? 'unknown';
     } catch {
-      return "unknown";
+      return 'unknown';
     }
   }
 
@@ -500,14 +523,18 @@ class CDPBrowserSession implements BrowserSession {
 
   async close(): Promise<void> {
     try {
-      await this.client.send("Page.close");
-    } catch { /* ignore */ }
+      await this.client.send('Page.close');
+    } catch {
+      /* ignore */
+    }
   }
 
   async bringToFront(): Promise<void> {
     try {
-      await this.client.send("Page.bringToFront");
-    } catch { /* ignore */ }
+      await this.client.send('Page.bringToFront');
+    } catch {
+      /* ignore */
+    }
   }
 
   async rotateContext(): Promise<void> {
@@ -520,11 +547,13 @@ class CDPBrowserSession implements BrowserSession {
   async $(selector: string): Promise<ElementHandle | null> {
     // CDP cannot return element handles like Playwright
     // Use evaluate to check existence instead
-    const exists = await this.client.send<any>("Runtime.evaluate", {
+    const exists = await this.client.send<any>('Runtime.evaluate', {
       expression: `!!document.querySelector('${selector.replace(/'/g, "\\'")}')`,
       returnByValue: true,
     });
-    return exists?.result?.value ? { boundingBox: async () => null, click: async () => {}, $: async () => null } : null;
+    return exists?.result?.value
+      ? { boundingBox: async () => null, click: async () => {}, $: async () => null }
+      : null;
   }
 
   async $$(selector: string): Promise<ElementHandle[]> {
@@ -533,11 +562,11 @@ class CDPBrowserSession implements BrowserSession {
 
   async waitForSelector(selector: string, options?: WaitForSelectorOptions): Promise<void> {
     const timeout = options?.timeout ?? 10000;
-    const state = options?.state ?? "visible";
+    const state = options?.state ?? 'visible';
     const start = Date.now();
 
     while (Date.now() - start < timeout) {
-      const result = await this.client.send<any>("Runtime.evaluate", {
+      const result = await this.client.send<any>('Runtime.evaluate', {
         expression: `(function() {
           const el = document.querySelector('${selector.replace(/'/g, "\\'")}');
           if (!el) return 'not_found';
@@ -555,20 +584,23 @@ class CDPBrowserSession implements BrowserSession {
         returnByValue: true,
       });
 
-      if (result?.result?.value === "found") return;
+      if (result?.result?.value === 'found') return;
       await new Promise((r) => setTimeout(r, 200));
     }
 
     throw new Error(`Element not found: ${selector} (state: ${state}, timeout: ${timeout}ms)`);
   }
 
-  async waitForURL(urlOrFn: string | ((url: string) => boolean), options?: { timeout?: number }): Promise<void> {
+  async waitForURL(
+    urlOrFn: string | ((url: string) => boolean),
+    options?: { timeout?: number },
+  ): Promise<void> {
     const timeout = options?.timeout ?? 10000;
     const start = Date.now();
-    const predicate = typeof urlOrFn === "string" ? (u: string) => u.includes(urlOrFn) : urlOrFn;
+    const predicate = typeof urlOrFn === 'string' ? (u: string) => u.includes(urlOrFn) : urlOrFn;
 
     while (Date.now() - start < timeout) {
-      const url = await this.title().catch(() => "");
+      const url = await this.title().catch(() => '');
       if (predicate(this.currentUrl)) return;
       await new Promise((r) => setTimeout(r, 200));
     }
@@ -580,18 +612,18 @@ class CDPBrowserSession implements BrowserSession {
 
     while (Date.now() - start < timeout) {
       const rs = await this.readyState();
-      if (state === "networkidle") {
-        if (rs === "complete") {
+      if (state === 'networkidle') {
+        if (rs === 'complete') {
           // Additional wait for network idle
           await this.waitForTimeout(1000);
           return;
         }
-      } else if (state === "load" || state === "domcontentloaded") {
-        if (rs === "complete" || rs === "interactive") return;
-      } else if (state === "commit") {
+      } else if (state === 'load' || state === 'domcontentloaded') {
+        if (rs === 'complete' || rs === 'interactive') return;
+      } else if (state === 'commit') {
         return;
       } else {
-        if (rs === "complete") return;
+        if (rs === 'complete') return;
       }
       await new Promise((r) => setTimeout(r, 100));
     }
@@ -605,14 +637,19 @@ class CDPBrowserSession implements BrowserSession {
     urlOrPredicate: string | ((req: { url: () => string; method: () => string }) => boolean),
     options?: { timeout?: number },
   ): Promise<any> {
-    throw new Error("waitForRequest not supported in CDP Observer mode. Use PlaywrightAdapter for this feature.");
+    throw new Error(
+      'waitForRequest not supported in CDP Observer mode. Use PlaywrightAdapter for this feature.',
+    );
   }
 
   // ── JavaScript Execution ──
 
-  async evaluate<T = unknown>(fn: string | ((...args: any[]) => T), ...args: unknown[]): Promise<T> {
-    if (typeof fn === "string") {
-      const result = await this.client.send<any>("Runtime.evaluate", {
+  async evaluate<T = unknown>(
+    fn: string | ((...args: any[]) => T),
+    ...args: unknown[]
+  ): Promise<T> {
+    if (typeof fn === 'string') {
+      const result = await this.client.send<any>('Runtime.evaluate', {
         expression: fn,
         returnByValue: true,
         awaitPromise: true,
@@ -622,17 +659,17 @@ class CDPBrowserSession implements BrowserSession {
 
     // For function evaluation, serialize and inject
     const fnStr = fn.toString();
-    const serializedArgs = args.map((a) => JSON.stringify(a)).join(",");
+    const serializedArgs = args.map((a) => JSON.stringify(a)).join(',');
     const expression = `(${fnStr})(${serializedArgs})`;
 
-    const result = await this.client.send<any>("Runtime.evaluate", {
+    const result = await this.client.send<any>('Runtime.evaluate', {
       expression,
       returnByValue: true,
       awaitPromise: true,
     });
 
     if (result?.exceptionDetails) {
-      throw new Error(result.exceptionDetails.text ?? "Evaluation error");
+      throw new Error(result.exceptionDetails.text ?? 'Evaluation error');
     }
 
     return result?.result?.value as T;
@@ -641,56 +678,60 @@ class CDPBrowserSession implements BrowserSession {
   // ── Locator ──
 
   locator(_selector: string): Locator {
-    throw new Error("Locator not supported in CDP Observer mode. Use evaluate() for DOM queries.");
+    throw new Error('Locator not supported in CDP Observer mode. Use evaluate() for DOM queries.');
   }
 
   // ── Screenshot ──
 
   async screenshot(options?: ScreenshotOpts): Promise<Buffer> {
-    const format = options?.type ?? "png";
+    const format = options?.type ?? 'png';
     const params: Record<string, unknown> = { format };
-    if (format === "jpeg" && options?.quality != null) {
+    if (format === 'jpeg' && options?.quality != null) {
       params.quality = options.quality;
     }
     if (options?.fullPage) {
       // Get full page dimensions
-      const { result } = await this.client.send<any>("Runtime.evaluate", {
-        expression: "JSON.stringify({width: Math.max(document.body.scrollWidth, document.documentElement.scrollWidth), height: Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)})",
+      const { result } = await this.client.send<any>('Runtime.evaluate', {
+        expression:
+          'JSON.stringify({width: Math.max(document.body.scrollWidth, document.documentElement.scrollWidth), height: Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)})',
         returnByValue: true,
       });
-      const dims = JSON.parse(result?.value ?? "{}");
+      const dims = JSON.parse(result?.value ?? '{}');
       params.width = dims.width ?? 1280;
       params.height = dims.height ?? 720;
     }
 
-    const result = await this.client.send<any>("Page.captureScreenshot", params);
+    const result = await this.client.send<any>('Page.captureScreenshot', params);
     if (result?.data) {
-      return Buffer.from(result.data, "base64");
+      return Buffer.from(result.data, 'base64');
     }
-    throw new Error("Screenshot capture failed");
+    throw new Error('Screenshot capture failed');
   }
 
   // ── Network Interception (not supported in observer mode) ──
 
   async route(_urlPattern: string, _handler: (route: Route) => Promise<void>): Promise<void> {
-    throw new Error("Network interception not supported in CDP Observer mode. Use PlaywrightAdapter.");
+    throw new Error(
+      'Network interception not supported in CDP Observer mode. Use PlaywrightAdapter.',
+    );
   }
 
   async unroute(_urlPattern: string): Promise<void> {
-    throw new Error("Network interception not supported in CDP Observer mode.");
+    throw new Error('Network interception not supported in CDP Observer mode.');
   }
 
   // ── Keyboard ──
 
   async keyboardPress(_key: string, _options?: { modifiers?: string[] }): Promise<void> {
-    throw new Error("Keyboard input not supported in CDP Observer mode. Use PlaywrightAdapter.");
+    throw new Error('Keyboard input not supported in CDP Observer mode. Use PlaywrightAdapter.');
   }
 
   // ── CDP Access ──
 
   cdp(): BrowserCDPSession {
     return {
-      send: <T>(method: string, params?: Record<string, unknown>) => this.client.send<T>(method, params),
+      send: <T>(method: string, params?: Record<string, unknown>) =>
+        this.client.send<T>(method, params),
       on: (event: string, handler: (params: unknown) => void) => this.client.on(event, handler),
       off: (event: string, handler: (params: unknown) => void) => this.client.off(event, handler),
     };
@@ -698,9 +739,9 @@ class CDPBrowserSession implements BrowserSession {
 
   // ── Context-level operations ──
 
-  async contextCookies(): Promise<import("./types.js").Cookie[]> {
+  async contextCookies(): Promise<import('./types.js').Cookie[]> {
     try {
-      const result = await this.client.send<any>("Network.getAllCookies");
+      const result = await this.client.send<any>('Network.getAllCookies');
       return (result?.cookies ?? []).map((c: any) => ({
         name: c.name,
         value: c.value,
@@ -708,7 +749,7 @@ class CDPBrowserSession implements BrowserSession {
         path: c.path,
         httpOnly: c.httpOnly ?? false,
         secure: c.secure ?? false,
-        sameSite: (c.sameSite ?? "Lax") as "Strict" | "Lax" | "None",
+        sameSite: (c.sameSite ?? 'Lax') as 'Strict' | 'Lax' | 'None',
         expires: c.expires ?? undefined,
       }));
     } catch {
@@ -717,15 +758,15 @@ class CDPBrowserSession implements BrowserSession {
   }
 
   async contextAddCookies(cookies: CookieInput[]): Promise<void> {
-    await this.client.send("Network.setCookies", { cookies: cookies as any });
+    await this.client.send('Network.setCookies', { cookies: cookies as any });
   }
 
   async contextClearCookies(): Promise<void> {
-    await this.client.send("Network.clearBrowserCookies");
+    await this.client.send('Network.clearBrowserCookies');
   }
 
   async contextNewPage(): Promise<BrowserSession> {
-    throw new Error("Multi-page not supported in CDP Observer mode.");
+    throw new Error('Multi-page not supported in CDP Observer mode.');
   }
 
   contextPages(): BrowserSession[] {
@@ -737,8 +778,8 @@ class CDPBrowserSession implements BrowserSession {
   onConsole(callback: (event: ConsoleEvent) => void): () => void {
     this._consoleCallbacks.push(callback);
     // Enable console
-    this.client.send("Runtime.enable").catch(() => {});
-    this.client.send("Console.enable").catch(() => {});
+    this.client.send('Runtime.enable').catch(() => {});
+    this.client.send('Console.enable').catch(() => {});
     return () => {
       this._consoleCallbacks = this._consoleCallbacks.filter((c) => c !== callback);
     };
@@ -747,7 +788,7 @@ class CDPBrowserSession implements BrowserSession {
   onNetworkRequest(callback: (event: NetworkEvent) => void): () => void {
     this._networkCallbacks.push(callback);
     // Enable network
-    this.client.send("Network.enable").catch(() => {});
+    this.client.send('Network.enable').catch(() => {});
     return () => {
       this._networkCallbacks = this._networkCallbacks.filter((c) => c !== callback);
     };
@@ -757,7 +798,7 @@ class CDPBrowserSession implements BrowserSession {
 // ─── CDP Instance ────────────────────────────────────────────────
 
 class CDPInstance implements BrowserInstance {
-  readonly type: BrowserType = "chromium";
+  readonly type: BrowserType = 'chromium';
   private client: CDPClient;
   private targetId: string;
 
@@ -778,20 +819,20 @@ class CDPInstance implements BrowserInstance {
 // ─── CDP Engine Factory ──────────────────────────────────────────
 
 export class CDPObserverEngine implements BrowserEngine {
-  readonly type: BrowserType = "chromium";
+  readonly type: BrowserType = 'chromium';
 
   async launch(options: BrowserLaunchOptions): Promise<BrowserInstance> {
     const port = await launchChrome(options.headless, 9222);
     const client = new CDPClient();
-    await client.connect("127.0.0.1", port);
+    await client.connect('127.0.0.1', port);
 
     // Get available targets and create a page target
-    const targets = await client.send<any[]>("Target.getTargets");
+    const targets = await client.send<any[]>('Target.getTargets');
     let targetId: string | null = null;
 
     // Reuse existing page if available
     for (const t of targets ?? []) {
-      if (t.type === "page" && t.url !== "about:blank") {
+      if (t.type === 'page' && t.url !== 'about:blank') {
         targetId = t.targetId;
         break;
       }
@@ -799,8 +840,8 @@ export class CDPObserverEngine implements BrowserEngine {
 
     // Create new page if needed
     if (!targetId) {
-      const result = await client.send<any>("Target.createTarget", {
-        url: "about:blank",
+      const result = await client.send<any>('Target.createTarget', {
+        url: 'about:blank',
         width: 1280,
         height: 720,
       });
@@ -808,16 +849,16 @@ export class CDPObserverEngine implements BrowserEngine {
     }
 
     // Attach to the target
-    await client.send("Target.attachToTarget", {
+    await client.send('Target.attachToTarget', {
       targetId,
       flatten: true,
     });
 
     // Enable necessary domains
-    await client.send("Page.enable");
-    await client.send("Runtime.enable");
-    await client.send("Network.enable");
-    await client.send("DOM.enable").catch(() => {});
+    await client.send('Page.enable');
+    await client.send('Runtime.enable');
+    await client.send('Network.enable');
+    await client.send('DOM.enable').catch(() => {});
 
     return new CDPInstance(client, targetId!);
   }

@@ -39,7 +39,10 @@ export function truncateByTokens(
     );
   }
 
-  return text.slice(0, maxChars) + `\n... [truncated: ${estimateTokens(text.slice(maxChars))} tokens hidden]`;
+  return (
+    text.slice(0, maxChars) +
+    `\n... [truncated: ${estimateTokens(text.slice(maxChars))} tokens hidden]`
+  );
 }
 
 /**
@@ -67,7 +70,7 @@ export function truncateObjectByTokens<T extends Record<string, unknown>>(
   // Truncate the longest string fields first
   const stringFields: Array<{ key: string; value: string }> = [];
   for (const [key, value] of Object.entries(obj)) {
-    if (typeof value === "string") {
+    if (typeof value === 'string') {
       stringFields.push({ key, value });
     } else if (Array.isArray(value)) {
       // Truncate arrays (keep first N items)

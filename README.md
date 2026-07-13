@@ -57,25 +57,30 @@ Bug appears
 ## Key Features
 
 ### 🌐 Full Cross-Browser Support
+
 Fennec supports **Chromium, Firefox, and WebKit** — not just Chromium like many tools. Configure via:
+
 ```json
 { "browser": { "type": "firefox" | "webkit" | "chromium" } }
 ```
+
 Or environment variable: `FENNEC_BROWSER_TYPE=firefox`
 
 ### 🏆 Full-Stack Correlation (Proven)
+
 Fennec's signature feature correlates browser errors with server logs to identify root causes automatically. The correlation engine has been tested with **7 integration scenarios** covering real-world patterns:
 
-| Pattern | Example | Confidence |
-|---------|---------|------------|
-| Server 500 + stderr Error | POST /api/login → 500 + DB timeout | 0.90 |
-| Auth token issue | 401 + JWT verification failed | 0.92 |
-| Missing file/env | ENOENT + .env not found | 0.88 |
-| Network failure + TypeError | request failed + JS TypeError | 0.85 |
+| Pattern                     | Example                            | Confidence |
+| --------------------------- | ---------------------------------- | ---------- |
+| Server 500 + stderr Error   | POST /api/login → 500 + DB timeout | 0.90       |
+| Auth token issue            | 401 + JWT verification failed      | 0.92       |
+| Missing file/env            | ENOENT + .env not found            | 0.88       |
+| Network failure + TypeError | request failed + JS TypeError      | 0.85       |
 
 > ✅ **The confidence scores above are derived from actual inference rules with unit-tested pattern matching**, not fabricated illustrations.
 
 ### 🖥️ Process & App Management — the AI-Native Control Plane
+
 This is what makes Fennec more than an observer. Your AI agent can **run, supervise, and recover** your apps exactly like a senior engineer would — without you pasting logs or running commands by hand:
 
 - **`start` / `run`** — launch any app as a detached, supervised daemon. Logs stream to `~/.fennec/logs/<name>.log`.
@@ -91,25 +96,25 @@ This is what makes Fennec more than an observer. Your AI agent can **run, superv
 
 ### 🔧 130+ MCP Tools Across 17 Categories
 
-| Category | Tools | What You Can Do |
-|----------|-------|----------------|
-| **Navigation** | 6 | Navigate, go back/forward, reload, wait for navigation |
-| **Interaction** | 10 | Click, type, select, hover, scroll, upload file, drag-drop |
-| **DOM** | 9 | Screenshot, DOM snapshot (token-efficient summary), accessibility tree, find elements |
-| **DevTools Console** | 5 | Console logs, JS errors, watch console (level-based summaries) |
-| **DevTools Network** | 9 | Network monitoring, intercept, mock, wait for request |
-| **DevTools Performance** | 6 | Performance metrics, memory, profiling, simulate network |
-| **Storage** | 12 | localStorage, cookies, IndexedDB, session export/import |
-| **Auth** | 6 | Auto-fill login, save/load sessions, check auth state |
-| **Tabs** | 7 | Multi-tab, multi-context, tab switching |
-| **Process** | 25 | Spawn (idempotent/adopt), monitor, attach by PID/port, kill, restart, adopt, supervise, persist, inspect, rename, dev-orchestrate |
-| **Terminal** | 7 | Watch files/pipes, filter logs by level/keyword |
-| **Diagnostic** | 6 | diagnose_page, diagnose_fullstack, diagnose_auth, etc. |
-| **Scheduler** | 7 | Auto-trigger workflows, manage rules, view history |
-| **Smart** | 7 | Smart wait, smart fill form, annotated screenshots, diff |
-| **Planner** | 5 | Execute multi-step goals, plan preview, plan management |
-| **Mobile** | 11 | List devices, tap, type, swipe, logcat, screenshot, install APK, launch/stop apps via ADB |
-| **AI-Native API** 🆕 | 7 | `observe()`, `ai_diagnose()`, `correlate()`, `summarize()`, `explain()`, `investigate()`, `predict()` |
+| Category                 | Tools | What You Can Do                                                                                                                   |
+| ------------------------ | ----- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Navigation**           | 6     | Navigate, go back/forward, reload, wait for navigation                                                                            |
+| **Interaction**          | 10    | Click, type, select, hover, scroll, upload file, drag-drop                                                                        |
+| **DOM**                  | 9     | Screenshot, DOM snapshot (token-efficient summary), accessibility tree, find elements                                             |
+| **DevTools Console**     | 5     | Console logs, JS errors, watch console (level-based summaries)                                                                    |
+| **DevTools Network**     | 9     | Network monitoring, intercept, mock, wait for request                                                                             |
+| **DevTools Performance** | 6     | Performance metrics, memory, profiling, simulate network                                                                          |
+| **Storage**              | 12    | localStorage, cookies, IndexedDB, session export/import                                                                           |
+| **Auth**                 | 6     | Auto-fill login, save/load sessions, check auth state                                                                             |
+| **Tabs**                 | 7     | Multi-tab, multi-context, tab switching                                                                                           |
+| **Process**              | 25    | Spawn (idempotent/adopt), monitor, attach by PID/port, kill, restart, adopt, supervise, persist, inspect, rename, dev-orchestrate |
+| **Terminal**             | 7     | Watch files/pipes, filter logs by level/keyword                                                                                   |
+| **Diagnostic**           | 6     | diagnose_page, diagnose_fullstack, diagnose_auth, etc.                                                                            |
+| **Scheduler**            | 7     | Auto-trigger workflows, manage rules, view history                                                                                |
+| **Smart**                | 7     | Smart wait, smart fill form, annotated screenshots, diff                                                                          |
+| **Planner**              | 5     | Execute multi-step goals, plan preview, plan management                                                                           |
+| **Mobile**               | 11    | List devices, tap, type, swipe, logcat, screenshot, install APK, launch/stop apps via ADB                                         |
+| **AI-Native API** 🆕     | 7     | `observe()`, `ai_diagnose()`, `correlate()`, `summarize()`, `explain()`, `investigate()`, `predict()`                             |
 
 > 💡 **Token-Efficient**: Tools are categorized into 17 groups (including Mobile + AI-Native API). MCP clients can request only specific categories to reduce context window usage. Use the `_categories` field in ListTools response to discover available categories.
 
@@ -117,15 +122,15 @@ This is what makes Fennec more than an observer. Your AI agent can **run, superv
 
 Fennec's AI-Native API replaces browser-centric tools with observation-centric ones — designed for **AI consumption first**:
 
-| Tool | Purpose | Token Cost |
-|------|---------|-----------|
-| `observe()` | Multi-sensor observation (browser, console, network) | ~5-500 tokens |
-| `ai_diagnose()` | Full-stack diagnosis + root cause inference | ~50 tokens |
-| `correlate()` | Cross-layer event correlation with timeline | ~200 tokens |
-| `summarize()` | Compress logs/events/DOM into insight | ~100 tokens |
-| `explain()` | Plain-language explanation of incidents/state | ~50 tokens |
+| Tool            | Purpose                                              | Token Cost       |
+| --------------- | ---------------------------------------------------- | ---------------- |
+| `observe()`     | Multi-sensor observation (browser, console, network) | ~5-500 tokens    |
+| `ai_diagnose()` | Full-stack diagnosis + root cause inference          | ~50 tokens       |
+| `correlate()`   | Cross-layer event correlation with timeline          | ~200 tokens      |
+| `summarize()`   | Compress logs/events/DOM into insight                | ~100 tokens      |
+| `explain()`     | Plain-language explanation of incidents/state        | ~50 tokens       |
 | `investigate()` | Deep dive into incidents with Lazy Context Level 2-3 | ~200-2000 tokens |
-| `predict()` | Pattern-based failure prediction | ~100 tokens |
+| `predict()`     | Pattern-based failure prediction                     | ~100 tokens      |
 
 **1 tool call instead of 5. 100x less tokens.**
 
@@ -142,47 +147,54 @@ Level 3 (Raw):     "Raw SQL, raw logs, raw DOM"             ~2000 tokens 📄 On
 
 Config-driven: enable/disable each level via `lazyContext.level1/level2/level3`.
 
-| Scenario | Before | After | Savings |
-|----------|--------|-------|---------|
-| Normal operation | 2,000 tokens | **50 tokens** | **40x** |
-| Error handling | 50,000 tokens | **500 tokens** | **100x** |
-| Full debugging | 500,000 tokens | **2,500 tokens** | **200x** |
+| Scenario         | Before         | After            | Savings  |
+| ---------------- | -------------- | ---------------- | -------- |
+| Normal operation | 2,000 tokens   | **50 tokens**    | **40x**  |
+| Error handling   | 50,000 tokens  | **500 tokens**   | **100x** |
+| Full debugging   | 500,000 tokens | **2,500 tokens** | **200x** |
 
 ### 🚀 Zero-Dependency Browser Observation
 
 Fennec supports two browser engines — choose based on your needs:
 
-| Engine | Dependency | Best For |
-|--------|-----------|----------|
+| Engine              | Dependency                         | Best For                                            |
+| ------------------- | ---------------------------------- | --------------------------------------------------- |
 | **CDP Observer** 🆕 | Zero deps (Node.js built-ins only) | Observation: navigate, screenshot, console, network |
-| **Playwright** | Requires `npm install playwright` | Full automation: click, type, upload, drag-drop |
+| **Playwright**      | Requires `npm install playwright`  | Full automation: click, type, upload, drag-drop     |
 
 Auto-detection: Fennec tries CDP first (zero-deps). Falls back to Playwright when automation is needed.
 
 Configure via:
+
 ```json
 { "browser": { "adapter": "auto" | "cdp" | "playwright" } }
 ```
 
 ### 🔐 Auth Session Persistence
+
 Save and load browser auth states across conversations:
+
 ```bash
 # In one session
 AI: auth_fill_login_form("admin@example.com", "password", submitAfter: true)
 AI: auth_save_session("myapp-prod")
 
-# In another conversation  
+# In another conversation
 AI: auth_load_session("myapp-prod")  # skip login entirely!
 ```
+
 Sessions persist to a single global store (`~/.fennec`, overridable via `FENNEC_HOME`) and are manageable from **any directory** with the **`fennec store`** command. Run **`fennec doctor`** to catch secret leakage — world-readable permissions, stores living under synced directories (chezmoi/Dropbox/OneDrive), or secrets embedded in tracked launch commands.
 
 ### 🔍 Self-Observability
+
 Fennec monitors its own performance — track tool call durations, memory usage, error rates. Use the `PerformanceMetrics` API to check Fennec's health:
+
 ```
 Total tool calls: 1,234 | Avg duration: 45ms | Error rate: 2.3% | Memory: 128MB
 ```
 
 ### 🛡️ Security Model
+
 - **Sandbox mode ON by default** — blocks dangerous operations
 - **Permission per tool** — process spawn, kill, JS evaluation independently configurable
 - **Domain allowlist/blocklist** — restrict browser navigation
@@ -206,6 +218,7 @@ fennec init
 ```
 
 > **Note:** Playwright (browser automation) is an **optional peer dependency**. If you only need terminal/process monitoring, Fennec works without it. Add browser support when needed:
+>
 > ```bash
 > npm install playwright
 > fennec install-browsers
@@ -271,9 +284,11 @@ npm run dev 2>&1 | fennec pipe --name "my-app"
 ```
 
 Then ask your AI agent:
-> *"Check why my app is broken"*
+
+> _"Check why my app is broken"_
 
 The AI will automatically:
+
 1. Open the browser to your app
 2. Check console errors
 3. Inspect failed network requests
@@ -305,12 +320,12 @@ fennec dev status
 
 ## Installation Requirements
 
-| Requirement | Version |
-|---|---|
-| **Node.js** | >= 20.0.0 |
-| **npm / pnpm / yarn** | Latest stable |
-| **OS** | macOS, Linux, Windows (native + WSL2) |
-| **Browser** | Chromium (auto-installed), Firefox/WebKit (optional) |
+| Requirement           | Version                                              |
+| --------------------- | ---------------------------------------------------- |
+| **Node.js**           | >= 20.0.0                                            |
+| **npm / pnpm / yarn** | Latest stable                                        |
+| **OS**                | macOS, Linux, Windows (native + WSL2)                |
+| **Browser**           | Chromium (auto-installed), Firefox/WebKit (optional) |
 
 > **Cross-platform note:** Process management (start, ps, adopt, supervisor, `dev up`,
 > port discovery) works on Linux, macOS, and Windows. Linux reads `/proc`; macOS uses
@@ -319,20 +334,20 @@ fennec dev status
 
 ## Environment Variables
 
-| Variable | Effect |
-|----------|--------|
-| `FENNEC_DATA_DIR` | Override Fennec state/log directory (default `~/.fennec`). |
-| `FENNEC_SANDBOX` | `false` disables the sandbox. |
-| `FENNEC_SECURITY_ALLOW_PROCESS_SPAWN` | `true` lets the AI spawn processes. |
-| `FENNEC_SECURITY_ALLOW_PROCESS_KILL` | `true` lets the AI kill processes (off by default). |
-| `FENNEC_SECURITY_ALLOW_JS_EVALUATION` | `true` allows in-page JS evaluation. |
-| `FENNEC_TRANSPORT_TYPE` | `stdio` (default) or `sse`. |
-| `FENNEC_PORT` | SSE port (default `3333`). |
-| `FENNEC_BROWSER_TYPE` | `chromium` \| `firefox` \| `webkit`. |
-| `FENNEC_HEADLESS` | `false` to run headed. |
-| `FENNEC_DEFAULT_TIMEOUT` | Browser default timeout (ms). |
-| `FENNEC_VIEWPORT_WIDTH` / `FENNEC_VIEWPORT_HEIGHT` | Viewport size. |
-| `FENNEC_LOG_LEVEL` | `debug` \| `info` \| `warn` \| `error`. |
+| Variable                                           | Effect                                                     |
+| -------------------------------------------------- | ---------------------------------------------------------- |
+| `FENNEC_DATA_DIR`                                  | Override Fennec state/log directory (default `~/.fennec`). |
+| `FENNEC_SANDBOX`                                   | `false` disables the sandbox.                              |
+| `FENNEC_SECURITY_ALLOW_PROCESS_SPAWN`              | `true` lets the AI spawn processes.                        |
+| `FENNEC_SECURITY_ALLOW_PROCESS_KILL`               | `true` lets the AI kill processes (off by default).        |
+| `FENNEC_SECURITY_ALLOW_JS_EVALUATION`              | `true` allows in-page JS evaluation.                       |
+| `FENNEC_TRANSPORT_TYPE`                            | `stdio` (default) or `sse`.                                |
+| `FENNEC_PORT`                                      | SSE port (default `3333`).                                 |
+| `FENNEC_BROWSER_TYPE`                              | `chromium` \| `firefox` \| `webkit`.                       |
+| `FENNEC_HEADLESS`                                  | `false` to run headed.                                     |
+| `FENNEC_DEFAULT_TIMEOUT`                           | Browser default timeout (ms).                              |
+| `FENNEC_VIEWPORT_WIDTH` / `FENNEC_VIEWPORT_HEIGHT` | Viewport size.                                             |
+| `FENNEC_LOG_LEVEL`                                 | `debug` \| `info` \| `warn` \| `error`.                    |
 
 See the [CLI README](packages/cli/README.md) for the full command reference.
 

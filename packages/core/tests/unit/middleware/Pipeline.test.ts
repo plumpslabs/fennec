@@ -1,17 +1,17 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { Pipeline } from "../../../src/middleware/Pipeline.js";
-import type { MiddlewareFn, MiddlewareContext } from "../../../src/middleware/Pipeline.js";
-import type { ToolDefinition, ToolContext } from "../../../src/tools/_registry.js";
-import { z } from "zod";
-import { createLogger } from "../../../src/utils/logger.js";
+import { describe, it, expect, beforeEach } from 'vitest';
+import { Pipeline } from '../../../src/middleware/Pipeline.js';
+import type { MiddlewareFn, MiddlewareContext } from '../../../src/middleware/Pipeline.js';
+import type { ToolDefinition, ToolContext } from '../../../src/tools/_registry.js';
+import { z } from 'zod';
+import { createLogger } from '../../../src/utils/logger.js';
 
 // Set up logger for tests
-createLogger({ level: "error" });
+createLogger({ level: 'error' });
 
 function createMockTool(handler: (input: any, ctx: ToolContext) => any): ToolDefinition {
   return {
-    name: "test_tool",
-    description: "Test tool",
+    name: 'test_tool',
+    description: 'Test tool',
     inputSchema: z.object({}),
     handler: async (input, ctx) => handler(input, ctx),
   };
@@ -21,15 +21,30 @@ function createMockToolContext(): ToolContext {
   return {
     sessionManager: {
       getOrDefault: () => null,
-      buildMeta: () => ({ elapsed: 0, sessionId: "test", timestamp: new Date().toISOString() }),
+      buildMeta: () => ({ elapsed: 0, sessionId: 'test', timestamp: new Date().toISOString() }),
       getConsoleBuffer: () => [],
     } as any,
     responseBuilder: {
       success: (data: any) => ({ success: true, data, meta: {} }),
-      error: (err: any) => ({ success: false, error: { code: "ERROR", message: String(err), suggestions: [], context: {} }, meta: {} }),
+      error: (err: any) => ({
+        success: false,
+        error: { code: 'ERROR', message: String(err), suggestions: [], context: {} },
+        meta: {},
+      }),
     } as any,
     config: {
-      security: { sandbox: true, allowProcessSpawn: true, allowProcessKill: false, allowJSEvaluation: true, allowedDomains: [], blockedDomains: [], allowFileProtocol: false, allowCDPRawAccess: false, exportPath: "./exports", maxExportSizeMB: 10 },
+      security: {
+        sandbox: true,
+        allowProcessSpawn: true,
+        allowProcessKill: false,
+        allowJSEvaluation: true,
+        allowedDomains: [],
+        blockedDomains: [],
+        allowFileProtocol: false,
+        allowCDPRawAccess: false,
+        exportPath: './exports',
+        maxExportSizeMB: 10,
+      },
       process: { spawnAllowlist: [], maxProcesses: 10, logBufferLines: 2000 },
     } as any,
     logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } as any,
@@ -48,20 +63,20 @@ function createMockToolContext(): ToolContext {
   };
 }
 
-describe("Pipeline", () => {
+describe('Pipeline', () => {
   let pipeline: Pipeline;
 
   beforeEach(() => {
     pipeline = new Pipeline();
   });
 
-  it("should execute a tool with no middleware", async () => {
-    const tool = createMockTool(async () => ({ success: true, data: { result: "ok" } }));
+  it('should execute a tool with no middleware', async () => {
+    const tool = createMockTool(async () => ({ success: true, data: { result: 'ok' } }));
     const result = await pipeline.execute(tool, {}, createMockToolContext());
-    expect(result).toEqual({ success: true, data: { result: "ok" } });
+    expect(result).toEqual({ success: true, data: { result: 'ok' } });
   });
 
-  it("should execute middleware in order", async () => {
+  it('should execute middleware in order', async () => {
     const order: number[] = [];
 
     pipeline.use(async (_ctx, next) => {
@@ -87,15 +102,15 @@ describe("Pipeline", () => {
     expect(order).toEqual([1, 2, 5, 3, 4]);
   });
 
-  it("should pass context through middleware chain", async () => {
+  it('should pass context through middleware chain', async () => {
     pipeline.use(async (ctx, next) => {
-      ctx.metadata["middleware1"] = "ran";
+      ctx.metadata['middleware1'] = 'ran';
       return next();
     });
 
     let capturedCtx: MiddlewareContext | undefined;
     pipeline.use(async (ctx, next) => {
-      ctx.metadata["middleware2"] = "ran";
+      ctx.metadata['middleware2'] = 'ran';
       capturedCtx = ctx;
       return next();
     });
@@ -103,11 +118,11 @@ describe("Pipeline", () => {
     const tool = createMockTool(async () => ({ success: true, data: {} }));
     await pipeline.execute(tool, {}, createMockToolContext());
 
-    expect(capturedCtx?.metadata).toHaveProperty("middleware1", "ran");
-    expect(capturedCtx?.metadata).toHaveProperty("middleware2", "ran");
+    expect(capturedCtx?.metadata).toHaveProperty('middleware1', 'ran');
+    expect(capturedCtx?.metadata).toHaveProperty('middleware2', 'ran');
   });
 
-  it("should handle middleware that stops the chain", async () => {
+  it('should handle middleware that stops the chain', async () => {
     pipeline.use(async (_ctx, _next) => {
       return { success: true, data: { fromMiddleware: true } };
     });
@@ -118,16 +133,18 @@ describe("Pipeline", () => {
     expect(result).toEqual({ success: true, data: { fromMiddleware: true } });
   });
 
-  it("should propagate errors from middleware", async () => {
+  it('should propagate errors from middleware', async () => {
     pipeline.use(async (_ctx, _next) => {
-      throw new Error("Middleware error");
+      throw new Error('Middleware error');
     });
 
     const tool = createMockTool(async () => ({ success: true, data: {} }));
-    await expect(pipeline.execute(tool, {}, createMockToolContext())).rejects.toThrow("Middleware error");
+    await expect(pipeline.execute(tool, {}, createMockToolContext())).rejects.toThrow(
+      'Middleware error',
+    );
   });
 
-  it("should record retry count in context", async () => {
+  it('should record retry count in context', async () => {
     pipeline.use(async (ctx, next) => {
       ctx.retryCount = 2;
       return next();
@@ -145,20 +162,20 @@ describe("Pipeline", () => {
     expect(capturedCtx?.retryCount).toBe(2);
   });
 
-  it("should handle empty middleware gracefully", async () => {
+  it('should handle empty middleware gracefully', async () => {
     const tool = createMockTool(async () => ({ success: true, data: { empty: true } }));
     const result = await pipeline.execute(tool, {}, createMockToolContext());
     expect(result).toEqual({ success: true, data: { empty: true } });
   });
 
-  describe("middleware management", () => {
-    it("should register middleware with use()", () => {
+  describe('middleware management', () => {
+    it('should register middleware with use()', () => {
       const fn: MiddlewareFn = async (_ctx, next) => next();
       pipeline.use(fn);
       expect(pipeline.getMiddlewares()).toHaveLength(1);
     });
 
-    it("should insert middleware before another", () => {
+    it('should insert middleware before another', () => {
       const fn1: MiddlewareFn = async (_ctx, next) => next();
       const fn2: MiddlewareFn = async (_ctx, next) => next();
       const fn3: MiddlewareFn = async (_ctx, next) => next();
@@ -173,12 +190,12 @@ describe("Pipeline", () => {
       expect(middlewares[2]).toBe(fn3);
     });
 
-    it("should return false when inserting before non-existent middleware", () => {
+    it('should return false when inserting before non-existent middleware', () => {
       const fn: MiddlewareFn = async (_ctx, next) => next();
       expect(pipeline.insertBefore(fn, fn)).toBe(false);
     });
 
-    it("should insert middleware after another", () => {
+    it('should insert middleware after another', () => {
       const fn1: MiddlewareFn = async (_ctx, next) => next();
       const fn2: MiddlewareFn = async (_ctx, next) => next();
 
@@ -188,7 +205,7 @@ describe("Pipeline", () => {
       expect(pipeline.getMiddlewares()[1]).toBe(fn2);
     });
 
-    it("should remove middleware", () => {
+    it('should remove middleware', () => {
       const fn1: MiddlewareFn = async (_ctx, next) => next();
       const fn2: MiddlewareFn = async (_ctx, next) => next();
 
@@ -200,12 +217,12 @@ describe("Pipeline", () => {
       expect(pipeline.getMiddlewares()[0]).toBe(fn2);
     });
 
-    it("should return false when removing non-existent middleware", () => {
+    it('should return false when removing non-existent middleware', () => {
       const fn: MiddlewareFn = async (_ctx, next) => next();
       expect(pipeline.remove(fn)).toBe(false);
     });
 
-    it("should clear all middleware", () => {
+    it('should clear all middleware', () => {
       pipeline.use(async (_ctx, next) => next());
       pipeline.use(async (_ctx, next) => next());
       pipeline.clear();

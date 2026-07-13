@@ -1,5 +1,5 @@
-import type { NetworkEvent } from "../session/types.js";
-import { writeFileSync } from "node:fs";
+import type { NetworkEvent } from '../session/types.js';
+import { writeFileSync } from 'node:fs';
 
 export interface HarLog {
   log: {
@@ -66,7 +66,8 @@ export function exportAsHar(events: NetworkEvent[]): HarLog {
 
     // Guess content type from response headers
     const contentType =
-      responseHeaders.find((h) => h.name.toLowerCase() === "content-type")?.value ?? "application/octet-stream";
+      responseHeaders.find((h) => h.name.toLowerCase() === 'content-type')?.value ??
+      'application/octet-stream';
 
     return {
       startedDateTime: event.timestamp,
@@ -74,12 +75,15 @@ export function exportAsHar(events: NetworkEvent[]): HarLog {
       request: {
         method: event.method,
         url: event.url,
-        httpVersion: "HTTP/2",
+        httpVersion: 'HTTP/2',
         cookies: [],
         headers: requestHeaders,
-        queryString: Array.from(url.searchParams.entries()).map(([name, value]) => ({ name, value })),
+        queryString: Array.from(url.searchParams.entries()).map(([name, value]) => ({
+          name,
+          value,
+        })),
         postData: event.requestBody
-          ? { mimeType: "application/x-www-form-urlencoded", text: event.requestBody }
+          ? { mimeType: 'application/x-www-form-urlencoded', text: event.requestBody }
           : undefined,
         headersSize: -1,
         bodySize: event.requestBody?.length ?? -1,
@@ -87,14 +91,15 @@ export function exportAsHar(events: NetworkEvent[]): HarLog {
       response: {
         status: event.status,
         statusText: event.statusText,
-        httpVersion: "HTTP/2",
+        httpVersion: 'HTTP/2',
         cookies: [],
         headers: responseHeaders,
         content: {
           size: -1,
           mimeType: contentType,
         },
-        redirectURL: event.status >= 300 && event.status < 400 ? event.responseHeaders?.location ?? "" : "",
+        redirectURL:
+          event.status >= 300 && event.status < 400 ? (event.responseHeaders?.location ?? '') : '',
         headersSize: -1,
         bodySize: -1,
       },
@@ -112,8 +117,8 @@ export function exportAsHar(events: NetworkEvent[]): HarLog {
 
   return {
     log: {
-      version: "1.2",
-      creator: { name: "Fennec", version: "1.9.0" },
+      version: '1.2',
+      creator: { name: 'Fennec', version: '1.9.0' },
       entries,
     },
   };
@@ -122,10 +127,7 @@ export function exportAsHar(events: NetworkEvent[]): HarLog {
 /**
  * Export NetworkEvents to HAR and save to a file.
  */
-export function exportHarToFile(
-  events: NetworkEvent[],
-  filePath: string,
-): void {
+export function exportHarToFile(events: NetworkEvent[], filePath: string): void {
   const har = exportAsHar(events);
-  writeFileSync(filePath, JSON.stringify(har, null, 2), "utf-8");
+  writeFileSync(filePath, JSON.stringify(har, null, 2), 'utf-8');
 }

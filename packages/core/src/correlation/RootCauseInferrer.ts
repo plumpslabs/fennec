@@ -3,7 +3,7 @@
  * IncidentEngine provides richer inference with auto-subscription to EventBus,
  * formal incident lifecycle, alert generation, and deduplication.
  */
-import type { BusEvent } from "./EventBus.js";
+import type { BusEvent } from './EventBus.js';
 
 /** @deprecated */
 interface InferenceRule {
@@ -16,40 +16,40 @@ interface InferenceRule {
 /** @deprecated */
 const INFERENCE_RULES: InferenceRule[] = [
   {
-    pattern: "browser:network:500 + process:stderr:Error",
-    rootCause: "Server error caused network failure",
+    pattern: 'browser:network:500 + process:stderr:Error',
+    rootCause: 'Server error caused network failure',
     confidence: 0.9,
-    fix: "Check server logs for unhandled exceptions or misconfigurations",
+    fix: 'Check server logs for unhandled exceptions or misconfigurations',
   },
   {
-    pattern: "browser:network:401 + process:stderr:JWT",
-    rootCause: "Authentication token issue",
+    pattern: 'browser:network:401 + process:stderr:JWT',
+    rootCause: 'Authentication token issue',
     confidence: 0.92,
-    fix: "Verify JWT_SECRET is set and the auth token is valid",
+    fix: 'Verify JWT_SECRET is set and the auth token is valid',
   },
   {
-    pattern: "browser:console:TypeError + browser:network:failed",
-    rootCause: "Network failure caused JavaScript error",
+    pattern: 'browser:console:TypeError + browser:network:failed',
+    rootCause: 'Network failure caused JavaScript error',
     confidence: 0.85,
-    fix: "Ensure the API endpoint is reachable and returning valid data",
+    fix: 'Ensure the API endpoint is reachable and returning valid data',
   },
   {
-    pattern: "process:stderr:ENOENT",
-    rootCause: "Missing file or environment variable",
+    pattern: 'process:stderr:ENOENT',
+    rootCause: 'Missing file or environment variable',
     confidence: 0.88,
-    fix: "Check if required files exist and environment variables are set",
+    fix: 'Check if required files exist and environment variables are set',
   },
   {
-    pattern: "browser:network:404",
-    rootCause: "API route or resource not found",
+    pattern: 'browser:network:404',
+    rootCause: 'API route or resource not found',
     confidence: 0.9,
     fix: "Verify the URL path matches the server's defined routes",
   },
   {
-    pattern: "browser:console:error + process:stderr:Error",
-    rootCause: "Server-side error reflected in browser",
+    pattern: 'browser:console:error + process:stderr:Error',
+    rootCause: 'Server-side error reflected in browser',
     confidence: 0.87,
-    fix: "Check server error logs for the root cause of the issue",
+    fix: 'Check server error logs for the root cause of the issue',
   },
 ];
 
@@ -72,12 +72,8 @@ export class RootCauseInferrer {
     return { rootCause: null, confidence: 0, fix: null };
   }
 
-  private matchesPattern(
-    pattern: string,
-    trigger: BusEvent,
-    related: BusEvent[],
-  ): boolean {
-    const parts = pattern.split(" + ");
+  private matchesPattern(pattern: string, trigger: BusEvent, related: BusEvent[]): boolean {
+    const parts = pattern.split(' + ');
     const allEvents = [trigger, ...related];
 
     for (const part of parts) {
@@ -98,7 +94,7 @@ export class RootCauseInferrer {
   }
 
   private extractLayer(pattern: string): string {
-    return pattern.split(":")[0] ?? "";
+    return pattern.split(':')[0] ?? '';
   }
 
   private extractKeyword(pattern: string): string | null {

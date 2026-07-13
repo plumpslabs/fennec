@@ -19,9 +19,9 @@
  * ```
  */
 
-import type { ToolDefinition, ToolContext } from "../tools/_registry.js";
-import type { ToolRegistry } from "../tools/_registry.js";
-import type { FennecConfig } from "../config/defaults.js";
+import type { ToolDefinition, ToolContext } from '../tools/_registry.js';
+import type { ToolRegistry } from '../tools/_registry.js';
+import type { FennecConfig } from '../config/defaults.js';
 
 /**
  * Context passed to modules during initialization.
@@ -29,7 +29,7 @@ import type { FennecConfig } from "../config/defaults.js";
 export interface ModuleContext {
   config: FennecConfig;
   toolRegistry: ToolRegistry;
-  logger: Pick<Console, "info" | "warn" | "error" | "debug">;
+  logger: Pick<Console, 'info' | 'warn' | 'error' | 'debug'>;
 }
 
 /**
@@ -51,7 +51,7 @@ export interface FennecModule {
   readonly capabilities?: string[];
 
   /** Optional Zod schema for module-specific configuration */
-  readonly configSchema?: import("zod").ZodType<any>;
+  readonly configSchema?: import('zod').ZodType<any>;
 
   /**
    * Initialize the module. Called once when the server starts.

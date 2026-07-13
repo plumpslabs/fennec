@@ -1,24 +1,14 @@
-import { randomUUID } from "node:crypto";
-import type { Plan } from "../planner/Planner.js";
+import { randomUUID } from 'node:crypto';
+import type { Plan } from '../planner/Planner.js';
 
 /**
  * Function type for executing tool calls from workflow steps.
  * Receives the tool name and parsed input, returns the tool result.
  */
-export type ToolExecutor = (
-  toolName: string,
-  input: Record<string, unknown>,
-) => Promise<unknown>;
+export type ToolExecutor = (toolName: string, input: Record<string, unknown>) => Promise<unknown>;
 
 export type WorkflowStepType =
-  | "navigate"
-  | "click"
-  | "type"
-  | "wait"
-  | "assert"
-  | "screenshot"
-  | "execute"
-  | "subflow";
+  'navigate' | 'click' | 'type' | 'wait' | 'assert' | 'screenshot' | 'execute' | 'subflow';
 
 export interface WorkflowStep {
   id: string;
@@ -28,7 +18,7 @@ export interface WorkflowStep {
   timeoutMs: number;
   retryOnFailure: boolean;
   maxRetries: number;
-  onFailure?: "abort" | "skip" | "retry";
+  onFailure?: 'abort' | 'skip' | 'retry';
 }
 
 export interface Workflow {
@@ -46,13 +36,13 @@ export interface Workflow {
 export interface WorkflowExecution {
   id: string;
   workflowId: string;
-  status: "pending" | "running" | "completed" | "failed" | "aborted";
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'aborted';
   startedAt: string;
   completedAt?: string;
   currentStepIndex: number;
   stepResults: Array<{
     stepId: string;
-    status: "pending" | "running" | "completed" | "failed" | "skipped";
+    status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
     startedAt?: string;
     completedAt?: string;
     result?: unknown;
@@ -67,7 +57,7 @@ export class WorkflowEngine {
   private storagePath: string;
   private toolExecutor: ToolExecutor | null = null;
 
-  constructor(storagePath = "./.fennec/workflows") {
+  constructor(storagePath = './.fennec/workflows') {
     this.storagePath = storagePath;
   }
 
@@ -86,7 +76,7 @@ export class WorkflowEngine {
   planToWorkflow(plan: Plan): Workflow {
     const steps: WorkflowStep[] = plan.steps.map((step, i) => ({
       id: step.id,
-      type: "execute",
+      type: 'execute',
       description: step.description,
       params: {
         tool: step.tool,
@@ -95,14 +85,14 @@ export class WorkflowEngine {
       timeoutMs: step.timeoutMs,
       retryOnFailure: true,
       maxRetries: 1,
-      onFailure: "abort" as const,
+      onFailure: 'abort' as const,
     }));
 
     return this.register({
       name: `Plan: ${plan.goal}`,
       description: `Auto-generated from Planner goal: ${plan.goal}`,
-      version: "1.0.0",
-      tags: ["planner", "auto-generated"],
+      version: '1.0.0',
+      tags: ['planner', 'auto-generated'],
       steps,
     });
   }
@@ -117,7 +107,7 @@ export class WorkflowEngine {
     initialContext: Record<string, unknown> = {},
   ): Promise<WorkflowExecution> {
     if (!this.toolExecutor) {
-      throw new Error("WorkflowEngine: no tool executor configured. Call setToolExecutor() first.");
+      throw new Error('WorkflowEngine: no tool executor configured. Call setToolExecutor() first.');
     }
 
     const workflow = this.planToWorkflow(plan);
@@ -125,7 +115,7 @@ export class WorkflowEngine {
     return this.execute(
       workflow.id,
       async (step, context) => {
-        if (step.type === "execute") {
+        if (step.type === 'execute') {
           const toolName = step.params.tool as string | undefined;
           const toolInput = step.params.input as Record<string, unknown> | undefined;
 
@@ -154,7 +144,7 @@ export class WorkflowEngine {
   /**
    * Register a workflow definition.
    */
-  register(workflow: Omit<Workflow, "id" | "createdAt" | "updatedAt">): Workflow {
+  register(workflow: Omit<Workflow, 'id' | 'createdAt' | 'updatedAt'>): Workflow {
     const now = new Date().toISOString();
     const wf: Workflow = {
       ...workflow,
@@ -200,59 +190,60 @@ export class WorkflowEngine {
   createDebugWorkflow(name: string): Workflow {
     return this.register({
       name,
-      description: "Full-stack diagnostic workflow: check browser state, console, network, and server logs",
-      version: "1.0.0",
-      tags: ["diagnostic", "built-in"],
+      description:
+        'Full-stack diagnostic workflow: check browser state, console, network, and server logs',
+      version: '1.0.0',
+      tags: ['diagnostic', 'built-in'],
       steps: [
         {
-          id: "check_url",
-          type: "execute",
-          description: "Get current page URL and title",
-          params: { tool: "browser_get_current_url", input: {} },
+          id: 'check_url',
+          type: 'execute',
+          description: 'Get current page URL and title',
+          params: { tool: 'browser_get_current_url', input: {} },
           timeoutMs: 5000,
           retryOnFailure: false,
           maxRetries: 0,
-          onFailure: "abort",
+          onFailure: 'abort',
         },
         {
-          id: "check_console",
-          type: "execute",
-          description: "Get browser console errors",
-          params: { tool: "devtools_get_console_logs", input: { level: "error", limit: 10 } },
+          id: 'check_console',
+          type: 'execute',
+          description: 'Get browser console errors',
+          params: { tool: 'devtools_get_console_logs', input: { level: 'error', limit: 10 } },
           timeoutMs: 5000,
           retryOnFailure: false,
           maxRetries: 0,
-          onFailure: "skip",
+          onFailure: 'skip',
         },
         {
-          id: "check_network",
-          type: "execute",
-          description: "Get failed network requests",
-          params: { tool: "network_get_failed_requests", input: {} },
+          id: 'check_network',
+          type: 'execute',
+          description: 'Get failed network requests',
+          params: { tool: 'network_get_failed_requests', input: {} },
           timeoutMs: 5000,
           retryOnFailure: false,
           maxRetries: 0,
-          onFailure: "skip",
+          onFailure: 'skip',
         },
         {
-          id: "take_screenshot",
-          type: "screenshot",
-          description: "Capture page screenshot",
+          id: 'take_screenshot',
+          type: 'screenshot',
+          description: 'Capture page screenshot',
           params: { fullPage: false },
           timeoutMs: 10000,
           retryOnFailure: true,
           maxRetries: 1,
-          onFailure: "skip",
+          onFailure: 'skip',
         },
         {
-          id: "summarize",
-          type: "execute",
-          description: "Run full-stack diagnosis with correlation",
-          params: { tool: "diagnose_fullstack", input: {} },
+          id: 'summarize',
+          type: 'execute',
+          description: 'Run full-stack diagnosis with correlation',
+          params: { tool: 'diagnose_fullstack', input: {} },
           timeoutMs: 15000,
           retryOnFailure: false,
           maxRetries: 0,
-          onFailure: "skip",
+          onFailure: 'skip',
         },
       ],
     });
@@ -264,59 +255,59 @@ export class WorkflowEngine {
   createLoginWorkflow(name: string): Workflow {
     return this.register({
       name,
-      description: "Login to a web application with credentials",
-      version: "1.0.0",
-      tags: ["auth", "built-in"],
+      description: 'Login to a web application with credentials',
+      version: '1.0.0',
+      tags: ['auth', 'built-in'],
       steps: [
         {
-          id: "navigate",
-          type: "navigate",
-          description: "Navigate to login page",
-          params: { url: "" },
+          id: 'navigate',
+          type: 'navigate',
+          description: 'Navigate to login page',
+          params: { url: '' },
           timeoutMs: 30000,
           retryOnFailure: true,
           maxRetries: 1,
-          onFailure: "abort",
+          onFailure: 'abort',
         },
         {
-          id: "fill_username",
-          type: "type",
-          description: "Fill username/email",
-          params: { selector: 'input[type="email"], input[name*="user"]', text: "", clear: true },
+          id: 'fill_username',
+          type: 'type',
+          description: 'Fill username/email',
+          params: { selector: 'input[type="email"], input[name*="user"]', text: '', clear: true },
           timeoutMs: 10000,
           retryOnFailure: false,
           maxRetries: 0,
-          onFailure: "abort",
+          onFailure: 'abort',
         },
         {
-          id: "fill_password",
-          type: "type",
-          description: "Fill password",
-          params: { selector: 'input[type="password"]', text: "", clear: true },
+          id: 'fill_password',
+          type: 'type',
+          description: 'Fill password',
+          params: { selector: 'input[type="password"]', text: '', clear: true },
           timeoutMs: 10000,
           retryOnFailure: false,
           maxRetries: 0,
-          onFailure: "abort",
+          onFailure: 'abort',
         },
         {
-          id: "submit",
-          type: "click",
-          description: "Click submit button",
+          id: 'submit',
+          type: 'click',
+          description: 'Click submit button',
           params: { selector: 'button[type="submit"]' },
           timeoutMs: 15000,
           retryOnFailure: true,
           maxRetries: 2,
-          onFailure: "abort",
+          onFailure: 'abort',
         },
         {
-          id: "verify",
-          type: "assert",
-          description: "Verify successful login",
-          params: { tool: "auth_check_logged_in", expected: { loggedIn: true } },
+          id: 'verify',
+          type: 'assert',
+          description: 'Verify successful login',
+          params: { tool: 'auth_check_logged_in', expected: { loggedIn: true } },
           timeoutMs: 10000,
           retryOnFailure: false,
           maxRetries: 0,
-          onFailure: "abort",
+          onFailure: 'abort',
         },
       ],
     });
@@ -336,12 +327,12 @@ export class WorkflowEngine {
     const execution: WorkflowExecution = {
       id: `exec_${randomUUID().slice(0, 8)}`,
       workflowId,
-      status: "running",
+      status: 'running',
       startedAt: new Date().toISOString(),
       currentStepIndex: 0,
       stepResults: workflow.steps.map((s) => ({
         stepId: s.id,
-        status: "pending",
+        status: 'pending',
       })),
       context: { ...initialContext },
     };
@@ -352,7 +343,7 @@ export class WorkflowEngine {
       const step = workflow.steps[i]!;
       execution.currentStepIndex = i;
       const result = execution.stepResults[i]!;
-      result.status = "running";
+      result.status = 'running';
       result.startedAt = new Date().toISOString();
 
       let attempts = 0;
@@ -362,7 +353,7 @@ export class WorkflowEngine {
         attempts++;
         try {
           const stepResult = await executor(step, execution.context);
-          result.status = "completed";
+          result.status = 'completed';
           result.result = stepResult;
           result.completedAt = new Date().toISOString();
 
@@ -374,13 +365,13 @@ export class WorkflowEngine {
             result.error = String(error);
             result.completedAt = new Date().toISOString();
 
-            if (step.onFailure === "skip") {
-              result.status = "skipped";
+            if (step.onFailure === 'skip') {
+              result.status = 'skipped';
               // Skip — continue to next step
             } else {
-              result.status = "failed";
-              if (step.onFailure === "abort") {
-                execution.status = "failed";
+              result.status = 'failed';
+              if (step.onFailure === 'abort') {
+                execution.status = 'failed';
                 execution.completedAt = new Date().toISOString();
                 return execution;
               }
@@ -391,10 +382,10 @@ export class WorkflowEngine {
     }
 
     execution.status = execution.stepResults.every(
-      (r) => r.status === "completed" || r.status === "skipped",
+      (r) => r.status === 'completed' || r.status === 'skipped',
     )
-      ? "completed"
-      : "failed";
+      ? 'completed'
+      : 'failed';
     execution.completedAt = new Date().toISOString();
 
     return execution;
@@ -418,13 +409,13 @@ export class WorkflowEngine {
    * Save workflows to disk.
    */
   async persist(): Promise<void> {
-    const { mkdirSync, writeFileSync } = await import("node:fs");
-    const { join } = await import("node:path");
+    const { mkdirSync, writeFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
     mkdirSync(this.storagePath, { recursive: true });
 
     for (const [, workflow] of this.workflows) {
       const filePath = join(this.storagePath, `${workflow.id}.json`);
-      writeFileSync(filePath, JSON.stringify(workflow, null, 2), "utf-8");
+      writeFileSync(filePath, JSON.stringify(workflow, null, 2), 'utf-8');
     }
   }
 
@@ -432,15 +423,15 @@ export class WorkflowEngine {
    * Load workflows from disk.
    */
   async load(): Promise<void> {
-    const { existsSync, readdirSync, readFileSync } = await import("node:fs");
-    const { join } = await import("node:path");
+    const { existsSync, readdirSync, readFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
 
     if (!existsSync(this.storagePath)) return;
 
-    const files = readdirSync(this.storagePath).filter((f) => f.endsWith(".json"));
+    const files = readdirSync(this.storagePath).filter((f) => f.endsWith('.json'));
     for (const file of files) {
       try {
-        const content = readFileSync(join(this.storagePath, file), "utf-8");
+        const content = readFileSync(join(this.storagePath, file), 'utf-8');
         const workflow = JSON.parse(content) as Workflow;
         this.workflows.set(workflow.id, workflow);
       } catch {

@@ -1,17 +1,18 @@
-import type { EventBus, BusEvent, EventType } from "../correlation/EventBus.js";
-import type { WorkflowEngine, WorkflowStep, WorkflowExecution } from "../workflow/WorkflowEngine.js";
-import { getLogger } from "../utils/logger.js";
+import type { EventBus, BusEvent, EventType } from '../correlation/EventBus.js';
+import type {
+  WorkflowEngine,
+  WorkflowStep,
+  WorkflowExecution,
+} from '../workflow/WorkflowEngine.js';
+import { getLogger } from '../utils/logger.js';
 
 /**
  * Function type for executing tool calls from scheduled workflows.
  * Receives the tool name and parsed input, returns the tool result.
  */
-export type ToolExecutor = (
-  toolName: string,
-  input: Record<string, unknown>,
-) => Promise<unknown>;
+export type ToolExecutor = (toolName: string, input: Record<string, unknown>) => Promise<unknown>;
 
-export type TriggerPriority = "low" | "medium" | "high";
+export type TriggerPriority = 'low' | 'medium' | 'high';
 
 export interface TriggerCondition {
   /** Event data key to check (supports dot notation like "data.status") */
@@ -116,7 +117,7 @@ export class WorkflowScheduler {
    */
   addRule(rule: TriggerRule): void {
     this.rules.set(rule.id, rule);
-    getLogger().info({ ruleId: rule.id, eventType: rule.eventType }, "Scheduler: rule added");
+    getLogger().info({ ruleId: rule.id, eventType: rule.eventType }, 'Scheduler: rule added');
   }
 
   /**
@@ -181,7 +182,7 @@ export class WorkflowScheduler {
     for (const [eventType, rules] of rulesByType) {
       const handler: EventHandler = (event) => {
         this.handleEvent(event, rules).catch((err) => {
-          logger.error({ eventType, err }, "Scheduler: event handler failed");
+          logger.error({ eventType, err }, 'Scheduler: event handler failed');
         });
       };
 
@@ -193,7 +194,7 @@ export class WorkflowScheduler {
     const enabledRules = rulesByType.size;
     logger.info(
       { totalRules, enabledRules, subscribedTypes: Array.from(rulesByType.keys()) },
-      "Scheduler: started",
+      'Scheduler: started',
     );
   }
 
@@ -206,7 +207,7 @@ export class WorkflowScheduler {
     }
     this.unsubscribers = [];
     this.started = false;
-    getLogger().info("Scheduler: stopped");
+    getLogger().info('Scheduler: stopped');
   }
 
   /**
@@ -247,7 +248,10 @@ export class WorkflowScheduler {
   /**
    * Manually trigger a rule by ID.
    */
-  async triggerRule(ruleId: string, context?: Record<string, unknown>): Promise<WorkflowExecution | null> {
+  async triggerRule(
+    ruleId: string,
+    context?: Record<string, unknown>,
+  ): Promise<WorkflowExecution | null> {
     const rule = this.rules.get(ruleId);
     if (!rule || !rule.enabled) return null;
 
@@ -328,16 +332,16 @@ export class WorkflowScheduler {
       if (value !== condition.equals) return false;
     }
 
-    if (condition.matches !== undefined && typeof value === "string") {
+    if (condition.matches !== undefined && typeof value === 'string') {
       try {
-        const regex = new RegExp(condition.matches, "i");
+        const regex = new RegExp(condition.matches, 'i');
         if (!regex.test(value)) return false;
       } catch {
         return false;
       }
     }
 
-    if (typeof value === "number") {
+    if (typeof value === 'number') {
       if (condition.gt !== undefined && !(value > condition.gt)) return false;
       if (condition.lt !== undefined && !(value < condition.lt)) return false;
       if (condition.gte !== undefined && !(value >= condition.gte)) return false;
@@ -351,7 +355,7 @@ export class WorkflowScheduler {
    * Resolve a dot-notation field path from an event.
    */
   private resolveField(event: BusEvent, field: string): unknown {
-    const parts = field.split(".");
+    const parts = field.split('.');
     let current: unknown = event as unknown as Record<string, unknown>;
 
     for (const part of parts) {
@@ -396,11 +400,11 @@ export class WorkflowScheduler {
         async (step: WorkflowStep, context: Record<string, unknown>) => {
           logger.info(
             { workflowId: rule.workflowId, stepId: step.id, stepType: step.type },
-            "Scheduler: executing workflow step",
+            'Scheduler: executing workflow step',
           );
 
           // For "execute" type steps, call the real tool via pipeline if available
-          if (step.type === "execute") {
+          if (step.type === 'execute') {
             const toolName = step.params.tool as string | undefined;
             const toolInput = step.params.input as Record<string, unknown> | undefined;
 
@@ -458,14 +462,14 @@ export class WorkflowScheduler {
           workflowId: rule.workflowId,
           executionStatus: execution.status,
         },
-        "Scheduler: workflow triggered",
+        'Scheduler: workflow triggered',
       );
 
       return execution;
     } catch (error) {
       logger.error(
         { ruleId: rule.id, workflowId: rule.workflowId, error },
-        "Scheduler: workflow execution failed",
+        'Scheduler: workflow execution failed',
       );
       return null;
     }
@@ -487,11 +491,9 @@ export class WorkflowScheduler {
    */
   isWorkflowRunning(ruleId: string): boolean {
     for (const [, execution] of this.scheduledWorkflows) {
-      if (execution.status === "running") {
+      if (execution.status === 'running') {
         // Check if any execution was triggered by this rule
-        const lastTrigger = [...this.triggerHistory].reverse().find(
-          (t) => t.ruleId === ruleId,
-        );
+        const lastTrigger = [...this.triggerHistory].reverse().find((t) => t.ruleId === ruleId);
         if (lastTrigger && lastTrigger.execution.id === execution.id) {
           return true;
         }
@@ -512,9 +514,12 @@ export class WorkflowScheduler {
    */
   private priorityWeight(priority: TriggerPriority): number {
     switch (priority) {
-      case "high": return 3;
-      case "medium": return 2;
-      case "low": return 1;
+      case 'high':
+        return 3;
+      case 'medium':
+        return 2;
+      case 'low':
+        return 1;
     }
   }
 
@@ -524,78 +529,70 @@ export class WorkflowScheduler {
   static createDefaultRules(debugWorkflowId: string): TriggerRule[] {
     return [
       {
-        id: "auto-debug-network-500",
-        name: "Auto Debug on Server Error (500)",
-        description: "Auto-trigger full diagnosis when a network request returns 500",
+        id: 'auto-debug-network-500',
+        name: 'Auto Debug on Server Error (500)',
+        description: 'Auto-trigger full diagnosis when a network request returns 500',
         enabled: true,
-        eventType: "browser:network",
-        conditions: [
-          { field: "data.status", equals: 500 },
-        ],
+        eventType: 'browser:network',
+        conditions: [{ field: 'data.status', equals: 500 }],
         workflowId: debugWorkflowId,
         cooldownMs: 15000,
-        priority: "high",
-        contextTemplate: { autoFocus: "errors", source: "auto-trigger:500" },
+        priority: 'high',
+        contextTemplate: { autoFocus: 'errors', source: 'auto-trigger:500' },
         injectToSmartHook: true,
       },
       {
-        id: "auto-debug-network-401",
-        name: "Auto Debug on Auth Error (401)",
-        description: "Auto-trigger auth diagnosis on 401 errors",
+        id: 'auto-debug-network-401',
+        name: 'Auto Debug on Auth Error (401)',
+        description: 'Auto-trigger auth diagnosis on 401 errors',
         enabled: true,
-        eventType: "browser:network",
-        conditions: [
-          { field: "data.status", equals: 401 },
-        ],
+        eventType: 'browser:network',
+        conditions: [{ field: 'data.status', equals: 401 }],
         workflowId: debugWorkflowId,
         cooldownMs: 20000,
-        priority: "high",
-        contextTemplate: { autoFocus: "auth", source: "auto-trigger:401" },
+        priority: 'high',
+        contextTemplate: { autoFocus: 'auth', source: 'auto-trigger:401' },
         injectToSmartHook: true,
       },
       {
-        id: "auto-debug-console-error",
-        name: "Auto Debug on Console Error",
-        description: "Auto-trigger diagnosis when JavaScript errors appear in console",
+        id: 'auto-debug-console-error',
+        name: 'Auto Debug on Console Error',
+        description: 'Auto-trigger diagnosis when JavaScript errors appear in console',
         enabled: true,
-        eventType: "browser:console",
-        conditions: [
-          { field: "data.level", equals: "error" },
-        ],
+        eventType: 'browser:console',
+        conditions: [{ field: 'data.level', equals: 'error' }],
         workflowId: debugWorkflowId,
         cooldownMs: 10000,
-        priority: "medium",
-        contextTemplate: { autoFocus: "errors", source: "auto-trigger:console" },
+        priority: 'medium',
+        contextTemplate: { autoFocus: 'errors', source: 'auto-trigger:console' },
         injectToSmartHook: true,
       },
       {
-        id: "auto-debug-server-error",
-        name: "Auto Debug on Server Stderr",
-        description: "Auto-trigger when server process writes errors to stderr",
+        id: 'auto-debug-server-error',
+        name: 'Auto Debug on Server Stderr',
+        description: 'Auto-trigger when server process writes errors to stderr',
         enabled: true,
-        eventType: "process:stderr",
+        eventType: 'process:stderr',
         conditions: [
-          { field: "data.line", matches: "error|Error|ERROR|exception|Exception|FATAL|fatal" },
+          { field: 'data.line', matches: 'error|Error|ERROR|exception|Exception|FATAL|fatal' },
         ],
         workflowId: debugWorkflowId,
         cooldownMs: 15000,
-        priority: "medium",
-        contextTemplate: { autoFocus: "errors", source: "auto-trigger:stderr" },
+        priority: 'medium',
+        contextTemplate: { autoFocus: 'errors', source: 'auto-trigger:stderr' },
         injectToSmartHook: true,
       },
       {
-        id: "auto-debug-process-exit",
-        name: "Auto Debug on Process Crash",
-        description: "Auto-trigger diagnosis when a managed process crashes unexpectedly",
+        id: 'auto-debug-process-exit',
+        name: 'Auto Debug on Process Crash',
+        description: 'Auto-trigger diagnosis when a managed process crashes unexpectedly',
         enabled: true,
-        eventType: "process:exit",
-        conditions: [
-          { field: "data.code", exists: true },
-        ],
+        eventType: 'process:exit',
+        conditions: [{ field: 'data.code', exists: true }],
         workflowId: debugWorkflowId,
         cooldownMs: 30000,
-        priority: "high",
-        contextTemplate: { autoFocus: "errors", source: "auto-trigger:process-exit" },
+        priority: 'high',
+        contextTemplate: { autoFocus: 'errors', source: 'auto-trigger:process-exit' },
         injectToSmartHook: true,
       },
     ];

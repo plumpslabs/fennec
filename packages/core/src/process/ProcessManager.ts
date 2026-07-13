@@ -1,8 +1,8 @@
-import { spawn, type ChildProcess } from "node:child_process";
-import { getLogger } from "../utils/logger.js";
-import { detectLogLevel, type LogLevel } from "../utils/levelDetector.js";
-import { redactLogLine } from "./redact.js";
-import type { EventBus } from "../correlation/EventBus.js";
+import { spawn, type ChildProcess } from 'node:child_process';
+import { getLogger } from '../utils/logger.js';
+import { detectLogLevel, type LogLevel } from '../utils/levelDetector.js';
+import { redactLogLine } from './redact.js';
+import type { EventBus } from '../correlation/EventBus.js';
 
 export interface ManagedProcess {
   processId: string;
@@ -51,12 +51,9 @@ export class ProcessManager {
     const logger = getLogger();
 
     // Check allowlist
-    if (
-      this.config.spawnAllowlist.length > 0 &&
-      !this.config.spawnAllowlist.includes(command)
-    ) {
+    if (this.config.spawnAllowlist.length > 0 && !this.config.spawnAllowlist.includes(command)) {
       throw new Error(
-        `Command not in spawn allowlist: ${command}. Allowed: ${this.config.spawnAllowlist.join(", ")}`,
+        `Command not in spawn allowlist: ${command}. Allowed: ${this.config.spawnAllowlist.join(', ')}`,
       );
     }
 
@@ -73,8 +70,8 @@ export class ProcessManager {
     const child = spawn(command, args, {
       cwd,
       env: env ? { ...process.env, ...env } : process.env,
-      stdio: ["pipe", "pipe", "pipe"],
-      shell: process.platform === "win32",
+      stdio: ['pipe', 'pipe', 'pipe'],
+      shell: process.platform === 'win32',
       // 🔥 DAEMON MODE: process survives after Fennec server exits
       // (matching CLI's fennec start behavior)
       detached: true,
@@ -84,7 +81,7 @@ export class ProcessManager {
       processId,
       pid: child.pid ?? 0,
       name: processId,
-      command: `${command} ${args.join(" ")}`,
+      command: `${command} ${args.join(' ')}`,
       spawnArgs: args,
       cwd,
       startedAt: new Date(),
@@ -98,8 +95,11 @@ export class ProcessManager {
 
     // Collect stdout
     if (child.stdout) {
-      child.stdout.on("data", (data: Buffer) => {
-        const lines = data.toString().split("\n").filter((l) => l.trim());
+      child.stdout.on('data', (data: Buffer) => {
+        const lines = data
+          .toString()
+          .split('\n')
+          .filter((l) => l.trim());
         for (const line of lines) {
           const level = detectLogLevel(line);
           managed.logBuffer.push({ line, level, timestamp: new Date().toISOString() });
@@ -112,31 +112,34 @@ export class ProcessManager {
 
     // Collect stderr
     if (child.stderr) {
-      child.stderr.on("data", (data: Buffer) => {
-        const lines = data.toString().split("\n").filter((l) => l.trim());
+      child.stderr.on('data', (data: Buffer) => {
+        const lines = data
+          .toString()
+          .split('\n')
+          .filter((l) => l.trim());
         for (const line of lines) {
-          managed.logBuffer.push({ line, level: "error", timestamp: new Date().toISOString() });
+          managed.logBuffer.push({ line, level: 'error', timestamp: new Date().toISOString() });
           if (managed.logBuffer.length > this.config.logBufferLines) {
             managed.logBuffer.shift();
           }
 
           // Publish stderr lines to EventBus for scheduler auto-trigger
           if (this.eventBus) {
-            this.eventBus.publish("process:stderr", { line, processId });
+            this.eventBus.publish('process:stderr', { line, processId });
           }
         }
       });
     }
 
     // Handle exit
-    child.on("exit", (code, signal) => {
+    child.on('exit', (code, signal) => {
       managed.running = false;
       managed.exitCode = code ?? -1;
-      logger.info({ processId, code, signal }, "Process exited");
+      logger.info({ processId, code, signal }, 'Process exited');
 
       // Publish exit event to EventBus for scheduler auto-trigger
       if (this.eventBus) {
-        this.eventBus.publish("process:exit", {
+        this.eventBus.publish('process:exit', {
           code: code ?? -1,
           signal: signal ?? null,
           processId,
@@ -144,13 +147,13 @@ export class ProcessManager {
       }
     });
 
-    child.on("error", (err) => {
+    child.on('error', (err) => {
       managed.running = false;
-      logger.error({ processId, err }, "Process error");
+      logger.error({ processId, err }, 'Process error');
     });
 
     this.processes.set(processId, managed);
-    logger.info({ processId, pid: managed.pid, command }, "Process spawned");
+    logger.info({ processId, pid: managed.pid, command }, 'Process spawned');
 
     return managed;
   }
@@ -167,7 +170,7 @@ export class ProcessManager {
     return Array.from(this.processes.values());
   }
 
-  kill(processId: string, signal: NodeJS.Signals = "SIGTERM"): boolean {
+  kill(processId: string, signal: NodeJS.Signals = 'SIGTERM'): boolean {
     const proc = this.processes.get(processId);
     if (!proc) return false;
     if (!proc.running) return true;
@@ -177,7 +180,7 @@ export class ProcessManager {
       proc.running = false;
       return true;
     } catch (err) {
-      getLogger().warn({ processId, signal, error: err }, "ProcessManager: kill failed");
+      getLogger().warn({ processId, signal, error: err }, 'ProcessManager: kill failed');
       return false;
     }
   }
@@ -209,9 +212,7 @@ export class ProcessManager {
     return {
       running: proc.running,
       pid: proc.pid,
-      uptime: proc.running
-        ? Math.floor((Date.now() - proc.startedAt.getTime()) / 1000)
-        : 0,
+      uptime: proc.running ? Math.floor((Date.now() - proc.startedAt.getTime()) / 1000) : 0,
     };
   }
 
@@ -234,7 +235,7 @@ export class ProcessManager {
       const timer = setTimeout(() => {
         reject(new Error(`Process ${processId} did not exit within ${timeoutMs}ms`));
       }, timeoutMs);
-      proc.child.once("exit", (code) => {
+      proc.child.once('exit', (code) => {
         clearTimeout(timer);
         resolve(code ?? -1);
       });
@@ -258,7 +259,7 @@ export class ProcessManager {
     const doSpawn = () => {
       this.processes.delete(processId);
       return this.spawn(
-        proc.command.split(" ")[0]!,
+        proc.command.split(' ')[0]!,
         proc.spawnArgs,
         proc.cwd,
         undefined,
@@ -275,21 +276,26 @@ export class ProcessManager {
       const timeout = setTimeout(() => {
         // Force kill after timeout
         try {
-          proc.child.kill("SIGKILL");
-        } catch { /* ignore */ }
+          proc.child.kill('SIGKILL');
+        } catch {
+          /* ignore */
+        }
         resolve(doSpawn());
       }, 2000);
 
-      proc.child.once("exit", () => {
+      proc.child.once('exit', () => {
         clearTimeout(timeout);
         proc.running = false;
         resolve(doSpawn());
       });
 
       try {
-        proc.child.kill("SIGTERM");
+        proc.child.kill('SIGTERM');
       } catch (err) {
-        getLogger().warn({ processId, error: err }, "ProcessManager: restart SIGTERM failed, forcing re-spawn");
+        getLogger().warn(
+          { processId, error: err },
+          'ProcessManager: restart SIGTERM failed, forcing re-spawn',
+        );
         clearTimeout(timeout);
         resolve(doSpawn());
       }
@@ -298,7 +304,7 @@ export class ProcessManager {
 
   cleanup(): void {
     for (const [id] of this.processes) {
-      this.kill(id, "SIGKILL");
+      this.kill(id, 'SIGKILL');
     }
     this.processes.clear();
   }

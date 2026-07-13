@@ -245,17 +245,17 @@ graph TB
 
 ## Layer Overview
 
-| Layer | Components | Description |
-|-------|------------|-------------|
-| **🧠 AI Clients** | Claude, Cursor, Cline, etc. | Standard MCP clients that communicate via JSON-RPC |
-| **🔌 Transport** | stdio, SSE | Two transport modes — stdio (default, for local CLI) and SSE (experimental, for HTTP) |
-| **🦊 MCP Server** | Tool Registry, Validation, Pipeline | Core server that registers 112 tools, validates input via Zod, and executes through middleware |
-| **⚙️ Services** | 11 core services | Session, process, planner, workflow, scheduler, event bus, resource, recorder, state, capability, metrics |
-| **📱 Mobile** | ADB via child_process | Android device management: device discovery, tap, type, swipe, logcat, screenshot, app install/launch/stop |
-| **🔗 Correlation** | Timeline, Root Cause Inferrer | Cross-layer event correlation with confidence scoring and suggested fixes |
-| **🌐 Browser** | Playwright + CDP | Full browser automation: Chromium/Firefox/WebKit, console, network, performance, DOM, storage |
-| **🖥️ Process** | child_process, watchers | Process management: spawn, kill, attach by PID/port, log watching, pipe monitoring |
-| **💾 Storage** | Sessions, Workflows, Files | Persistent storage for auth sessions, workflow definitions, screenshots, and exports |
+| Layer              | Components                          | Description                                                                                                |
+| ------------------ | ----------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **🧠 AI Clients**  | Claude, Cursor, Cline, etc.         | Standard MCP clients that communicate via JSON-RPC                                                         |
+| **🔌 Transport**   | stdio, SSE                          | Two transport modes — stdio (default, for local CLI) and SSE (experimental, for HTTP)                      |
+| **🦊 MCP Server**  | Tool Registry, Validation, Pipeline | Core server that registers 112 tools, validates input via Zod, and executes through middleware             |
+| **⚙️ Services**    | 11 core services                    | Session, process, planner, workflow, scheduler, event bus, resource, recorder, state, capability, metrics  |
+| **📱 Mobile**      | ADB via child_process               | Android device management: device discovery, tap, type, swipe, logcat, screenshot, app install/launch/stop |
+| **🔗 Correlation** | Timeline, Root Cause Inferrer       | Cross-layer event correlation with confidence scoring and suggested fixes                                  |
+| **🌐 Browser**     | Playwright + CDP                    | Full browser automation: Chromium/Firefox/WebKit, console, network, performance, DOM, storage              |
+| **🖥️ Process**     | child_process, watchers             | Process management: spawn, kill, attach by PID/port, log watching, pipe monitoring                         |
+| **💾 Storage**     | Sessions, Workflows, Files          | Persistent storage for auth sessions, workflow definitions, screenshots, and exports                       |
 
 ## Request Flow
 
@@ -285,12 +285,15 @@ AI Agent → MCP Transport → Tool Registry → Zod Validation
 ## Key Architecture Decisions
 
 ### Optional Browser Dependency
+
 Playwright is an **optional peer dependency**. The Process, Terminal, Scheduler, Planner, and basic Storage/Auth/Diagnostic tools (53 tools) work without browser engines installed.
 
 ### Middleware Pipeline Pattern
+
 All tool calls pass through the same middleware pipeline for consistent observability, security, and error recovery. Middleware can short-circuit (e.g., Permission Guard blocks disallowed operations) or augment (e.g., Smart Hook adds fallback selectors).
 
 ### Event-Driven Auto-Diagnosis
+
 The EventBus connects browser events (console errors, network failures) and process events (log output, pipe data) to the WorkflowScheduler, which auto-triggers diagnostic workflows based on configurable rules.
 
 ### Module System (FennecModule + ModuleRegistry)
@@ -341,4 +344,5 @@ session.browser.cdp().send(method);
 This allows swapping the browser engine (Playwright → Puppeteer → CDP Direct) without modifying any tool handlers.
 
 ### Modular Categories
+
 Tools are grouped into 16 categories that MCP clients can request individually to reduce context window usage. Each tool belongs to exactly one category.

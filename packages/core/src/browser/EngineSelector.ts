@@ -13,9 +13,9 @@
  *   createEngine("playwright", "chromium") → PlaywrightEngine (implements BrowserEngine)
  */
 
-import type { BrowserEngine, BrowserType } from "./types.js";
-import { PlaywrightEngineFactory } from "./playwright-engine.js";
-import type { AdapterType } from "./AdapterSelector.js";
+import type { BrowserEngine, BrowserType } from './types.js';
+import { PlaywrightEngineFactory } from './playwright-engine.js';
+import type { AdapterType } from './AdapterSelector.js';
 
 /**
  * Create a BrowserEngine based on the selected adapter type.
@@ -28,14 +28,14 @@ import type { AdapterType } from "./AdapterSelector.js";
  */
 export async function createEngine(
   adapter: AdapterType,
-  browserType: BrowserType = "chromium",
+  browserType: BrowserType = 'chromium',
 ): Promise<BrowserEngine> {
   switch (adapter) {
-    case "cdp": {
-      const { CDPObserverEngine } = await import("./cdp-engine.js");
+    case 'cdp': {
+      const { CDPObserverEngine } = await import('./cdp-engine.js');
       return new CDPObserverEngine();
     }
-    case "playwright":
+    case 'playwright':
     default: {
       const factory = new PlaywrightEngineFactory();
       return factory.create(browserType);

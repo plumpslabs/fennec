@@ -20,9 +20,21 @@ import { createLogger, getLogger } from './utils/logger.js';
 import { ProcessManager } from './process/ProcessManager.js';
 import { LogWatcher } from './process/LogWatcher.js';
 import type { FennecConfig } from './config/defaults.js';
-import { Pipeline, createPermissionGuard, createRetryHandler, createTelemetryMiddleware, createSmartHook, createAuditLog, createStateMachineMiddleware,  createPulseContext,
-  createEventBusMiddleware, LazyContext, createLazyLevel1, createLazyLevel2, createLazyLevel3,
-  createStabilityMiddleware
+import {
+  Pipeline,
+  createPermissionGuard,
+  createRetryHandler,
+  createTelemetryMiddleware,
+  createSmartHook,
+  createAuditLog,
+  createStateMachineMiddleware,
+  createPulseContext,
+  createEventBusMiddleware,
+  LazyContext,
+  createLazyLevel1,
+  createLazyLevel2,
+  createLazyLevel3,
+  createStabilityMiddleware,
 } from './middleware/index.js';
 import { ResourceManager } from './resource/ResourceManager.js';
 import { StateManager } from './state/index.js';
@@ -146,11 +158,7 @@ import {
   processCleanupTracked,
   processClearLogs,
 } from './tools/process/index.js';
-import {
-  inspect,
-  supervisorControl,
-  persistControl,
-} from './tools/process/supervisor.js';
+import { inspect, supervisorControl, persistControl } from './tools/process/supervisor.js';
 import {
   terminalWatchFile,
   terminalGetLogs,
@@ -223,13 +231,8 @@ import {
   investigate,
   predict,
 } from './tools/ai/index.js';
-import {
-  toolsHelp,
-} from './tools/help/index.js';
-import {
-  budgetCheckPage,
-  budgetGetSummary,
-} from './tools/budget/index.js';
+import { toolsHelp } from './tools/help/index.js';
+import { budgetCheckPage, budgetGetSummary } from './tools/budget/index.js';
 
 export class FennecServer {
   private server: Server;
@@ -278,7 +281,9 @@ export class FennecServer {
     this.stateManager = new StateManager();
     this.capabilityDetector = new CapabilityDetector();
     this.planner = new Planner();
-    this.workflowEngine = new WorkflowEngine(this.config.session.persistPath.replace('sessions', 'workflows'));
+    this.workflowEngine = new WorkflowEngine(
+      this.config.session.persistPath.replace('sessions', 'workflows'),
+    );
     this.recorder = new Recorder();
     this.eventBus = new EventBus();
     this.workflowScheduler = new WorkflowScheduler(this.eventBus, this.workflowEngine);
@@ -310,7 +315,10 @@ export class FennecServer {
     // Start self-monitoring
     this.performanceMetrics.startMemoryMonitoring();
 
-    this.server = new Server({ name: 'fennec', version: '1.11.2' }, { capabilities: { tools: {} } });
+    this.server = new Server(
+      { name: 'fennec', version: '1.11.2' },
+      { capabilities: { tools: {} } },
+    );
 
     this.registerModules();
     this.registerAllTools();
@@ -556,13 +564,26 @@ export class FennecServer {
     const logger = getLogger();
 
     this.server.setRequestHandler(ListToolsRequestSchema, async (request) => {
-      const categories = (request.params as Record<string, unknown>)?.categories as string[] | undefined;
+      const categories = (request.params as Record<string, unknown>)?.categories as
+        string[] | undefined;
 
       // Default categories when client doesn't specify: only load essential tool groups
       // This saves ~1000+ tokens vs loading all 90+ tools
       // Default categories: essential tool groups for AI agents
       // Includes process + terminal so agents can check running apps & logs without extra queries
-      const defaultCategories = ["navigation", "interaction", "dom", "smart", "ai", "diagnostic", "process", "terminal", "auth", "tabs", "devtools"];
+      const defaultCategories = [
+        'navigation',
+        'interaction',
+        'dom',
+        'smart',
+        'ai',
+        'diagnostic',
+        'process',
+        'terminal',
+        'auth',
+        'tabs',
+        'devtools',
+      ];
       const selectedCategories = categories?.length ? categories : defaultCategories;
       const tools = this.toolRegistry.getByCategories(selectedCategories);
 
@@ -570,24 +591,26 @@ export class FennecServer {
       // Single source of truth: declare any exceptions in TIER_OVERRIDE, otherwise
       // the name-based heuristic below decides. Category is used as a secondary
       // signal so a high-cost tool can't silently get a "low" tier.
-      const TIER_OVERRIDE: Record<string, "low" | "medium" | "high"> = {
+      const TIER_OVERRIDE: Record<string, 'low' | 'medium' | 'high'> = {
         // "tool_name": "high",
       };
-      const HIGH_BANDWIDTH = /(screenshot|dom_snapshot|screenshot_diff|screenshot_export|screenshot_annotated|screenshot_baseline)/;
-      const MED_BANDWIDTH = /(network_get_logs|storage_export|console|performance|get_dom|get_accessibility)/;
-      const HIGH_CATEGORY = new Set(["dom", "smart"]);
-      const MED_CATEGORY = new Set(["devtools", "storage", "diagnostic"]);
-      const tokenTier = (name: string, category?: string): "low" | "medium" | "high" =>
+      const HIGH_BANDWIDTH =
+        /(screenshot|dom_snapshot|screenshot_diff|screenshot_export|screenshot_annotated|screenshot_baseline)/;
+      const MED_BANDWIDTH =
+        /(network_get_logs|storage_export|console|performance|get_dom|get_accessibility)/;
+      const HIGH_CATEGORY = new Set(['dom', 'smart']);
+      const MED_CATEGORY = new Set(['devtools', 'storage', 'diagnostic']);
+      const tokenTier = (name: string, category?: string): 'low' | 'medium' | 'high' =>
         TIER_OVERRIDE[name] ??
         (HIGH_BANDWIDTH.test(name)
-          ? "high"
+          ? 'high'
           : MED_BANDWIDTH.test(name)
-            ? "medium"
-            : HIGH_CATEGORY.has(category ?? "")
-              ? "high"
-              : MED_CATEGORY.has(category ?? "")
-                ? "medium"
-                : "low");
+            ? 'medium'
+            : HIGH_CATEGORY.has(category ?? '')
+              ? 'high'
+              : MED_CATEGORY.has(category ?? '')
+                ? 'medium'
+                : 'low');
 
       const maxTokens = this.config.tokenBudget.maxResponseTokens ?? 8000;
       return {
@@ -602,8 +625,9 @@ export class FennecServer {
           };
         }),
         _categories: this.toolRegistry.getCategories(),
-        _hint: "Use ?categories=[...] to load specific tool groups. Available categories: " +
-          this.toolRegistry.getCategories().join(", ") +
+        _hint:
+          'Use ?categories=[...] to load specific tool groups. Available categories: ' +
+          this.toolRegistry.getCategories().join(', ') +
           `. Prefer _tokenTier:"low" tools (text/state-based) before "high" ones (screenshots / DOM dumps). ` +
           `Each tool response is truncated at ~${maxTokens} tokens.`,
       };
@@ -611,7 +635,8 @@ export class FennecServer {
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
-      const meta = (request.params as Record<string, unknown>)?._meta as Record<string, unknown> | undefined;
+      const meta = (request.params as Record<string, unknown>)?._meta as
+        Record<string, unknown> | undefined;
       const progressToken = meta?.progressToken as string | number | undefined;
       const tool = this.toolRegistry.get(name);
 
@@ -665,7 +690,10 @@ export class FennecServer {
           const enricher = new ErrorEnricher();
           enrichedContext = (await enricher.enrich(session)) as unknown as Record<string, unknown>;
         } catch (err) {
-          logger.warn({ tool: name, error: err }, "Tool execution error enrichment failed (non-fatal)");
+          logger.warn(
+            { tool: name, error: err },
+            'Tool execution error enrichment failed (non-fatal)',
+          );
         }
 
         const errorResponse = this.responseBuilder.error(error, {
@@ -694,11 +722,26 @@ export class FennecServer {
     // PulseContext (L0) must be registered AFTER L1-L3 so its post-processing (adding meta.pulse)
     // runs BEFORE L1-L3's post-processing (reading meta.pulse).
     const tb = this.config.tokenBudget;
-    this.pipeline.use(createLazyLevel1(this.lazyContext, { enabled: this.config.lazyContext.level1, maxTokens: tb.level1MaxTokens }));  // ← Lazy Context Level 1
-    this.pipeline.use(createLazyLevel2(this.lazyContext, { enabled: this.config.lazyContext.level2, maxTokens: tb.level2MaxTokens }));  // ← Lazy Context Level 2
-    this.pipeline.use(createLazyLevel3(this.lazyContext, { enabled: this.config.lazyContext.level3, maxTokens: tb.level3MaxTokens }));  // ← Lazy Context Level 3
-    this.pipeline.use(createPulseContext());       // ← Lazy Context Level 0 (registers LAST so post-processing runs FIRST)
-    this.pipeline.use(createEventBusMiddleware(this.eventBus));  // ← Route tools through EventBus
+    this.pipeline.use(
+      createLazyLevel1(this.lazyContext, {
+        enabled: this.config.lazyContext.level1,
+        maxTokens: tb.level1MaxTokens,
+      }),
+    ); // ← Lazy Context Level 1
+    this.pipeline.use(
+      createLazyLevel2(this.lazyContext, {
+        enabled: this.config.lazyContext.level2,
+        maxTokens: tb.level2MaxTokens,
+      }),
+    ); // ← Lazy Context Level 2
+    this.pipeline.use(
+      createLazyLevel3(this.lazyContext, {
+        enabled: this.config.lazyContext.level3,
+        maxTokens: tb.level3MaxTokens,
+      }),
+    ); // ← Lazy Context Level 3
+    this.pipeline.use(createPulseContext()); // ← Lazy Context Level 0 (registers LAST so post-processing runs FIRST)
+    this.pipeline.use(createEventBusMiddleware(this.eventBus)); // ← Route tools through EventBus
     this.pipeline.use(createStabilityMiddleware());
     this.pipeline.use(createSmartHook());
     this.pipeline.use(createRetryHandler({ maxRetries: 2 }));
@@ -830,7 +873,10 @@ export class FennecServer {
       const defaultRules = WorkflowScheduler.createDefaultRules(debugWf.id);
       this.workflowScheduler.addRules(defaultRules);
       this.workflowScheduler.start();
-      logger.info({ rules: defaultRules.length }, 'WorkflowScheduler: auto-trigger rules registered');
+      logger.info(
+        { rules: defaultRules.length },
+        'WorkflowScheduler: auto-trigger rules registered',
+      );
     }
 
     this.resourceManager.startAutoCleanup();

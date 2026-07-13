@@ -1,5 +1,5 @@
-import type { MiddlewareFn } from "./Pipeline.js";
-import { getLogger } from "../utils/logger.js";
+import type { MiddlewareFn } from './Pipeline.js';
+import { getLogger } from '../utils/logger.js';
 
 export interface AuditEntry {
   id: string;
@@ -21,7 +21,11 @@ export function createAuditLog(options?: {
   maxEntries?: number;
   /** Whether to log audit entries to logger. Default true. */
   logToConsole?: boolean;
-}): { middleware: MiddlewareFn; getAuditLog: (limit?: number) => AuditEntry[]; clearAuditLog: () => void } {
+}): {
+  middleware: MiddlewareFn;
+  getAuditLog: (limit?: number) => AuditEntry[];
+  clearAuditLog: () => void;
+} {
   const maxEntries = options?.maxEntries ?? 5000;
   const logToConsole = options?.logToConsole ?? true;
   const auditEntries: AuditEntry[] = [];
@@ -45,7 +49,7 @@ export function createAuditLog(options?: {
       const resultObj = result as Record<string, unknown>;
       const isError = resultObj?.success === false;
       const errorCode = isError
-        ? ((resultObj.error as Record<string, unknown> | undefined)?.code as string) ?? "UNKNOWN"
+        ? (((resultObj.error as Record<string, unknown> | undefined)?.code as string) ?? 'UNKNOWN')
         : undefined;
 
       const entry: AuditEntry = {
@@ -74,7 +78,7 @@ export function createAuditLog(options?: {
             errorCode,
             sessionId: ctx.session?.id,
           },
-          "AuditLog: tool call recorded",
+          'AuditLog: tool call recorded',
         );
       }
 
@@ -89,7 +93,7 @@ export function createAuditLog(options?: {
         category: ctx.category,
         sessionId: ctx.session?.id ?? null,
         input: ctx.input,
-        result: { success: false, errorCode: "EXCEPTION" },
+        result: { success: false, errorCode: 'EXCEPTION' },
         durationMs,
       };
 
@@ -107,7 +111,7 @@ export function createAuditLog(options?: {
             sessionId: ctx.session?.id,
             error: String(error),
           },
-          "AuditLog: tool call failed with exception",
+          'AuditLog: tool call failed with exception',
         );
       }
 

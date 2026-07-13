@@ -92,12 +92,14 @@ describe.skipIf(!process.env.CI && !process.env.E2E_TEST)('E2E: Browser Tools', 
   });
 
   it('should handle cookies', async () => {
-    await context.addCookies([{
-      name: 'test_cookie',
-      value: 'test_value',
-      domain: 'example.com',
-      path: '/',
-    }]);
+    await context.addCookies([
+      {
+        name: 'test_cookie',
+        value: 'test_value',
+        domain: 'example.com',
+        path: '/',
+      },
+    ]);
 
     const cookies = await context.cookies();
     const testCookie = cookies.find((c) => c.name === 'test_cookie');

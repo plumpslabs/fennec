@@ -17,6 +17,7 @@ fennec start
 ```
 
 > **Optional:** Install Playwright if you need browser automation:
+>
 > ```bash
 > fennec install-browsers
 > ```
@@ -50,6 +51,7 @@ To use Fennec's mobile module for Android device management, you need:
 - **USB debugging** enabled on your Android device
 
 Verify ADB is working:
+
 ```bash
 adb devices
 # Should show: <device-id> device
@@ -99,6 +101,7 @@ adb devices
 #### Besok-besok (Cukup Step 2)
 
 Kalo mau develop lagi, tinggal:
+
 ```bash
 adb connect <IP_HP>:5555
 ```
@@ -109,6 +112,7 @@ adb connect <IP_HP>:5555
 #### Koneksi dari Luar WiFi (Tunnel)
 
 Buat akses dari mana aja (pake data seluler), pake tunnel:
+
 ```bash
 # Pake ngrok
 ngrok http 3000
@@ -144,6 +148,7 @@ npm run dev -- --host 0.0.0.0
 #### Pantau Pakai Fennec Mobile Tools
 
 Begitu dev server jalan, Fennec bisa monitor dari HP:
+
 ```
 mobile_list_devices()           → liat device terdeteksi
 mobile_screenshot()             → screenshot layar HP
@@ -176,6 +181,7 @@ expo start --tunnel
 ```
 
 > 💡 **Tips:**
+>
 > - `adb kill-server` + `adb start-server` kalo koneksi wireless bermasalah
 > - `adb disconnect <IP>:5555` buat putusin koneksi
 > - Kalo pake Expo, QR code bisa discan dari HP tanpa USB
@@ -282,6 +288,7 @@ browser_screenshot_diff({ baseline: { elements, screenshot } })
 ### Plan & Execute Multi-Step Goals
 
 ```
+
 // Plan + execute in one call
 planner_execute_goal({ goal: "log in to my app" })
 
@@ -292,6 +299,7 @@ planner_create_plan({ goal: "debug login issue" })
 planner_list_plans()
 planner_get_plan({ planId: "..." })
 planner_cancel_plan({ planId: "..." })
+
 ```
 
 ## Next Steps
@@ -300,3 +308,4 @@ planner_cancel_plan({ planId: "..." })
 - Learn about [Auth Flows](guides/auth-flows.md)
 - Try [Full-Stack Debugging](guides/fullstack-debugging.md)
 - Configure Fennec with `fennec init`
+```

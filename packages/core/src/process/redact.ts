@@ -4,27 +4,36 @@
  * AI assistant's context window. Best-effort, not a substitute for proper
  * secret management.
  */
-import { existsSync, readFileSync, statSync, openSync, readSync, closeSync } from "node:fs";
+import { existsSync, readFileSync, statSync, openSync, readSync, closeSync } from 'node:fs';
 
 const SECRET_PATTERNS: { name: string; re: RegExp }[] = [
-  { name: "bearer", re: /\bBearer\s+[A-Za-z0-9._\-]+/gi },
-  { name: "authorization", re: /\bAuthorization\s*:\s*\S+/gi },
-  { name: "apikey", re: /\b(api[_-]?key|apikey|access[_-]?key|secret[_-]?key|private[_-]?key)\s*[:=]\s*\S+/gi },
-  { name: "aws", re: /\b(AKIA|ASIA)[0-9A-Z]{16}\b/g },
-  { name: "slack", re: /\bxox[baprs]-[0-9A-Za-z\-]{10,}/g },
-  { name: "stripe", re: /\b(sk|rk|pk)_(live|test)_[0-9A-Za-z]{16,}\b/g },
-  { name: "jwt", re: /\beyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]*/g },
-  { name: "google", re: /\bAIza[0-9A-Za-z_\-]{35}\b/g },
-  { name: "github", re: /\bgh[pousr]_[0-9A-Za-z]{36,}\b/g },
-  { name: "token", re: /\b(token|secret|password|passwd|pwd|client[_-]?secret)\s*[:=]\s*\S+/gi },
-  { name: "connstr", re: /\b(mongodb(\+srv)?|postgres(ql)?|mysql|redis|amqp|sqlserver):\/\/[^\s:]+:[^\s@]+@/gi },
-  { name: "pem", re: /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g },
+  { name: 'bearer', re: /\bBearer\s+[A-Za-z0-9._\-]+/gi },
+  { name: 'authorization', re: /\bAuthorization\s*:\s*\S+/gi },
+  {
+    name: 'apikey',
+    re: /\b(api[_-]?key|apikey|access[_-]?key|secret[_-]?key|private[_-]?key)\s*[:=]\s*\S+/gi,
+  },
+  { name: 'aws', re: /\b(AKIA|ASIA)[0-9A-Z]{16}\b/g },
+  { name: 'slack', re: /\bxox[baprs]-[0-9A-Za-z\-]{10,}/g },
+  { name: 'stripe', re: /\b(sk|rk|pk)_(live|test)_[0-9A-Za-z]{16,}\b/g },
+  { name: 'jwt', re: /\beyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]*/g },
+  { name: 'google', re: /\bAIza[0-9A-Za-z_\-]{35}\b/g },
+  { name: 'github', re: /\bgh[pousr]_[0-9A-Za-z]{36,}\b/g },
+  { name: 'token', re: /\b(token|secret|password|passwd|pwd|client[_-]?secret)\s*[:=]\s*\S+/gi },
+  {
+    name: 'connstr',
+    re: /\b(mongodb(\+srv)?|postgres(ql)?|mysql|redis|amqp|sqlserver):\/\/[^\s:]+:[^\s@]+@/gi,
+  },
+  {
+    name: 'pem',
+    re: /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,
+  },
 ];
 
 const ANSI_RE = /\x1b\[[0-9;]*m/g;
 
 export function stripAnsi(s: string): string {
-  return s.replace(ANSI_RE, "");
+  return s.replace(ANSI_RE, '');
 }
 
 export function redactLogLine(line: string): string {
@@ -87,13 +96,15 @@ export function extractTimestamp(line: string): string | null {
   const m = line.match(/^\s*\[?(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)\]?/);
   if (m) return m[1]!;
   const trimmed = line.trimStart();
-  if (trimmed.startsWith("{")) {
+  if (trimmed.startsWith('{')) {
     try {
       const obj = JSON.parse(line) as Record<string, unknown>;
       const ts = obj.ts ?? obj.time ?? obj.timestamp;
-      if (typeof ts === "string") return ts;
-      if (typeof ts === "number") return new Date(ts).toISOString();
-    } catch { /* not JSON */ }
+      if (typeof ts === 'string') return ts;
+      if (typeof ts === 'number') return new Date(ts).toISOString();
+    } catch {
+      /* not JSON */
+    }
   }
   return null;
 }
@@ -101,7 +112,7 @@ export function extractTimestamp(line: string): string | null {
 /** Read a log file, redact, apply a tail budget and optional time window. */
 export function readLogLines(path: string, opts: ReadLogOptions = {}): string[] {
   if (!existsSync(path)) return [];
-  let lines = readFileSync(path, "utf-8").split("\n").filter(Boolean);
+  let lines = readFileSync(path, 'utf-8').split('\n').filter(Boolean);
   const now = Date.now();
   if (opts.sinceMs && opts.parseTimestamp) {
     lines = lines.filter((l) => {
@@ -135,13 +146,13 @@ export function readLogLinesFromOffset(
   // Peek one byte before `start` so a mid-line read start can be detected and
   // the leading partial line dropped (avoids returning garbled first lines).
   const readStart = start > 0 ? start - 1 : 0;
-  let content = "";
+  let content = '';
   try {
-    const fd = openSync(path, "r");
+    const fd = openSync(path, 'r');
     try {
       const buf = Buffer.alloc(size - readStart);
       const n = readSync(fd, buf, 0, buf.length, readStart);
-      content = buf.slice(0, n).toString("utf-8");
+      content = buf.slice(0, n).toString('utf-8');
     } finally {
       closeSync(fd);
     }
@@ -151,10 +162,10 @@ export function readLogLinesFromOffset(
   // If the byte before `start` wasn't a newline, the first segment is a
   // partial line — drop it so only complete new lines are returned.
   if (start > 0 && content.charCodeAt(0) !== 10) {
-    const nl = content.indexOf("\n");
+    const nl = content.indexOf('\n');
     if (nl !== -1) content = content.slice(nl + 1);
   }
-  const lines = content.split("\n").filter(Boolean).map(redactLogLine);
+  const lines = content.split('\n').filter(Boolean).map(redactLogLine);
   const sliced = offset && offset > 0 ? lines : lines.slice(-tail);
   return { lines: sliced, watermark: size };
 }

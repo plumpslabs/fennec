@@ -11,7 +11,7 @@
  * The MCP client sends a `progressToken` in the `_meta` field of a tool call.
  * Tools that receive a progress token can report progress via this reporter.
  */
-import type { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 
 export interface ProgressReporterOptions {
   /** MCP server instance for sending notifications */
@@ -57,12 +57,14 @@ export class ProgressReporter {
 
     try {
       await this.server.notification({
-        method: "notifications/progress",
+        method: 'notifications/progress',
         params: {
           progressToken: this.progressToken,
           progress: report.progress,
           total: report.total,
-          message: report.message ?? `${this.toolName}: ${report.progress}${report.total ? `/${report.total}` : ""}`,
+          message:
+            report.message ??
+            `${this.toolName}: ${report.progress}${report.total ? `/${report.total}` : ''}`,
         },
       });
     } catch {

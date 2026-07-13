@@ -71,36 +71,36 @@ diagnose_fullstack({ processId: "dev-server" })
 ### Step 1: Diagnose Page State
 
 ```javascript
-diagnose_page({ focus: "errors" })
+diagnose_page({ focus: 'errors' });
 // Get current URL, console errors, network failures
 ```
 
 ### Step 2: Deep-Dive Console
 
 ```javascript
-devtools_get_console_logs({ level: "error" })
-devtools_get_js_errors({ limit: 5 })
+devtools_get_console_logs({ level: 'error' });
+devtools_get_js_errors({ limit: 5 });
 ```
 
 ### Step 3: Deep-Dive Network
 
 ```javascript
-network_get_failed_requests()
-network_get_logs({ status: 500 })
-network_get_cors_issues()
+network_get_failed_requests();
+network_get_logs({ status: 500 });
+network_get_cors_issues();
 ```
 
 ### Step 4: Check Server
 
 ```javascript
-process_get_status({ processId: "dev-server" })
-process_get_logs({ processId: "dev-server", level: "error" })
+process_get_status({ processId: 'dev-server' });
+process_get_logs({ processId: 'dev-server', level: 'error' });
 ```
 
 ### Step 5: Full Correlation
 
 ```javascript
-diagnose_fullstack({ processId: "dev-server" })
+diagnose_fullstack({ processId: 'dev-server' });
 ```
 
 ## Common Bug Patterns

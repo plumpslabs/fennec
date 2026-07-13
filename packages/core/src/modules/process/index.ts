@@ -5,8 +5,8 @@
  * and terminal monitoring (file watchers, pipe watchers, log filtering).
  */
 
-import type { FennecModule, ModuleContext } from "../../module/index.js";
-import type { ToolDefinition } from "../../tools/_registry.js";
+import type { FennecModule, ModuleContext } from '../../module/index.js';
+import type { ToolDefinition } from '../../tools/_registry.js';
 
 import {
   processSpawn,
@@ -28,7 +28,7 @@ import {
   processCleanupTracked,
   processClearLogs,
   processAdopt,
-} from "../../tools/process/index.js";
+} from '../../tools/process/index.js';
 import {
   terminalWatchFile,
   terminalGetLogs,
@@ -37,14 +37,13 @@ import {
   terminalStopWatcher,
   terminalWatchPipe,
   terminalClearBuffer,
-} from "../../tools/terminal/index.js";
-import {
-  diagnoseFullstack,
-} from "../../tools/diagnostic/index.js";
+} from '../../tools/terminal/index.js';
+import { diagnoseFullstack } from '../../tools/diagnostic/index.js';
 
 export const processModule: FennecModule = {
-  name: "process",
-  description: "Process management and terminal monitoring — spawn, kill, attach, pipe watching, log filtering",
+  name: 'process',
+  description:
+    'Process management and terminal monitoring — spawn, kill, attach, pipe watching, log filtering',
 
   tools: [
     processSpawn,
@@ -76,9 +75,9 @@ export const processModule: FennecModule = {
     diagnoseFullstack,
   ] as ToolDefinition[],
 
-  capabilities: ["process-management", "terminal-monitoring"],
+  capabilities: ['process-management', 'terminal-monitoring'],
 
   initialize: async (context: ModuleContext) => {
-    context.logger.info("Process module initialized");
+    context.logger.info('Process module initialized');
   },
 };

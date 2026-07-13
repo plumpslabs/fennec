@@ -30,17 +30,26 @@
  *       port: 5173
  *       dependsOn: [api]       # started after `api` is up
  */
-import pc from "picocolors";
-import { existsSync, readFileSync } from "node:fs";
-import { resolve, dirname } from "node:path";
-import { homedir } from "node:os";
-import { renderError, renderKV, symbols, createSpinner } from "../utils/format.js";
-import { readTracked, addTracked, isTrackedRunning, spawnDaemon, buildSpawnEnv, logFilePathFor, respawnTracked, adoptExternalOnPort } from "./tracker.js";
-import type { TrackedProcess } from "./tracker.js";
-import { ensureSupervisorRunning } from "./supervisor.js";
-import { ensurePersistEnabled } from "./persist.js";
-import { checkPort, killTree } from "../utils/system-process.js";
-import yaml from "js-yaml";
+import pc from 'picocolors';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { homedir } from 'node:os';
+import { renderError, renderKV, symbols, createSpinner } from '../utils/format.js';
+import {
+  readTracked,
+  addTracked,
+  isTrackedRunning,
+  spawnDaemon,
+  buildSpawnEnv,
+  logFilePathFor,
+  respawnTracked,
+  adoptExternalOnPort,
+} from './tracker.js';
+import type { TrackedProcess } from './tracker.js';
+import { ensureSupervisorRunning } from './supervisor.js';
+import { ensurePersistEnabled } from './persist.js';
+import { checkPort, killTree } from '../utils/system-process.js';
+import yaml from 'js-yaml';
 
 interface AppConfig {
   name: string;
@@ -65,15 +74,15 @@ interface DevConfig {
 
 function loadConfig(path: string): DevConfig {
   if (!existsSync(path)) {
-    console.error(renderError("Config not found", path));
+    console.error(renderError('Config not found', path));
     process.exit(1);
   }
   try {
-    const raw = readFileSync(path, "utf-8");
+    const raw = readFileSync(path, 'utf-8');
     const parsed = yaml.load(raw) as DevConfig;
     return parsed ?? {};
   } catch (err) {
-    console.error(renderError("Failed to parse config", String(err)));
+    console.error(renderError('Failed to parse config', String(err)));
     process.exit(1);
   }
 }
@@ -88,19 +97,24 @@ async function waitForPort(port: number, timeoutMs = 30_000): Promise<boolean> {
   while (Date.now() < deadline) {
     try {
       if (await checkPort(port)) return true;
-    } catch { /* keep trying */ }
+    } catch {
+      /* keep trying */
+    }
     await new Promise((r) => setTimeout(r, 500));
   }
   return false;
 }
 
-type StartResult = "started" | "skipped" | "restarted" | "adopted";
+type StartResult = 'started' | 'skipped' | 'restarted' | 'adopted';
 
 /** Returns true when an existing tracked entry already runs the same app with
  *  an identical spawn config (command, args, cwd, port, env, mode, restart). */
 function configMatches(
   existing: TrackedProcess,
-  desired: Pick<TrackedProcess, "command" | "args" | "cwd" | "port" | "env" | "logMode" | "autoRestart" | "healthCheck">,
+  desired: Pick<
+    TrackedProcess,
+    'command' | 'args' | 'cwd' | 'port' | 'env' | 'logMode' | 'autoRestart' | 'healthCheck'
+  >,
 ): boolean {
   if (existing.command !== desired.command) return false;
   if (JSON.stringify(existing.args ?? []) !== JSON.stringify(desired.args)) return false;
@@ -122,9 +136,9 @@ async function startApp(app: AppConfig, baseDir: string): Promise<StartResult> {
   const env: Record<string, string> = { ...(app.env ?? {}) };
   const port = app.waitForPort ?? app.port;
   const restart = app.restart ?? true;
-  const logMode: "text" | "jsonl" = app.jsonl ? "jsonl" : "text";
+  const logMode: 'text' | 'jsonl' = app.jsonl ? 'jsonl' : 'text';
   const desired = {
-    command: cmdParts.join(" "),
+    command: cmdParts.join(' '),
     args: cmdParts,
     cwd,
     port,
@@ -136,12 +150,16 @@ async function startApp(app: AppConfig, baseDir: string): Promise<StartResult> {
 
   const existing = readTracked().find((t) => t.name === app.name);
   if (existing && isTrackedRunning(existing) && configMatches(existing, desired)) {
-    return "skipped"; // already healthy & unchanged — leave it alone
+    return 'skipped'; // already healthy & unchanged — leave it alone
   }
 
   const wasRunning = !!(existing && isTrackedRunning(existing));
   if (wasRunning) {
-    try { killTree(existing!.pid, "SIGTERM"); } catch { /* best-effort */ }
+    try {
+      killTree(existing!.pid, 'SIGTERM');
+    } catch {
+      /* best-effort */
+    }
   }
 
   // Idempotent-by-port: if an EXTERNAL process (e.g. started via raw bash by
@@ -150,11 +168,11 @@ async function startApp(app: AppConfig, baseDir: string): Promise<StartResult> {
   if (port && !(existing && isTrackedRunning(existing))) {
     const adopted = adoptExternalOnPort(port, app.name);
     if (adopted) {
-      return "adopted";
+      return 'adopted';
     }
     if (await checkPort(port)) {
       console.error(
-        `  ${pc.yellow("⚠")} ${pc.dim(`port :${port} already responding — ${app.name} may fail to bind (EADDRINUSE)`)}`,
+        `  ${pc.yellow('⚠')} ${pc.dim(`port :${port} already responding — ${app.name} may fail to bind (EADDRINUSE)`)}`,
       );
     }
   }
@@ -181,32 +199,37 @@ async function startApp(app: AppConfig, baseDir: string): Promise<StartResult> {
     flapping: false,
     healthCheck: app.healthCheck,
   });
-  return wasRunning ? "restarted" : "started";
+  return wasRunning ? 'restarted' : 'started';
 }
 
 export async function devCommand(args: string[]): Promise<void> {
-  const sub = args[0] ?? "up";
-  const configIndex = args.indexOf("--config");
-  const configPath = configIndex !== -1 ? resolve(args[configIndex + 1]!) : resolve(process.cwd(), "fennec.config.yaml");
+  const sub = args[0] ?? 'up';
+  const configIndex = args.indexOf('--config');
+  const configPath =
+    configIndex !== -1
+      ? resolve(args[configIndex + 1]!)
+      : resolve(process.cwd(), 'fennec.config.yaml');
 
-  if (sub === "down") {
+  if (sub === 'down') {
     return devDown();
   }
-  if (sub === "status") {
+  if (sub === 'status') {
     return devStatus();
   }
-  if (sub === "restart") {
+  if (sub === 'restart') {
     return devRestart(args.slice(1));
   }
-  if (sub !== "up") {
-    console.error(renderError("Unknown sub-command", `"${sub}" — use: up | down | status | restart`));
+  if (sub !== 'up') {
+    console.error(
+      renderError('Unknown sub-command', `"${sub}" — use: up | down | status | restart`),
+    );
     process.exit(1);
   }
 
   const config = loadConfig(configPath);
   const apps = config.apps ?? [];
   if (apps.length === 0) {
-    console.error(renderError("No apps defined", `Add an "apps:" list to ${configPath}`));
+    console.error(renderError('No apps defined', `Add an "apps:" list to ${configPath}`));
     process.exit(1);
   }
   const baseDir = dirname(configPath);
@@ -222,14 +245,18 @@ export async function devCommand(args: string[]): Promise<void> {
     if (p) {
       const prev = portOwner.get(p);
       if (prev) {
-        console.error(renderError("Port conflict", `apps "${prev}" and "${a.name}" both declare port :${p}`));
+        console.error(
+          renderError('Port conflict', `apps "${prev}" and "${a.name}" both declare port :${p}`),
+        );
         process.exit(1);
       }
       portOwner.set(p, a.name);
     }
   }
 
-  console.error(`\n  ${symbols.fox} ${pc.bold("fennec dev up")} ${pc.dim(`— ${apps.length} app(s) from ${configPath}`)}`);
+  console.error(
+    `\n  ${symbols.fox} ${pc.bold('fennec dev up')} ${pc.dim(`— ${apps.length} app(s) from ${configPath}`)}`,
+  );
   ensureSupervisorRunning();
   ensurePersistEnabled();
 
@@ -242,40 +269,54 @@ export async function devCommand(args: string[]): Promise<void> {
         const sp = createSpinner(`Waiting for ${dep} :${port}...`);
         const ok = await waitForPort(port);
         sp.stop();
-        if (!ok) console.error(`  ${pc.yellow("⚠")} ${pc.dim(`${dep} :${port} not ready in time (continuing)`)}`);
+        if (!ok)
+          console.error(
+            `  ${pc.yellow('⚠')} ${pc.dim(`${dep} :${port} not ready in time (continuing)`)}`,
+          );
       }
     }
     const res = await startApp(app, baseDir);
-    const pid = readTracked().find((t) => t.name === app.name)?.pid ?? "?";
+    const pid = readTracked().find((t) => t.name === app.name)?.pid ?? '?';
     const tag =
-      res === "skipped" ? pc.dim("already running (skipped)")
-        : res === "restarted" ? pc.yellow(`restarted (PID ${pid})`)
-          : res === "adopted" ? pc.cyan(`adopted external process on :${app.port ?? app.waitForPort}`)
+      res === 'skipped'
+        ? pc.dim('already running (skipped)')
+        : res === 'restarted'
+          ? pc.yellow(`restarted (PID ${pid})`)
+          : res === 'adopted'
+            ? pc.cyan(`adopted external process on :${app.port ?? app.waitForPort}`)
             : pc.dim(`started (PID ${pid})`);
-    console.error(`  ${pc.green("✓")} ${pc.bold(app.name)} ${tag}`);
+    console.error(`  ${pc.green('✓')} ${pc.bold(app.name)} ${tag}`);
   }
 
-  console.error(`\n  ${pc.green("✓")} Stack up. Observe with ${pc.cyan("fennec observe")} or ${pc.cyan("fennec dev status")}.`);
-  console.error(`  ${pc.dim("Apps auto-restart (supervisor) + survive reboot (persist).")}\n`);
+  console.error(
+    `\n  ${pc.green('✓')} Stack up. Observe with ${pc.cyan('fennec observe')} or ${pc.cyan('fennec dev status')}.`,
+  );
+  console.error(`  ${pc.dim('Apps auto-restart (supervisor) + survive reboot (persist).')}\n`);
 }
 
 function devDown(): void {
   const tracked = readTracked().filter((t) => t.autoRestart);
   if (tracked.length === 0) {
-    console.error(`\n  ${pc.dim("No supervised apps to stop.")}\n`);
+    console.error(`\n  ${pc.dim('No supervised apps to stop.')}\n`);
     return;
   }
-  console.error(`\n  ${symbols.fox} ${pc.bold("fennec dev down")} ${pc.dim(`— stopping ${tracked.length} app(s)`)}`);
+  console.error(
+    `\n  ${symbols.fox} ${pc.bold('fennec dev down')} ${pc.dim(`— stopping ${tracked.length} app(s)`)}`,
+  );
   for (const t of tracked) {
     try {
-      if (isTrackedRunning(t)) killTree(t.pid, "SIGTERM");
-    } catch { /* best-effort */ }
+      if (isTrackedRunning(t)) killTree(t.pid, 'SIGTERM');
+    } catch {
+      /* best-effort */
+    }
     // Disable auto-restart so the supervisor doesn't revive them.
     t.autoRestart = false;
     addTracked({ ...t, autoRestart: false });
-    console.error(`  ${pc.red("■")} ${pc.bold(t.name)}`);
+    console.error(`  ${pc.red('■')} ${pc.bold(t.name)}`);
   }
-  console.error(`\n  ${pc.green("✓")} Stack stopped (auto-restart disabled). Use ${pc.cyan("fennec dev up")} to bring it back.\n`);
+  console.error(
+    `\n  ${pc.green('✓')} Stack stopped (auto-restart disabled). Use ${pc.cyan('fennec dev up')} to bring it back.\n`,
+  );
 }
 
 /** Restart one or more tracked apps (or all auto-restart apps if no names
@@ -289,19 +330,28 @@ function devRestart(names: string[]): void {
     : tracked.filter((t) => t.autoRestart);
   const missing = names.filter((n) => !tracked.some((t) => t.name === n));
   if (missing.length) {
-    console.error(renderError("Not tracked", `No such app(s): ${missing.join(", ")} — run "fennec dev status" to list tracked apps.`));
+    console.error(
+      renderError(
+        'Not tracked',
+        `No such app(s): ${missing.join(', ')} — run "fennec dev status" to list tracked apps.`,
+      ),
+    );
   }
   if (targets.length === 0) {
-    console.error(`\n  ${pc.dim("Nothing to restart.")}\n`);
+    console.error(`\n  ${pc.dim('Nothing to restart.')}\n`);
     return;
   }
-  console.error(`\n  ${symbols.fox} ${pc.bold("fennec dev restart")} ${pc.dim(`— ${targets.length} app(s)`)}`);
+  console.error(
+    `\n  ${symbols.fox} ${pc.bold('fennec dev restart')} ${pc.dim(`— ${targets.length} app(s)`)}`,
+  );
   for (const t of targets) {
     try {
-      const newPid = respawnTracked(t, "manual");
-      console.error(`  ${pc.green("✓")} ${pc.bold(t.name)} ${pc.dim(`restarted (PID ${newPid})`)}`);
+      const newPid = respawnTracked(t, 'manual');
+      console.error(`  ${pc.green('✓')} ${pc.bold(t.name)} ${pc.dim(`restarted (PID ${newPid})`)}`);
     } catch (err) {
-      console.error(`  ${pc.red("✗")} ${pc.bold(t.name)} ${pc.dim(`restart failed: ${String(err)}`)}`);
+      console.error(
+        `  ${pc.red('✗')} ${pc.bold(t.name)} ${pc.dim(`restart failed: ${String(err)}`)}`,
+      );
     }
   }
   console.error();
@@ -309,19 +359,19 @@ function devRestart(names: string[]): void {
 
 function devStatus(): void {
   const tracked = readTracked();
-  console.error(`\n  ${symbols.fox} ${pc.bold("fennec dev status")}`);
+  console.error(`\n  ${symbols.fox} ${pc.bold('fennec dev status')}`);
   if (tracked.length === 0) {
-    console.error(`  ${pc.dim("Nothing tracked.")}\n`);
+    console.error(`  ${pc.dim('Nothing tracked.')}\n`);
     return;
   }
   for (const t of tracked) {
     const running = isTrackedRunning(t);
-    const dot = running ? pc.green("●") : pc.red("○");
-    const state = running ? pc.green(`running (PID ${t.pid})`) : pc.red("stopped");
-    const portStr = t.port ? ` ${pc.yellow(`:${t.port}`)}` : "";
-    const cause = t.restartCause ? pc.dim(` · last-restart: ${t.restartCause}`) : "";
-    const flap = t.flapping ? pc.red(" · ⚠ flapping") : "";
-    console.error(`  ${dot} ${pc.bold(t.name)}${portStr} ${pc.dim("—")} ${state}${cause}${flap}`);
+    const dot = running ? pc.green('●') : pc.red('○');
+    const state = running ? pc.green(`running (PID ${t.pid})`) : pc.red('stopped');
+    const portStr = t.port ? ` ${pc.yellow(`:${t.port}`)}` : '';
+    const cause = t.restartCause ? pc.dim(` · last-restart: ${t.restartCause}`) : '';
+    const flap = t.flapping ? pc.red(' · ⚠ flapping') : '';
+    console.error(`  ${dot} ${pc.bold(t.name)}${portStr} ${pc.dim('—')} ${state}${cause}${flap}`);
   }
   console.error();
 }

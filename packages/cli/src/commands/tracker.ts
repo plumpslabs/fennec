@@ -2,11 +2,29 @@
  * Process Tracker — Shared state for managing ~/.fennec/tracked.json
  * Extracted from index.ts to be reusable across all CLI command files.
  */
-import { existsSync, writeFileSync, readFileSync, mkdirSync, renameSync, statSync, rmSync, openSync, closeSync, writeSync } from "node:fs";
-import { spawn, type ChildProcess } from "node:child_process";
-import { resolve, dirname, basename } from "node:path";
-import { homedir } from "node:os";
-import { isProcessRunning, getProcessCmdline, getProcessEnviron, getProcessCwd, findPidOnPort, killTree } from "../utils/system-process.js";
+import {
+  existsSync,
+  writeFileSync,
+  readFileSync,
+  mkdirSync,
+  renameSync,
+  statSync,
+  rmSync,
+  openSync,
+  closeSync,
+  writeSync,
+} from 'node:fs';
+import { spawn, type ChildProcess } from 'node:child_process';
+import { resolve, dirname, basename } from 'node:path';
+import { homedir } from 'node:os';
+import {
+  isProcessRunning,
+  getProcessCmdline,
+  getProcessEnviron,
+  getProcessCwd,
+  findPidOnPort,
+  killTree,
+} from '../utils/system-process.js';
 
 export interface TrackedProcess {
   name: string;
@@ -41,7 +59,7 @@ export interface TrackedProcess {
    * level + source) so AI tools can query/filter reliably. Stored so
    * re-spawns keep the same format.
    */
-  logMode?: "text" | "jsonl";
+  logMode?: 'text' | 'jsonl';
   /** HTTP readiness URL (resolved at spawn) — supervisor health-checks this
    *  instead of a bare TCP port when present. */
   healthCheck?: string;
@@ -49,7 +67,7 @@ export interface TrackedProcess {
   group?: string;
 }
 
-export type TargetKind = "single" | "names" | "group" | "all" | "none";
+export type TargetKind = 'single' | 'names' | 'group' | 'all' | 'none';
 export interface Target {
   kind: TargetKind;
   /** name or pid string for kind === "single" */
@@ -88,23 +106,23 @@ export function getGroups(): string[] {
  *  - nothing                           → none (caller decides)
  */
 export function resolveTargets(args: string[]): Target {
-  const groupFlag = extractFlagValue(args, "--group", "-g");
-  const all = args.includes("--all") || args.includes("-a");
+  const groupFlag = extractFlagValue(args, '--group', '-g');
+  const all = args.includes('--all') || args.includes('-a');
   // All non-flag, non `--key=value` positionals (names/pids passed directly).
-  const positionals = args.filter((a) => !a.startsWith("-") && !a.includes("="));
+  const positionals = args.filter((a) => !a.startsWith('-') && !a.includes('='));
   const groups = getGroups();
 
-  if (groupFlag) return { kind: "group", group: groupFlag };
+  if (groupFlag) return { kind: 'group', group: groupFlag };
   // Legacy bare `kill all` / `stop all` / `spawn all` — means "all tracked".
-  if (positionals.length === 1 && positionals[0] === "all") return { kind: "all" };
-  if (all) return { kind: "all" };
+  if (positionals.length === 1 && positionals[0] === 'all') return { kind: 'all' };
+  if (all) return { kind: 'all' };
   // Single positional that matches a known group → group shorthand.
   if (positionals.length === 1 && groups.includes(positionals[0]!)) {
-    return { kind: "group", group: positionals[0] };
+    return { kind: 'group', group: positionals[0] };
   }
-  if (positionals.length === 1) return { kind: "single", value: positionals[0] };
-  if (positionals.length > 1) return { kind: "names", values: positionals };
-  return { kind: "none" };
+  if (positionals.length === 1) return { kind: 'single', value: positionals[0] };
+  if (positionals.length > 1) return { kind: 'names', values: positionals };
+  return { kind: 'none' };
 }
 
 /** Assign (or clear, with `undefined`) a group on an existing tracked entry. */
@@ -118,33 +136,33 @@ export function setGroup(name: string, group?: string): boolean {
 }
 
 /** Marker line written to a log when the supervisor restarts an app. */
-export const RESTART_CAUSE = "fennec:restart";
+export const RESTART_CAUSE = 'fennec:restart';
 
 export function getFennecDir(): string {
   return process.env.FENNEC_DATA_DIR
     ? resolve(process.env.FENNEC_DATA_DIR)
-    : resolve(homedir(), ".fennec");
+    : resolve(homedir(), '.fennec');
 }
 
 export function getTrackedPath(): string {
-  return resolve(getFennecDir(), "tracked.json");
+  return resolve(getFennecDir(), 'tracked.json');
 }
 
 /** Path to the supervisor daemon's PID file. */
 export function getSupervisorPidPath(): string {
-  return resolve(getFennecDir(), "supervisor.pid");
+  return resolve(getFennecDir(), 'supervisor.pid');
 }
 
 /** Absolute path to an app's log file (respects FENNEC_DATA_DIR). */
 export function logFilePathFor(name: string): string {
-  return resolve(getFennecDir(), "logs", `${name}.log`);
+  return resolve(getFennecDir(), 'logs', `${name}.log`);
 }
 
 export function readTracked(): TrackedProcess[] {
   try {
     const path = getTrackedPath();
     if (!existsSync(path)) return [];
-    return JSON.parse(readFileSync(path, "utf-8"));
+    return JSON.parse(readFileSync(path, 'utf-8'));
   } catch {
     return [];
   }
@@ -154,9 +172,12 @@ export function saveTracked(processes: TrackedProcess[]): void {
   try {
     const path = getTrackedPath();
     mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, JSON.stringify(processes, null, 2), "utf-8");
+    writeFileSync(path, JSON.stringify(processes, null, 2), 'utf-8');
   } catch (err) {
-    console.error("[fennec] Failed to save tracked processes:", err instanceof Error ? err.message : String(err));
+    console.error(
+      '[fennec] Failed to save tracked processes:',
+      err instanceof Error ? err.message : String(err),
+    );
   }
 }
 
@@ -180,7 +201,10 @@ export function setAutoRestart(name: string, value: boolean): void {
   const tracked = readTracked();
   let changed = false;
   for (const t of tracked) {
-    if (t.name === name) { t.autoRestart = value; changed = true; }
+    if (t.name === name) {
+      t.autoRestart = value;
+      changed = true;
+    }
   }
   if (changed) saveTracked(tracked);
 }
@@ -195,7 +219,7 @@ export function removeTrackedByPid(pid: number): void {
  * array (spawn-safe); falls back to whitespace-splitting `command`
  * for entries saved before `args` existed.
  */
-export function resolveArgs(proc: Pick<TrackedProcess, "args" | "command">): string[] {
+export function resolveArgs(proc: Pick<TrackedProcess, 'args' | 'command'>): string[] {
   if (proc.args && proc.args.length > 0) return proc.args;
   return proc.command.split(/\s+/).filter(Boolean);
 }
@@ -210,7 +234,14 @@ export function resolveArgs(proc: Pick<TrackedProcess, "args" | "command">): str
  */
 export function adoptProcess(
   pid: number,
-  opts: { name?: string; port?: number; command?: string; cwd?: string; env?: Record<string, string>; autoRestart?: boolean } = {},
+  opts: {
+    name?: string;
+    port?: number;
+    command?: string;
+    cwd?: string;
+    env?: Record<string, string>;
+    autoRestart?: boolean;
+  } = {},
 ): TrackedProcess | null {
   if (!isProcessRunning(pid)) return null;
   const command = opts.command ?? getProcessCmdline(pid) ?? `pid ${pid}`;
@@ -266,7 +297,7 @@ export function isTrackedRunning(proc: TrackedProcess): boolean {
   // marker, so we must fall through to the cmdline check instead of assuming
   // "not ours".
   const environ = getProcessEnviron(proc.pid);
-  if (environ && "FENNEC_APP_NAME" in environ) {
+  if (environ && 'FENNEC_APP_NAME' in environ) {
     return environ.FENNEC_APP_NAME === proc.name;
   }
 
@@ -325,7 +356,11 @@ export function rotateLogFile(
     // Delete oldest if exists
     const oldestPath = resolve(dir, `${base}.${maxFiles}`);
     if (existsSync(oldestPath)) {
-      try { rmSync(oldestPath); } catch { /* best-effort */ }
+      try {
+        rmSync(oldestPath);
+      } catch {
+        /* best-effort */
+      }
     }
 
     // Shift existing rotations
@@ -333,18 +368,27 @@ export function rotateLogFile(
       const src = resolve(dir, `${base}.${i}`);
       const dst = resolve(dir, `${base}.${i + 1}`);
       if (existsSync(src)) {
-        try { renameSync(src, dst); } catch { /* best-effort */ }
+        try {
+          renameSync(src, dst);
+        } catch {
+          /* best-effort */
+        }
       }
     }
 
     // Rotate current file
     try {
       renameSync(filePath, resolve(dir, `${base}.1`));
-    } catch { /* best-effort */ }
+    } catch {
+      /* best-effort */
+    }
 
     return true;
   } catch (err) {
-    console.error("[fennec] Log rotation failed:", err instanceof Error ? err.message : String(err));
+    console.error(
+      '[fennec] Log rotation failed:',
+      err instanceof Error ? err.message : String(err),
+    );
     return false;
   }
 }
@@ -364,7 +408,7 @@ export interface SpawnDaemonOptions {
   logFilePath: string;
   env?: Record<string, string>;
   /** "jsonl" writes structured per-line JSON (timestamp+level+source+line). */
-  logMode?: "text" | "jsonl";
+  logMode?: 'text' | 'jsonl';
 }
 
 // ─── Secret redaction (AI-safe) ───────────────────────────────────
@@ -414,7 +458,11 @@ export function respawnTracked(proc: TrackedProcess, cause?: string): number {
   // cause an EADDRINUSE cascade on the new instance). Kill the whole
   // tree so grandchildren (npm → vite → esbuild) don't survive.
   if (isProcessRunning(proc.pid)) {
-    try { killTree(proc.pid, "SIGTERM"); } catch { /* best-effort */ }
+    try {
+      killTree(proc.pid, 'SIGTERM');
+    } catch {
+      /* best-effort */
+    }
   }
   const child = spawnDaemon({
     cmdParts,
@@ -450,40 +498,40 @@ export function spawnDaemon(opts: SpawnDaemonOptions): ChildProcess {
   // Inject a marker so fennec can verify process ownership even if the app
   // later re-execs a different binary (cmdline matching alone is fragile).
   const env = { ...(opts.env ?? buildSpawnEnv()), FENNEC_APP_NAME: opts.name };
-  if (opts.logMode === "jsonl") {
+  if (opts.logMode === 'jsonl') {
     return spawnDaemonJsonl(opts, env);
   }
-  const fd = openSync(opts.logFilePath, "a");
+  const fd = openSync(opts.logFilePath, 'a');
   const child = spawn(opts.cmdParts[0]!, opts.cmdParts.slice(1), {
     cwd: opts.cwd,
     env,
-    stdio: ["ignore", fd, fd],
+    stdio: ['ignore', fd, fd],
     detached: true,
   });
   child.unref();
   // Child now owns a dup of the fd; we can close our copy.
-  child.once("spawn", () => {
-    try { closeSync(fd); } catch { /* best-effort */ }
+  child.once('spawn', () => {
+    try {
+      closeSync(fd);
+    } catch {
+      /* best-effort */
+    }
   });
   return child;
 }
 
 /** jsonl variant: a detached relay reads the child's stdout+stderr and writes JSONL. */
 function spawnDaemonJsonl(opts: SpawnDaemonOptions, env: Record<string, string>): ChildProcess {
-  const relay = spawn(
-    process.execPath,
-    ["-e", JSONL_RELAY],
-    {
-      env: { ...process.env, FENNEC_RELAY_LOG: opts.logFilePath },
-      stdio: ["pipe", "ignore", "ignore"],
-      detached: true,
-    },
-  );
+  const relay = spawn(process.execPath, ['-e', JSONL_RELAY], {
+    env: { ...process.env, FENNEC_RELAY_LOG: opts.logFilePath },
+    stdio: ['pipe', 'ignore', 'ignore'],
+    detached: true,
+  });
   relay.unref();
   const child = spawn(opts.cmdParts[0]!, opts.cmdParts.slice(1), {
     cwd: opts.cwd,
     env,
-    stdio: ["ignore", relay.stdin!, relay.stdin!],
+    stdio: ['ignore', relay.stdin!, relay.stdin!],
     detached: true,
   });
   child.unref();
@@ -492,7 +540,11 @@ function spawnDaemonJsonl(opts: SpawnDaemonOptions, env: Record<string, string>)
   // means the relay receives EOF (and exits) when the child dies — otherwise a
   // long-lived parent (the supervisor) would keep the pipe open forever and
   // leak relays (which also risks SIGPIPE-killing the app).
-  try { relay.stdin?.destroy(); } catch { /* best-effort */ }
+  try {
+    relay.stdin?.destroy();
+  } catch {
+    /* best-effort */
+  }
   // The relay flushes and exits once the child's streams close.
   return child;
 }
@@ -531,11 +583,13 @@ process.stdin.on('error', () => { process.exit(0); });
 /** Write a restart-cause separator into the log (used by the supervisor). */
 export function annotateRestart(logFilePath: string, cause: string): void {
   try {
-    const fd = openSync(logFilePath, "a");
+    const fd = openSync(logFilePath, 'a');
     try {
       writeSync(fd, `\n${RESTART_CAUSE} cause=${cause} at=${new Date().toISOString()}\n`);
     } finally {
       closeSync(fd);
     }
-  } catch { /* best-effort */ }
+  } catch {
+    /* best-effort */
+  }
 }

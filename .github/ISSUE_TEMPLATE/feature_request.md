@@ -1,9 +1,9 @@
 ---
 name: Feature Request
 about: Suggest an idea for Fennec
-title: "[FEAT] "
+title: '[FEAT] '
 labels: enhancement
-assignees: ""
+assignees: ''
 ---
 
 ## Problem Statement

@@ -9,22 +9,22 @@
  * - Generates alerts for the Level 0 pulse system
  */
 
-import { randomUUID } from "node:crypto";
-import { EventBus, type BusEvent, type EventType } from "../correlation/EventBus.js";
-import { TimelineBuilder } from "../correlation/Timeline.js";
+import { randomUUID } from 'node:crypto';
+import { EventBus, type BusEvent, type EventType } from '../correlation/EventBus.js';
+import { TimelineBuilder } from '../correlation/Timeline.js';
 import {
   type Incident,
   type IncidentCreateInput,
   type IncidentSeverity,
   type IncidentStatus,
   type Alert,
-} from "./types.js";
+} from './types.js';
 
 // ─── Inference Rules ─────────────────────────────────────────────
 
 interface InferenceRule {
   pattern: string; // e.g. "browser:network:500 + process:stderr:Error"
-  category: Incident["category"];
+  category: Incident['category'];
   rootCause: string;
   confidence: number;
   fix: string;
@@ -33,84 +33,84 @@ interface InferenceRule {
 
 const INFERENCE_RULES: InferenceRule[] = [
   {
-    pattern: "browser:network:500 + process:stderr:Error",
-    category: "network",
-    rootCause: "Server error caused network failure",
+    pattern: 'browser:network:500 + process:stderr:Error',
+    category: 'network',
+    rootCause: 'Server error caused network failure',
     confidence: 0.9,
-    fix: "Check server logs for unhandled exceptions or misconfigurations",
-    severity: "error",
+    fix: 'Check server logs for unhandled exceptions or misconfigurations',
+    severity: 'error',
   },
   {
-    pattern: "browser:network:401 + process:stderr:JWT",
-    category: "authentication",
-    rootCause: "Authentication token issue",
+    pattern: 'browser:network:401 + process:stderr:JWT',
+    category: 'authentication',
+    rootCause: 'Authentication token issue',
     confidence: 0.92,
-    fix: "Verify JWT_SECRET is set and the auth token is valid",
-    severity: "critical",
+    fix: 'Verify JWT_SECRET is set and the auth token is valid',
+    severity: 'critical',
   },
   {
-    pattern: "browser:console:TypeError + browser:network:failed",
-    category: "runtime",
-    rootCause: "Network failure caused JavaScript error",
+    pattern: 'browser:console:TypeError + browser:network:failed',
+    category: 'runtime',
+    rootCause: 'Network failure caused JavaScript error',
     confidence: 0.85,
-    fix: "Ensure the API endpoint is reachable and returning valid data",
-    severity: "error",
+    fix: 'Ensure the API endpoint is reachable and returning valid data',
+    severity: 'error',
   },
   {
-    pattern: "process:stderr:ENOENT",
-    category: "configuration",
-    rootCause: "Missing file or environment variable",
+    pattern: 'process:stderr:ENOENT',
+    category: 'configuration',
+    rootCause: 'Missing file or environment variable',
     confidence: 0.88,
-    fix: "Check if required files exist and environment variables are set",
-    severity: "error",
+    fix: 'Check if required files exist and environment variables are set',
+    severity: 'error',
   },
   {
-    pattern: "browser:network:404",
-    category: "network",
-    rootCause: "API route or resource not found",
+    pattern: 'browser:network:404',
+    category: 'network',
+    rootCause: 'API route or resource not found',
     confidence: 0.9,
     fix: "Verify the URL path matches the server's defined routes",
-    severity: "error",
+    severity: 'error',
   },
   {
-    pattern: "browser:console:error + process:stderr:Error",
-    category: "runtime",
-    rootCause: "Server-side error reflected in browser",
+    pattern: 'browser:console:error + process:stderr:Error',
+    category: 'runtime',
+    rootCause: 'Server-side error reflected in browser',
     confidence: 0.87,
-    fix: "Check server error logs for the root cause of the issue",
-    severity: "error",
+    fix: 'Check server error logs for the root cause of the issue',
+    severity: 'error',
   },
   {
-    pattern: "browser:network:0",
-    category: "network",
-    rootCause: "Network request blocked (CORS, mixed content, or connection refused)",
+    pattern: 'browser:network:0',
+    category: 'network',
+    rootCause: 'Network request blocked (CORS, mixed content, or connection refused)',
     confidence: 0.85,
-    fix: "Check CORS headers, ensure the endpoint is reachable, and verify HTTPS consistency",
-    severity: "error",
+    fix: 'Check CORS headers, ensure the endpoint is reachable, and verify HTTPS consistency',
+    severity: 'error',
   },
   {
-    pattern: "process:stderr:ECONNREFUSED",
-    category: "network",
-    rootCause: "Database or service connection refused",
+    pattern: 'process:stderr:ECONNREFUSED',
+    category: 'network',
+    rootCause: 'Database or service connection refused',
     confidence: 0.9,
-    fix: "Ensure the target service is running and the connection string is correct",
-    severity: "critical",
+    fix: 'Ensure the target service is running and the connection string is correct',
+    severity: 'critical',
   },
   {
-    pattern: "process:stderr:heap + process:stderr:out of memory",
-    category: "performance",
-    rootCause: "Memory leak or excessive memory usage",
+    pattern: 'process:stderr:heap + process:stderr:out of memory',
+    category: 'performance',
+    rootCause: 'Memory leak or excessive memory usage',
     confidence: 0.85,
-    fix: "Check for memory leaks, increase available memory, or optimize resource usage",
-    severity: "warning",
+    fix: 'Check for memory leaks, increase available memory, or optimize resource usage',
+    severity: 'warning',
   },
   {
-    pattern: "browser:console:error + process:stderr:timeout",
-    category: "performance",
-    rootCause: "Operation timed out — slow database query or API call",
+    pattern: 'browser:console:error + process:stderr:timeout',
+    category: 'performance',
+    rootCause: 'Operation timed out — slow database query or API call',
     confidence: 0.8,
-    fix: "Check query performance, add indexes, or increase timeout values",
-    severity: "warning",
+    fix: 'Check query performance, add indexes, or increase timeout values',
+    severity: 'warning',
   },
 ];
 
@@ -150,11 +150,11 @@ export class IncidentEngine {
    */
   private subscribeToEvents(): void {
     const triggerEvents: EventType[] = [
-      "browser:console",
-      "browser:network",
-      "browser:error",
-      "process:stderr",
-      "process:exit",
+      'browser:console',
+      'browser:network',
+      'browser:error',
+      'process:stderr',
+      'process:exit',
     ];
 
     for (const eventType of triggerEvents) {
@@ -202,11 +202,11 @@ export class IncidentEngine {
    * E.g. "browser:network:500 + process:stderr:Error"
    */
   private matchesPattern(pattern: string, trigger: BusEvent, related: BusEvent[]): boolean {
-    const parts = pattern.split(" + ");
+    const parts = pattern.split(' + ');
     const allEvents = [trigger, ...related];
 
     for (const part of parts) {
-      const layer = part.split(":")[0] ?? "";
+      const layer = part.split(':')[0] ?? '';
       const keywordMatch = part.match(/:(\w+)$/);
       const keyword = keywordMatch?.[1] ?? null;
 
@@ -232,7 +232,7 @@ export class IncidentEngine {
       id: `inc_${randomUUID().slice(0, 8)}`,
       title: input.title,
       severity: input.severity,
-      status: "active",
+      status: 'active',
       confidence: input.confidence,
       layer: input.layer,
       category: input.category,
@@ -249,7 +249,7 @@ export class IncidentEngine {
   /**
    * Build a timeline from a trigger and related events.
    */
-  private buildTimeline(trigger: BusEvent, related: BusEvent[]): Incident["timeline"] {
+  private buildTimeline(trigger: BusEvent, related: BusEvent[]): Incident['timeline'] {
     const all = [trigger, ...related].sort((a, b) => a.timestamp - b.timestamp);
     const baseTime = all[0]?.timestamp ?? trigger.timestamp;
 
@@ -296,7 +296,7 @@ export class IncidentEngine {
    */
   private findSimilar(incident: Incident): Incident | undefined {
     for (const [, existing] of this.incidents) {
-      if (existing.status !== "active") continue;
+      if (existing.status !== 'active') continue;
       if (existing.category !== incident.category) continue;
       if (existing.rootCause === incident.rootCause) {
         // Same root cause — same incident
@@ -312,7 +312,7 @@ export class IncidentEngine {
    * Get all active incidents.
    */
   getActiveIncidents(): Incident[] {
-    return Array.from(this.incidents.values()).filter((i) => i.status === "active");
+    return Array.from(this.incidents.values()).filter((i) => i.status === 'active');
   }
 
   /**
@@ -335,9 +335,9 @@ export class IncidentEngine {
   resolveIncident(id: string): boolean {
     const incident = this.incidents.get(id);
     if (!incident) return false;
-    if (incident.status !== "active") return false;
+    if (incident.status !== 'active') return false;
 
-    incident.status = "resolved";
+    incident.status = 'resolved';
     incident.resolvedAt = Date.now();
     incident.updatedAt = Date.now();
     return true;
@@ -350,7 +350,7 @@ export class IncidentEngine {
     const incident = this.incidents.get(id);
     if (!incident) return false;
 
-    incident.status = "dismissed";
+    incident.status = 'dismissed';
     incident.updatedAt = Date.now();
     return true;
   }
@@ -392,18 +392,18 @@ export class IncidentEngine {
    */
   getPulseSummary(): string {
     const active = this.getActiveIncidents();
-    if (active.length === 0) return "healthy";
+    if (active.length === 0) return 'healthy';
 
-    const critical = active.filter((i) => i.severity === "critical").length;
-    const errors = active.filter((i) => i.severity === "error").length;
-    const warnings = active.filter((i) => i.severity === "warning").length;
+    const critical = active.filter((i) => i.severity === 'critical').length;
+    const errors = active.filter((i) => i.severity === 'error').length;
+    const warnings = active.filter((i) => i.severity === 'warning').length;
 
     const parts: string[] = [];
     if (critical > 0) parts.push(`${critical} critical`);
     if (errors > 0) parts.push(`${errors} error(s)`);
     if (warnings > 0) parts.push(`${warnings} warning(s)`);
 
-    return parts.join(", ") || "healthy";
+    return parts.join(', ') || 'healthy';
   }
 
   /**
@@ -411,8 +411,8 @@ export class IncidentEngine {
    */
   getStats(): { active: number; resolved: number; bySeverity: Record<string, number> } {
     const all = Array.from(this.incidents.values());
-    const active = all.filter((i) => i.status === "active").length;
-    const resolved = all.filter((i) => i.status === "resolved").length;
+    const active = all.filter((i) => i.status === 'active').length;
+    const resolved = all.filter((i) => i.status === 'resolved').length;
     const bySeverity: Record<string, number> = {};
 
     for (const i of all) {
@@ -432,29 +432,29 @@ export class IncidentEngine {
 
   // ─── Helpers ───────────────────────────────────────────────────
 
-  private eventTypeToLayer(type: string): Incident["layer"] {
-    if (type.startsWith("browser")) return "browser";
-    if (type.startsWith("process")) return "server";
-    if (type.startsWith("terminal")) return "terminal";
-    return "network";
+  private eventTypeToLayer(type: string): Incident['layer'] {
+    if (type.startsWith('browser')) return 'browser';
+    if (type.startsWith('process')) return 'server';
+    if (type.startsWith('terminal')) return 'terminal';
+    return 'network';
   }
 
   private eventToDescription(event: BusEvent): string {
     const { type, data } = event;
     switch (type) {
-      case "browser:console":
+      case 'browser:console':
         return `[${data.level}] ${data.message}`;
-      case "browser:network":
+      case 'browser:network':
         return `${data.method} ${data.url} → ${data.status}`;
-      case "browser:error":
+      case 'browser:error':
         return `Error: ${data.message}`;
-      case "process:stdout":
+      case 'process:stdout':
         return `[stdout] ${data.line}`;
-      case "process:stderr":
+      case 'process:stderr':
         return `[stderr] ${data.line}`;
-      case "process:exit":
+      case 'process:exit':
         return `Process exited (code: ${data.code})`;
-      case "terminal:log":
+      case 'terminal:log':
         return `[${data.source}] ${data.line}`;
       default:
         return `Event: ${type}`;

@@ -10,10 +10,10 @@
  * - Safe errors (never throws, returns empty array on failure)
  */
 
-import { readdirSync, readFileSync, existsSync, readlinkSync } from "node:fs";
-import { execSync } from "node:child_process";
-import { cpus } from "node:os";
-import net from "node:net";
+import { readdirSync, readFileSync, existsSync, readlinkSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { cpus } from 'node:os';
+import net from 'node:net';
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -23,10 +23,10 @@ export interface SystemProcessInfo {
   command: string;
   cpuPercent: number;
   memPercent: number;
-  memRss: number;        // Resident Set Size in KB
-  state: string;          // R=Running, S=Sleeping, Z=Zombie, etc.
+  memRss: number; // Resident Set Size in KB
+  state: string; // R=Running, S=Sleeping, Z=Zombie, etc.
   startedAt: string | null;
-  ports: number[];        // Listening ports (if any)
+  ports: number[]; // Listening ports (if any)
   isUserProcess: boolean; // true if owned by current user
 }
 
@@ -35,7 +35,7 @@ export interface SystemProcessFilter {
   pid?: number;
   port?: number;
   userOnly?: boolean;
-  sortBy?: "cpu" | "mem" | "pid" | "name";
+  sortBy?: 'cpu' | 'mem' | 'pid' | 'name';
   limit?: number;
 }
 
@@ -47,7 +47,7 @@ function readProcProcesses(): SystemProcessInfo[] {
   const totalMemKb = readTotalMem();
 
   try {
-    const pids = readdirSync("/proc").filter((d) => /^\d+$/.test(d));
+    const pids = readdirSync('/proc').filter((d) => /^\d+$/.test(d));
 
     for (const pidStr of pids) {
       try {
@@ -89,7 +89,7 @@ function readSingleProcProcess(
   const name = nameMatch?.[1] ?? `pid_${pid}`;
   const uid = uidMatch ? parseInt(uidMatch[1]!, 10) : undefined;
   const vmRss = vmRssMatch ? parseInt(vmRssMatch[1]!, 10) : 0;
-  const state = stateMatch?.[1] ?? "?";
+  const state = stateMatch?.[1] ?? '?';
 
   const isUserProcess = uid !== undefined && currentUid !== undefined && uid === currentUid;
 
@@ -102,12 +102,12 @@ function readSingleProcProcess(
     // Parse /proc/[pid]/stat format
     // Format: pid (comm) state ppid pgrp session tty_nr tpgid flags minflt cminflt majflt
     // cmajflt utime stime cutime cstime priority nice num_threads itrealvalue starttime
-    const parenEnd = statText.lastIndexOf(")");
+    const parenEnd = statText.lastIndexOf(')');
     if (parenEnd > 0) {
       const fields = statText.slice(parenEnd + 2).split(/\s+/);
-      const utime = parseInt(fields[11] ?? "0", 10); // User mode jiffies
-      const stime = parseInt(fields[12] ?? "0", 10); // Kernel mode jiffies
-      const starttime = parseInt(fields[19] ?? "0", 10); // Start time in jiffies
+      const utime = parseInt(fields[11] ?? '0', 10); // User mode jiffies
+      const stime = parseInt(fields[12] ?? '0', 10); // Kernel mode jiffies
+      const starttime = parseInt(fields[19] ?? '0', 10); // Start time in jiffies
 
       // CPU usage = (utime + stime) / uptime_seconds / Hz
       const hertz = 100; // CLK_TCK, typically 100
@@ -117,7 +117,10 @@ function readSingleProcProcess(
       if (uptimeSeconds > 0) {
         const elapsedJiffies = uptimeSeconds * hertz;
         const processJiffies = totalJiffies;
-        cpuPercent = Math.min(100, (processJiffies / Math.max(1, elapsedJiffies)) * 100 * cpus().length);
+        cpuPercent = Math.min(
+          100,
+          (processJiffies / Math.max(1, elapsedJiffies)) * 100 * cpus().length,
+        );
       }
 
       // Boot time for startedAt
@@ -127,9 +130,7 @@ function readSingleProcProcess(
 
   // Read /proc/[pid]/cmdline for full command
   const cmdlineRaw = readSafe(cmdlinePath);
-  const command = cmdlineRaw
-    ? cmdlineRaw.split("\0").filter(Boolean).join(" ")
-    : name;
+  const command = cmdlineRaw ? cmdlineRaw.split('\0').filter(Boolean).join(' ') : name;
 
   // Read listening ports
   const ports = detectListeningPorts(pid);
@@ -139,7 +140,7 @@ function readSingleProcProcess(
   return {
     pid,
     name,
-    command: command.length > 200 ? command.slice(0, 200) + "…" : command,
+    command: command.length > 200 ? command.slice(0, 200) + '…' : command,
     cpuPercent: Math.round(cpuPercent * 10) / 10,
     memPercent: Math.round(memPercent * 10) / 10,
     memRss: vmRss,
@@ -155,29 +156,29 @@ function readSingleProcProcess(
 function runPsProcesses(): SystemProcessInfo[] {
   try {
     const output = execSync(
-      "ps axo pid,comm,pcpu,pmem,rss,state,etime,user --sort=-pcpu 2>/dev/null | head -200",
-      { encoding: "utf-8", timeout: 5000 },
+      'ps axo pid,comm,pcpu,pmem,rss,state,etime,user --sort=-pcpu 2>/dev/null | head -200',
+      { encoding: 'utf-8', timeout: 5000 },
     );
 
-    const lines = output.trim().split("\n").slice(1); // Skip header
-    const currentUser = execSync("whoami", { encoding: "utf-8", timeout: 1000 }).trim();
+    const lines = output.trim().split('\n').slice(1); // Skip header
+    const currentUser = execSync('whoami', { encoding: 'utf-8', timeout: 1000 }).trim();
 
     return lines.map((line) => {
       const parts = line.trim().split(/\s+/);
-      const pid = parseInt(parts[0] ?? "0", 10);
-      const name = parts[1] ?? "";
-      const cpu = parseFloat(parts[2] ?? "0");
-      const mem = parseFloat(parts[3] ?? "0");
-      const rss = parseInt(parts[4] ?? "0", 10);
-      const state = parts[5] ?? "?";
-      const elapsed = parts[6] ?? "";
-      const user = parts[7] ?? "";
-      const command = parts.slice(1).join(" ");
+      const pid = parseInt(parts[0] ?? '0', 10);
+      const name = parts[1] ?? '';
+      const cpu = parseFloat(parts[2] ?? '0');
+      const mem = parseFloat(parts[3] ?? '0');
+      const rss = parseInt(parts[4] ?? '0', 10);
+      const state = parts[5] ?? '?';
+      const elapsed = parts[6] ?? '';
+      const user = parts[7] ?? '';
+      const command = parts.slice(1).join(' ');
 
       return {
         pid,
         name,
-        command: command.length > 200 ? command.slice(0, 200) + "…" : command,
+        command: command.length > 200 ? command.slice(0, 200) + '…' : command,
         cpuPercent: Math.round(cpu * 10) / 10,
         memPercent: Math.round(mem * 10) / 10,
         memRss: rss,
@@ -194,16 +195,16 @@ function runPsProcesses(): SystemProcessInfo[] {
 
 function runTasklistProcesses(): SystemProcessInfo[] {
   try {
-    const output = execSync("tasklist /fo csv /nh 2>nul", { encoding: "utf-8", timeout: 5000 });
+    const output = execSync('tasklist /fo csv /nh 2>nul', { encoding: 'utf-8', timeout: 5000 });
     const result: SystemProcessInfo[] = [];
-    for (const raw of output.split("\n")) {
+    for (const raw of output.split('\n')) {
       if (!raw.trim()) continue;
-      const parts = raw.split('","').map((p) => p.replace(/^"|"$/g, ""));
-      const pid = parseInt(parts[1] ?? "", 10);
+      const parts = raw.split('","').map((p) => p.replace(/^"|"$/g, ''));
+      const pid = parseInt(parts[1] ?? '', 10);
       if (isNaN(pid)) continue;
-      const image = parts[0] ?? "";
-      const name = image.replace(/\.[a-z0-9]+$/i, "");
-      const memKb = parseInt((parts[4] ?? "").replace(/[^\d]/g, ""), 10) || 0;
+      const image = parts[0] ?? '';
+      const name = image.replace(/\.[a-z0-9]+$/i, '');
+      const memKb = parseInt((parts[4] ?? '').replace(/[^\d]/g, ''), 10) || 0;
       result.push({
         pid,
         name,
@@ -211,7 +212,7 @@ function runTasklistProcesses(): SystemProcessInfo[] {
         cpuPercent: 0,
         memPercent: 0,
         memRss: memKb,
-        state: "R",
+        state: 'R',
         startedAt: null,
         ports: [],
         isUserProcess: false,
@@ -225,12 +226,18 @@ function runTasklistProcesses(): SystemProcessInfo[] {
 
 function mapBsdState(s: string): string {
   switch (s) {
-    case "R": return "R";
-    case "S": return "S";
-    case "Z": return "Z";
-    case "T": return "T";
-    case "I": return "S";
-    default: return s;
+    case 'R':
+      return 'R';
+    case 'S':
+      return 'S';
+    case 'Z':
+      return 'Z';
+    case 'T':
+      return 'T';
+    case 'I':
+      return 'S';
+    default:
+      return s;
   }
 }
 
@@ -248,7 +255,7 @@ function detectListeningPorts(_pid: number): number[] {
 
 function readSafe(path: string): string | null {
   try {
-    return readFileSync(path, "utf-8");
+    return readFileSync(path, 'utf-8');
   } catch {
     return null;
   }
@@ -256,7 +263,7 @@ function readSafe(path: string): string | null {
 
 function readTotalMem(): number {
   try {
-    const memInfo = readSafe("/proc/meminfo");
+    const memInfo = readSafe('/proc/meminfo');
     if (memInfo) {
       const match = memInfo.match(/MemTotal:\s+(\d+)/);
       if (match) return parseInt(match[1]!, 10);
@@ -269,9 +276,9 @@ function readTotalMem(): number {
 
 function readUptime(): number {
   try {
-    const data = readSafe("/proc/uptime");
+    const data = readSafe('/proc/uptime');
     if (data) {
-      return parseFloat(data.split(/\s+/)[0] ?? "0");
+      return parseFloat(data.split(/\s+/)[0] ?? '0');
     }
   } catch {
     // ignore
@@ -299,9 +306,9 @@ export function getSystemProcesses(filter?: SystemProcessFilter): SystemProcessI
   let processes: SystemProcessInfo[];
 
   // Linux uses /proc (richest); macOS/BSD use ps; Windows uses tasklist.
-  if (process.platform === "win32") {
+  if (process.platform === 'win32') {
     processes = runTasklistProcesses();
-  } else if (existsSync("/proc")) {
+  } else if (existsSync('/proc')) {
     processes = readProcProcesses();
   } else {
     processes = runPsProcesses();
@@ -315,7 +322,8 @@ export function getSystemProcesses(filter?: SystemProcessFilter): SystemProcessI
     if (filter.name) {
       const nameLower = filter.name.toLowerCase();
       processes = processes.filter(
-        (p) => p.name.toLowerCase().includes(nameLower) || p.command.toLowerCase().includes(nameLower),
+        (p) =>
+          p.name.toLowerCase().includes(nameLower) || p.command.toLowerCase().includes(nameLower),
       );
     }
     if (filter.pid) {
@@ -329,11 +337,16 @@ export function getSystemProcesses(filter?: SystemProcessFilter): SystemProcessI
     if (filter.sortBy) {
       processes.sort((a, b) => {
         switch (filter.sortBy) {
-          case "cpu":  return b.cpuPercent - a.cpuPercent;
-          case "mem":  return b.memPercent - a.memPercent;
-          case "pid":  return a.pid - b.pid;
-          case "name": return a.name.localeCompare(b.name);
-          default:     return b.cpuPercent - a.cpuPercent;
+          case 'cpu':
+            return b.cpuPercent - a.cpuPercent;
+          case 'mem':
+            return b.memPercent - a.memPercent;
+          case 'pid':
+            return a.pid - b.pid;
+          case 'name':
+            return a.name.localeCompare(b.name);
+          default:
+            return b.cpuPercent - a.cpuPercent;
         }
       });
     }
@@ -358,7 +371,7 @@ export function getProcessByPid(pid: number): SystemProcessInfo | null {
 /**
  * Kill a process by PID. Returns true if successful.
  */
-export function killProcess(pid: number, signal: NodeJS.Signals = "SIGTERM"): boolean {
+export function killProcess(pid: number, signal: NodeJS.Signals = 'SIGTERM'): boolean {
   try {
     process.kill(pid, signal);
     return true;
@@ -384,15 +397,20 @@ export function killProcess(pid: number, signal: NodeJS.Signals = "SIGTERM"): bo
  * Best-effort: returns true if the root was signaled, false if it was
  * already gone. Never throws.
  */
-export function killTree(pid: number, signal: NodeJS.Signals = "SIGTERM"): boolean {
-  if (process.platform === "win32") {
+export function killTree(pid: number, signal: NodeJS.Signals = 'SIGTERM'): boolean {
+  if (process.platform === 'win32') {
     try {
       // /T = tree, /F = force. Windows has no clean SIGTERM-tree equivalent;
       // /F is the practical choice for stop/kill here.
-      execSync(`taskkill /pid ${pid} /T /F`, { stdio: "ignore", timeout: 5000 });
+      execSync(`taskkill /pid ${pid} /T /F`, { stdio: 'ignore', timeout: 5000 });
       return true;
     } catch {
-      try { process.kill(pid, signal); return true; } catch { return false; }
+      try {
+        process.kill(pid, signal);
+        return true;
+      } catch {
+        return false;
+      }
     }
   }
 
@@ -402,9 +420,14 @@ export function killTree(pid: number, signal: NodeJS.Signals = "SIGTERM"): boole
     return true;
   } catch (e) {
     const code = (e as NodeJS.ErrnoException).code;
-    if (code === "ESRCH") return false; // already gone
+    if (code === 'ESRCH') return false; // already gone
     // EPERM or other: try a plain single-PID kill as a last resort.
-    try { process.kill(pid, signal); return true; } catch { return false; }
+    try {
+      process.kill(pid, signal);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 
@@ -429,14 +452,17 @@ export function isProcessRunning(pid: number): boolean {
  * platform lookup fails.
  */
 export function getProcessMemRss(pid: number): number | null {
-  if (process.platform === "win32") {
+  if (process.platform === 'win32') {
     try {
-      const out = execSync(`tasklist /fi "PID eq ${pid}" /fo csv /nh 2>nul`, { encoding: "utf-8", timeout: 3000 });
-      for (const raw of out.split("\n")) {
+      const out = execSync(`tasklist /fi "PID eq ${pid}" /fo csv /nh 2>nul`, {
+        encoding: 'utf-8',
+        timeout: 3000,
+      });
+      for (const raw of out.split('\n')) {
         if (!raw.trim()) continue;
-        const parts = raw.split('","').map((p) => p.replace(/^"|"$/g, ""));
-        if (parseInt(parts[1] ?? "", 10) !== pid) continue;
-        const memKb = parseInt((parts[4] ?? "").replace(/[^\d]/g, ""), 10);
+        const parts = raw.split('","').map((p) => p.replace(/^"|"$/g, ''));
+        if (parseInt(parts[1] ?? '', 10) !== pid) continue;
+        const memKb = parseInt((parts[4] ?? '').replace(/[^\d]/g, ''), 10);
         return isNaN(memKb) ? null : memKb;
       }
       return null;
@@ -445,9 +471,17 @@ export function getProcessMemRss(pid: number): number | null {
     }
   }
 
-  if (process.platform === "darwin" || process.platform === "freebsd" || process.platform === "openbsd" || process.platform === "netbsd") {
+  if (
+    process.platform === 'darwin' ||
+    process.platform === 'freebsd' ||
+    process.platform === 'openbsd' ||
+    process.platform === 'netbsd'
+  ) {
     try {
-      const out = execSync(`ps -o rss= -p ${pid} 2>/dev/null`, { encoding: "utf-8", timeout: 3000 }).trim();
+      const out = execSync(`ps -o rss= -p ${pid} 2>/dev/null`, {
+        encoding: 'utf-8',
+        timeout: 3000,
+      }).trim();
       const kb = parseInt(out, 10);
       return isNaN(kb) ? null : kb;
     } catch {
@@ -457,7 +491,7 @@ export function getProcessMemRss(pid: number): number | null {
 
   // Linux / other /proc systems
   try {
-    const status = readFileSync(`/proc/${pid}/status`, "utf-8");
+    const status = readFileSync(`/proc/${pid}/status`, 'utf-8');
     const m = status.match(/VmRSS:\s+(\d+)/);
     return m ? parseInt(m[1]!, 10) : null;
   } catch {
@@ -471,7 +505,11 @@ export function getProcessMemRss(pid: number): number | null {
  * localhost (which often resolves to ::1, e.g. Next.js/Vite) aren't falsely
  * reported as "not listening". Resolves true if EITHER connects.
  */
-export function checkPort(port: number, host: string = "127.0.0.1", timeout = 1000): Promise<boolean> {
+export function checkPort(
+  port: number,
+  host: string = '127.0.0.1',
+  timeout = 1000,
+): Promise<boolean> {
   const tryHost = (h: string): Promise<boolean> =>
     new Promise((resolve) => {
       const socket = new net.Socket();
@@ -483,13 +521,13 @@ export function checkPort(port: number, host: string = "127.0.0.1", timeout = 10
         resolve(result);
       };
       socket.setTimeout(timeout);
-      socket.once("connect", () => finish(true));
-      socket.once("timeout", () => finish(false));
-      socket.once("error", () => finish(false));
+      socket.once('connect', () => finish(true));
+      socket.once('timeout', () => finish(false));
+      socket.once('error', () => finish(false));
       socket.connect(port, h);
     });
 
-  return tryHost(host).then((ok) => (ok ? true : tryHost("::1")));
+  return tryHost(host).then((ok) => (ok ? true : tryHost('::1')));
 }
 
 /**
@@ -502,7 +540,7 @@ export async function checkHttp(url: string, timeout = 2000): Promise<boolean> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
   try {
-    const res = await fetch(url, { method: "GET", signal: controller.signal, redirect: "manual" });
+    const res = await fetch(url, { method: 'GET', signal: controller.signal, redirect: 'manual' });
     return res.status >= 200 && res.status < 400;
   } catch {
     return false;
@@ -519,7 +557,7 @@ export async function checkHttp(url: string, timeout = 2000): Promise<boolean> {
  */
 export function resolveHealthUrl(healthCheck: string, port?: number): string | null {
   if (/^https?:\/\//i.test(healthCheck)) return healthCheck;
-  if (healthCheck.startsWith("/")) {
+  if (healthCheck.startsWith('/')) {
     if (!port) return null;
     return `http://127.0.0.1:${port}${healthCheck}`;
   }
@@ -534,28 +572,28 @@ export function resolveHealthUrl(healthCheck: string, port?: number): string | n
  * via raw bash) instead of spawning a duplicate that fails with EADDRINUSE.
  */
 export function findPidOnPort(port: number): { pid: number; command: string } | null {
-  if (process.platform === "win32") return findPidOnPortWindows(port);
-  if (process.platform === "darwin") return findPidOnPortMac(port);
+  if (process.platform === 'win32') return findPidOnPortWindows(port);
+  if (process.platform === 'darwin') return findPidOnPortMac(port);
   return findPidOnPortLinux(port);
 }
 
 function findPidOnPortLinux(port: number): { pid: number; command: string } | null {
   try {
-    const hexPort = port.toString(16).toUpperCase().padStart(4, "0");
+    const hexPort = port.toString(16).toUpperCase().padStart(4, '0');
     const inodes = new Set<number>();
-    for (const f of ["/proc/net/tcp", "/proc/net/tcp6"]) {
+    for (const f of ['/proc/net/tcp', '/proc/net/tcp6']) {
       if (!existsSync(f)) continue;
-      for (const line of readFileSync(f, "utf-8").split("\n").slice(1)) {
+      for (const line of readFileSync(f, 'utf-8').split('\n').slice(1)) {
         const cols = line.trim().split(/\s+/);
         if (cols.length < 10) continue;
-        if (cols[3] !== "0A") continue; // 0A = LISTEN
-        const localPort = cols[1]?.split(":")[1];
-        const inode = parseInt(cols[9] ?? "", 10);
+        if (cols[3] !== '0A') continue; // 0A = LISTEN
+        const localPort = cols[1]?.split(':')[1];
+        const inode = parseInt(cols[9] ?? '', 10);
         if (localPort === hexPort && !Number.isNaN(inode)) inodes.add(inode);
       }
     }
     if (inodes.size === 0) return null;
-    for (const pidStr of readdirSync("/proc").filter((d) => /^\d+$/.test(d))) {
+    for (const pidStr of readdirSync('/proc').filter((d) => /^\d+$/.test(d))) {
       const pid = parseInt(pidStr, 10);
       try {
         const fdDir = `/proc/${pid}/fd`;
@@ -563,10 +601,12 @@ function findPidOnPortLinux(port: number): { pid: number; command: string } | nu
           const link = readlinkSync(`${fdDir}/${fd}`);
           const m = link.match(/socket:\[(\d+)\]/);
           if (m && inodes.has(parseInt(m[1]!, 10))) {
-            return { pid, command: getProcessCmdline(pid) ?? "" };
+            return { pid, command: getProcessCmdline(pid) ?? '' };
           }
         }
-      } catch { /* pid may have exited */ }
+      } catch {
+        /* pid may have exited */
+      }
     }
     return null;
   } catch {
@@ -576,13 +616,16 @@ function findPidOnPortLinux(port: number): { pid: number; command: string } | nu
 
 function findPidOnPortMac(port: number): { pid: number; command: string } | null {
   try {
-    const out = execSync(`lsof -i :${port} -sTCP:LISTEN -P -n 2>/dev/null`, { encoding: "utf-8", timeout: 5000 });
-    for (const line of out.split("\n")) {
-      if (!line.includes("LISTEN")) continue;
+    const out = execSync(`lsof -i :${port} -sTCP:LISTEN -P -n 2>/dev/null`, {
+      encoding: 'utf-8',
+      timeout: 5000,
+    });
+    for (const line of out.split('\n')) {
+      if (!line.includes('LISTEN')) continue;
       const parts = line.trim().split(/\s+/);
       if (parts.length >= 2) {
         const pid = parseInt(parts[1]!, 10);
-        if (!isNaN(pid)) return { pid, command: parts[0] ?? "" };
+        if (!isNaN(pid)) return { pid, command: parts[0] ?? '' };
       }
     }
     return null;
@@ -593,14 +636,14 @@ function findPidOnPortMac(port: number): { pid: number; command: string } | null
 
 function findPidOnPortWindows(port: number): { pid: number; command: string } | null {
   try {
-    const out = execSync(`netstat -ano -p tcp 2>nul`, { encoding: "utf-8", timeout: 5000 });
+    const out = execSync(`netstat -ano -p tcp 2>nul`, { encoding: 'utf-8', timeout: 5000 });
     const target = `:${port} `;
-    for (const line of out.split("\n")) {
+    for (const line of out.split('\n')) {
       const upper = line.toUpperCase();
-      if (!upper.includes("LISTENING")) continue;
+      if (!upper.includes('LISTENING')) continue;
       if (!upper.includes(target)) continue;
-      const pid = parseInt(line.trim().split(/\s+/).pop() ?? "", 10);
-      if (!isNaN(pid)) return { pid, command: getProcessCmdline(pid) ?? "" };
+      const pid = parseInt(line.trim().split(/\s+/).pop() ?? '', 10);
+      if (!isNaN(pid)) return { pid, command: getProcessCmdline(pid) ?? '' };
     }
     return null;
   } catch {
@@ -614,15 +657,15 @@ function findPidOnPortWindows(port: number): { pid: number; command: string } | 
  * unavailable — callers should treat null as "cannot verify", not "mismatch".
  */
 export function getProcessCmdline(pid: number): string | null {
-  if (process.platform === "win32") return getProcessCmdlineWindows(pid);
-  if (process.platform === "darwin") return getProcessCmdlineMac(pid);
+  if (process.platform === 'win32') return getProcessCmdlineWindows(pid);
+  if (process.platform === 'darwin') return getProcessCmdlineMac(pid);
   return getProcessCmdlineLinux(pid);
 }
 
 function getProcessCmdlineLinux(pid: number): string | null {
   try {
-    const raw = readFileSync(`/proc/${pid}/cmdline`, "utf-8");
-    const joined = raw.split("\0").filter(Boolean).join(" ").trim();
+    const raw = readFileSync(`/proc/${pid}/cmdline`, 'utf-8');
+    const joined = raw.split('\0').filter(Boolean).join(' ').trim();
     return joined.length > 0 ? joined : null;
   } catch {
     return null;
@@ -631,7 +674,7 @@ function getProcessCmdlineLinux(pid: number): string | null {
 
 function getProcessCmdlineMac(pid: number): string | null {
   try {
-    const out = execSync(`ps -p ${pid} -o command=`, { encoding: "utf-8", timeout: 3000 });
+    const out = execSync(`ps -p ${pid} -o command=`, { encoding: 'utf-8', timeout: 3000 });
     const trimmed = out.trim();
     return trimmed.length > 0 ? trimmed : null;
   } catch {
@@ -641,9 +684,12 @@ function getProcessCmdlineMac(pid: number): string | null {
 
 function getProcessCmdlineWindows(pid: number): string | null {
   try {
-    const out = execSync(`wmic process where ProcessId=${pid} get CommandLine /value 2>nul`, { encoding: "utf-8", timeout: 3000 });
-    const line = out.split("\n").find((l) => l.includes("="));
-    const value = line?.split("=")[1]?.trim();
+    const out = execSync(`wmic process where ProcessId=${pid} get CommandLine /value 2>nul`, {
+      encoding: 'utf-8',
+      timeout: 3000,
+    });
+    const line = out.split('\n').find((l) => l.includes('='));
+    const value = line?.split('=')[1]?.trim();
     return value ? value : null;
   } catch {
     return null;
@@ -656,17 +702,20 @@ function getProcessCmdlineWindows(pid: number): string | null {
  * tolerate null.
  */
 export function getProcessCwd(pid: number): string | null {
-  if (process.platform === "linux") {
+  if (process.platform === 'linux') {
     try {
       return readlinkSync(`/proc/${pid}/cwd`) || null;
     } catch {
       return null;
     }
   }
-  if (process.platform === "darwin") {
+  if (process.platform === 'darwin') {
     try {
-      const out = execSync(`lsof -p ${pid} -a -d cwd -F n 2>/dev/null`, { encoding: "utf-8", timeout: 3000 });
-      const line = out.split("\n").find((l) => l.startsWith("n"));
+      const out = execSync(`lsof -p ${pid} -a -d cwd -F n 2>/dev/null`, {
+        encoding: 'utf-8',
+        timeout: 3000,
+      });
+      const line = out.split('\n').find((l) => l.startsWith('n'));
       return line ? line.slice(1) : null;
     } catch {
       return null;
@@ -683,11 +732,11 @@ export function getProcessCwd(pid: number): string | null {
  */
 export function getProcessEnviron(pid: number): Record<string, string> | null {
   try {
-    const raw = readFileSync(`/proc/${pid}/environ`, "utf-8");
+    const raw = readFileSync(`/proc/${pid}/environ`, 'utf-8');
     const env: Record<string, string> = {};
-    for (const pair of raw.split("\0")) {
+    for (const pair of raw.split('\0')) {
       if (!pair) continue;
-      const eq = pair.indexOf("=");
+      const eq = pair.indexOf('=');
       if (eq === -1) continue;
       env[pair.slice(0, eq)] = pair.slice(eq + 1);
     }
@@ -702,14 +751,23 @@ export function getProcessEnviron(pid: number): Record<string, string> | null {
  */
 export function formatProcessState(state: string): string {
   switch (state) {
-    case "R": return "Running";
-    case "S": return "Sleeping";
-    case "D": return "Disk Sleep";
-    case "Z": return "Zombie";
-    case "T": return "Stopped";
-    case "t": return "Tracing";
-    case "X": return "Dead";
-    case "I": return "Idle";
-    default:  return state;
+    case 'R':
+      return 'Running';
+    case 'S':
+      return 'Sleeping';
+    case 'D':
+      return 'Disk Sleep';
+    case 'Z':
+      return 'Zombie';
+    case 'T':
+      return 'Stopped';
+    case 't':
+      return 'Tracing';
+    case 'X':
+      return 'Dead';
+    case 'I':
+      return 'Idle';
+    default:
+      return state;
   }
 }

@@ -4,13 +4,13 @@ AI-powered multi-step execution planning. Describe a goal in natural language an
 
 ## Tools
 
-| Tool | Description | Parameters |
-|------|-------------|------------|
+| Tool                   | Description                                                                        | Parameters            |
+| ---------------------- | ---------------------------------------------------------------------------------- | --------------------- |
 | `planner_execute_goal` | Plan + execute in one call. Converts goal to plan to workflow, executes every step | goal, initialContext? |
-| `planner_create_plan` | Preview a plan WITHOUT executing (review steps first) | goal |
-| `planner_list_plans` | List all previously created plans with execution status | — |
-| `planner_get_plan` | Get detailed info about a specific plan by ID | planId |
-| `planner_cancel_plan` | Cancel a running plan execution | planId |
+| `planner_create_plan`  | Preview a plan WITHOUT executing (review steps first)                              | goal                  |
+| `planner_list_plans`   | List all previously created plans with execution status                            | —                     |
+| `planner_get_plan`     | Get detailed info about a specific plan by ID                                      | planId                |
+| `planner_cancel_plan`  | Cancel a running plan execution                                                    | planId                |
 
 ## How It Works
 
@@ -41,8 +41,8 @@ WorkflowEngine.executePlan(plan)
 
 ```typescript
 // Plan + execute in one call
-const result = await toolRegistry.call("planner_execute_goal", {
-  goal: "login to my app"
+const result = await toolRegistry.call('planner_execute_goal', {
+  goal: 'login to my app',
 });
 // Returns: {
 //   success: true,
@@ -55,13 +55,13 @@ const result = await toolRegistry.call("planner_execute_goal", {
 // }
 
 // Preview a plan without executing
-const preview = await toolRegistry.call("planner_create_plan", {
-  goal: "debug the login error on the page"
+const preview = await toolRegistry.call('planner_create_plan', {
+  goal: 'debug the login error on the page',
 });
 // Returns: { planId, goal, steps: [{id, description, tool, input}], totalSteps }
 
 // List all plans
-const plans = await toolRegistry.call("planner_list_plans", {});
+const plans = await toolRegistry.call('planner_list_plans', {});
 // Returns: { totalPlans: N, plans: [{id, goal, status, steps, createdAt}] }
 ```
 
@@ -69,11 +69,11 @@ const plans = await toolRegistry.call("planner_list_plans", {});
 
 The planner understands common development tasks:
 
-| Goal Pattern | Typical Steps |
-|-------------|---------------|
-| "login to my app" | navigate → fill username → fill password → submit |
-| "debug page error" | get current URL → get console logs → get failed requests → screenshot |
-| "fill form and submit" | detect fields → fill fields → click submit |
-| "take a screenshot" | navigate → wait for load → screenshot |
-| "checkout cart" | navigate to cart → fill details → submit |
-| "diagnose full-stack" | check browser → check server logs → correlate |
+| Goal Pattern           | Typical Steps                                                         |
+| ---------------------- | --------------------------------------------------------------------- |
+| "login to my app"      | navigate → fill username → fill password → submit                     |
+| "debug page error"     | get current URL → get console logs → get failed requests → screenshot |
+| "fill form and submit" | detect fields → fill fields → click submit                            |
+| "take a screenshot"    | navigate → wait for load → screenshot                                 |
+| "checkout cart"        | navigate to cart → fill details → submit                              |
+| "diagnose full-stack"  | check browser → check server logs → correlate                         |
