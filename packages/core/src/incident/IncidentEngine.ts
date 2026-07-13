@@ -81,11 +81,23 @@ const INFERENCE_RULES: InferenceRule[] = [
     severity: 'error',
   },
   {
+    // Higher confidence: only when a console error confirms a CORS/mixed-content
+    // block (message contains "blocked"). A lone status:0 request is ambiguous
+    // and is handled by the generic rule below at lower confidence.
+    pattern: 'browser:network:0 + browser:console:blocked',
+    category: 'network',
+    rootCause: 'CORS or mixed-content blocked request',
+    confidence: 0.9,
+    fix: 'Add the correct CORS headers (Access-Control-Allow-Origin) on the server, or serve the resource over HTTPS to avoid a mixed-content block',
+    severity: 'error',
+  },
+  {
     pattern: 'browser:network:0',
     category: 'network',
-    rootCause: 'Network request blocked (CORS, mixed content, or connection refused)',
-    confidence: 0.85,
-    fix: 'Check CORS headers, ensure the endpoint is reachable, and verify HTTPS consistency',
+    rootCause:
+      'Network request failed (status 0) — cause ambiguous: possible CORS, mixed content, or connection refused. Confirm against the console error text before acting.',
+    confidence: 0.7,
+    fix: 'Inspect the console for a CORS/mixed-content error or connection refusal; verify the endpoint is reachable and served over a consistent scheme (HTTP/HTTPS).',
     severity: 'error',
   },
   {

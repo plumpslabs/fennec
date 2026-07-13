@@ -91,6 +91,21 @@ function getConsoleSummary(consoleBuffer: Array<{ level: string; message: string
   return parts.join('. ');
 }
 
+/** Compact, human-readable summary of a raw bus event (used to expose incident evidence). */
+function summarizeEvent(e: { type: string; data: Record<string, unknown> }): string {
+  const d = e.data as Record<string, unknown>;
+  if (e.type === 'browser:console') {
+    return `[console:${String(d.level ?? '?')}] ${String(d.message ?? '').slice(0, 200)}`;
+  }
+  if (e.type === 'browser:network') {
+    return `[network] ${String(d.method ?? '?')} ${String(d.url ?? '').slice(0, 120)} → ${String(d.status ?? '?')}`;
+  }
+  if (e.type === 'process:stderr' || e.type === 'process:stdout') {
+    return `[${e.type}] ${String(d.message ?? d.line ?? '').slice(0, 200)}`;
+  }
+  return `${e.type} ${JSON.stringify(d).slice(0, 200)}`;
+}
+
 // ─── Helper: Build network summary ───────────────────────────────
 
 function getNetworkSummary(
@@ -335,6 +350,12 @@ export const aiDiagnose = createTool({
               rootCause: inc.rootCause,
               confidence: inc.confidence,
               fix: inc.fix,
+              evidence: inc.evidence
+                ? {
+                    trigger: summarizeEvent(inc.evidence.trigger),
+                    related: (inc.evidence.related ?? []).map(summarizeEvent),
+                  }
+                : undefined,
             })),
             summary: `[${topIncident.category.toUpperCase()}] ${topIncident.rootCause} (${Math.round(topIncident.confidence * 100)}% confidence)`,
           },
