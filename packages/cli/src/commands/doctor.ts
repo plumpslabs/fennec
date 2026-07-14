@@ -74,9 +74,15 @@ export async function doctorCommand(args: string[] = []): Promise<void> {
     try {
       execSync('git check-ignore -q .fennec', { cwd: process.cwd(), stdio: 'ignore' });
       ignored = true;
-    } catch (err) {
-      // git absent (ENOENT) -> can't determine; skip the warning rather than false-alarm.
-      ignored = (err as NodeJS.ErrnoException)?.code === 'ENOENT';
+    } catch (err: any) {
+      // If exit status is 1, it means the path is NOT ignored.
+      // If exit status is 128, it means we are not in a git repository.
+      // If git is not installed, it throws ENOENT.
+      if (err.status === 1) {
+        ignored = false;
+      } else {
+        ignored = true;
+      }
     }
     if (!ignored) {
       problems.push(

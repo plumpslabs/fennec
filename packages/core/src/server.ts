@@ -160,7 +160,7 @@ import {
   processCleanupTracked,
   processClearLogs,
 } from './tools/process/index.js';
-import { inspect, supervisorControl, persistControl } from './tools/process/supervisor.js';
+import { inspect, supervisorControl, persistControl, doctor } from './tools/process/supervisor.js';
 import {
   terminalWatchFile,
   terminalGetLogs,
@@ -441,6 +441,7 @@ export class FennecServer {
       inspect,
       supervisorControl,
       persistControl,
+      doctor,
       terminalWatchFile,
       terminalGetLogs,
       terminalGetErrors,

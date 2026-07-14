@@ -313,3 +313,28 @@ async function checkPort(port: number): Promise<boolean> {
     });
   return (await tryHost('127.0.0.1')) || (await tryHost('::1'));
 }
+
+// ─── doctor ─────────────────────────────────────────────────────────
+export const doctor = createTool({
+  name: 'doctor',
+  category: 'process',
+  description:
+    '`<use_case>DIAGNOSING fennec health</use_case> Run the Fennec store and process diagnostic doctor utility. Set fix = true to automatically clean up duplicate server processes, orphaned supervisors, and leaked Chrome/Chromium processes.`',
+  inputSchema: z.object({
+    fix: z.boolean().optional().describe('Attempt to automatically fix detected issues (kills duplicate processes)'),
+  }),
+  handler: async (input, { responseBuilder }) => {
+    try {
+      const args = ['doctor'];
+      if (input.fix) args.push('--fix');
+      const res = runCli(args);
+      return responseBuilder.success({
+        ok: res.ok,
+        output: res.out,
+      });
+    } catch (error) {
+      return responseBuilder.error(error, { code: 'DOCTOR_FAILED' });
+    }
+  },
+});
+
