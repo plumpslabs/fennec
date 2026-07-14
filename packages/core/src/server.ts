@@ -209,6 +209,7 @@ import {
 } from './tools/scheduler/index.js';
 import {
   smartWait,
+  smartWaitForSpa,
   smartNavigate,
   smartFillForm,
   smartValidateForm,
@@ -459,6 +460,7 @@ export class FennecServer {
       schedulerEnableRule,
       schedulerClearHistory,
       smartWait,
+      smartWaitForSpa,
       smartNavigate,
       smartFillForm,
       smartValidateForm,

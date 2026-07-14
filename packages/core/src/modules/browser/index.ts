@@ -106,6 +106,7 @@ import {
 } from '../../tools/tabs/index.js';
 import {
   smartWait,
+  smartWaitForSpa,
   smartNavigate,
   smartFillForm,
   smartValidateForm,
@@ -216,6 +217,7 @@ export const browserModule: FennecModule = {
     sessionRecover,
     // Smart
     smartWait,
+    smartWaitForSpa,
     smartNavigate,
     smartFillForm,
     smartValidateForm,

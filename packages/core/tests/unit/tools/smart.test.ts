@@ -11,7 +11,7 @@ vi.mock('../../../src/utils/selector.js', () => ({
 }));
 
 // Now import the functions under test
-import { findSubmitButton, fillField, type DetectedField } from '../../../src/tools/smart/index.js';
+import { findSubmitButton, fillField, type DetectedField, smartWaitForSpa } from '../../../src/tools/smart/index.js';
 
 // ─── Helpers ───────────────────────────────────────────────────
 
@@ -365,3 +365,27 @@ describe('fillField', () => {
     });
   });
 });
+
+describe('smart_wait_for_spa tool', () => {
+  it('should have correct name', () => {
+    expect(smartWaitForSpa.name).toBe('smart_wait_for_spa');
+  });
+
+  it('should have description mentioning SPA', () => {
+    expect(smartWaitForSpa.description).toContain('<use_case>');
+    expect(smartWaitForSpa.description).toContain('Wait for a Single Page Application');
+  });
+
+  it('should parse optional params correctly', () => {
+    const result = smartWaitForSpa.inputSchema.safeParse({
+      stabilityDelay: 200,
+      timeout: 5000,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.stabilityDelay).toBe(200);
+      expect(result.data.timeout).toBe(5000);
+    }
+  });
+});
+
