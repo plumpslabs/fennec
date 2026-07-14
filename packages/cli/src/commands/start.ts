@@ -299,6 +299,7 @@ export async function resurrectTracked(): Promise<void> {
   const spinner = createSpinner(`Resurrecting ${dead.length} stopped process(es)...`);
   let resurrected = 0;
   let failed = 0;
+  let needsSupervisor = false;
 
   for (const proc of dead) {
     // Only resurrect if the process has a command (not just a PID reference)
@@ -337,9 +338,16 @@ export async function resurrectTracked(): Promise<void> {
       });
 
       resurrected++;
+      if (proc.autoRestart) {
+        needsSupervisor = true;
+      }
     } catch {
       failed++;
     }
+  }
+
+  if (needsSupervisor && resurrected > 0) {
+    ensureSupervisorRunning();
   }
 
   spinner.stop();

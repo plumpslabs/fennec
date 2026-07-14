@@ -16,6 +16,8 @@ import { execSync } from 'node:child_process';
 import { StoreManager } from '@plumpslabs/fennec-core';
 import pc from 'picocolors';
 import { renderError } from '../utils/format.js';
+import { getSystemProcesses } from '../utils/system-process.js';
+import { getSupervisorPid } from './supervisor.js';
 
 export async function doctorCommand(): Promise<void> {
   const mgr = new StoreManager(false);
@@ -81,6 +83,55 @@ export async function doctorCommand(): Promise<void> {
           `      It can hold sessions + tracked processes — add '.fennec/' to .gitignore or remove it.`,
       );
     }
+  }
+
+  // 5. active process checks (duplicates/orphans)
+  try {
+    const processes = getSystemProcesses({ userOnly: true });
+
+    // Find fennec start / server processes
+    const serverProcs = processes.filter(
+      (p) =>
+        (p.name.includes('fennec') || p.command.includes('fennec')) &&
+        (p.command.includes('start') || p.command.includes('server')) &&
+        !p.command.includes('doctor') &&
+        p.pid !== process.pid,
+    );
+    if (serverProcs.length > 1) {
+      problems.push(
+        `Multiple duplicate Fennec MCP server processes are running: ${serverProcs.map((p) => p.pid).join(', ')}\n` +
+          `      These can conflict over shared config, state, and browser contexts.\n` +
+          `      Fix: run 'kill ${serverProcs.map((p) => p.pid).join(' ')}'`,
+      );
+    }
+
+    // Find supervisor processes
+    const supervisorProcs = processes.filter(
+      (p) => p.name.includes('__supervisor') || p.command.includes('__supervisor'),
+    );
+    const activeSupPid = getSupervisorPid();
+    const orphanedSupervisors = supervisorProcs.filter((p) => p.pid !== activeSupPid);
+    if (orphanedSupervisors.length > 0) {
+      problems.push(
+        `${orphanedSupervisors.length} orphaned/duplicate supervisor process(es) running: ${orphanedSupervisors.map((p) => p.pid).join(', ')}\n` +
+          `      These background daemons are no longer active in the pidfile but are still polling state.\n` +
+          `      Fix: run 'kill ${orphanedSupervisors.map((p) => p.pid).join(' ')}'`,
+      );
+    }
+
+    // Find stale Playwright/Chromium instances owned by Fennec
+    const playwrightProcs = processes.filter(
+      (p) => p.name.toLowerCase().includes('chrome') || p.name.toLowerCase().includes('chromium'),
+    );
+    if (playwrightProcs.length > 3) {
+      notes.push(
+        `There are ${playwrightProcs.length} active Chrome/Chromium processes running.\n` +
+          `      Ensure you do not have leaked or orphaned browser contexts from dead Fennec sessions.\n` +
+          `      Fix: run 'killall chrome chromium' if you are not using them.`,
+      );
+    }
+  } catch (err) {
+    // ignore process inspection failures
   }
 
   console.error(`\n  ${pc.bold('Fennec Doctor')}\n`);
