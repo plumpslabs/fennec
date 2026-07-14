@@ -15,7 +15,7 @@
 import { z } from 'zod';
 import { createTool } from '../_registry.js';
 import { getLogger } from '../../utils/logger.js';
-import { readTracked } from '../../process/tracking.js';
+import { readTracked, isTrackedRunning } from '../../process/tracking.js';
 import { isProcessRunning } from '../../utils/system-process.js';
 
 // ─── Helper: Build a DOM summary from the page ──────────────────
@@ -203,8 +203,8 @@ export const observe = createTool({
     if (sources.includes('process')) {
       const tracked = readTracked();
       if (tracked.length > 0) {
-        const running = tracked.filter((t) => isProcessRunning(t.pid));
-        const stopped = tracked.filter((t) => !isProcessRunning(t.pid));
+        const running = tracked.filter((t) => isTrackedRunning(t));
+        const stopped = tracked.filter((t) => !isTrackedRunning(t));
         result.process = {
           tracked,
           runningCount: running.length,

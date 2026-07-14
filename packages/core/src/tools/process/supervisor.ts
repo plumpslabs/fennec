@@ -17,7 +17,7 @@ import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { readTracked } from '../../process/tracking.js';
+import { readTracked, isTrackedRunning } from '../../process/tracking.js';
 import { isProcessRunning } from '../../utils/system-process.js';
 import {
   readLogLines,
@@ -124,7 +124,7 @@ export const inspect = createTool({
           code: 'PROCESS_NOT_FOUND',
         });
       }
-      const running = isProcessRunning(proc.pid);
+      const running = isTrackedRunning(proc);
       // Hard-bounded line count (token-safe). Tightens further if the AI
       // context has a token budget. Never returns more than this.
       const cap = clampLineCount(input.tail, 40, 200, tokenBudget);
@@ -224,7 +224,7 @@ export const supervisorControl = createTool({
           pid,
           managedApps: managed.map((m) => ({
             name: m.name,
-            running: isProcessRunning(m.pid),
+            running: isTrackedRunning(m),
             pid: m.pid,
           })),
         });

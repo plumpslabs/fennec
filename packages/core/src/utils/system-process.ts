@@ -127,3 +127,23 @@ export function getProcessMemRss(pid: number): number | null {
     return null;
   }
 }
+
+/**
+ * Read /proc/<pid>/environ to verify ownership via environment markers.
+ * Null when unavailable (non-Linux or process exited).
+ */
+export function getProcessEnviron(pid: number): Record<string, string> | null {
+  try {
+    const raw = readFileSync(`/proc/${pid}/environ`, 'utf-8');
+    const env: Record<string, string> = {};
+    for (const pair of raw.split('\0')) {
+      if (!pair) continue;
+      const eq = pair.indexOf('=');
+      if (eq === -1) continue;
+      env[pair.slice(0, eq)] = pair.slice(eq + 1);
+    }
+    return env;
+  } catch {
+    return null;
+  }
+}
