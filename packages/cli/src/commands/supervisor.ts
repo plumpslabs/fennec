@@ -355,6 +355,8 @@ export async function runSupervisor(): Promise<void> {
                 `${t.name}: alive but ${probe} not responding ${PORT_FAIL_THRESHOLD}x — restarting`,
               );
               try {
+                const latest = readTracked().find((x) => x.name === t.name);
+                if (!latest || !latest.autoRestart) continue;
                 const newPid = respawnTracked(t, 'port-down');
                 log(`${t.name}: restarted (PID ${newPid}) after ${probe} failure`);
               } catch (err) {
@@ -369,6 +371,14 @@ export async function runSupervisor(): Promise<void> {
       }
 
       if (isTrackedRunning(t)) continue;
+
+      // Double-check latest tracked.json to avoid race conditions with manual stop
+      try {
+        const latest = readTracked().find((x) => x.name === t.name);
+        if (!latest || !latest.autoRestart) continue;
+      } catch {
+        // ignore read error
+      }
 
       // Crash-loop backoff.
       const now = Date.now();
