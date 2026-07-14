@@ -306,6 +306,21 @@ export async function runSupervisor(): Promise<void> {
 
   const tick = async (): Promise<void> => {
     if (stopped) return;
+
+    // Self-heal/cleanup duplicate daemons: if our PID is no longer the active one in the pidfile, exit!
+    try {
+      if (existsSync(pidPath)) {
+        const activePid = parseInt(readFileSync(pidPath, 'utf-8').trim(), 10);
+        if (!isNaN(activePid) && activePid !== process.pid) {
+          log(`another supervisor is active (PID ${activePid}); current PID ${process.pid} exiting gracefully`);
+          cleanup();
+          return;
+        }
+      }
+    } catch {
+      // ignore read error
+    }
+
     let tracked;
     try {
       tracked = readTracked();
