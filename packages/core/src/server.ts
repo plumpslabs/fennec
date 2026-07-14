@@ -819,6 +819,10 @@ export class FennecServer {
         if (req.method === 'GET' && url.pathname === '/sse') {
           // SSE endpoint: create a new SSEServerTransport for this connection
           logger.info('SSE client connected');
+
+          // Close any existing transport connection to avoid "Already connected" error
+          await this.server.close().catch(() => {});
+
           this.sseTransport = new SSEServerTransport('/messages', res);
 
           try {
@@ -831,9 +835,10 @@ export class FennecServer {
           }
 
           // Handle client disconnect
-          req.on('close', () => {
+          req.on('close', async () => {
             logger.info('SSE client disconnected');
             this.sseTransport = null;
+            await this.server.close().catch(() => {});
           });
         } else if (req.method === 'POST' && url.pathname === '/messages') {
           // Message endpoint: forward POST data to existing SSE transport

@@ -2,6 +2,11 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.14.7] - 2026-07-14
+
+### Fixed
+- **SSE Client Reconnection Error.** Safely close the existing transport connection state before registering a new connection attempt via SSE (`GET /sse`), preventing the "Already connected to a transport" exception on client reconnection or IDE restarts.
+
 ## [1.14.6] - 2026-07-14
 
 ### Added
