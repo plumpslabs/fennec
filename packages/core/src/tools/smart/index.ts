@@ -2063,13 +2063,28 @@ export const smartNavigate = createTool({
 
       return responseBuilder.success(result, meta);
     } catch (error) {
+      const msg = (error instanceof Error ? error.message : String(error)).toLowerCase();
+      const suggestions = [
+        'Check if the URL is valid and accessible',
+        'Verify network connectivity',
+        'The page may require authentication',
+      ];
+      if (
+        /localhost|127\.0\.0\.1/i.test(input.url) &&
+        (msg.includes('refused') ||
+          msg.includes('unreachable') ||
+          msg.includes('dns') ||
+          msg.includes('enotfound') ||
+          msg.includes('timeout'))
+      ) {
+        suggestions.unshift(
+          "⚠️ Fennec's browser is running inside a separate environment/sandbox. Localhost dev servers are not directly reachable. Try using 'host.docker.internal' (if inside Docker) or expose your local port via a tunnel (e.g. 'ngrok http <port>' or 'lt --port <port>').",
+        );
+      }
+
       return responseBuilder.error(error, {
         code: 'NAVIGATION_FAILED',
-        suggestions: [
-          'Check if the URL is valid and accessible',
-          'Verify network connectivity',
-          'The page may require authentication',
-        ],
+        suggestions,
       });
     }
   },
