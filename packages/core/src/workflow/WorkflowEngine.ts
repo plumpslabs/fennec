@@ -128,7 +128,6 @@ export class WorkflowEngine {
           stepId: step.id,
           type: step.type,
           params: step.params,
-          context,
           timestamp: Date.now(),
         };
       },

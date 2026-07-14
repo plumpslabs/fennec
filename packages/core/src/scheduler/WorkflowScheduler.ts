@@ -419,7 +419,6 @@ export class WorkflowScheduler {
                 tool: toolName,
                 input: toolInput ?? {},
                 scheduled: true,
-                context,
                 timestamp: Date.now(),
               };
             }
@@ -431,7 +430,6 @@ export class WorkflowScheduler {
             type: step.type,
             params: step.params,
             scheduled: true,
-            context,
             timestamp: Date.now(),
           };
         },
