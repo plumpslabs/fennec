@@ -71,7 +71,7 @@ async function buildPulse(session: {
   // Count network issues (fast, in-memory)
   for (const req of session.networkBuffer) {
     if (req.status >= 400) pulse.networkFailures++;
-    if (req.duration > 1000) pulse.networkSlow++;
+    if (req.duration > 5000) pulse.networkSlow++;
   }
 
   // Severity-weighted status:
