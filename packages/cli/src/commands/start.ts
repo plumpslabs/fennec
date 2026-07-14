@@ -216,6 +216,19 @@ export async function runCommand(args: string[]): Promise<void> {
 
     const pid = currentChild.pid ?? 0;
 
+    // PID 0 means the spawn failed (ENOENT, permission denied, etc.).
+    // The 'error' event will fire asynchronously; bail early to avoid
+    // persisting an invalid entry and crashing on isProcessRunning(0).
+    if (pid === 0) {
+      console.error(
+        `  ${pc.red('✗')} ${pc.bold(appName)} ${pc.dim('failed to start — command not found or permission denied')}`,
+      );
+      console.error(`  ${renderKV('Command', cmd)}`);
+      if (cwd) console.error(`  ${renderKV('Directory', cwd)}`);
+      console.error();
+      process.exit(1);
+    }
+
     addTracked({
       name: appName,
       pid,
@@ -320,6 +333,12 @@ export async function resurrectTracked(): Promise<void> {
         env: buildSpawnEnv(proc.env),
         logMode: proc.logMode,
       });
+
+      // PID 0 means the spawn failed — count as failed and skip.
+      if ((child.pid ?? 0) === 0) {
+        failed++;
+        continue;
+      }
 
       // Update PID in tracked.json — preserve autoRestart so the supervisor
       // keeps managing it, and carry restartCause forward.

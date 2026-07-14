@@ -633,6 +633,11 @@ export const processSpawnTracked = createTool({
           detached: true,
         });
         const newPid = child.pid ?? 0;
+        // PID 0 means the spawn failed — skip this entry.
+        if (newPid === 0) {
+          skipped.push({ name: m.name, reason: 'spawn_failed_no_pid' });
+          return;
+        }
         mkdirSync(dirname(logFilePath), { recursive: true });
         const logStream = createWriteStream(logFilePath, { flags: 'a' });
         if (child.stdout) child.stdout.pipe(logStream);
@@ -854,16 +859,21 @@ export const processRestart = createTool({
             stdio: ['ignore', 'pipe', 'pipe'],
             detached: true,
           });
-          const newPid = child.pid ?? 0;
-          mkdirSync(dirname(logFilePath), { recursive: true });
-          const logStream = createWriteStream(logFilePath, { flags: 'a' });
-          if (child.stdout) child.stdout.pipe(logStream);
-          if (child.stderr) child.stderr.pipe(logStream);
-          child.unref();
-          removeTrackedByPid(m.pid);
-          addTracked({
-            name: m.name,
-            pid: newPid,
+        const newPid = child.pid ?? 0;
+        // PID 0 means the spawn failed — skip this entry.
+        if (newPid === 0) {
+          skipped.push(name);
+          return;
+        }
+        mkdirSync(dirname(logFilePath), { recursive: true });
+        const logStream = createWriteStream(logFilePath, { flags: 'a' });
+        if (child.stdout) child.stdout.pipe(logStream);
+        if (child.stderr) child.stderr.pipe(logStream);
+        child.unref();
+        removeTrackedByPid(m.pid);
+        addTracked({
+          name: m.name,
+          pid: newPid,
             command: m.command,
             args: m.args,
             port: m.port,

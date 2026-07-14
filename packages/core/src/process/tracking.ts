@@ -211,6 +211,9 @@ export function setManualStop(name: string, value: boolean): void {
  * Verifies ownership via the FENNEC_APP_NAME marker or command line basename match.
  */
 export function isTrackedRunning(proc: TrackedEntry): boolean {
+  // PID ≤ 0 is invalid — process.kill(0, 0) returns a false-positive
+  // (it checks the calling process, not PID 0). Treat as not running.
+  if (proc.pid <= 0) return false;
   if (!isProcessRunning(proc.pid)) return false;
 
   const environ = getProcessEnviron(proc.pid);

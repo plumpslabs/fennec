@@ -302,6 +302,9 @@ export function adoptExternalOnPort(port: number, name?: string): TrackedProcess
  * we fall back to the plain liveness check to avoid false negatives.
  */
 export function isTrackedRunning(proc: TrackedProcess): boolean {
+  // PID ≤ 0 is invalid — process.kill(0, 0) returns a false-positive
+  // (it checks the calling process, not PID 0). Treat as not running.
+  if (proc.pid <= 0) return false;
   if (!isProcessRunning(proc.pid)) return false;
 
   // Preferred: verify ownership via the FENNEC_APP_NAME marker we inject at
@@ -525,6 +528,22 @@ export function spawnDaemon(opts: SpawnDaemonOptions): ChildProcess {
   child.unref();
   // Child now owns a dup of the fd; we can close our copy.
   child.once('spawn', () => {
+    try {
+      closeSync(fd);
+    } catch {
+      /* best-effort */
+    }
+  });
+  // Listen for spawn errors (ENOENT, permission denied, etc.) to prevent
+  // unhandled 'error' events that crash the calling process.
+  child.on('error', (err: NodeJS.ErrnoException) => {
+    // Write the error to the log file for diagnostics.
+    try {
+      const msg = `[fennec] Failed to spawn: ${err.message}\n`;
+      writeSync(fd, msg);
+    } catch {
+      /* best-effort */
+    }
     try {
       closeSync(fd);
     } catch {

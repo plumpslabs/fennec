@@ -2,6 +2,17 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.14.12] - 2026-07-14
+
+### Fixed
+- **Zombie PID 0 entries from failed spawns (Critical).** Fixed several interlocking bugs that occurred when `fennec start <command>` was run with a non-existent command (ENOENT):
+  - `isProcessRunning(pid)` and `killTree(pid)` in both CLI and Core utilities now guard against `pid ≤ 0` — `process.kill(0, 0)` previously returned a false-positive (it checks the calling process, not PID 0) and `process.kill(0, SIGTERM)` would kill the calling process group (i.e. fennec itself).
+  - `isTrackedRunning()` now returns `false` for `pid ≤ 0`, preventing PID 0 from appearing as a running process in `fennec ps`.
+  - `spawnDaemon()` now listens for the `'error'` event on the spawned child (preventing unhandled ENOENT crashes) and writes the error to the log file.
+  - `fennec start`, `fennec spawn`, and `resurrectTracked()` now check for `pid === 0` immediately after spawning and bail early with an error instead of persisting an invalid entry to `tracked.json`.
+- **`fennec doctor` now detects zombie PID 0 entries.** The `doctor` command scans `tracked.json` for entries with `pid: 0` and reports them; `fennec doctor --fix` removes them automatically.
+- **MCP tools `process_spawn_tracked` and `process_restart`** now skip entries with `pid: 0` (spawn failure) instead of persisting them.
+
 ## [1.14.11] - 2026-07-14
 
 ### Fixed

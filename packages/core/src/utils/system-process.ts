@@ -9,6 +9,10 @@ import { execSync } from 'node:child_process';
  * Works on Linux/macOS/Windows (Node.js handles cross-platform).
  */
 export function isProcessRunning(pid: number): boolean {
+  // PID ≤ 0 is invalid — kill(0, 0) would test the calling process itself,
+  // returning false-positives and kill(0, SIGTERM) would kill the caller's
+  // process group. Treat as "not running" immediately.
+  if (pid <= 0) return false;
   try {
     process.kill(pid, 0);
     return true;
@@ -49,6 +53,9 @@ export function getProcessCwd(pid: number): string | null {
  * - Windows: `taskkill /T /F` kills the process and all descendants.
  */
 export function killTree(pid: number, signal: NodeJS.Signals = 'SIGTERM'): boolean {
+  // PID ≤ 0 is invalid — kill(0, SIGTERM) would kill the calling process
+  // group (i.e. fennec itself). Treat as already-gone.
+  if (pid <= 0) return false;
   if (process.platform === 'win32') {
     try {
       execSync(`taskkill /pid ${pid} /T /F`, { stdio: 'ignore', timeout: 5000 });

@@ -158,6 +158,12 @@ async function spawnAllStopped(procs: TrackedProcess[]): Promise<void> {
       });
       const pid = child.pid ?? 0;
 
+      // PID 0 means the spawn failed — skip this entry.
+      if (pid === 0) {
+        failed++;
+        continue;
+      }
+
       addTracked({
         name: proc.name,
         pid,
@@ -282,6 +288,11 @@ async function respawnProcess(proc: TrackedProcess): Promise<void> {
       logMode: proc.logMode,
     });
     const pid = child.pid ?? 0;
+
+    // PID 0 means the spawn failed (ENOENT, permission denied, etc.).
+    if (pid === 0) {
+      throw new Error(`Command not found or permission denied: ${proc.command}`);
+    }
 
     // Update tracked.json with new PID (preserve group — addTracked REPLACES
     // the entry by name, so the logical group must be carried over explicitly).

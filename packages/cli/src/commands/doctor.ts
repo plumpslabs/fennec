@@ -17,6 +17,7 @@ import { StoreManager } from '@plumpslabs/fennec-core';
 import pc from 'picocolors';
 import { renderError } from '../utils/format.js';
 import { getSystemProcesses } from '../utils/system-process.js';
+import { readTracked, removeTracked } from './tracker.js';
 import { getSupervisorPid } from './supervisor.js';
 
 export async function doctorCommand(args: string[] = []): Promise<void> {
@@ -92,7 +93,27 @@ export async function doctorCommand(args: string[] = []): Promise<void> {
     }
   }
 
-  // 5. active process checks (duplicates/orphans)
+  // 5. Zombie PID 0 entries in tracked.json
+  const tracked = readTracked();
+  const zombieEntries = tracked.filter((t) => t.pid === 0);
+  if (zombieEntries.length > 0) {
+    if (fix) {
+      console.error(`  ${pc.cyan('⚡')} Cleaning ${zombieEntries.length} zombie PID 0 tracked entry(ies)...`);
+      for (const z of zombieEntries) {
+        const msg = `Zombie entry removed: "${z.name}" had PID 0 (stale from a failed spawn)`;
+        removeTracked(z.name);
+        console.error(`    ${pc.green('✓')} ${pc.dim(msg)}`);
+      }
+    } else {
+      problems.push(
+        `${zombieEntries.length} tracked entry(ies) have PID 0 (stale from failed spawn).\n` +
+          `      These show as "running" but are not real processes.\n` +
+          `      Fix: run 'fennec doctor --fix' to remove them.`,
+      );
+    }
+  }
+
+  // 6. active process checks (duplicates/orphans)
   try {
     const processes = getSystemProcesses({ userOnly: true });
 

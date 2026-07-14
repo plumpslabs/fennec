@@ -398,6 +398,9 @@ export function killProcess(pid: number, signal: NodeJS.Signals = 'SIGTERM'): bo
  * already gone. Never throws.
  */
 export function killTree(pid: number, signal: NodeJS.Signals = 'SIGTERM'): boolean {
+  // PID ≤ 0 is invalid — kill(0, SIGTERM) would kill the calling process
+  // group (i.e. fennec itself). Treat as already-gone.
+  if (pid <= 0) return false;
   if (process.platform === 'win32') {
     try {
       // /T = tree, /F = force. Windows has no clean SIGTERM-tree equivalent;
@@ -435,6 +438,10 @@ export function killTree(pid: number, signal: NodeJS.Signals = 'SIGTERM'): boole
  * Check if a process is running.
  */
 export function isProcessRunning(pid: number): boolean {
+  // PID ≤ 0 is invalid — kill(0, 0) would test the calling process itself,
+  // returning false-positives and kill(0, SIGTERM) would kill the caller's
+  // process group. Treat as "not running" immediately.
+  if (pid <= 0) return false;
   try {
     process.kill(pid, 0); // Signal 0 checks existence without killing
     return true;
