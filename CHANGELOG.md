@@ -2,6 +2,11 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.14.10] - 2026-07-14
+
+### Changed
+- **SSE transport noise reduction.** SSE client connect/disconnect log messages changed from `info` to `debug` level to reduce log noise during normal operation. Duplicate SSE connections are now rejected with HTTP 409 (instead of closing the active connection), preventing the connect → close → reconnect loop that occurred when MCP clients periodically refreshed their capability list.
+
 ## [1.14.9] - 2026-07-14
 
 ### Security

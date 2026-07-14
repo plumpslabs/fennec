@@ -819,17 +819,27 @@ export class FennecServer {
 
         if (req.method === 'GET' && url.pathname === '/sse') {
           // SSE endpoint: create a new SSEServerTransport for this connection
-          logger.info('SSE client connected');
-
-          // Close any existing transport connection to avoid "Already connected" error
+          // Close any stale server state first (e.g. from a partially-disconnected
+          // transport) so the guard below isn't stuck forever.
           await this.server.close().catch(() => {});
+
+          // If a client is already connected, silently ignore the duplicate to
+          // prevent the connect → close → reconnect loop. The first connection
+          // stays active and the second gets a 409 so it backs off.
+          if (this.sseTransport) {
+            res.writeHead(409).end('Another SSE client is already connected');
+            logger.debug('Duplicate SSE client rejected (already connected)');
+            return;
+          }
+
+          logger.debug('SSE client connected');
 
           const transport = new SSEServerTransport('/messages', res);
           this.sseTransport = transport;
 
           try {
             await this.server.connect(transport);
-            logger.info('MCP server connected via SSE transport');
+            logger.debug('MCP server connected via SSE transport');
             resolve();
           } catch (error) {
             logger.error({ error }, 'Failed to connect MCP server via SSE');
@@ -838,10 +848,10 @@ export class FennecServer {
 
           // Handle client disconnect
           req.on('close', async () => {
-            logger.info('SSE client disconnected');
+            logger.debug('SSE client disconnected');
             if (this.sseTransport === transport) {
-              this.sseTransport = null;
               await this.server.close().catch(() => {});
+              this.sseTransport = null;
             }
           });
         } else if (req.method === 'POST' && url.pathname === '/messages') {
