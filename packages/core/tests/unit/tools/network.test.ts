@@ -4,6 +4,7 @@ import {
   networkIntercept,
   networkRemoveIntercept,
   networkMockResponse,
+  networkApiCall,
 } from '../../../src/tools/devtools/network.js';
 import { NetworkCollector } from '../../../src/cdp/NetworkCollector.js';
 
@@ -242,3 +243,42 @@ describe('NetworkCollector response body', () => {
     expect(ev?.responseBody).toBe('hello');
   });
 });
+
+describe('network_api_call tool', () => {
+  it('should have correct name and description', () => {
+    expect(networkApiCall.name).toBe('network_api_call');
+    expect(networkApiCall.description).toContain('<use_case>');
+    expect(networkApiCall.description).toContain('API Client');
+  });
+
+  it('should require url', () => {
+    const result = networkApiCall.inputSchema.safeParse({});
+    expect(result.success).toBe(false);
+  });
+
+  it('should accept valid url and default GET method', () => {
+    const result = networkApiCall.inputSchema.safeParse({
+      url: 'https://api.example.com/data',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.method).toBe('GET');
+      expect(result.data.timeout).toBe(10000);
+    }
+  });
+
+  it('should accept custom method, headers, and body', () => {
+    const result = networkApiCall.inputSchema.safeParse({
+      url: 'https://api.example.com/data',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{"test": true}',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.method).toBe('POST');
+      expect(result.data.body).toBe('{"test": true}');
+    }
+  });
+});
+

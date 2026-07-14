@@ -101,6 +101,7 @@ import {
   networkMockResponse,
   networkWaitForRequest,
   networkGetRequestDetail,
+  networkApiCall,
 } from './tools/devtools/network.js';
 import {
   devtoolsGetPerformanceMetrics,
@@ -389,6 +390,7 @@ export class FennecServer {
       networkMockResponse,
       networkWaitForRequest,
       networkGetRequestDetail,
+      networkApiCall,
       devtoolsGetPerformanceMetrics,
       devtoolsGetMemoryUsage,
       devtoolsGetDomCounters,

@@ -471,3 +471,61 @@ export const networkMockResponse = createTool({
     }
   },
 });
+
+export const networkApiCall = createTool({
+  name: 'network_api_call',
+  category: 'devtools',
+  description:
+    '`<use_case>API Client</use_case> 🌐 Make an ad-hoc HTTP request to any API endpoint. Supports JSON payloads, custom headers, and methods (GET, POST, PUT, DELETE, PATCH). Returns response status, headers, and body (auto-parses JSON). Use when you need to inspect backend API responses, verify API functionality, or check schema/endpoints directly without using the browser UI or spawning curl in shell.`',
+  inputSchema: z.object({
+    url: z.string().url().describe('The URL to make the request to'),
+    method: z
+      .enum(['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'])
+      .optional()
+      .default('GET')
+      .describe('HTTP method'),
+    headers: z.record(z.string(), z.string()).optional().describe('Optional request headers'),
+    body: z.string().optional().describe('Optional request body (stringified JSON or text)'),
+    timeout: z.number().optional().default(10000).describe('Timeout in milliseconds'),
+  }),
+  handler: async (input, { responseBuilder }) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), input.timeout ?? 10000);
+    try {
+      const response = await fetch(input.url, {
+        method: input.method,
+        headers: input.headers,
+        body: ['GET', 'HEAD'].includes(input.method) ? undefined : input.body,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      const contentType = response.headers.get('content-type') || '';
+      const text = await response.text();
+      let body: any = text;
+      if (contentType.includes('application/json')) {
+        try {
+          body = JSON.parse(text);
+        } catch {
+          // Keep as string if parsing fails
+        }
+      }
+
+      const headers: Record<string, string> = {};
+      response.headers.forEach((value, key) => {
+        headers[key] = value;
+      });
+
+      return responseBuilder.success({
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+        body,
+      });
+    } catch (err) {
+      clearTimeout(timeoutId);
+      return responseBuilder.error(err, { code: 'API_CALL_FAILED' });
+    }
+  },
+});
+
