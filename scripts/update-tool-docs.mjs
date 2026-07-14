@@ -26,7 +26,7 @@ const rootReadme = join(root, "README.md");
 const coreReadme = join(root, "packages/core/README.md");
 
 const CAT_HEADER = /^### \[([^\]]+)\]\([^)]+\)\s*\(\d+\s*tools\)/;
-const TOOL_ROW = /^\| `([^`]+)` \|/;
+const TOOL_ROW = /^\| `([^`]+)`\s*\|/;
 const QUICK_ROW = /^\| (.+?) \| (\d+) \| (.+?) \|$/;
 const TOTAL_ROW = /^\| \*\*Total\*\* \| \*\*(\d+)\*\* \|/;
 

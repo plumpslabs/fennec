@@ -1,6 +1,6 @@
 # Fennec Tool Reference
 
-Fennec provides **134 MCP tools** organized into **17 categories**. Each tool is designed to be consumed by AI agents, with structured input/output and actionable error messages.
+Fennec provides **136 MCP tools** organized into **17 categories**. Each tool is designed to be consumed by AI agents, with structured input/output and actionable error messages.
 
 > 💡 **Token-Efficient**: MCP clients can request specific categories to reduce context window usage. Every tool response also carries a `_tokenTier` (low/medium/high) in `tools/list` so agents prefer cheap tools first. Screenshots default to compressed JPEG and `smart_navigate` returns structured JSON (no image) unless you ask for one.
 
@@ -81,6 +81,7 @@ Monitor, intercept, mock, and wait for network requests.
 | `network_intercept`           | Intercept requests            |
 | `network_remove_intercept`    | Remove intercept              |
 | `network_mock_response`       | Mock API response             |
+| `network_api_call`            | Make an ad-hoc API HTTP call  |
 
 ### [DevTools — Performance](performance.md) (6 tools)
 
@@ -217,6 +218,7 @@ AI-powered interaction with auto-diagnosis, form filling, validation, visual tes
 | Tool                            | Description                                                              |
 | ------------------------------- | ------------------------------------------------------------------------ |
 | `smart_wait`                    | Wait with auto-diagnosis on timeout                                      |
+| `smart_wait_for_spa`            | Wait for SPA loading and stability                                       |
 | `smart_navigate`                | Navigate + collect DOM snapshot (supports `compact` and `mode:"verify"`) |
 | `smart_fill_form`               | Auto-detect + fill form fields                                           |
 | `smart_validate_form`           | Validate fields + custom rules                                           |

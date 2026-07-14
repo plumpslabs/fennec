@@ -2,6 +2,18 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.14.6] - 2026-07-14
+
+### Added
+- **API Client tool (`network_api_call`).** An ad-hoc HTTP client tool to hit API endpoints (GET, POST, PUT, DELETE, PATCH, etc.) with custom headers and bodies, returning status, headers, and parsed JSON, preventing external shell dropouts.
+- **URL & Param assertions.** Added `url-matches` and `url-param-equals` assertion types to `browser_assert` to verify routing and query parameter states.
+- **Text-first assertion.** Added `text-present` assertion to `browser_assert` to verify page text content without loading visual elements or dumping the DOM.
+
+### Fixed
+- **Process stop ghost-restart bug.** `process_stop_tracked` now sets `autoRestart: false` in `tracked.json`, preventing the background supervisor daemon from immediately resurrecting stopped applications.
+- **PID recycling safety.** Replaced plain PID signal checking with robust ownership checks (`isTrackedRunning`) via environment markers and command line matching to prevent recycled PIDs from registering as "running".
+- **Documentation generator.** Fixed a cell-padding parsing bug in `update-tool-docs.mjs` that incorrectly counted total tools in docs markdown tables.
+
 ## [1.14.5] - 2026-07-13
 
 ### Fixed
