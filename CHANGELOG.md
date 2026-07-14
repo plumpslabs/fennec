@@ -2,6 +2,16 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.14.8] - 2026-07-14
+
+### Added
+- **Fennec Doctor Self-Healing (`--fix`).** Extended the `doctor` command to identify duplicate servers, orphaned supervisors, and leaked Chrome/Chromium browser processes, and added a `--fix` option to automatically terminate them.
+
+### Fixed
+- **SSE Connection Race Condition.** Resolved a critical race condition where closing a previous connection request (`GET /sse`) incorrectly terminated the active transport of a newly connected client, preventing infinite reconnection loops.
+- **Supervisor Singleton (Self-Heal).** Implemented authoritative PID checks inside the supervisor loop to gracefully terminate duplicate supervisor daemons if their PID no longer matches the active pidfile.
+- **Resurrect Supervisor.** Automatically spawn the supervisor daemon on `resurrectTracked` if any resurrected process has auto-restart enabled.
+
 ## [1.14.7] - 2026-07-14
 
 ### Fixed
