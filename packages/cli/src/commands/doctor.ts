@@ -19,11 +19,12 @@ import { renderError } from '../utils/format.js';
 import { getSystemProcesses } from '../utils/system-process.js';
 import { getSupervisorPid } from './supervisor.js';
 
-export async function doctorCommand(): Promise<void> {
+export async function doctorCommand(args: string[] = []): Promise<void> {
   const mgr = new StoreManager(false);
   const base = mgr.base;
   const problems: string[] = [];
   const notes: string[] = [];
+  const fix = args.includes('--fix');
 
   // 1. permissions
   if (!mgr.permsSafe()) {
@@ -98,11 +99,20 @@ export async function doctorCommand(): Promise<void> {
         p.pid !== process.pid,
     );
     if (serverProcs.length > 1) {
-      problems.push(
-        `Multiple duplicate Fennec MCP server processes are running: ${serverProcs.map((p) => p.pid).join(', ')}\n` +
-          `      These can conflict over shared config, state, and browser contexts.\n` +
-          `      Fix: run 'kill ${serverProcs.map((p) => p.pid).join(' ')}'`,
-      );
+      if (fix) {
+        console.error(`  ${pc.cyan('⚡')} Terminating ${serverProcs.length} duplicate Fennec server(s)...`);
+        for (const p of serverProcs) {
+          try {
+            process.kill(p.pid, 9);
+          } catch {}
+        }
+      } else {
+        problems.push(
+          `Multiple duplicate Fennec MCP server processes are running: ${serverProcs.map((p) => p.pid).join(', ')}\n` +
+            `      These can conflict over shared config, state, and browser contexts.\n` +
+            `      Fix: run 'kill ${serverProcs.map((p) => p.pid).join(' ')}' or 'fennec doctor --fix'`,
+        );
+      }
     }
 
     // Find supervisor processes
@@ -112,11 +122,20 @@ export async function doctorCommand(): Promise<void> {
     const activeSupPid = getSupervisorPid();
     const orphanedSupervisors = supervisorProcs.filter((p) => p.pid !== activeSupPid);
     if (orphanedSupervisors.length > 0) {
-      problems.push(
-        `${orphanedSupervisors.length} orphaned/duplicate supervisor process(es) running: ${orphanedSupervisors.map((p) => p.pid).join(', ')}\n` +
-          `      These background daemons are no longer active in the pidfile but are still polling state.\n` +
-          `      Fix: run 'kill ${orphanedSupervisors.map((p) => p.pid).join(' ')}'`,
-      );
+      if (fix) {
+        console.error(`  ${pc.cyan('⚡')} Terminating ${orphanedSupervisors.length} orphaned supervisor(s)...`);
+        for (const p of orphanedSupervisors) {
+          try {
+            process.kill(p.pid, 9);
+          } catch {}
+        }
+      } else {
+        problems.push(
+          `${orphanedSupervisors.length} orphaned/duplicate supervisor process(es) running: ${orphanedSupervisors.map((p) => p.pid).join(', ')}\n` +
+            `      These background daemons are no longer active in the pidfile but are still polling state.\n` +
+            `      Fix: run 'kill ${orphanedSupervisors.map((p) => p.pid).join(' ')}' or 'fennec doctor --fix'`,
+        );
+      }
     }
 
     // Find stale Playwright/Chromium instances owned by Fennec
@@ -124,11 +143,20 @@ export async function doctorCommand(): Promise<void> {
       (p) => p.name.toLowerCase().includes('chrome') || p.name.toLowerCase().includes('chromium'),
     );
     if (playwrightProcs.length > 3) {
-      notes.push(
-        `There are ${playwrightProcs.length} active Chrome/Chromium processes running.\n` +
-          `      Ensure you do not have leaked or orphaned browser contexts from dead Fennec sessions.\n` +
-          `      Fix: run 'killall chrome chromium' if you are not using them.`,
-      );
+      if (fix) {
+        console.error(`  ${pc.cyan('⚡')} Terminating ${playwrightProcs.length} Chrome/Chromium processes...`);
+        for (const p of playwrightProcs) {
+          try {
+            process.kill(p.pid, 9);
+          } catch {}
+        }
+      } else {
+        notes.push(
+          `There are ${playwrightProcs.length} active Chrome/Chromium processes running.\n` +
+            `      Ensure you do not have leaked or orphaned browser contexts from dead Fennec sessions.\n` +
+            `      Fix: run 'fennec doctor --fix' or 'killall chrome chromium' if you are not using them.`,
+        );
+      }
     }
   } catch (err) {
     // ignore process inspection failures

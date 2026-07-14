@@ -116,7 +116,7 @@ async function main(): Promise<void> {
     await storeCommand(args);
   } else if (command === 'doctor') {
     printBanner();
-    await doctorCommand();
+    await doctorCommand(args);
   } else if (command === 'sessions') {
     await storeCommand(['session']);
   } else if (command === 'setup') {
