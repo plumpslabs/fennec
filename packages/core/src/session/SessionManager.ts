@@ -465,10 +465,16 @@ export class SessionManager {
    * tool call works instead of every call failing with "Unable to connect".
    */
   async ensureAlive(id?: string): Promise<void> {
-    const sessionId = id ?? this.defaultSessionId;
-    if (!sessionId) return;
-    const session = this.sessions.get(sessionId);
-    if (!session) return;
+    let sessionId = id ?? this.defaultSessionId;
+    if (!sessionId || !this.sessions.has(sessionId)) {
+      const session = await this.createDefaultSession();
+      sessionId = session.id;
+      if (this.onRotate) {
+        await this.onRotate(session.id);
+      }
+    }
+
+    const session = this.sessions.get(sessionId)!;
     if (session.browser.isAlive()) return;
 
     const logger = getLogger();
