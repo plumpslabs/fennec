@@ -1,6 +1,7 @@
 import type { MiddlewareFn, MiddlewareContext } from './Pipeline.js';
 import type { BrowserSession } from '../browser/types.js';
 import { getLogger } from '../utils/logger.js';
+import { sanitize } from '../response/ResponseBuilder.js';
 
 /**
  * Generate alternative selectors for auto-recovery.
@@ -509,7 +510,7 @@ export function createSmartHook(): MiddlewareFn {
     if (errorObj && Object.keys(enrichedContext).length > 0) {
       errorObj.context = {
         ...((errorObj.context as Record<string, unknown>) ?? {}),
-        ...enrichedContext,
+        ...sanitize(enrichedContext),
       };
     }
 
