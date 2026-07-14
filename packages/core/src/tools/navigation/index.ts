@@ -45,10 +45,25 @@ export const browserNavigate = createTool({
 
     // Richer, human-readable error taxonomy so the agent can tell *why* a
     // navigation failed instead of a generic "Unable to connect".
-    const describeError = (err: unknown): { code: string; reason: string } => {
+    const describeError = (err: unknown, url: string): { code: string; reason: string; suggestions?: string[] } => {
       const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+      const suggestions: string[] = [];
+      const hasLocalhost = /localhost|127\.0\.0\.1/i.test(url);
+      if (
+        hasLocalhost &&
+        (msg.includes('refused') ||
+          msg.includes('unreachable') ||
+          msg.includes('dns') ||
+          msg.includes('enotfound') ||
+          msg.includes('timeout'))
+      ) {
+        suggestions.push(
+          "⚠️ Fennec's browser is running inside a separate environment/sandbox. Localhost dev servers are not directly reachable. Try using 'host.docker.internal' (if inside Docker) or expose your local port via a tunnel (e.g. 'ngrok http <port>' or 'lt --port <port>').",
+        );
+      }
+
       if (msg.includes('timeout') || msg.includes('timed out'))
-        return { code: 'TIMEOUT', reason: 'Navigation exceeded the timeout.' };
+        return { code: 'TIMEOUT', reason: 'Navigation exceeded the timeout.', suggestions };
       if (
         msg.includes('dns') ||
         msg.includes('enotfound') ||
@@ -57,23 +72,27 @@ export const browserNavigate = createTool({
         return {
           code: 'URL_UNREACHABLE',
           reason: 'DNS resolution failed — the host cannot be resolved.',
+          suggestions,
         };
       if (msg.includes('econnrefused') || msg.includes('connection refused'))
         return {
           code: 'CONNECTION_REFUSED',
           reason: 'Connection refused — no server is listening at that host/port.',
+          suggestions,
         };
       if (msg.includes('mixed content') || msg.includes('insecure') || msg.includes('cors'))
         return {
           code: 'MIXED_CONTENT_OR_CORS',
           reason: 'Mixed-content or CORS block — an insecure/blocked request was rejected.',
+          suggestions,
         };
       if (msg.includes('target') && msg.includes('close'))
         return {
           code: 'SESSION_DEAD',
           reason: 'The browser/CDP session died — recover it with browser_session_recover.',
+          suggestions,
         };
-      return { code: 'NAVIGATION_FAILED', reason: 'Navigation failed for an unspecified reason.' };
+      return { code: 'NAVIGATION_FAILED', reason: 'Navigation failed for an unspecified reason.', suggestions };
     };
 
     let lastError: unknown;
@@ -108,11 +127,12 @@ export const browserNavigate = createTool({
     }
 
     const elapsed = Date.now() - startTime;
-    const diag = describeError(lastError);
+    const diag = describeError(lastError, input.url);
     return responseBuilder.error(lastError, {
       code: diag.code,
       suggestions: [
         diag.reason,
+        ...(diag.suggestions ?? []),
         'Check if the URL is accessible from your network',
         'Try increasing the timeout parameter',
         'Verify the URL format includes protocol (http:// or https://)',
