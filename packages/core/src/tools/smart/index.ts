@@ -1726,6 +1726,142 @@ export const smartWait = createTool({
   },
 });
 
+export const smartWaitForSpa = createTool({
+  name: 'smart_wait_for_spa',
+  category: 'smart',
+  description:
+    '`<use_case>Smart</use_case> ⏳ Wait for a Single Page Application (SPA) to be fully loaded, stable, and ready (all async data loaded, no loading spinners, and stable DOM mutations). Returns success (bool), elapsed (ms), and details of what was checked.`',
+  inputSchema: z.object({
+    loadingSelectors: z
+      .array(z.string())
+      .optional()
+      .describe(
+        'CSS selectors for loading spinners or overlays (e.g. [".loading", ".spinner", ".skeleton"]). If omitted, uses default selectors.',
+      ),
+    stabilityDelay: z
+      .number()
+      .optional()
+      .default(500)
+      .describe('Time in ms to wait for DOM stability (no modifications). Default is 500ms.'),
+    timeout: z
+      .number()
+      .optional()
+      .default(10000)
+      .describe('Timeout in milliseconds. Default is 10000ms (10 seconds).'),
+    sessionId: z.string().optional().describe('Session ID'),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    const page = session.browser;
+    const startTime = Date.now();
+    const stabilityDelay = input.stabilityDelay ?? 500;
+    const timeout = input.timeout ?? 10000;
+
+    const loadingSelectors = input.loadingSelectors ?? [
+      '.loading',
+      '.spinner',
+      '.loader',
+      '.skeleton',
+      '[class*="loading" i]',
+      '[class*="spinner" i]',
+      '[class*="loader" i]',
+      '[class*="skeleton" i]',
+      '[id*="loading" i]',
+      '[id*="spinner" i]',
+      '[id*="loader" i]',
+      '[id*="skeleton" i]',
+      '#loading-state',
+      '#loading',
+    ];
+
+    try {
+      // 1. Wait for page load state (load & networkidle)
+      const elapsed1 = Date.now() - startTime;
+      const timeout1 = Math.max(1000, timeout - elapsed1);
+      await page.waitForLoadState('load', { timeout: timeout1 }).catch(() => {});
+      await page.waitForLoadState('networkidle', { timeout: timeout1 }).catch(() => {});
+
+      // 2. Wait for loading indicators to disappear
+      const elapsed2 = Date.now() - startTime;
+      const timeout2 = Math.max(1000, timeout - elapsed2);
+      for (const selector of loadingSelectors) {
+        try {
+          const visible = await page.locator(selector).first().isVisible().catch(() => false);
+          if (visible) {
+            await page.locator(selector).first().waitFor({ state: 'hidden', timeout: Math.min(3000, timeout2) }).catch(() => {});
+          }
+        } catch {
+          // ignore selector/detachment errors
+        }
+      }
+
+      // 3. Wait for DOM stability
+      const elapsed3 = Date.now() - startTime;
+      const timeout3 = Math.max(1000, timeout - elapsed3);
+
+      const stable = await page
+        .evaluate(
+          ({ delay, maxTimeout }) => {
+            return new Promise<boolean>((resolve) => {
+              let timeoutId: ReturnType<typeof setTimeout> | null = null;
+              let totalTimeoutId: ReturnType<typeof setTimeout> | null = null;
+              let observer: MutationObserver | null = null;
+
+              const cleanup = () => {
+                if (timeoutId) clearTimeout(timeoutId);
+                if (totalTimeoutId) clearTimeout(totalTimeoutId);
+                if (observer) observer.disconnect();
+              };
+
+              const resetTimer = () => {
+                if (timeoutId) clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => {
+                  cleanup();
+                  resolve(true);
+                }, delay);
+              };
+
+              totalTimeoutId = setTimeout(() => {
+                cleanup();
+                resolve(false);
+              }, maxTimeout);
+
+              resetTimer();
+
+              observer = new MutationObserver(() => {
+                resetTimer();
+              });
+
+              observer.observe(document.body || document.documentElement, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                characterData: true,
+              });
+            });
+          },
+          { delay: stabilityDelay, maxTimeout: timeout3 },
+        )
+        .catch(() => false);
+
+      const elapsed = Date.now() - startTime;
+      return responseBuilder.success(
+        {
+          success: true,
+          elapsed,
+          domStable: stable,
+          message: stable
+            ? `SPA loaded and DOM stabilized in ${elapsed}ms`
+            : `SPA loaded but DOM did not stabilize within timeout (elapsed: ${elapsed}ms)`,
+        },
+        sessionManager.buildMeta(session),
+      );
+    } catch (error) {
+      return responseBuilder.error(error);
+    }
+  },
+});
+
 export const smartNavigate = createTool({
   name: 'smart_navigate',
   category: 'smart',
