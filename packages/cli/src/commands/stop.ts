@@ -6,7 +6,7 @@
 import pc from 'picocolors';
 import { renderError, createSpinner, confirmPrompt } from '../utils/format.js';
 import { killTree as sysKill, isProcessRunning } from '../utils/system-process.js';
-import { readTracked, isTrackedRunning, setAutoRestart, resolveTargets } from './tracker.js';
+import { readTracked, isTrackedRunning, setAutoRestart, setManualStop, resolveTargets } from './tracker.js';
 import { psCommand } from './ps.js';
 
 export async function stopCommand(args: string[]): Promise<void> {
@@ -82,6 +82,7 @@ async function stopOne(rawTarget: string, args: string[], multi: boolean = false
 
   // Disable auto-restart first so the supervisor doesn't immediately revive it.
   setAutoRestart(trackedMatch.name, false);
+  setManualStop(trackedMatch.name, true);
   await stopSingleProcess(trackedMatch.pid, trackedMatch.name);
 }
 
@@ -122,6 +123,7 @@ async function stopAllTracked(args: string[], group?: string): Promise<void> {
 
   for (const t of running) {
     setAutoRestart(t.name, false);
+    setManualStop(t.name, true);
     if (sysKill(t.pid, 'SIGTERM')) {
       stopped++;
     } else {

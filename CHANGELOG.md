@@ -11,6 +11,7 @@ All notable changes to Fennec will be documented in this file.
 - **SSE Connection Race Condition.** Resolved a critical race condition where closing a previous connection request (`GET /sse`) incorrectly terminated the active transport of a newly connected client, preventing infinite reconnection loops.
 - **Supervisor Singleton (Self-Heal).** Implemented authoritative PID checks inside the supervisor loop to gracefully terminate duplicate supervisor daemons if their PID no longer matches the active pidfile.
 - **Resurrect Supervisor.** Automatically spawn the supervisor daemon on `resurrectTracked` if any resurrected process has auto-restart enabled.
+- **Resurrect Stopped Processes.** Track manually stopped processes via a new `manualStop` field in `tracked.json`, preventing Fennec from auto-resurrecting them upon server restarts.
 
 ## [1.14.7] - 2026-07-14
 

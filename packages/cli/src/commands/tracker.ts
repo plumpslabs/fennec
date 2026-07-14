@@ -65,6 +65,8 @@ export interface TrackedProcess {
   healthCheck?: string;
   /** Optional logical group this entry belongs to (e.g. "crm", "staging"). */
   group?: string;
+  /** True if the process was manually stopped by the user. */
+  manualStop?: boolean;
 }
 
 export type TargetKind = 'single' | 'names' | 'group' | 'all' | 'none';
@@ -184,7 +186,7 @@ export function saveTracked(processes: TrackedProcess[]): void {
 export function addTracked(proc: TrackedProcess): void {
   const tracked = readTracked();
   const filtered = tracked.filter((t) => t.name !== proc.name);
-  filtered.push(proc);
+  filtered.push({ ...proc, manualStop: false });
   saveTracked(filtered);
 }
 
@@ -203,6 +205,18 @@ export function setAutoRestart(name: string, value: boolean): void {
   for (const t of tracked) {
     if (t.name === name) {
       t.autoRestart = value;
+      changed = true;
+    }
+  }
+  if (changed) saveTracked(tracked);
+}
+
+export function setManualStop(name: string, value: boolean): void {
+  const tracked = readTracked();
+  let changed = false;
+  for (const t of tracked) {
+    if (t.name === name) {
+      t.manualStop = value;
       changed = true;
     }
   }

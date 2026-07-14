@@ -293,7 +293,7 @@ export async function resurrectTracked(): Promise<void> {
   const tracked = readTracked();
   if (tracked.length === 0) return;
 
-  const dead = tracked.filter((t) => !isTrackedRunning(t));
+  const dead = tracked.filter((t) => !isTrackedRunning(t) && !t.manualStop);
   if (dead.length === 0) return;
 
   const spinner = createSpinner(`Resurrecting ${dead.length} stopped process(es)...`);
