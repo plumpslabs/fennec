@@ -823,10 +823,11 @@ export class FennecServer {
           // Close any existing transport connection to avoid "Already connected" error
           await this.server.close().catch(() => {});
 
-          this.sseTransport = new SSEServerTransport('/messages', res);
+          const transport = new SSEServerTransport('/messages', res);
+          this.sseTransport = transport;
 
           try {
-            await this.server.connect(this.sseTransport);
+            await this.server.connect(transport);
             logger.info('MCP server connected via SSE transport');
             resolve();
           } catch (error) {
@@ -837,8 +838,10 @@ export class FennecServer {
           // Handle client disconnect
           req.on('close', async () => {
             logger.info('SSE client disconnected');
-            this.sseTransport = null;
-            await this.server.close().catch(() => {});
+            if (this.sseTransport === transport) {
+              this.sseTransport = null;
+              await this.server.close().catch(() => {});
+            }
           });
         } else if (req.method === 'POST' && url.pathname === '/messages') {
           // Message endpoint: forward POST data to existing SSE transport
