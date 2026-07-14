@@ -33,6 +33,12 @@ export interface TrackedEntry {
   group?: string;
   /** Log capture mode (mirrors CLI). */
   logMode?: 'text' | 'json';
+  /**
+   * True when the user/agent explicitly stopped this process.
+   * Prevents resurrectTracked() from re-spawning it on server restart.
+   * Cleared (set to false) when the process is spawned/resumed.
+   */
+  manualStop?: boolean;
 }
 
 export function getTrackedPath(): string {
@@ -78,7 +84,9 @@ export function saveTracked(processes: TrackedEntry[]): void {
 export function addTracked(proc: TrackedEntry): void {
   const tracked = readTracked();
   const filtered = tracked.filter((t) => t.name !== proc.name);
-  filtered.push(proc);
+  // A fresh spawn/resume clears the manualStop flag so resurrection can
+  // work for future deaths. This mirrors the CLI's addTracked behavior.
+  filtered.push({ ...proc, manualStop: false });
   saveTracked(filtered);
 }
 
@@ -175,6 +183,23 @@ export function setAutoRestart(name: string, value: boolean): void {
   for (const t of tracked) {
     if (t.name === name) {
       t.autoRestart = value;
+      changed = true;
+    }
+  }
+  if (changed) saveTracked(tracked);
+}
+
+/**
+ * Mark a tracked process as manually stopped (or not).
+ * When true, `resurrectTracked()` will NOT re-spawn it on server restart.
+ * Mirrors the CLI's setManualStop.
+ */
+export function setManualStop(name: string, value: boolean): void {
+  const tracked = readTracked();
+  let changed = false;
+  for (const t of tracked) {
+    if (t.name === name) {
+      t.manualStop = value;
       changed = true;
     }
   }

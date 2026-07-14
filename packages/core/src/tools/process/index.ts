@@ -13,6 +13,7 @@ import {
   buildSpawnEnv,
   setGroup,
   setAutoRestart,
+  setManualStop,
   isTrackedRunning,
   type TrackedEntry,
 } from '../../process/tracking.js';
@@ -561,6 +562,7 @@ export const processStopTracked = createTool({
         return;
       }
       setAutoRestart(m.name, false);
+      setManualStop(m.name, true);
       if (killTree(m.pid, 'SIGTERM')) stopped.push({ name: m.name, pid: m.pid });
       else notFound.push(name);
     };

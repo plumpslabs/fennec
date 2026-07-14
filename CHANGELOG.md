@@ -2,6 +2,14 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.14.9] - 2026-07-14
+
+### Security
+- **PermissionGuard hardening.** The `doctor` MCP tool is now protected by `PermissionGuard` — added to `DANGEROUS_TOOLS` (sandbox mode) and `READ_ONLY_BLOCKED` (read-only mode). In sandbox mode, `doctor` is gated behind `allowProcessKill`, so `fennec doctor --fix` cannot kill processes when `allowProcessKill: false`. `supervisor_control` and `persist_control` are also added to `READ_ONLY_BLOCKED` to prevent state mutation in read-only mode.
+
+### Fixed
+- **MCP `process_stop_tracked` missing `manualStop` flag.** The MCP tool now calls `setManualStop(name, true)` — matching the CLI's `fennec stop` behavior. Previously, processes stopped via MCP were NOT marked as manually stopped, causing `resurrectTracked()` to re-spawn them on the next `fennec start --sse` server restart. Added `manualStop` field to core `TrackedEntry` and a new `setManualStop()` function in the tracking module. `addTracked()` now also clears `manualStop` on fresh spawn (matching CLI parity).
+
 ## [1.14.8] - 2026-07-14
 
 ### Added

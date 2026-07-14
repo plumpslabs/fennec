@@ -8,6 +8,7 @@ const DANGEROUS_TOOLS = new Set([
   'storage_clear_local',
   'storage_delete_cookie',
   'storage_remove_local',
+  'doctor',
 ]);
 
 const SPAWN_RELATED_TOOLS = new Set([
@@ -54,6 +55,9 @@ export function createPermissionGuard(): MiddlewareFn {
     'network_intercept',
     'network_mock_response',
     'network_remove_intercept',
+    'doctor',
+    'supervisor_control',
+    'persist_control',
   ]);
 
   return async (ctx: MiddlewareContext, next) => {
@@ -131,6 +135,27 @@ export function createPermissionGuard(): MiddlewareFn {
               code: 'PERMISSION_DENIED',
               message: 'JavaScript evaluation is disabled in security settings',
               suggestions: ['Set security.allowJSEvaluation to true in config'],
+              context: {},
+            },
+            meta: {
+              elapsed: Date.now() - ctx.startTime,
+              sessionId: ctx.session?.id ?? '',
+              timestamp: new Date().toISOString(),
+            },
+          };
+        }
+
+        if (toolName === 'doctor' && !config.security.allowProcessKill) {
+          logger.warn({ tool: toolName }, 'Permission denied: doctor (process kill) not allowed');
+          return {
+            success: false,
+            error: {
+              code: 'PERMISSION_DENIED',
+              message: 'Doctor tool is blocked in sandbox mode (can kill processes). Enable allowProcessKill in config.',
+              suggestions: [
+                'Set security.allowProcessKill to true in config',
+                'Disable sandbox mode with security.sandbox: false',
+              ],
               context: {},
             },
             meta: {

@@ -1,6 +1,6 @@
 {
   "name": "fennec",
-  "version": "1.14.8",
+  "version": "1.14.9",
   "private": true,
   "description": "AI-native developer observability MCP — browser, terminal, and process, all in one.",
   "keywords": [
