@@ -5,8 +5,9 @@
  * and MCP tools (`process_get_tracked`).
  */
 import { existsSync, writeFileSync, readFileSync, mkdirSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, basename } from 'node:path';
 import { homedir } from 'node:os';
+import { isProcessRunning, getProcessEnviron, getProcessCmdline } from '../utils/system-process.js';
 
 export interface TrackedEntry {
   name: string;
@@ -162,4 +163,44 @@ export function setGroup(name: string, group: string): boolean {
   else delete match.group;
   saveTracked(tracked);
   return true;
+}
+
+/**
+ * Toggle the auto-restart flag for a tracked app by name.
+ * Used so an intentional `stop` isn't immediately undone by the supervisor.
+ */
+export function setAutoRestart(name: string, value: boolean): void {
+  const tracked = readTracked();
+  let changed = false;
+  for (const t of tracked) {
+    if (t.name === name) {
+      t.autoRestart = value;
+      changed = true;
+    }
+  }
+  if (changed) saveTracked(tracked);
+}
+
+/**
+ * Robust check if a tracked process is actually running (not just dead/recycled PID).
+ * Verifies ownership via the FENNEC_APP_NAME marker or command line basename match.
+ */
+export function isTrackedRunning(proc: TrackedEntry): boolean {
+  if (!isProcessRunning(proc.pid)) return false;
+
+  const environ = getProcessEnviron(proc.pid);
+  if (environ && 'FENNEC_APP_NAME' in environ) {
+    return environ.FENNEC_APP_NAME === proc.name;
+  }
+
+  const cmdline = getProcessCmdline(proc.pid);
+  if (!cmdline) return true; // cannot verify — trust the PID
+
+  const argv = resolveArgs(proc);
+  const exe = argv[0];
+  if (!exe) return true;
+
+  const exeBase = basename(exe);
+  if (exeBase.length === 0) return true;
+  return cmdline.includes(exeBase);
 }

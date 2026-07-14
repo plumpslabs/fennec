@@ -12,6 +12,8 @@ import {
   resolveArgs,
   buildSpawnEnv,
   setGroup,
+  setAutoRestart,
+  isTrackedRunning,
   type TrackedEntry,
 } from '../../process/tracking.js';
 import {
@@ -107,7 +109,7 @@ export const processSpawn = createTool({
       // Idempotent by name: if the same tracked name is already running, reuse it.
       if (input.name) {
         const existing = readTracked().find(
-          (t) => t.name === input.name && isProcessRunning(t.pid),
+          (t) => t.name === input.name && isTrackedRunning(t),
         );
         if (existing) {
           return responseBuilder.success(
@@ -477,7 +479,7 @@ export const processGetTracked = createTool({
   handler: async (input, { responseBuilder }) => {
     const tracked = readTracked().filter((t) => !input.group || t.group === input.group);
     const processes = tracked.map((t) => {
-      const running = isProcessRunning(t.pid);
+      const running = isTrackedRunning(t);
       const uptime = running
         ? Math.floor((Date.now() - new Date(t.startedAt).getTime()) / 1000)
         : null;
@@ -554,10 +556,11 @@ export const processStopTracked = createTool({
         notFound.push(name);
         return;
       }
-      if (!isProcessRunning(m.pid)) {
+      if (!isTrackedRunning(m)) {
         skipped.push(name);
         return;
       }
+      setAutoRestart(m.name, false);
       if (killTree(m.pid, 'SIGTERM')) stopped.push({ name: m.name, pid: m.pid });
       else notFound.push(name);
     };
@@ -609,7 +612,7 @@ export const processSpawnTracked = createTool({
         notFound.push(name);
         return;
       }
-      if (isProcessRunning(m.pid)) {
+      if (isTrackedRunning(m)) {
         skipped.push({ name: m.name, reason: 'already_running' });
         return;
       }
@@ -740,7 +743,7 @@ export const processCleanupTracked = createTool({
   inputSchema: z.object({}),
   handler: async (input, { responseBuilder }) => {
     const tracked = readTracked();
-    const toRemove = tracked.filter((t) => !isProcessRunning(t.pid) && !t.command);
+    const toRemove = tracked.filter((t) => !isTrackedRunning(t) && !t.command);
 
     if (toRemove.length === 0) {
       return responseBuilder.success({
@@ -835,7 +838,7 @@ export const processRestart = createTool({
           notFound.push(name);
           return;
         }
-        if (isProcessRunning(m.pid)) killTree(m.pid, 'SIGTERM');
+        if (isTrackedRunning(m)) killTree(m.pid, 'SIGTERM');
         if (!m.command) {
           skipped.push(name);
           return;
