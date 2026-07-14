@@ -67,6 +67,9 @@ export const authFillLoginForm = createTool({
 
       let submitted = false;
 
+      let usernameSelector: string | null = null;
+      let passwordSelector: string | null = null;
+
       // Phase 3: Fill fields (two paths: smart vs legacy fallback)
       if (usernameField && passwordField) {
         // Path A: Smart fill via fillField — handles label/name/id/placeholder/aria-label
@@ -89,8 +92,6 @@ export const authFillLoginForm = createTool({
         }
       } else {
         // Path B: Legacy fallback using hardcoded selectors
-        let usernameSelector: string | null = null;
-        let passwordSelector: string | null = null;
         let submitSelector: string | null = null;
 
         for (const sel of LOGIN_SELECTORS.usernameFields) {
@@ -151,24 +152,49 @@ export const authFillLoginForm = createTool({
         }
 
         const cookies = await session.browser.contextCookies();
+        const storage = await page
+          .evaluate(() => {
+            const items: Record<string, string> = {};
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i);
+              if (key) items[key] = localStorage.getItem(key) ?? '';
+            }
+            return items;
+          })
+          .catch(() => ({}) as Record<string, string>);
+
         const hasAuthCookie = cookies.some((c) =>
           /token|session|auth|jwt|sid|connect/i.test(c.name),
         );
+        const hasAuthLocalStorage = Object.keys(storage).some((k) =>
+          /token|session|auth|jwt|sid|connect|usr|user/i.test(k),
+        );
 
-        if (hasAuthCookie || input.sessionName) {
+        // Check for logged-in indicators in DOM (same as authCheckLoggedIn)
+        const loggedInIndicators = [
+          'a[href*="logout"]',
+          'a[href*="sign-out"]',
+          'a[href*="profile"]',
+          'a[href*="/account"]',
+          'button:has-text("Log out")',
+          'button:has-text("Sign out")',
+        ];
+        let hasLoggedInIndicator = false;
+        for (const selector of loggedInIndicators) {
+          try {
+            const el = await page.$(selector);
+            if (el) {
+              hasLoggedInIndicator = true;
+              break;
+            }
+          } catch {
+            // ignore selector/detachment errors
+          }
+        }
+
+        if (hasAuthCookie || hasAuthLocalStorage || hasLoggedInIndicator || input.sessionName) {
           const origin = new URL(page.url()).origin;
           sessionName = input.sessionName || `auto-${new URL(page.url()).hostname}`;
-
-          const storage = await page
-            .evaluate(() => {
-              const items: Record<string, string> = {};
-              for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key) items[key] = localStorage.getItem(key) ?? '';
-              }
-              return items;
-            })
-            .catch(() => ({}) as Record<string, string>);
 
           sessionStore.save(sessionName, {
             cookies: cookies.map((c) => ({
@@ -193,8 +219,8 @@ export const authFillLoginForm = createTool({
         {
           formFound: true,
           fieldsDetected: {
-            usernameField: usernameField !== null,
-            passwordField: passwordField !== null,
+            usernameField: usernameField !== null || usernameSelector !== null,
+            passwordField: passwordField !== null || passwordSelector !== null,
           },
           submitted,
           sessionSaved,

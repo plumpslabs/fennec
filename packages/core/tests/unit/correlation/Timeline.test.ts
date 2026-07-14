@@ -2,8 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { TimelineBuilder } from '../../../src/correlation/Timeline.js';
 import type { BusEvent } from '../../../src/correlation/EventBus.js';
 
+const BASE_TIME = 1700000000000;
 function makeEvent(type: BusEvent['type'], data: Record<string, unknown>, offsetMs = 0): BusEvent {
-  return { type, data, timestamp: Date.now() + offsetMs };
+  return { type, data, timestamp: BASE_TIME + offsetMs };
 }
 
 describe('TimelineBuilder', () => {

@@ -54,6 +54,13 @@ interface CDPLoadingFinished {
   timestamp: number;
 }
 
+interface CDPLoadingFailed {
+  requestId: string;
+  timestamp: number;
+  errorText: string;
+  canceled?: boolean;
+}
+
 /**
  * Parse CDP timing data into a NetworkTiming breakdown (waterfall).
  * All CDP timing values are relative to `requestTime` in seconds.
@@ -116,6 +123,10 @@ export class NetworkCollector {
 
       cdpSession.on('Network.loadingFinished', (msg: unknown) => {
         this.handleLoadingFinished(msg as CDPLoadingFinished);
+      });
+
+      cdpSession.on('Network.loadingFailed', (msg: unknown) => {
+        this.handleLoadingFailed(msg as CDPLoadingFailed);
       });
 
       this.enabled = true;
@@ -189,6 +200,35 @@ export class NetworkCollector {
     // stored event object is the same reference held by consumers
     // (networkBuffer), so setting `responseBody` here propagates.
     void this.fetchResponseBody(msg.requestId);
+  }
+
+  private handleLoadingFailed(msg: CDPLoadingFailed): void {
+    const pending = this.pendingRequests.get(msg.requestId);
+    this.pendingRequests.delete(msg.requestId);
+    if (!pending) return;
+
+    // Check if we already have a response event (sometimes responseReceived is fired, but then loading fails)
+    const existing = this.collectedEvents.find((e) => e.requestId === msg.requestId);
+    if (existing) {
+      if (existing.status === 200) {
+        existing.status = 0; // mark as failed/aborted
+      }
+      existing.statusText = msg.errorText;
+      return;
+    }
+
+    const event: NetworkEvent = {
+      requestId: msg.requestId,
+      method: pending.method,
+      url: pending.url,
+      status: 0,
+      statusText: msg.errorText,
+      duration: 0,
+      timestamp: pending.timestamp,
+      type: pending.type as NetworkEvent['type'],
+    };
+
+    this.emit(event);
   }
 
   /**

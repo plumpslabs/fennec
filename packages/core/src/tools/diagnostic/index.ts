@@ -122,7 +122,9 @@ export const diagnoseNetwork = createTool({
     const slowRequests = requests.filter((r) => r.duration > 1000);
     const corsIssues = requests.filter(
       (r) =>
-        r.status === 0 ||
+        (r.status === 0 &&
+          (!r.statusText || /cors|cross-origin|access-control/i.test(r.statusText)) &&
+          !/abort|timeout|net::err/i.test(r.statusText)) ||
         (r.responseHeaders && !r.responseHeaders['access-control-allow-origin'] && r.status >= 400),
     );
     return responseBuilder.success(
