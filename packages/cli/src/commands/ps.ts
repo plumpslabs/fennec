@@ -17,6 +17,7 @@ import {
   getSystemProcesses,
   formatProcessState,
   getProcessMemRss,
+  getProcessTreeMemRss,
 } from '../utils/system-process.js';
 import { readTracked, formatUptime, isTrackedRunning, extractFlagValue } from './tracker.js';
 
@@ -143,7 +144,7 @@ export async function psCommand(args: string[]): Promise<void> {
     },
     {
       key: 'mem',
-      label: 'MEM',
+      label: 'MEM(total)',
       align: 'right',
       format: (v) => {
         const kb = v as number | null;
@@ -166,7 +167,7 @@ export async function psCommand(args: string[]): Promise<void> {
     const uptime = running
       ? formatUptime(Math.floor((Date.now() - new Date(t.startedAt).getTime()) / 1000))
       : '-';
-    const memKb = running ? (getProcessMemRss(t.pid) ?? null) : null;
+    const memKb = running ? (getProcessTreeMemRss(t.pid) ?? null) : null;
     return {
       name: t.name,
       pid: running ? String(t.pid) : pc.dim(String(t.pid)),

@@ -2,6 +2,14 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.14.11] - 2026-07-14
+
+### Fixed
+- **Doctor false positive: editor language servers.** Fixed the duplicate server detection filter in `fennec doctor` to require `start`/`server` as whole words (`\b` word boundary), naturally excluding `tsserver`, `volar`, and other language servers. Added explicit exclusion list (`tsserver|typescript|eslint|volar`) as a safety net. Previously, any process with "fennec" in its project path and "server" in its name (e.g. TypeScript Language Server running in the fennec project) was falsely flagged as a duplicate MCP server.
+
+### Changed
+- **`fennec ps` now shows total process tree memory.** Memory column (MEM) now sums the RSS of the tracked process AND all its descendants (children, grandchildren, etc.) via `/proc/[pid]/task/[tid]/children`. This is especially useful for apps spawned through wrappers like `make` or `npm run` where the tracked parent uses minimal memory (~2MB) but the actual app (child process) consumes significantly more. Falls back to parent-only RSS on non-Linux platforms.
+
 ## [1.14.10] - 2026-07-14
 
 ### Changed

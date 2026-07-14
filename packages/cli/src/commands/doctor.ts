@@ -97,13 +97,26 @@ export async function doctorCommand(args: string[] = []): Promise<void> {
     const processes = getSystemProcesses({ userOnly: true });
 
     // Find fennec start / server processes
-    const serverProcs = processes.filter(
-      (p) =>
-        (p.name.includes('fennec') || p.command.includes('fennec')) &&
-        (p.command.includes('start') || p.command.includes('server')) &&
-        !p.command.includes('doctor') &&
-        p.pid !== process.pid,
-    );
+    // "fennec" can appear as a binary name (cmd token) or in a project
+    // path (development install). Exclude known editor language servers
+    // that happen to have "fennec" in their project path and "server" in
+    // their name (e.g. tsserver, volar, eslint --server, …).
+    const serverProcs = processes.filter((p) => {
+      const cmd = p.command;
+      const name = p.name;
+      // Must have 'fennec' somewhere (command or process name)
+      if (!cmd.toLowerCase().includes('fennec') && !name.toLowerCase().includes('fennec')) return false;
+      // Must have 'start' or 'server' as a whole word (so 'tsserver' won't match)
+      if (!/\b(start|server)\b/i.test(cmd)) return false;
+      // Exclude the doctor command itself
+      if (/\bdoctor\b/i.test(cmd)) return false;
+      // Exclude self (the current --fix process)
+      if (p.pid === process.pid) return false;
+      // Exclude known editor language-server processes whose project path
+      // happens to contain 'fennec' (e.g. tsserver --pluginProbeLocations …/fennec/…)
+      if (/\b(tsserver|typescript|eslint|volar)\b/i.test(cmd)) return false;
+      return true;
+    });
     if (serverProcs.length > 1) {
       if (fix) {
         console.error(`  ${pc.cyan('⚡')} Terminating ${serverProcs.length} duplicate Fennec server(s)...`);

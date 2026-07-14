@@ -25,7 +25,7 @@ const fennecGold = hexColor('#FFB347');
 
 // ─── Version ────────────────────────────────────────────────────
 
-export const VERSION = '1.14.10';
+export const VERSION = '1.14.11';
 
 // ─── Banner generation ──────────────────────────────────────────
 

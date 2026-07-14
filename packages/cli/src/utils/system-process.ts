@@ -500,6 +500,66 @@ export function getProcessMemRss(pid: number): number | null {
 }
 
 /**
+ * Recursively collect all descendant PIDs of a process (children,
+ * grandchildren, etc.) via /proc on Linux.
+ */
+function getChildPids(pid: number): number[] {
+  const children: number[] = [];
+  try {
+    const taskDir = `/proc/${pid}/task`;
+    const tids = readdirSync(taskDir).filter((d) => /^\d+$/.test(d));
+    for (const tid of tids) {
+      try {
+        const raw = readFileSync(`${taskDir}/${tid}/children`, 'utf-8').trim();
+        if (!raw) continue;
+        for (const childPid of raw.split(/\s+/)) {
+          const cp = parseInt(childPid, 10);
+          if (!isNaN(cp) && cp > 0) {
+            children.push(cp);
+            children.push(...getChildPids(cp));
+          }
+        }
+      } catch {
+        // Child may have exited — skip
+      }
+    }
+  } catch {
+    // Process may have exited — return what we have
+  }
+  return children;
+}
+
+/**
+ * Read the total resident memory (RSS) of a process AND all its
+ * descendants (children, grandchildren, etc.) in KB.
+ *
+ * This is useful when the tracked parent is a thin wrapper (e.g.
+ * `make`, `npm run`) and the actual memory is consumed by child
+ * processes. Falls back to `getProcessMemRss` (parent only) on
+ * non-Linux platforms or when /proc is unavailable.
+ *
+ * Returns null if the root PID is gone or inaccessible.
+ */
+export function getProcessTreeMemRss(pid: number): number | null {
+  const parentKb = getProcessMemRss(pid);
+  if (parentKb === null) return null;
+
+  if (process.platform !== 'linux') return parentKb;
+
+  let total = parentKb;
+  try {
+    const childPids = getChildPids(pid);
+    for (const cp of childPids) {
+      const childKb = getProcessMemRss(cp);
+      if (childKb !== null) total += childKb;
+    }
+  } catch {
+    // Best-effort: return parent RSS if child scan fails
+  }
+  return total;
+}
+
+/**
  * Check if something is accepting TCP connections on a port.
  * Tries both IPv4 (127.0.0.1) and IPv6 (::1) loopback so apps that bind to
  * localhost (which often resolves to ::1, e.g. Next.js/Vite) aren't falsely
