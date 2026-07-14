@@ -62,6 +62,7 @@ import {
   networkWaitForRequest,
   networkGetRequestDetail,
   networkWaitForApiResponse,
+  networkApiCall,
 } from '../../tools/devtools/network.js';
 import {
   devtoolsGetPerformanceMetrics,
@@ -178,6 +179,7 @@ export const browserModule: FennecModule = {
     networkWaitForRequest,
     networkGetRequestDetail,
     networkWaitForApiResponse,
+    networkApiCall,
     // DevTools Performance
     devtoolsGetPerformanceMetrics,
     devtoolsGetMemoryUsage,
