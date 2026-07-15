@@ -1,4 +1,4 @@
-import type { MiddlewareFn, MiddlewareContext } from './Pipeline.js';
+import type { MiddlewareFn, MiddlewareContext, ToolResult } from './Pipeline.js';
 import type { BrowserSession } from '../browser/types.js';
 import { getLogger } from '../utils/logger.js';
 import { sanitize } from '../response/ResponseBuilder.js';
@@ -71,12 +71,25 @@ function generateFallbackSelectors(input: string): FallbackSelector[] {
  * Try to perform the original tool action using a fallback selector.
  * Returns the data payload if recovery succeeds, or null if it fails.
  */
+/** Recover action input — tool-specific fields used during auto-recovery. */
+interface RecoverActionInput {
+  button?: 'left' | 'right' | 'middle';
+  clickCount?: number;
+  text?: string;
+  clear?: boolean;
+  delay?: number;
+  value?: string;
+  state?: string;
+  timeout?: number;
+  [key: string]: unknown;
+}
+
 async function tryRecoverAction(
   ctx: MiddlewareContext,
   browser: BrowserSession,
   fallback: string,
 ): Promise<Record<string, unknown> | null> {
-  const input = ctx.input as Record<string, string | number | boolean | string[] | undefined>;
+  const input = ctx.input as RecoverActionInput;
   const loc = browser.locator(fallback);
 
   try {
@@ -273,21 +286,21 @@ export function createSmartHook(): MiddlewareFn {
   return async (ctx, next) => {
     const result = await next();
 
-    const resultObj = result as Record<string, unknown>;
-    const isError = resultObj && 'success' in resultObj && resultObj.success === false;
+    const resultObj = result as ToolResult;
 
-    if (!isError) {
+    if (resultObj.success !== false) {
       return result;
     }
 
-    const errorObj = resultObj.error as Record<string, unknown> | undefined;
-    const errorCode = (errorObj?.code as string) ?? 'UNKNOWN';
+    const errorObj = resultObj.error;
+    const errorCode = errorObj?.code ?? 'UNKNOWN';
 
     logger.info({ tool: ctx.toolName, errorCode }, 'SmartHook: error detected, collecting context');
 
     // === StateManager Context ===
     // Inject current session context info so AI knows which session/context it's in
     let contextSwitchInfo: Record<string, unknown> | null = null;
+
     if (ctx.stateManager) {
       const activeInfo = ctx.stateManager.getActiveSessionInfo();
       if (activeInfo) {
@@ -411,7 +424,7 @@ export function createSmartHook(): MiddlewareFn {
                 recoveredSelector: recoveryAttempt.selector,
                 recoveryStrategy: recoveryAttempt.strategy,
               },
-              meta: (resultObj.meta as Record<string, unknown>) ?? {},
+              meta: resultObj.meta ?? {},
             };
           } else {
             // Element found but action failed — inject recovery info into error context
@@ -494,8 +507,8 @@ export function createSmartHook(): MiddlewareFn {
 
     // For ELEMENT_NOT_FOUND: inject URL as top-level field for AI visibility
     if (errorCode === 'ELEMENT_NOT_FOUND' && enrichedContext.url) {
-      (resultObj as Record<string, unknown>).currentUrl = enrichedContext.url;
-      (resultObj as Record<string, unknown>).pageTitle = enrichedContext.title;
+      resultObj.currentUrl = enrichedContext.url;
+      resultObj.pageTitle = enrichedContext.title;
     }
 
     // Inject context switch / session info into enriched context
@@ -503,13 +516,13 @@ export function createSmartHook(): MiddlewareFn {
       enrichedContext.sessionContext = contextSwitchInfo;
 
       // Also inject as top-level field so AI immediately sees it
-      (resultObj as Record<string, unknown>).sessionContext = contextSwitchInfo;
+      resultObj.sessionContext = contextSwitchInfo;
     }
 
     // Attach enriched context to error response
     if (errorObj && Object.keys(enrichedContext).length > 0) {
       errorObj.context = {
-        ...((errorObj.context as Record<string, unknown>) ?? {}),
+        ...(errorObj.context ?? {}),
         ...sanitize(enrichedContext),
       };
     }

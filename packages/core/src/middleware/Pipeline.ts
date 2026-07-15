@@ -5,6 +5,32 @@ import type { FennecConfig } from '../config/defaults.js';
 import type { WorkflowScheduler } from '../scheduler/WorkflowScheduler.js';
 import type { StateManager } from '../state/index.js';
 
+export interface ToolResult {
+  success: boolean;
+  data?: unknown;
+  error?: ToolError;
+  meta?: Record<string, unknown>;
+  /** Allow middleware to attach ad-hoc fields (retried, retryCount, currentUrl, etc.) */
+  [key: string]: unknown;
+}
+
+export interface ToolError {
+  code?: string;
+  message?: string;
+  context?: Record<string, unknown>;
+  suggestions?: string[];
+}
+
+/** Common parsed input fields used across middleware. */
+export interface MiddlewareParsedInput {
+  detail?: 'summary' | 'full';
+  includeRaw?: boolean;
+  incidentId?: string;
+  sessionId?: string;
+  selector?: string;
+  [key: string]: unknown;
+}
+
 export interface MiddlewareContext {
   toolName: string;
   /** Tool category for grouping/filtering. Populated from ToolDefinition.category. */

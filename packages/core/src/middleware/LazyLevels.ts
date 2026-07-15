@@ -24,9 +24,10 @@
  *   }
  */
 
-import type { MiddlewareFn } from './Pipeline.js';
+import type { MiddlewareFn, ToolResult, MiddlewareParsedInput } from './Pipeline.js';
 import type { LazyContext } from './LazyContext.js';
 import { getLogger } from '../utils/logger.js';
+import type { Pulse } from './PulseContext.js';
 
 // ─── Level 1: Summary Middleware ────────────────────────────────
 
@@ -66,9 +67,9 @@ export function createLazyLevel1(
     }
 
     try {
-      const parsedInput = ctx.parsedInput as Record<string, unknown>;
-      const detail = parsedInput.detail as string | undefined;
-      const resultObj = result as Record<string, unknown>;
+      const parsedInput = ctx.parsedInput as MiddlewareParsedInput;
+      const detail = parsedInput.detail;
+      const resultObj = result as ToolResult;
       const hasErrors =
         resultObj.success === false ||
         (ctx.session && ctx.session.consoleBuffer.filter((l) => l.level === 'error').length > 0);
@@ -78,30 +79,16 @@ export function createLazyLevel1(
         detail === 'summary' || detail === 'full' || (opts.autoOnError && hasErrors);
 
       if (shouldAttach) {
-        // Get pulse from the response meta if available
-        const meta = resultObj.meta as Record<string, unknown> | undefined;
-        const pulse = meta?.pulse as Record<string, unknown> | undefined;
-        const pulseObj = pulse
-          ? {
-              level: 0 as const,
-              status: (pulse.status as 'healthy' | 'warning' | 'error') ?? 'healthy',
-              consoleErrors: (pulse.consoleErrors as number) ?? 0,
-              consoleWarnings: (pulse.consoleWarnings as number) ?? 0,
-              corsWarnings: (pulse.corsWarnings as number) ?? 0,
-              networkFailures: (pulse.networkFailures as number) ?? 0,
-              networkSlow: (pulse.networkSlow as number) ?? 0,
-              summary: (pulse.summary as string) ?? '',
-            }
-          : undefined;
+        const pulse = resultObj.meta?.pulse as Pulse | undefined;
 
-        if (pulseObj) {
-          const summary = lazyContext.getSummary(ctx.session, pulseObj, opts.maxTokens);
+        if (pulse) {
+          const summary = lazyContext.getSummary(ctx.session, pulse, opts.maxTokens);
 
           // Attach Level 1 to meta
           if (!resultObj.meta) {
             resultObj.meta = {};
           }
-          (resultObj.meta as Record<string, unknown>).lazyLevel1 = summary;
+          resultObj.meta.lazyLevel1 = summary;
         }
       }
     } catch (error) {
@@ -148,22 +135,22 @@ export function createLazyLevel2(
     }
 
     try {
-      const parsedInput = ctx.parsedInput as Record<string, unknown>;
-      const detail = parsedInput.detail as string | undefined;
-      const includeRaw = parsedInput.includeRaw as boolean | undefined;
+      const parsedInput = ctx.parsedInput as MiddlewareParsedInput;
+      const detail = parsedInput.detail;
+      const includeRaw = parsedInput.includeRaw;
 
       // Determine if Level 2 should be attached
       const shouldAttach = detail === 'full' || includeRaw === true;
 
       if (shouldAttach) {
-        const incidentId = parsedInput.incidentId as string | undefined;
+        const incidentId = parsedInput.incidentId;
         const detailData = lazyContext.getDetail(ctx.session, incidentId, opts.maxTokens);
 
-        const resultObj = result as Record<string, unknown>;
+        const resultObj = result as ToolResult;
         if (!resultObj.meta) {
           resultObj.meta = {};
         }
-        (resultObj.meta as Record<string, unknown>).lazyLevel2 = detailData;
+        resultObj.meta.lazyLevel2 = detailData;
       }
     } catch (error) {
       logger.warn({ error }, 'LazyLevel2: failed to attach detail');
@@ -210,18 +197,18 @@ export function createLazyLevel3(
     }
 
     try {
-      const parsedInput = ctx.parsedInput as Record<string, unknown>;
-      const includeRaw = parsedInput.includeRaw as boolean | undefined;
+      const parsedInput = ctx.parsedInput as MiddlewareParsedInput;
+      const includeRaw = parsedInput.includeRaw;
 
       // Level 3 only on explicit includeRaw=true
       if (includeRaw === true) {
         const rawData = lazyContext.getRaw(ctx.session, opts.maxTokens);
 
-        const resultObj = result as Record<string, unknown>;
+        const resultObj = result as ToolResult;
         if (!resultObj.meta) {
           resultObj.meta = {};
         }
-        (resultObj.meta as Record<string, unknown>).lazyLevel3 = rawData;
+        resultObj.meta.lazyLevel3 = rawData;
       }
     } catch (error) {
       logger.warn({ error }, 'LazyLevel3: failed to attach raw data');

@@ -1,4 +1,4 @@
-import type { MiddlewareFn } from './Pipeline.js';
+import type { MiddlewareFn, ToolResult } from './Pipeline.js';
 import { getLogger } from '../utils/logger.js';
 import type { PerformanceMetrics } from '../utils/PerformanceMetrics.js';
 
@@ -22,21 +22,15 @@ export function createTelemetryMiddleware(metrics?: PerformanceMetrics): Middlew
       const result = await next();
       const duration = Date.now() - startTime;
 
-      const isError =
-        result && typeof result === 'object' && 'success' in result && result.success === false;
-
-      const errorCode: string | undefined = isError
-        ? String(
-            ((result as Record<string, unknown>).error as Record<string, unknown> | undefined)
-              ?.code ?? 'UNKNOWN',
-          )
-        : undefined;
+      const resultObj = result as ToolResult;
+      const isError = resultObj.success === false;
+      const errorCode = isError ? (resultObj.error?.code ?? 'UNKNOWN') : undefined;
 
       logger.info(
         {
           tool: toolName,
           durationMs: duration,
-          isError: !!isError,
+          isError,
           errorCode: errorCode ?? null,
         },
         'Telemetry: tool completed',
@@ -56,9 +50,8 @@ export function createTelemetryMiddleware(metrics?: PerformanceMetrics): Middlew
       }
 
       // Attach elapsed time to meta
-      const resultObj = result as Record<string, unknown>;
       if (resultObj.meta && typeof resultObj.meta === 'object') {
-        (resultObj.meta as Record<string, unknown>).elapsed = duration;
+        resultObj.meta.elapsed = duration;
       }
 
       return result;
