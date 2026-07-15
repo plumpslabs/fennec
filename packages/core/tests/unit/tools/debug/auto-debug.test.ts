@@ -9,7 +9,7 @@ describe('SnapshotManager', () => {
     mgr = new SnapshotManager({
       maxSnapshots: 10,
       snapshotTTLMs: 60000, // 1 min for tests
-      dedupWindowMs: 500,  // 500ms dedup window for tests
+      dedupWindowMs: 500, // 500ms dedup window for tests
     });
   });
 
@@ -173,7 +173,10 @@ describe('SnapshotManager', () => {
 // ─── AutoDebugEngine tests ─────────────────────────────────────
 
 import { EventBus } from '../../../../src/correlation/EventBus.js';
-import { getAutoDebugEngine, resetAutoDebugEngine } from '../../../../src/tools/debug/auto-debug.js';
+import {
+  getAutoDebugEngine,
+  resetAutoDebugEngine,
+} from '../../../../src/tools/debug/auto-debug.js';
 
 describe('AutoDebugEngine (via EventBus)', () => {
   let bus: EventBus;

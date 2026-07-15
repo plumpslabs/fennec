@@ -77,13 +77,13 @@ describe('JDWP Transport', () => {
     });
 
     it('should read int (4 bytes, big-endian)', () => {
-      const buf = Buffer.from([0x00, 0x00, 0x00, 0x2A]);
+      const buf = Buffer.from([0x00, 0x00, 0x00, 0x2a]);
       const r = new JDWPReader(buf);
       expect(r.readInt()).toBe(42);
     });
 
     it('should read long (8 bytes, big-endian)', () => {
-      const buf = Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2A]);
+      const buf = Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2a]);
       const r = new JDWPReader(buf);
       expect(r.readLong()).toBe(BigInt(42));
     });
@@ -108,13 +108,13 @@ describe('JDWP Transport', () => {
     });
 
     it('should read objectID with 4-byte size', () => {
-      const buf = Buffer.from([0x00, 0x00, 0x00, 0x2A]);
+      const buf = Buffer.from([0x00, 0x00, 0x00, 0x2a]);
       const r = new JDWPReader(buf);
       expect(r.readObjectID(4)).toBe(BigInt(42));
     });
 
     it('should read objectID with 8-byte size', () => {
-      const buf = Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2A]);
+      const buf = Buffer.from([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2a]);
       const r = new JDWPReader(buf);
       expect(r.readObjectID(8)).toBe(BigInt(42));
     });

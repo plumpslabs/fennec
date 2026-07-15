@@ -122,7 +122,9 @@ export class CassetteRecorder {
         input: { ...ctx.input },
         output: isError ? null : (resultObj as Record<string, unknown>),
         error: isError
-          ? String((resultObj.error as Record<string, unknown> | undefined)?.message ?? 'Unknown error')
+          ? String(
+              (resultObj.error as Record<string, unknown> | undefined)?.message ?? 'Unknown error',
+            )
           : null,
         durationMs: Date.now() - ctx.startTime,
         success: !isError,
@@ -186,7 +188,11 @@ export class CassetteRecorder {
 
     this.currentCassette = null;
     getLogger().info(
-      { cassetteId: cassette.id, entries: cassette.entries.length, path: cassettePath(cassette.id) },
+      {
+        cassetteId: cassette.id,
+        entries: cassette.entries.length,
+        path: cassettePath(cassette.id),
+      },
       'Cassette: recording saved',
     );
 
@@ -216,9 +222,13 @@ export class CassetteRecorder {
         try {
           const data = readFileSync(resolve(CASSETTE_DIR, file), 'utf-8');
           result.push(JSON.parse(data));
-        } catch { /* skip corrupted */ }
+        } catch {
+          /* skip corrupted */
+        }
       }
-    } catch { /* dir not found */ }
+    } catch {
+      /* dir not found */
+    }
     return result.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
   }
 
@@ -245,33 +255,37 @@ export class CassetteRecorder {
    */
   async replayCassette(
     id: string,
-    toolExecutor: (toolName: string, input: Record<string, unknown>) => Promise<Record<string, unknown>>,
+    toolExecutor: (
+      toolName: string,
+      input: Record<string, unknown>,
+    ) => Promise<Record<string, unknown>>,
   ): Promise<CassetteDiff> {
     const original = this.getCassette(id);
-    if (!original) throw new Error(`Cassette not found: ${id}`);      const replayed: CassetteEntry[] = [];
-      for (const entry of original.entries) {
-        const start = Date.now();
-        try {
-          const output = await toolExecutor(entry.toolName, entry.input);
-          const resultObj = output as Record<string, unknown>;
-          const isError = resultObj?.success === false;
-          replayed.push({
-            ...entry,
-            output: isError ? null : resultObj,
-            error: isError ? String(resultObj.error ?? 'Error') : null,
-            success: !isError,
-            durationMs: Date.now() - start,
-          });
-        } catch (err) {
-          replayed.push({
-            ...entry,
-            output: null,
-            error: String(err),
-            success: false,
-            durationMs: Date.now() - start,
-          });
-        }
+    if (!original) throw new Error(`Cassette not found: ${id}`);
+    const replayed: CassetteEntry[] = [];
+    for (const entry of original.entries) {
+      const start = Date.now();
+      try {
+        const output = await toolExecutor(entry.toolName, entry.input);
+        const resultObj = output as Record<string, unknown>;
+        const isError = resultObj?.success === false;
+        replayed.push({
+          ...entry,
+          output: isError ? null : resultObj,
+          error: isError ? String(resultObj.error ?? 'Error') : null,
+          success: !isError,
+          durationMs: Date.now() - start,
+        });
+      } catch (err) {
+        replayed.push({
+          ...entry,
+          output: null,
+          error: String(err),
+          success: false,
+          durationMs: Date.now() - start,
+        });
       }
+    }
 
     return this.diff(id, original, replayed);
   }
@@ -293,12 +307,22 @@ export class CassetteRecorder {
 
       if (!entryA && entryB) {
         onlyInB++;
-        diffs.push({ index: i, toolName: entryB.toolName, status: 'only_in_b', outputB: entryB.output ?? undefined });
+        diffs.push({
+          index: i,
+          toolName: entryB.toolName,
+          status: 'only_in_b',
+          outputB: entryB.output ?? undefined,
+        });
         continue;
       }
       if (entryA && !entryB) {
         onlyInA++;
-        diffs.push({ index: i, toolName: entryA.toolName, status: 'only_in_a', outputA: entryA.output ?? undefined });
+        diffs.push({
+          index: i,
+          toolName: entryA.toolName,
+          status: 'only_in_a',
+          outputA: entryA.output ?? undefined,
+        });
         continue;
       }
 

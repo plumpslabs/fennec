@@ -9,18 +9,18 @@
 // ─── Runtime Identification ──────────────────────────────────────
 
 export type RuntimeType =
-  | 'node'       // Node.js / V8 (CDP)
-  | 'python'     // Python (debugpy — DAP)
-  | 'php'        // PHP (Xdebug — DBGp)
-  | 'go'         // Go (Delve — DAP)
-  | 'java'       // JVM languages (JDWP → DAP)
-  | 'dotnet'     // .NET (NetCoreDbg — DAP)
-  | 'ruby'       // Ruby (ruby/debug — DAP)
-  | 'rust'       // Rust (lldb-dap — DAP)
-  | 'cpp'        // C/C++ (lldb-dap — DAP)
-  | 'swift'      // Swift (lldb-dap — DAP)
-  | 'zig'        // Zig (lldb-dap — DAP)
-  | 'dart'       // Dart/Flutter (DAP)
+  | 'node' // Node.js / V8 (CDP)
+  | 'python' // Python (debugpy — DAP)
+  | 'php' // PHP (Xdebug — DBGp)
+  | 'go' // Go (Delve — DAP)
+  | 'java' // JVM languages (JDWP → DAP)
+  | 'dotnet' // .NET (NetCoreDbg — DAP)
+  | 'ruby' // Ruby (ruby/debug — DAP)
+  | 'rust' // Rust (lldb-dap — DAP)
+  | 'cpp' // C/C++ (lldb-dap — DAP)
+  | 'swift' // Swift (lldb-dap — DAP)
+  | 'zig' // Zig (lldb-dap — DAP)
+  | 'dart' // Dart/Flutter (DAP)
   | 'unknown';
 
 // ─── Adapter Interface ───────────────────────────────────────────
@@ -101,11 +101,15 @@ export interface DebugAdapter {
   disable(): Promise<void>;
 
   // ── Breakpoint Management ──
-  setBreakpointByUrl(file: string, line: number, options?: {
-    column?: number;
-    condition?: string;
-    logMessage?: string;
-  }): Promise<BreakpointResult>;
+  setBreakpointByUrl(
+    file: string,
+    line: number,
+    options?: {
+      column?: number;
+      condition?: string;
+      logMessage?: string;
+    },
+  ): Promise<BreakpointResult>;
   removeBreakpoint(breakpointId: string): Promise<void>;
 
   // ── Execution Control ──
@@ -115,14 +119,21 @@ export interface DebugAdapter {
   stepOut(): Promise<void>;
 
   // ── Evaluation & Inspection ──
-  evaluateOnCallFrame(callFrameId: string, expression: string, options?: {
-    returnByValue?: boolean;
-    generatePreview?: boolean;
-  }): Promise<EvaluateResult>;
-  getProperties(objectId: string, options?: {
-    ownProperties?: boolean;
-    generatePreview?: boolean;
-  }): Promise<PropertiesResult>;
+  evaluateOnCallFrame(
+    callFrameId: string,
+    expression: string,
+    options?: {
+      returnByValue?: boolean;
+      generatePreview?: boolean;
+    },
+  ): Promise<EvaluateResult>;
+  getProperties(
+    objectId: string,
+    options?: {
+      ownProperties?: boolean;
+      generatePreview?: boolean;
+    },
+  ): Promise<PropertiesResult>;
 
   // ── Event Handlers ──
   onPaused(handler: (event: PausedEvent) => void): void;
@@ -156,9 +167,12 @@ export const RUNTIME_DETECTORS: RuntimeDetector[] = [
     isToolInstalled: async () => {
       try {
         const { execSync } = await import('child_process');
-        execSync('python3 -c "import debugpy" 2>/dev/null || python -c "import debugpy" 2>/dev/null', {
-          timeout: 5000,
-        });
+        execSync(
+          'python3 -c "import debugpy" 2>/dev/null || python -c "import debugpy" 2>/dev/null',
+          {
+            timeout: 5000,
+          },
+        );
         return true;
       } catch {
         return false;

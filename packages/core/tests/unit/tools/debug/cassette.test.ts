@@ -47,16 +47,26 @@ describe('Cassette Recorder', () => {
       // Simulate middleware recording entries via direct access
       if (recorder.currentCassette) {
         recorder.currentCassette.entries.push({
-          id: 'e1', timestamp: new Date().toISOString(),
-          toolName: 'browser_navigate', category: 'navigation',
-          input: { url: 'http://test.com' }, output: { success: true },
-          error: null, durationMs: 100, success: true,
+          id: 'e1',
+          timestamp: new Date().toISOString(),
+          toolName: 'browser_navigate',
+          category: 'navigation',
+          input: { url: 'http://test.com' },
+          output: { success: true },
+          error: null,
+          durationMs: 100,
+          success: true,
         });
         recorder.currentCassette.entries.push({
-          id: 'e2', timestamp: new Date().toISOString(),
-          toolName: 'browser_click', category: 'interaction',
-          input: { selector: '#btn' }, output: { success: true },
-          error: null, durationMs: 50, success: true,
+          id: 'e2',
+          timestamp: new Date().toISOString(),
+          toolName: 'browser_click',
+          category: 'interaction',
+          input: { selector: '#btn' },
+          output: { success: true },
+          error: null,
+          durationMs: 50,
+          success: true,
         });
       }
 
@@ -87,7 +97,12 @@ describe('Cassette Recorder', () => {
     it('should capture tool output when recording', async () => {
       recorder.startRecording('test');
       const mw = recorder.middleware();
-      const ctx = { toolName: 'test_tool', category: 'test', input: { foo: 'bar' }, startTime: Date.now() } as any;
+      const ctx = {
+        toolName: 'test_tool',
+        category: 'test',
+        input: { foo: 'bar' },
+        startTime: Date.now(),
+      } as any;
       const next = async () => ({ success: true, data: 'result' });
 
       await mw(ctx, next);
@@ -101,8 +116,16 @@ describe('Cassette Recorder', () => {
     it('should capture errors when recording', async () => {
       recorder.startRecording('test');
       const mw = recorder.middleware();
-      const ctx = { toolName: 'failing_tool', category: 'test', input: {}, startTime: Date.now() } as any;
-      const next = async () => ({ success: false, error: { code: 'FAIL', message: 'Something broke' } });
+      const ctx = {
+        toolName: 'failing_tool',
+        category: 'test',
+        input: {},
+        startTime: Date.now(),
+      } as any;
+      const next = async () => ({
+        success: false,
+        error: { code: 'FAIL', message: 'Something broke' },
+      });
 
       await mw(ctx, next);
       const cassette = recorder.stopRecording();
@@ -141,7 +164,7 @@ describe('Cassette Recorder', () => {
 
       const result = recorder.diff('cassette_a', original, replay);
       expect(result.summary.regressions).toBe(1);
-      expect(result.diffs.filter(d => d.status === 'regression').length).toBe(1);
+      expect(result.diffs.filter((d) => d.status === 'regression').length).toBe(1);
     });
 
     it('should handle diff where B has more entries', () => {
@@ -168,7 +191,10 @@ describe('Cassette Recorder', () => {
 
 // ─── Helpers ─────────────────────────────────────────────────────
 
-function createTestCassette(id: string, entries: Array<{ toolName: string; success: boolean; durationMs: number }>) {
+function createTestCassette(
+  id: string,
+  entries: Array<{ toolName: string; success: boolean; durationMs: number }>,
+) {
   return {
     id,
     name: 'test',
@@ -186,11 +212,19 @@ function createTestCassette(id: string, entries: Array<{ toolName: string; succe
       durationMs: e.durationMs,
       success: e.success,
     })),
-    metadata: { fennecVersion: 'test', totalTools: entries.length, totalDurationMs: 150, successRate: 100, tags: [] },
+    metadata: {
+      fennecVersion: 'test',
+      totalTools: entries.length,
+      totalDurationMs: 150,
+      successRate: 100,
+      tags: [],
+    },
   };
 }
 
-function createTestEntries(entries: Array<{ toolName: string; success: boolean; durationMs: number }>) {
+function createTestEntries(
+  entries: Array<{ toolName: string; success: boolean; durationMs: number }>,
+) {
   return entries.map((e, i) => ({
     id: `r${i}`,
     timestamp: new Date().toISOString(),

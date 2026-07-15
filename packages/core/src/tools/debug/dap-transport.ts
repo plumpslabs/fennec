@@ -15,7 +15,6 @@ import type { ChildProcess } from 'child_process';
 import { spawn } from 'child_process';
 import { connect } from 'net';
 
-
 // ─── Types ───────────────────────────────────────────────────────
 
 export type DAPTransportMode = 'tcp' | 'stdio';
@@ -58,7 +57,10 @@ export class DAPTransport {
   private socket: any = null; // net.Socket | ChildProcess stdio
   private childProcess: ChildProcess | null = null;
   private seqCounter = 0;
-  private pendingRequests = new Map<number, { resolve: (msg: DAPMessage) => void; reject: (err: Error) => void; timer: NodeJS.Timeout }>();
+  private pendingRequests = new Map<
+    number,
+    { resolve: (msg: DAPMessage) => void; reject: (err: Error) => void; timer: NodeJS.Timeout }
+  >();
   private eventHandlers = new Map<string, Array<(msg: DAPMessage) => void>>();
   private buffer = '';
   private connected = false;
@@ -352,12 +354,12 @@ export class DAPTransport {
     this.pendingRequests.clear();
 
     // Auto-reconnect?
-    if (this.options.reconnect && this.reconnectAttempts < (this.options.maxReconnectAttempts ?? 3)) {
+    if (
+      this.options.reconnect &&
+      this.reconnectAttempts < (this.options.maxReconnectAttempts ?? 3)
+    ) {
       this.reconnectAttempts++;
-      getLogger().info(
-        { attempt: this.reconnectAttempts },
-        'DAP transport reconnecting...',
-      );
+      getLogger().info({ attempt: this.reconnectAttempts }, 'DAP transport reconnecting...');
       setTimeout(() => this.connect().catch(() => {}), 1000 * this.reconnectAttempts);
     }
   }

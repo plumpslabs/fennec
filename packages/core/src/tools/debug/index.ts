@@ -185,20 +185,16 @@ export const debugGetErrorDetail = createTool({
   }),
   handler: async (input, { config, responseBuilder }) => {
     if (!isDebugAllowed(config)) {
-      return responseBuilder.error(
-        new Error('Debug mode is disabled'),
-        { code: 'DEBUG_DISABLED' },
-      );
+      return responseBuilder.error(new Error('Debug mode is disabled'), { code: 'DEBUG_DISABLED' });
     }
 
     const state = getDebugState();
     const group = state.errorDedup.getGroup(input.hash);
 
     if (!group) {
-      return responseBuilder.error(
-        new Error(`Error group not found: ${input.hash}`),
-        { code: 'DEBUG_ERROR_NOT_FOUND' },
-      );
+      return responseBuilder.error(new Error(`Error group not found: ${input.hash}`), {
+        code: 'DEBUG_ERROR_NOT_FOUND',
+      });
     }
 
     // Token budget: limit detail output
@@ -250,10 +246,7 @@ export const debugInvestigate = createTool({
   }),
   handler: async (input, { config, responseBuilder }) => {
     if (!isDebugAllowed(config)) {
-      return responseBuilder.error(
-        new Error('Debug mode is disabled'),
-        { code: 'DEBUG_DISABLED' },
-      );
+      return responseBuilder.error(new Error('Debug mode is disabled'), { code: 'DEBUG_DISABLED' });
     }
 
     const state = getDebugState();
@@ -307,25 +300,40 @@ export const debugInvestigate = createTool({
 function classifyError(message: string): string {
   const lower = message.toLowerCase();
   if (lower.includes('timeout') || lower.includes('timed out')) return 'timeout';
-  if (lower.includes('network') || lower.includes('econnrefused') || lower.includes('econnreset')) return 'network';
-  if (lower.includes('auth') || lower.includes('unauthorized') || lower.includes('forbidden')) return 'auth';
-  if (lower.includes('typeerror') || lower.includes('referenceerror') || lower.includes('syntaxerror')) return 'runtime';
-  if (lower.includes('not found') || lower.includes('enoent') || lower.includes('module')) return 'missing_resource';
-  if (lower.includes('database') || lower.includes('sql') || lower.includes('query')) return 'database';
+  if (lower.includes('network') || lower.includes('econnrefused') || lower.includes('econnreset'))
+    return 'network';
+  if (lower.includes('auth') || lower.includes('unauthorized') || lower.includes('forbidden'))
+    return 'auth';
+  if (
+    lower.includes('typeerror') ||
+    lower.includes('referenceerror') ||
+    lower.includes('syntaxerror')
+  )
+    return 'runtime';
+  if (lower.includes('not found') || lower.includes('enoent') || lower.includes('module'))
+    return 'missing_resource';
+  if (lower.includes('database') || lower.includes('sql') || lower.includes('query'))
+    return 'database';
   if (lower.includes('memory') || lower.includes('heap') || lower.includes('oom')) return 'memory';
   return 'unknown';
 }
 
 function getSuggestedFix(type: string, _message: string): string {
   const fixes: Record<string, string> = {
-    timeout: 'Check for blocking operations, infinite loops, or slow network requests. Consider increasing timeout values.',
-    network: 'Verify the target service is running and reachable. Check firewall rules and connection strings.',
+    timeout:
+      'Check for blocking operations, infinite loops, or slow network requests. Consider increasing timeout values.',
+    network:
+      'Verify the target service is running and reachable. Check firewall rules and connection strings.',
     auth: 'Check authentication tokens, API keys, or session expiry. Re-login or refresh credentials.',
-    runtime: 'Review the code at the reported line. Check for null/undefined values, type mismatches, or missing imports.',
-    missing_resource: 'Ensure required files, modules, or dependencies are installed. Check file paths.',
-    database: 'Verify database connection string, credentials, and that the database server is running.',
+    runtime:
+      'Review the code at the reported line. Check for null/undefined values, type mismatches, or missing imports.',
+    missing_resource:
+      'Ensure required files, modules, or dependencies are installed. Check file paths.',
+    database:
+      'Verify database connection string, credentials, and that the database server is running.',
     memory: 'Check for memory leaks. Increase available memory or optimize memory usage.',
-    unknown: 'Review the error message and stack trace. Check recent code changes that may have introduced the issue.',
+    unknown:
+      'Review the error message and stack trace. Check recent code changes that may have introduced the issue.',
   };
   return fixes[type] ?? fixes.unknown!;
 }
@@ -342,10 +350,7 @@ export const debugSummary = createTool({
   }),
   handler: async (input, { config, responseBuilder }) => {
     if (!isDebugAllowed(config)) {
-      return responseBuilder.error(
-        new Error('Debug mode is disabled'),
-        { code: 'DEBUG_DISABLED' },
-      );
+      return responseBuilder.error(new Error('Debug mode is disabled'), { code: 'DEBUG_DISABLED' });
     }
 
     const state = getDebugState();
@@ -391,10 +396,7 @@ export const debugLogsSince = createTool({
   }),
   handler: async (input, { config, responseBuilder }) => {
     if (!isDebugAllowed(config)) {
-      return responseBuilder.error(
-        new Error('Debug mode is disabled'),
-        { code: 'DEBUG_DISABLED' },
-      );
+      return responseBuilder.error(new Error('Debug mode is disabled'), { code: 'DEBUG_DISABLED' });
     }
 
     const { lines, error } = readProcessLogs(input.name, {
@@ -443,10 +445,7 @@ export const debugConfigure = createTool({
   }),
   handler: async (input, { config, responseBuilder }) => {
     if (!isDebugAllowed(config)) {
-      return responseBuilder.error(
-        new Error('Debug mode is disabled'),
-        { code: 'DEBUG_DISABLED' },
-      );
+      return responseBuilder.error(new Error('Debug mode is disabled'), { code: 'DEBUG_DISABLED' });
     }
 
     const state = getDebugState();
@@ -457,19 +456,17 @@ export const debugConfigure = createTool({
       state.processModes.set(input.name, input.mode);
     }
 
-    getLogger().info(
-      { process: input.name, mode: input.mode },
-      'Debug mode configured',
-    );
+    getLogger().info({ process: input.name, mode: input.mode }, 'Debug mode configured');
 
     return responseBuilder.success(
       {
         process: input.name,
         mode: input.mode,
         configured: true,
-        note: input.mode === 'off'
-          ? 'Debug mode disabled for this process'
-          : `Debug mode set to "${input.mode}". Use debug_get_errors to view errors.`,
+        note:
+          input.mode === 'off'
+            ? 'Debug mode disabled for this process'
+            : `Debug mode set to "${input.mode}". Use debug_get_errors to view errors.`,
       },
       { elapsed: 0, sessionId: 'debug', timestamp: new Date().toISOString() },
     );
@@ -500,9 +497,14 @@ export const debugSetBreakpoint = createTool({
   description:
     '`<use_case>Breakpoint debugging</use_case> ⏸️ Set a breakpoint at file:line in the browser session. Execution will pause when the breakpoint is hit. CDP Debugger.setBreakpointByUrl is used under the hood. Returns breakpoint ID. Requires config debug.mode set to breakpoint/auto and security.allowDebug:true. Token cost: ~30 tokens.`',
   inputSchema: z.object({
-    file: z.string().describe('Source file URL or path (e.g., app.js or http://localhost:3000/app.js)'),
+    file: z
+      .string()
+      .describe('Source file URL or path (e.g., app.js or http://localhost:3000/app.js)'),
     line: z.number().describe('Line number (0-based)'),
-    condition: z.string().optional().describe('Optional breakpoint condition (JavaScript expression)'),
+    condition: z
+      .string()
+      .optional()
+      .describe('Optional breakpoint condition (JavaScript expression)'),
     sessionId: z.string().optional().describe('Browser session ID (defaults to active session)'),
   }),
   handler: async (input, { config, responseBuilder, sessionManager }) => {
@@ -673,10 +675,9 @@ export const debugStepInto = createTool({
     try {
       const stepped = await bpManager.stepInto(session.id);
       if (!stepped) {
-        return responseBuilder.error(
-          new Error('Debugger is not paused.'),
-          { code: 'DEBUG_NOT_PAUSED' },
-        );
+        return responseBuilder.error(new Error('Debugger is not paused.'), {
+          code: 'DEBUG_NOT_PAUSED',
+        });
       }
       return responseBuilder.success(
         { stepped: true, note: 'Stepped into. Use debug_get_variables to inspect state.' },
@@ -858,30 +859,35 @@ export const debugInvestigateRuntime = createTool({
 
     const session = sessionManager.getOrDefault(input.sessionId);
     const cdp = session.browser.cdp();
-    const bpManager = getBreakpointManager();      // Guard: CDP session required (V8/Node.js only)
-      if (!cdp) {
-        return responseBuilder.error(
-          new Error('Runtime investigation requires a browser/Node.js session with CDP support. For other runtimes (Python, Java, Go), use the individual debug_* tools.'),
-          { code: 'CDP_NOT_AVAILABLE' },
-        );
+    const bpManager = getBreakpointManager(); // Guard: CDP session required (V8/Node.js only)
+    if (!cdp) {
+      return responseBuilder.error(
+        new Error(
+          'Runtime investigation requires a browser/Node.js session with CDP support. For other runtimes (Python, Java, Go), use the individual debug_* tools.',
+        ),
+        { code: 'CDP_NOT_AVAILABLE' },
+      );
+    }
+
+    try {
+      // 1. Create debug session if not exists
+      await bpManager.getOrCreateSession(session.id, cdp);
+
+      // 2. If hint file/line provided, set breakpoint
+      let bp = null;
+      if (input.hintFile && input.hintLine !== undefined) {
+        bp = await bpManager.setBreakpoint(session.id, input.hintFile, input.hintLine);
       }
-
-      try {
-        // 1. Create debug session if not exists
-        await bpManager.getOrCreateSession(session.id, cdp);
-
-        // 2. If hint file/line provided, set breakpoint
-        let bp = null;
-        if (input.hintFile && input.hintLine !== undefined) {
-          bp = await bpManager.setBreakpoint(session.id, input.hintFile, input.hintLine);
-        }
 
       // 3. Check if already paused
       let pauseState = bpManager.getPauseState(session.id);
 
       // 4. If hint given but not paused, guide user to trigger the code path
       if (!pauseState && input.hintFile) {
-        getLogger().info({ file: input.hintFile, line: input.hintLine }, 'Investigate: breakpoint set, waiting for hit');
+        getLogger().info(
+          { file: input.hintFile, line: input.hintLine },
+          'Investigate: breakpoint set, waiting for hit',
+        );
       }
 
       // 5. Get variables if paused
@@ -910,9 +916,7 @@ export const debugInvestigateRuntime = createTool({
           question: input.question,
           paused: pauseState !== null,
           breakpointSet: bp !== null,
-          breakpoint: bp
-            ? { file: bp.file, line: bp.line, id: bp.id }
-            : null,
+          breakpoint: bp ? { file: bp.file, line: bp.line, id: bp.id } : null,
           callStack,
           variables,
           summary: pauseState
@@ -944,7 +948,11 @@ export const debugSetLogpoint = createTool({
   inputSchema: z.object({
     file: z.string().describe('Source file URL or path'),
     line: z.number().describe('Line number (0-based)'),
-    expression: z.string().optional().default('{variables}').describe('Expression to log (default: log all variables)'),
+    expression: z
+      .string()
+      .optional()
+      .default('{variables}')
+      .describe('Expression to log (default: log all variables)'),
     sessionId: z.string().optional().describe('Browser session ID'),
   }),
   handler: async (input, { config, responseBuilder, sessionManager }) => {
@@ -1001,7 +1009,8 @@ export const debugSetLogpoint = createTool({
             },
             active: false,
             runtime: 'v8',
-            note: `⚠️ Logpoints not yet supported on V8/CDP (no native logMessage in CDP). ` +
+            note:
+              `⚠️ Logpoints not yet supported on V8/CDP (no native logMessage in CDP). ` +
               `Breakpoint set without logMessage. Use debug_set_breakpoint then debug_continue manually. ` +
               `Breakpoint ID: ${bp.id}`,
           },
@@ -1088,7 +1097,9 @@ export const debugReplaySession = createTool({
   description:
     '`<use_case>Smart debugging</use_case> ▶️ Replay a cassette — re-executes all recorded tool calls and compares results with the original. Returns a diff showing what changed (regressions, new errors, timing differences). Essential for catching silent regressions before they reach production. Token cost: depends on cassette size.`',
   inputSchema: z.object({
-    cassetteId: z.string().describe('Cassette ID from debug_stop_recording or debug_list_cassettes'),
+    cassetteId: z
+      .string()
+      .describe('Cassette ID from debug_stop_recording or debug_list_cassettes'),
   }),
   handler: async (input, { config, responseBuilder }) => {
     if (!isDebugAllowed(config)) {
@@ -1101,10 +1112,9 @@ export const debugReplaySession = createTool({
     // Return the cassette info so the agent can decide how to proceed
     const cassette = recorder.getCassette(input.cassetteId);
     if (!cassette) {
-      return responseBuilder.error(
-        new Error(`Cassette not found: ${input.cassetteId}`),
-        { code: 'CASSETTE_NOT_FOUND' },
-      );
+      return responseBuilder.error(new Error(`Cassette not found: ${input.cassetteId}`), {
+        code: 'CASSETTE_NOT_FOUND',
+      });
     }
 
     return responseBuilder.success(
@@ -1210,9 +1220,10 @@ export const debugDiffSessions = createTool({
           successRateB: b.metadata.successRate,
         },
         diffs: diffs.slice(0, 20), // Token-efficient: max 20 diffs
-        note: regressions > 0
-          ? `⚠️ ${regressions} regression(s) detected! ${different - regressions} other change(s).`
-          : '✅ No regressions detected.',
+        note:
+          regressions > 0
+            ? `⚠️ ${regressions} regression(s) detected! ${different - regressions} other change(s).`
+            : '✅ No regressions detected.',
       },
       { elapsed: 0, sessionId: 'debug', timestamp: new Date().toISOString() },
     );
@@ -1295,7 +1306,8 @@ export const debugAutoReport = createTool({
           process: input.name,
           reports: [],
           count: 0,
-          summary: 'No auto-debug reports yet. Auto-debug captures snapshots when errors occur (process crash, stderr error, browser error, 5xx).',
+          summary:
+            'No auto-debug reports yet. Auto-debug captures snapshots when errors occur (process crash, stderr error, browser error, 5xx).',
         },
         { elapsed: 0, sessionId: 'debug', timestamp: new Date().toISOString() },
       );
@@ -1315,9 +1327,10 @@ export const debugAutoReport = createTool({
           suggestedFix: r.suggestedFix,
         })),
         count: reports.length,
-        summary: reports.length > 0
-          ? `${reports[0]!.ruleName}: ${reports[0]!.message.slice(0, 80)}`
-          : 'No reports',
+        summary:
+          reports.length > 0
+            ? `${reports[0]!.ruleName}: ${reports[0]!.message.slice(0, 80)}`
+            : 'No reports',
       },
       { elapsed: 0, sessionId: 'debug', timestamp: new Date().toISOString() },
     );
@@ -1331,7 +1344,10 @@ export const debugAutoHistory = createTool({
     '`<use_case>Auto-debugging</use_case> 📋 Get auto-debug history. Lists recent snapshots with timestamps, rule, and message. Filter by sourceName, ruleId, or since timestamp. Max 10 entries. Token cost: ~50 tokens each.`',
   inputSchema: z.object({
     sourceName: z.string().optional().describe('Filter by process/session name'),
-    ruleId: z.enum(['crash', 'error', 'browser', 'hang', 'timeout']).optional().describe('Filter by rule ID'),
+    ruleId: z
+      .enum(['crash', 'error', 'browser', 'hang', 'timeout'])
+      .optional()
+      .describe('Filter by rule ID'),
     since: z.string().optional().describe('ISO timestamp — only events after this time'),
     limit: z.number().optional().default(10).describe('Max entries to return'),
   }),
@@ -1356,7 +1372,11 @@ export const debugAutoHistory = createTool({
       if (input.ruleId) filtered = filtered.filter((s) => s.ruleId === input.ruleId);
       snapshots = filtered;
     } else {
-      snapshots = mgr.getLatest({ sourceName: input.sourceName, ruleId: input.ruleId, limit: input.limit ?? 10 });
+      snapshots = mgr.getLatest({
+        sourceName: input.sourceName,
+        ruleId: input.ruleId,
+        limit: input.limit ?? 10,
+      });
     }
 
     return responseBuilder.success(
@@ -1384,7 +1404,9 @@ export const debugAutoConfigure = createTool({
   description:
     '`<use_case>Auto-debugging</use_case> ⚙️ Configure auto-debug rules. Enable/disable specific auto-debug triggers: crash (process exit), error (stderr), browser (console+5xx), hang (port down), timeout. Returns current rule status. Requires security.allowDebug: true. Token cost: ~20 tokens.`',
   inputSchema: z.object({
-    ruleId: z.enum(['crash', 'error', 'browser', 'hang', 'timeout']).describe('Rule ID to configure'),
+    ruleId: z
+      .enum(['crash', 'error', 'browser', 'hang', 'timeout'])
+      .describe('Rule ID to configure'),
     enabled: z.boolean().describe('Enable or disable this rule'),
   }),
   handler: async (input, { config, responseBuilder }) => {
@@ -1444,7 +1466,10 @@ export const debugAutoStats = createTool({
     if (!engine) {
       return responseBuilder.success(
         {
-          totalSnapshots: 0, enabledRules: 0, rules: [], status: 'not_started',
+          totalSnapshots: 0,
+          enabledRules: 0,
+          rules: [],
+          status: 'not_started',
         },
         { elapsed: 0, sessionId: 'debug', timestamp: new Date().toISOString() },
       );

@@ -127,7 +127,9 @@ export class JDWPAdapter implements DebugAdapter {
     // JVM starts suspended (suspend=y) — resume it so it can run
     try {
       await this.transport.sendCommand(JDWP_CMDSET.VIRTUAL_MACHINE, JDWP_VM.RESUME);
-    } catch { /* ok */ }
+    } catch {
+      /* ok */
+    }
 
     await this.cacheClasses();
     // Source files and methods cached lazily on demand
@@ -144,7 +146,9 @@ export class JDWPAdapter implements DebugAdapter {
     if (!this.enabled) return;
     try {
       await this.transport.sendCommand(JDWP_CMDSET.EVENT_REQUEST, 3); // ClearAllBreakpoints
-    } catch { /* best-effort */ }
+    } catch {
+      /* best-effort */
+    }
     await this.transport.disconnect();
 
     this.enabled = false;
@@ -165,7 +169,10 @@ export class JDWPAdapter implements DebugAdapter {
 
   private async cacheClasses(): Promise<void> {
     try {
-      const data = await this.transport.sendCommand(JDWP_CMDSET.VIRTUAL_MACHINE, JDWP_VM.ALL_CLASSES_WITH_GENERIC);
+      const data = await this.transport.sendCommand(
+        JDWP_CMDSET.VIRTUAL_MACHINE,
+        JDWP_VM.ALL_CLASSES_WITH_GENERIC,
+      );
       const r = new JDWPReader(data);
       const count = r.readInt();
       for (let i = 0; i < count; i++) {
@@ -188,12 +195,18 @@ export class JDWPAdapter implements DebugAdapter {
 
     for (const cls of this.classes) {
       try {
-        const data = await this.transport.sendWithWriter(JDWP_CMDSET.REFERENCE_TYPE, REF_TYPE.SOURCE_FILE, (w) => {
-          w.writeObjectID(cls.typeID, this.idSize('ref'));
-        });
+        const data = await this.transport.sendWithWriter(
+          JDWP_CMDSET.REFERENCE_TYPE,
+          REF_TYPE.SOURCE_FILE,
+          (w) => {
+            w.writeObjectID(cls.typeID, this.idSize('ref'));
+          },
+        );
         const r = new JDWPReader(data);
         this.sourceFiles.set(cls.signature, r.readString());
-      } catch { /* skip classes without source */ }
+      } catch {
+        /* skip classes without source */
+      }
     }
   }
 
@@ -202,14 +215,18 @@ export class JDWPAdapter implements DebugAdapter {
     const existing = this.methodsByClass.get(clsSig);
     if (existing) return existing;
 
-    const cls = this.classes.find(c => c.signature === clsSig);
+    const cls = this.classes.find((c) => c.signature === clsSig);
     if (!cls) return [];
 
     // Use MethodsWithGeneric (cmd 15) which returns declared+generic counts
     try {
-      const data = await this.transport.sendWithWriter(JDWP_CMDSET.REFERENCE_TYPE, METHODS_WITH_GENERIC, (w) => {
-        w.writeObjectID(cls.typeID, this.idSize('ref'));
-      });
+      const data = await this.transport.sendWithWriter(
+        JDWP_CMDSET.REFERENCE_TYPE,
+        METHODS_WITH_GENERIC,
+        (w) => {
+          w.writeObjectID(cls.typeID, this.idSize('ref'));
+        },
+      );
 
       const r = new JDWPReader(data);
       const declared = r.readInt();
@@ -237,11 +254,18 @@ export class JDWPAdapter implements DebugAdapter {
   private async classForSourceFile(filename: string): Promise<JDWPRefType | null> {
     await this.ensureSourceFiles();
 
-    const target = filename.replace(/\.java$/, '').split(/[/\\]/).pop() ?? filename;
+    const target =
+      filename
+        .replace(/\.java$/, '')
+        .split(/[/\\]/)
+        .pop() ?? filename;
     for (const cls of this.classes) {
       const sf = this.sourceFiles.get(cls.signature);
       if (sf) {
-        const sfn = sf.replace(/\.java$/, '').split(/[/\\]/).pop();
+        const sfn = sf
+          .replace(/\.java$/, '')
+          .split(/[/\\]/)
+          .pop();
         if (sfn === target || sf === filename) return cls;
       }
       const simple = cls.signature.replace(/^L/, '').replace(/;$/, '').split('/').pop();
@@ -250,14 +274,17 @@ export class JDWPAdapter implements DebugAdapter {
     return null;
   }
 
-  private async methodForLine(clsSig: string, _line: number): Promise<{ method: JDWPMethod; codeIndex: bigint } | null> {
+  private async methodForLine(
+    clsSig: string,
+    _line: number,
+  ): Promise<{ method: JDWPMethod; codeIndex: bigint } | null> {
     const methods = await this.ensureMethods(clsSig);
     if (methods.length === 0) return null;
 
     // Note: Full codeIndex-to-line mapping requires VariableTable/LineTable
     // which isn't available via JDWP directly. Breakpoints fire at method entry.
     // This is a known limitation that could be improved later.
-    const firstMethod = methods.find(m => !m.name.startsWith('<'));
+    const firstMethod = methods.find((m) => !m.name.startsWith('<'));
     return firstMethod
       ? { method: firstMethod, codeIndex: BigInt(0) }
       : { method: methods[0]!, codeIndex: BigInt(0) };
@@ -274,11 +301,16 @@ export class JDWPAdapter implements DebugAdapter {
   private idSize(kind: 'obj' | 'ref' | 'method' | 'field' | 'frame'): number {
     const ids = this.transport.ids;
     switch (kind) {
-      case 'obj': return ids.objectIDSize;
-      case 'ref': return ids.referenceTypeIDSize;
-      case 'method': return ids.methodIDSize;
-      case 'field': return ids.fieldIDSize;
-      case 'frame': return ids.frameIDSize;
+      case 'obj':
+        return ids.objectIDSize;
+      case 'ref':
+        return ids.referenceTypeIDSize;
+      case 'method':
+        return ids.methodIDSize;
+      case 'field':
+        return ids.fieldIDSize;
+      case 'frame':
+        return ids.frameIDSize;
     }
   }
 
@@ -338,11 +370,15 @@ export class JDWPAdapter implements DebugAdapter {
   /** Fetch stack frames and cache frameIDs for later variable inspection. */
   private async fetchFrames(threadId: bigint): Promise<CallFrame[]> {
     try {
-      const data = await this.transport.sendWithWriter(JDWP_CMDSET.THREAD_REFERENCE, JDWP_THREAD.FRAMES, (w) => {
-        w.writeObjectID(threadId, this.idSize('obj'));
-        w.writeInt(0); // startFrame
-        w.writeInt(10); // maxFrames
-      });
+      const data = await this.transport.sendWithWriter(
+        JDWP_CMDSET.THREAD_REFERENCE,
+        JDWP_THREAD.FRAMES,
+        (w) => {
+          w.writeObjectID(threadId, this.idSize('obj'));
+          w.writeInt(0); // startFrame
+          w.writeInt(10); // maxFrames
+        },
+      );
 
       const r = new JDWPReader(data);
       const count = r.readInt();
@@ -357,11 +393,13 @@ export class JDWPAdapter implements DebugAdapter {
         r.readLong(); // codeIndex
 
         // Resolve method name and source file from cache
-        const cls = this.classes.find(c => c.typeID === classID);
+        const cls = this.classes.find((c) => c.typeID === classID);
         const methods = cls ? this.methodsByClass.get(cls.signature) : undefined;
-        const method = methods?.find(m => m.id === methodID);
+        const method = methods?.find((m) => m.id === methodID);
         const funcName = method?.name ?? `<method#${methodID}>`;
-        const sourceFile = cls ? (this.sourceFiles.get(cls.signature) ?? cls.signature) : 'unknown.java';
+        const sourceFile = cls
+          ? (this.sourceFiles.get(cls.signature) ?? cls.signature)
+          : 'unknown.java';
 
         const callFrame: CallFrame = {
           callFrameId: `java_frame_${i}`,
@@ -387,7 +425,7 @@ export class JDWPAdapter implements DebugAdapter {
       }
 
       this.frameCache.set(key, frameEntries);
-      return frameEntries.map(e => e.callFrame);
+      return frameEntries.map((e) => e.callFrame);
     } catch {
       return [];
     }
@@ -443,7 +481,9 @@ export class JDWPAdapter implements DebugAdapter {
         w.writeByte(JDWP_EVENT_KIND.BREAKPOINT);
         w.writeInt(jdwpId);
       });
-    } catch { /* best-effort */ }
+    } catch {
+      /* best-effort */
+    }
 
     this.bpIdToJDWP.delete(breakpointId);
     this.jdwpBPToBpId.delete(jdwpId);
@@ -489,7 +529,9 @@ export class JDWPAdapter implements DebugAdapter {
           w.writeByte(JDWP_EVENT_KIND.SINGLE_STEP);
           w.writeInt(prevStepId);
         });
-      } catch { /* best-effort */ }
+      } catch {
+        /* best-effort */
+      }
       this.stepRequestId = null;
     }
 
@@ -532,14 +574,20 @@ export class JDWPAdapter implements DebugAdapter {
     const idx = parseInt(callFrameId.replace('java_frame_', ''), 10);
     const tid = this.suspendedThreadId;
     if (isNaN(idx) || tid === null) {
-      return { result: { type: 'string', value: expression }, exceptionDetails: { text: 'Not paused or invalid frame' } };
+      return {
+        result: { type: 'string', value: expression },
+        exceptionDetails: { text: 'Not paused or invalid frame' },
+      };
     }
 
     // Look up the actual frameID from cache
     const frames = this.frameCache.get(String(tid));
     const frameEntry = frames?.[idx];
     if (!frameEntry) {
-      return { result: { type: 'string', value: expression }, exceptionDetails: { text: 'Frame not available' } };
+      return {
+        result: { type: 'string', value: expression },
+        exceptionDetails: { text: 'Frame not available' },
+      };
     }
 
     // Try to evaluate expression as a variable lookup by scanning slots
@@ -566,19 +614,31 @@ export class JDWPAdapter implements DebugAdapter {
         if (valuesCount > 0) {
           const tag = r.readByte();
           const val = r.readTaggedValue(tag, this.idSize('obj'));
-          return { result: { type: val.type, value: val.value, description: String(val.value ?? val.type), objectId: val.objectId } };
+          return {
+            result: {
+              type: val.type,
+              value: val.value,
+              description: String(val.value ?? val.type),
+              objectId: val.objectId,
+            },
+          };
         }
       }
 
       // For full expression evaluation (e.g. `myVar.field`), we'd need
       // ObjectReference.InvokeMethod which is complex. For now, return null
       // and rely on getProperties for variable inspection.
-      return { 
+      return {
         result: { type: 'string', value: expression },
-        exceptionDetails: { text: 'Expression evaluation not fully supported in JDWP. Use getProperties to inspect variables.' }
+        exceptionDetails: {
+          text: 'Expression evaluation not fully supported in JDWP. Use getProperties to inspect variables.',
+        },
       };
     } catch (err) {
-      return { result: { type: 'string', value: expression }, exceptionDetails: { text: String(err) } };
+      return {
+        result: { type: 'string', value: expression },
+        exceptionDetails: { text: String(err) },
+      };
     }
   }
 

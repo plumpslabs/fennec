@@ -41,7 +41,7 @@
 | `store/`                    | **StoreManager** — single source of truth for persisted state: global `~/.fennec` (or `FENNEC_HOME`/`FENNEC_DATA_DIR`) vs per-project `--local`, perms lockdown, scan, `redactSession`                                               |
 | `tools/`                    | 165+ MCP tool definitions across 18 categories (navigation, interaction, dom, devtools console/network/performance, storage, auth, tabs, process, terminal, diagnostic, scheduler, smart, planner, recorder, assert, mobile, **ai**) |
 | `tools/ai/`                 | **AI-Native API** — `observe()`, `ai_diagnose()`, `correlate()`, `summarize()`, `explain()`, `investigate()`, `predict()`                                                                                                            |
-| `tools/debug/`               | **Debug Engine** — 26 tools across 3 levels: log debug, breakpoint (V8/DAP/JDWP/DBGp), auto-debug (EventBus-driven), cassette record/replay                                                                                          |
+| `tools/debug/`              | **Debug Engine** — 26 tools across 3 levels: log debug, breakpoint (V8/DAP/JDWP/DBGp), auto-debug (EventBus-driven), cassette record/replay                                                                                          |
 | `incident/`                 | **Incident Engine** — formal incident type, lifecycle management, confidence scoring, auto-detection via EventBus                                                                                                                    |
 | `modules/`                  | Modular system with `FennecModule` interface + `ModuleRegistry`. Modules: **browser**, **process**, **mobile** (Android/ADB: 11 tools)                                                                                               |
 | `process/`                  | Process spawner (idempotent adopt-by-port), supervisor (auto-restart + flapping detection), log watcher, pipe watcher, **cross-platform** port detector (`/proc` on Linux, `lsof` on macOS, `netstat`/`wmic` on Windows)             |
@@ -145,6 +145,7 @@ Information delivered in levels, config-driven:
 ### 🐛 Debug Engine (NEW)
 
 Multi-language debugger with 26 tools across 3 levels:
+
 - **Level 1** — Smart Log Debugging: error dedup by stack hash, source map resolution, grouped summaries
 - **Level 2** — Breakpoint Debugging: V8/CDP, Python DAP, PHP DBGp→DAP, Java JDWP→DAP, Go/Ruby/.NET/Rust/Dart native DAP
 - **Level 3** — Auto-Debug: EventBus-driven triggers (process crash, stderr error, browser error, 5xx)
@@ -177,15 +178,15 @@ Every tool call is recorded with timestamp, session ID, input, result, and durat
 Fennec works with all major MCP clients. Some clients require **SSE transport**
 (`fennec start --sse`) instead of the default stdio:
 
-| Client            | stdio | SSE | Notes |
-| ----------------- | :---: | :-: | ----- |
-| Claude Desktop    | ✅    | ✅  | stdio default |
-| Claude Code       | ✅    | ✅  | stdio default |
-| Cline             | ✅    | ✅  | stdio default |
-| Cursor            | ✅    | ✅  | stdio default |
-| Windsurf          | ✅    | ✅  | stdio default |
-| Continue.dev      | ⚠️    | ✅  | SSE recommended |
-| OpenCode          | ❌    | ✅  | **SSE required** (`type: remote`, `url: http://localhost:3333/sse`) |
+| Client         | stdio | SSE | Notes                                                               |
+| -------------- | :---: | :-: | ------------------------------------------------------------------- |
+| Claude Desktop |  ✅   | ✅  | stdio default                                                       |
+| Claude Code    |  ✅   | ✅  | stdio default                                                       |
+| Cline          |  ✅   | ✅  | stdio default                                                       |
+| Cursor         |  ✅   | ✅  | stdio default                                                       |
+| Windsurf       |  ✅   | ✅  | stdio default                                                       |
+| Continue.dev   |  ⚠️   | ✅  | SSE recommended                                                     |
+| OpenCode       |  ❌   | ✅  | **SSE required** (`type: remote`, `url: http://localhost:3333/sse`) |
 
 > **SSE mode:** `fennec start --sse` starts an HTTP+SSE endpoint on `http://127.0.0.1:3333/sse`.
 

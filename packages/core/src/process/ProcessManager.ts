@@ -87,10 +87,10 @@ export class ProcessManager {
     }
 
     // ── Port claim: prevent duplicate port binds ─────────────────
-    const claimedPort = (port !== undefined && port > 0) ? port : undefined;
+    const claimedPort = port !== undefined && port > 0 ? port : undefined;
     if (claimedPort !== undefined) {
       if (this.portClaims.has(claimedPort)) {
-        if (name)        this.spawnLock.delete(name);
+        if (name) this.spawnLock.delete(name);
         throw new Error(
           `Port :${claimedPort} is already claimed by another managed process. Use a different port or release it first.`,
         );
@@ -129,7 +129,10 @@ export class ProcessManager {
       // Collect stdout
       if (child.stdout) {
         child.stdout.on('data', (data: Buffer) => {
-          const lines = data.toString().split('\n').filter((l) => l.trim());
+          const lines = data
+            .toString()
+            .split('\n')
+            .filter((l) => l.trim());
           for (const line of lines) {
             const level = detectLogLevel(line);
             managed.logBuffer.push({ line, level, timestamp: new Date().toISOString() });
@@ -143,7 +146,10 @@ export class ProcessManager {
       // Collect stderr
       if (child.stderr) {
         child.stderr.on('data', (data: Buffer) => {
-          const lines = data.toString().split('\n').filter((l) => l.trim());
+          const lines = data
+            .toString()
+            .split('\n')
+            .filter((l) => l.trim());
           for (const line of lines) {
             managed.logBuffer.push({ line, level: 'error', timestamp: new Date().toISOString() });
             if (managed.logBuffer.length > this.config.logBufferLines) {

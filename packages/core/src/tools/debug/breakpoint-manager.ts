@@ -180,7 +180,9 @@ export class BreakpointSessionManager {
   private getSession(sessionId: string): DebugSession {
     const session = this.sessions.get(sessionId);
     if (!session) {
-      throw new Error(`No debug session found for "${sessionId}". Call debug_configure with mode "breakpoint" first.`);
+      throw new Error(
+        `No debug session found for "${sessionId}". Call debug_configure with mode "breakpoint" first.`,
+      );
     }
     session.lastActivity = Date.now();
     return session;
@@ -438,7 +440,11 @@ export class BreakpointSessionManager {
   ): Promise<{ value: string; type: string; exception?: string }> {
     const session = this.getSession(sessionId);
     if (!session.pauseState) {
-      return { value: '', type: 'undefined', exception: 'Not paused — no call frame to evaluate in' };
+      return {
+        value: '',
+        type: 'undefined',
+        exception: 'Not paused — no call frame to evaluate in',
+      };
     }
 
     const topFrame = session.pauseState.callFrames[0];
@@ -503,7 +509,9 @@ export class BreakpointSessionManager {
     for (let i = 0; i < Math.min(callFrames.length, maxFrames); i++) {
       const frame = callFrames[i]!;
       const file = frame.url.split('/').pop() ?? frame.url;
-      parts.push(`  #${i} ${frame.functionName || '<anonymous>'} (${file}:${frame.lineNumber}:${frame.columnNumber})`);
+      parts.push(
+        `  #${i} ${frame.functionName || '<anonymous>'} (${file}:${frame.lineNumber}:${frame.columnNumber})`,
+      );
     }
 
     if (callFrames.length > maxFrames) {

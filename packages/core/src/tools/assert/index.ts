@@ -23,7 +23,9 @@ export const browserAssert = createTool({
     selector: z
       .string()
       .optional()
-      .describe('Element selector (CSS / text= / role= / :has-text(), required for element/attribute assertions)'),
+      .describe(
+        'Element selector (CSS / text= / role= / :has-text(), required for element/attribute assertions)',
+      ),
     expected: z
       .string()
       .optional()
@@ -32,7 +34,9 @@ export const browserAssert = createTool({
     attribute: z
       .string()
       .optional()
-      .describe('Attribute name for exists-with-attr, or URL query param name for url-param-equals'),
+      .describe(
+        'Attribute name for exists-with-attr, or URL query param name for url-param-equals',
+      ),
     sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
@@ -59,7 +63,9 @@ export const browserAssert = createTool({
           ? `URL parameter "${name}" matches "${input.expected}"`
           : `URL parameter "${name}" value "${value}" !== expected "${input.expected}"`;
       } else if (input.assertion === 'text-present') {
-        const text = await session.browser.evaluate(() => document.body?.innerText ?? '').catch(() => '');
+        const text = await session.browser
+          .evaluate(() => document.body?.innerText ?? '')
+          .catch(() => '');
         const expected = input.expected ?? '';
         passed = text.includes(expected);
         reason = passed

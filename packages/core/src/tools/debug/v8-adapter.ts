@@ -15,7 +15,13 @@
  */
 import type { BrowserCDPSession } from '../../browser/types.js';
 import { getLogger } from '../../utils/logger.js';
-import type { DebugAdapter, RuntimeType, BreakpointResult, EvaluateResult, PropertiesResult } from './adapter-types.js';
+import type {
+  DebugAdapter,
+  RuntimeType,
+  BreakpointResult,
+  EvaluateResult,
+  PropertiesResult,
+} from './adapter-types.js';
 
 // ─── Types ───────────────────────────────────────────────────────
 

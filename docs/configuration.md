@@ -83,10 +83,10 @@ correlation:
   minConfidence: 0.7
 
 debug:
-  allowDebug: false         # Enable debug features globally
-  allowDebugEval: false     # Expression evaluation (high risk)
-  allowedDirs: []            # Restrict breakpoints to these dirs
-  allowDependencies: false   # Allow breakpoints in dependencies
+  allowDebug: false # Enable debug features globally
+  allowDebugEval: false # Expression evaluation (high risk)
+  allowedDirs: [] # Restrict breakpoints to these dirs
+  allowDependencies: false # Allow breakpoints in dependencies
 
 security:
   sandbox: true

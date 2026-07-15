@@ -45,7 +45,10 @@ export const browserNavigate = createTool({
 
     // Richer, human-readable error taxonomy so the agent can tell *why* a
     // navigation failed instead of a generic "Unable to connect".
-    const describeError = (err: unknown, url: string): { code: string; reason: string; suggestions?: string[] } => {
+    const describeError = (
+      err: unknown,
+      url: string,
+    ): { code: string; reason: string; suggestions?: string[] } => {
       const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
       const suggestions: string[] = [];
       const hasLocalhost = /localhost|127\.0\.0\.1/i.test(url);
@@ -92,7 +95,11 @@ export const browserNavigate = createTool({
           reason: 'The browser/CDP session died — recover it with browser_session_recover.',
           suggestions,
         };
-      return { code: 'NAVIGATION_FAILED', reason: 'Navigation failed for an unspecified reason.', suggestions };
+      return {
+        code: 'NAVIGATION_FAILED',
+        reason: 'Navigation failed for an unspecified reason.',
+        suggestions,
+      };
     };
 
     let lastError: unknown;

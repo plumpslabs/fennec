@@ -49,10 +49,10 @@ const DEFAULT_IGNORE_PATTERNS: RegExp[] = [
  */
 function hashStackTrace(stackTrace: string): string {
   const normalized = stackTrace
-    .replace(/:(\d+):(\d+)/g, ':N:N')     // normalize line:col
-    .replace(/0x[0-9a-fA-F]+/g, '0x...')  // normalize hex addresses
-    .replace(/\bat\s+/g, 'at ')            // normalize whitespace
-    .replace(/\s+/g, ' ')                  // collapse whitespace
+    .replace(/:(\d+):(\d+)/g, ':N:N') // normalize line:col
+    .replace(/0x[0-9a-fA-F]+/g, '0x...') // normalize hex addresses
+    .replace(/\bat\s+/g, 'at ') // normalize whitespace
+    .replace(/\s+/g, ' ') // collapse whitespace
     .trim();
 
   // Simple hash (djb2)
@@ -169,8 +169,7 @@ export class ErrorDedup {
     if (groups.length === 0) return 'No errors';
 
     const parts = groups.map(
-      (g) =>
-        `${g.message.slice(0, 60)} at ${g.topFrame?.slice(0, 60) ?? 'unknown'} (${g.count}x)`,
+      (g) => `${g.message.slice(0, 60)} at ${g.topFrame?.slice(0, 60) ?? 'unknown'} (${g.count}x)`,
     );
 
     const total = groups.reduce((acc, g) => acc + g.count, 0);

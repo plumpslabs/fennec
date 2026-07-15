@@ -58,10 +58,7 @@ export class AdapterRegistry {
    * @param cdp Optional CDP session (only used for node/V8)
    * @returns A DebugAdapter instance, or null if runtime is unsupported
    */
-  async createAdapter(
-    runtime: RuntimeType,
-    cdp?: BrowserCDPSession,
-  ): Promise<DebugAdapter | null> {
+  async createAdapter(runtime: RuntimeType, cdp?: BrowserCDPSession): Promise<DebugAdapter | null> {
     switch (runtime) {
       case 'node':
         // Node.js uses V8 Inspector via CDP (existing V8DebuggerAdapter)
@@ -155,9 +152,7 @@ export class AdapterRegistry {
    * Suggest which adapter config to use for debugging a process.
    * Returns the runtime, adapter info, and a start command if available.
    */
-  async suggestDebugConfig(
-    processNameOrCmd: string,
-  ): Promise<{
+  async suggestDebugConfig(processNameOrCmd: string): Promise<{
     runtime: RuntimeType;
     supported: boolean;
     toolInstalled: boolean;
@@ -168,8 +163,7 @@ export class AdapterRegistry {
     const toolInstalled = await this.isDebugToolInstalled(runtime);
 
     const startHints: Partial<Record<RuntimeType, string>> = {
-      python:
-        'pip install debugpy && python -m debugpy --listen 127.0.0.1:5678 your_script.py',
+      python: 'pip install debugpy && python -m debugpy --listen 127.0.0.1:5678 your_script.py',
       php: 'Set xdebug.mode=debug in php.ini and ensure Xdebug extension is loaded',
       go: 'go install github.com/go-delve/delve/cmd/dlv@latest && dlv dap --listen=:2345',
       dotnet: 'dotnet tool install --global netcoredbg && netcoredbg --interpreter=vscode your.dll',

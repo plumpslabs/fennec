@@ -183,9 +183,10 @@ export class DAPAdapter implements DebugAdapter {
     this.runtime = config.runtime;
     this.config = config;
 
-    const transportOpts: DAPTransportOptions = config.transport === 'tcp'
-      ? { host: config.host, port: config.port, reconnect: false }
-      : { command: config.command, args: config.args, cwd: config.cwd };
+    const transportOpts: DAPTransportOptions =
+      config.transport === 'tcp'
+        ? { host: config.host, port: config.port, reconnect: false }
+        : { command: config.command, args: config.args, cwd: config.cwd };
 
     this.transport = new DAPTransport(config.transport, transportOpts);
   }
@@ -446,7 +447,7 @@ export class DAPAdapter implements DebugAdapter {
     const dapBp = dapBps[0];
 
     const locations = dapBp
-      ? [{ scriptId: file, lineNumber: dapBp.line ?? (line + 1), columnNumber: 0 }]
+      ? [{ scriptId: file, lineNumber: dapBp.line ?? line + 1, columnNumber: 0 }]
       : [{ scriptId: file, lineNumber: line, columnNumber: 0 }];
 
     return {
@@ -524,7 +525,10 @@ export class DAPAdapter implements DebugAdapter {
     return {
       result,
       exceptionDetails: body.error
-        ? { text: typeof body.error === 'string' ? body.error : body.error?.id ?? 'Evaluation error' }
+        ? {
+            text:
+              typeof body.error === 'string' ? body.error : (body.error?.id ?? 'Evaluation error'),
+          }
         : undefined,
     };
   }
@@ -536,7 +540,8 @@ export class DAPAdapter implements DebugAdapter {
     if (!this.enabled) throw new Error('DAP adapter not enabled');
 
     // Parse object ID: dap_vars:threadId:frameId or dap_obj:variablesRef
-    const objMatch = objectId.match(/^dap_(?:vars|obj):(\d+):(\d+)$/) || objectId.match(/^dap_obj:(\d+)$/);
+    const objMatch =
+      objectId.match(/^dap_(?:vars|obj):(\d+):(\d+)$/) || objectId.match(/^dap_obj:(\d+)$/);
     const isScope = objectId.startsWith('dap_vars:');
 
     if (isScope) {

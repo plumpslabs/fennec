@@ -509,7 +509,12 @@ export class IncidentEngine {
   /**
    * Get incident counts by severity + suppressed count.
    */
-  getStats(): { active: number; resolved: number; bySeverity: Record<string, number>; suppressedCount: number } {
+  getStats(): {
+    active: number;
+    resolved: number;
+    bySeverity: Record<string, number>;
+    suppressedCount: number;
+  } {
     const all = Array.from(this.incidents.values());
     const active = all.filter((i) => i.status === 'active').length;
     const resolved = all.filter((i) => i.status === 'resolved').length;

@@ -55,7 +55,10 @@ describe('DAP Transport', () => {
     });
 
     it('should create stdio transport with options', () => {
-      const transport = new DAPTransport('stdio', { command: 'netcoredbg', args: ['--interpreter=vscode'] });
+      const transport = new DAPTransport('stdio', {
+        command: 'netcoredbg',
+        args: ['--interpreter=vscode'],
+      });
       expect(transport.isConnected).toBe(false);
     });
   });

@@ -6,7 +6,11 @@ import type { BrowserCDPSession } from '../../../../src/browser/types.js';
  * Create a mock CDP session for testing V8DebuggerAdapter.
  * Records all sent commands and allows simulating responses/events.
  */
-function createMockCDPSession(): { session: BrowserCDPSession; sent: Array<{ method: string; params?: Record<string, unknown> }>; triggerEvent: (method: string, params: unknown) => void } {
+function createMockCDPSession(): {
+  session: BrowserCDPSession;
+  sent: Array<{ method: string; params?: Record<string, unknown> }>;
+  triggerEvent: (method: string, params: unknown) => void;
+} {
   const sent: Array<{ method: string; params?: Record<string, unknown> }> = [];
   const eventHandlers = new Map<string, Array<(params: unknown) => void>>();
 
@@ -20,7 +24,9 @@ function createMockCDPSession(): { session: BrowserCDPSession; sent: Array<{ met
       if (method === 'Debugger.setBreakpointByUrl') {
         return {
           breakpointId: 'cdp_bp_1',
-          locations: [{ scriptId: 'script_1', lineNumber: params?.lineNumber ?? 0, columnNumber: 0 }],
+          locations: [
+            { scriptId: 'script_1', lineNumber: params?.lineNumber ?? 0, columnNumber: 0 },
+          ],
         };
       }
       if (method === 'Debugger.evaluateOnCallFrame') {
@@ -137,7 +143,9 @@ describe('V8DebuggerAdapter', () => {
 
     it('should throw if not enabled', async () => {
       const disabledAdapter = new V8DebuggerAdapter(mock.session);
-      await expect(disabledAdapter.setBreakpointByUrl('app.js', 10)).rejects.toThrow('Debugger not enabled');
+      await expect(disabledAdapter.setBreakpointByUrl('app.js', 10)).rejects.toThrow(
+        'Debugger not enabled',
+      );
     });
   });
 
@@ -228,7 +236,17 @@ describe('V8DebuggerAdapter', () => {
       adapter.onPaused(handler);
 
       const pauseEvent = {
-        callFrames: [{ callFrameId: 'frame_1', functionName: 'fn', url: 'app.js', lineNumber: 42, columnNumber: 5, scopeChain: [], this: { type: 'object' } }],
+        callFrames: [
+          {
+            callFrameId: 'frame_1',
+            functionName: 'fn',
+            url: 'app.js',
+            lineNumber: 42,
+            columnNumber: 5,
+            scopeChain: [],
+            this: { type: 'object' },
+          },
+        ],
         reason: 'breakpoint',
         hitBreakpoints: ['bp_1'],
       };

@@ -144,15 +144,19 @@ export class PerformanceMetrics {
     else direction = 'stable';
 
     const parts: string[] = [];
-    if (Math.abs(durationDelta) > 5) parts.push(`avg duration ${durationDelta > 0 ? '+' : ''}${Math.round(durationDelta)}ms`);
-    if (Math.abs(memoryDelta) > 2) parts.push(`heap ${memoryDelta > 0 ? '+' : ''}${Math.round(memoryDelta)}MB`);
-    if (Math.abs(errorDelta) > 0.5) parts.push(`error rate ${errorDelta > 0 ? '+' : ''}${errorDelta.toFixed(1)}%`);
+    if (Math.abs(durationDelta) > 5)
+      parts.push(`avg duration ${durationDelta > 0 ? '+' : ''}${Math.round(durationDelta)}ms`);
+    if (Math.abs(memoryDelta) > 2)
+      parts.push(`heap ${memoryDelta > 0 ? '+' : ''}${Math.round(memoryDelta)}MB`);
+    if (Math.abs(errorDelta) > 0.5)
+      parts.push(`error rate ${errorDelta > 0 ? '+' : ''}${errorDelta.toFixed(1)}%`);
 
     return {
       direction,
-      summary: parts.length > 0
-        ? `${direction}: ${parts.join(', ')}`
-        : `${direction}: no significant change`,
+      summary:
+        parts.length > 0
+          ? `${direction}: ${parts.join(', ')}`
+          : `${direction}: no significant change`,
       durationMsTrend: Math.round(durationDelta * 10) / 10,
       memoryTrend: Math.round(memoryDelta * 10) / 10,
       errorRateTrend: Math.round(errorDelta * 10) / 10,

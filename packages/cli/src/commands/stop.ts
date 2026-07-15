@@ -6,7 +6,13 @@
 import pc from 'picocolors';
 import { renderError, createSpinner, confirmPrompt } from '../utils/format.js';
 import { killTree as sysKill, isProcessRunning } from '../utils/system-process.js';
-import { readTracked, isTrackedRunning, setAutoRestart, setManualStop, resolveTargets } from './tracker.js';
+import {
+  readTracked,
+  isTrackedRunning,
+  setAutoRestart,
+  setManualStop,
+  resolveTargets,
+} from './tracker.js';
 import { psCommand } from './ps.js';
 
 export async function stopCommand(args: string[]): Promise<void> {

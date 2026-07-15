@@ -13,30 +13,30 @@ Fennec provides **165+ MCP tools** organized into **18 categories**. Each tool i
 Multi-language debugger: V8/CDP, Python DAP, PHP DBGp→DAP, Java JDWP→DAP, Go/Ruby/.NET/Rust/Dart native DAP.
 Auto-debug engine with EventBus-driven snapshots. Cassette record/replay for regression testing.
 
-| Tool                         | Description                     |
-| ---------------------------- | ------------------------------- |
-| `debug_get_errors`           | Grouped errors by stack hash    |
-| `debug_get_error_detail`     | Full stack + source map         |
-| `debug_investigate`          | Root cause analysis             |
-| `debug_summary`              | 1-line health check             |
-| `debug_set_breakpoint`       | Set breakpoint at file:line     |
-| `debug_continue`             | Resume execution                |
-| `debug_step_over`            | Step over function call         |
-| `debug_step_into`            | Step into function              |
-| `debug_get_variables`        | Inspect scope variables         |
-| `debug_evaluate`             | Evaluate expression             |
-| `debug_set_logpoint`         | Non-blocking logpoint           |
-| `debug_investigate_runtime`  | Guided composite investigation  |
-| `debug_record_session`       | Start recording                 |
-| `debug_stop_recording`       | Stop and save cassette          |
-| `debug_replay_session`       | Replay cassette                 |
-| `debug_diff_sessions`        | Diff two cassettes              |
-| `debug_list_cassettes`       | List saved cassettes            |
-| `debug_auto_report`          | Latest auto-debug report        |
-| `debug_auto_history`         | Auto-debug history              |
-| `debug_auto_configure`       | Enable/disable auto rules       |
-| `debug_auto_stats`           | Auto-debug statistics           |
-| `debug_configure`            | Set debug mode (log/bp/auto)    |
+| Tool                        | Description                    |
+| --------------------------- | ------------------------------ |
+| `debug_get_errors`          | Grouped errors by stack hash   |
+| `debug_get_error_detail`    | Full stack + source map        |
+| `debug_investigate`         | Root cause analysis            |
+| `debug_summary`             | 1-line health check            |
+| `debug_set_breakpoint`      | Set breakpoint at file:line    |
+| `debug_continue`            | Resume execution               |
+| `debug_step_over`           | Step over function call        |
+| `debug_step_into`           | Step into function             |
+| `debug_get_variables`       | Inspect scope variables        |
+| `debug_evaluate`            | Evaluate expression            |
+| `debug_set_logpoint`        | Non-blocking logpoint          |
+| `debug_investigate_runtime` | Guided composite investigation |
+| `debug_record_session`      | Start recording                |
+| `debug_stop_recording`      | Stop and save cassette         |
+| `debug_replay_session`      | Replay cassette                |
+| `debug_diff_sessions`       | Diff two cassettes             |
+| `debug_list_cassettes`      | List saved cassettes           |
+| `debug_auto_report`         | Latest auto-debug report       |
+| `debug_auto_history`        | Auto-debug history             |
+| `debug_auto_configure`      | Enable/disable auto rules      |
+| `debug_auto_stats`          | Auto-debug statistics          |
+| `debug_configure`           | Set debug mode (log/bp/auto)   |
 
 ### [Navigation](navigation.md) (6 tools)
 
@@ -297,27 +297,27 @@ Token-efficient assertions for AI-driven verification (no screenshot needed).
 
 ## Quick Stats
 
-| Category             | Tools   |   Requires Browser    |
-| -------------------- | ------- | :-------------------: |
-| Navigation           | 6       |          ✅           |
-| Interaction          | 10      |          ✅           |
-| DOM & Page           | 9       |          ✅           |
-| DevTools Console     | 5       |          ✅           |
-| DevTools Network     | 9       |          ✅           |
-| DevTools Performance | 6       |          ✅           |
-| Storage              | 12      |          ✅           |
-| Auth                 | 6       |      ⚠️ Partial       |
-| Tabs & Contexts      | 9       |          ✅           |
-| Process              | 19      |          ❌           |
-| Terminal             | 7       |          ❌           |
-| Diagnostic           | 6       |      ⚠️ Partial       |
-| Scheduler            | 7       |          ❌           |
-| Smart                | 12      |          ✅           |
-| Planner              | 5       |          ❌           |
-| Recorder             | 5       |          ✅           |
-| Assert               | 1       |          ✅           |
-| Debug                | 26      |          ❌           |
-| **Total**            | **165+**| **0 without browser** |
+| Category             | Tools    |   Requires Browser    |
+| -------------------- | -------- | :-------------------: |
+| Navigation           | 6        |          ✅           |
+| Interaction          | 10       |          ✅           |
+| DOM & Page           | 9        |          ✅           |
+| DevTools Console     | 5        |          ✅           |
+| DevTools Network     | 9        |          ✅           |
+| DevTools Performance | 6        |          ✅           |
+| Storage              | 12       |          ✅           |
+| Auth                 | 6        |      ⚠️ Partial       |
+| Tabs & Contexts      | 9        |          ✅           |
+| Process              | 19       |          ❌           |
+| Terminal             | 7        |          ❌           |
+| Diagnostic           | 6        |      ⚠️ Partial       |
+| Scheduler            | 7        |          ❌           |
+| Smart                | 12       |          ✅           |
+| Planner              | 5        |          ❌           |
+| Recorder             | 5        |          ✅           |
+| Assert               | 1        |          ✅           |
+| Debug                | 26       |          ❌           |
+| **Total**            | **165+** | **0 without browser** |
 
 > **0 tools work without Playwright/browser engines** — process, terminal, storage (basic), scheduler, planner, and partial auth + diagnostic.
 

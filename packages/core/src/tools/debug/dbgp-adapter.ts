@@ -151,7 +151,12 @@ export class DBGpAdapter implements DebugAdapter {
     const txnId = txnMatch ? parseInt(txnMatch[1]!, 10) : -1;
 
     // Check for breakpoint notification
-    if (command === 'run' || command === 'step_into' || command === 'step_over' || command === 'step_out') {
+    if (
+      command === 'run' ||
+      command === 'step_into' ||
+      command === 'step_over' ||
+      command === 'step_out'
+    ) {
       // These are responses to execution commands
       // Xdebug also sends an async notification when breakpoint is hit
     }
@@ -415,7 +420,8 @@ export class DBGpAdapter implements DebugAdapter {
 
     // Parse the property value
     let displayValue = '';
-    const valueAttr = xml.match(/encoding="base64".*?>([^<]+)/) || xml.match(new RegExp('>([^<]+)</property>'));
+    const valueAttr =
+      xml.match(/encoding="base64".*?>([^<]+)/) || xml.match(new RegExp('>([^<]+)</property>'));
     if (valueAttr) {
       try {
         displayValue = Buffer.from(valueAttr[1]!, 'base64').toString('utf-8');
@@ -447,7 +453,10 @@ export class DBGpAdapter implements DebugAdapter {
 
     // Parse properties from XML
     const props: Array<{ name: string; value: string; type: string }> = [];
-    const propRegex = new RegExp('<property[^>]*fullname="([^"]*)"[^>]*type="([^"]*)"[^>]*(?:>(?:([^<]*)|<!\[CDATA\[(.*?)\]\]>)?)</property>', 'gs');
+    const propRegex = new RegExp(
+      '<property[^>]*fullname="([^"]*)"[^>]*type="([^"]*)"[^>]*(?:>(?:([^<]*)|<!\[CDATA\[(.*?)\]\]>)?)</property>',
+      'gs',
+    );
     let match;
 
     while ((match = propRegex.exec(xml)) !== null) {
@@ -457,7 +466,9 @@ export class DBGpAdapter implements DebugAdapter {
 
       // Try base64 decoding for complex values
       if (!value && xml.includes('encoding="base64"')) {
-        const b64Match = xml.match(new RegExp(`fullname="${name}"[^>]*encoding="base64"[^>]*>([^<]+)`));
+        const b64Match = xml.match(
+          new RegExp(`fullname="${name}"[^>]*encoding="base64"[^>]*>([^<]+)`),
+        );
         if (b64Match) {
           try {
             value = Buffer.from(b64Match[1]!, 'base64').toString('utf-8');

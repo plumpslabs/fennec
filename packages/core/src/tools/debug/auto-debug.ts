@@ -173,7 +173,11 @@ export class SnapshotManager {
   /**
    * Get the latest snapshot(s), optionally filtered by source or rule.
    */
-  getLatest(options?: { sourceName?: string; ruleId?: AutoDebugRuleId; limit?: number }): AutoDebugSnapshot[] {
+  getLatest(options?: {
+    sourceName?: string;
+    ruleId?: AutoDebugRuleId;
+    limit?: number;
+  }): AutoDebugSnapshot[] {
     let filtered = [...this.snapshots].reverse(); // most recent first
 
     if (options?.sourceName) {
@@ -200,9 +204,7 @@ export class SnapshotManager {
   getSince(since: string): AutoDebugSnapshot[] {
     const sinceMs = new Date(since).getTime();
     if (isNaN(sinceMs)) return [];
-    return this.snapshots
-      .filter((s) => new Date(s.timestamp).getTime() > sinceMs)
-      .reverse();
+    return this.snapshots.filter((s) => new Date(s.timestamp).getTime() > sinceMs).reverse();
   }
 
   /**
@@ -238,9 +240,7 @@ export class SnapshotManager {
   pruneExpired(): void {
     const cutoff = Date.now() - this.snapshotTTLMs;
     const before = this.snapshots.length;
-    this.snapshots = this.snapshots.filter(
-      (s) => new Date(s.timestamp).getTime() > cutoff,
-    );
+    this.snapshots = this.snapshots.filter((s) => new Date(s.timestamp).getTime() > cutoff);
     const pruned = before - this.snapshots.length;
     if (pruned > 0) {
       getLogger().debug({ pruned }, 'Auto-debug: pruned expired snapshots');
@@ -268,10 +268,7 @@ export class AutoDebugEngine {
   private cooldowns: Map<string, number> = new Map(); // "ruleId:source" → next allowed timestamp
   private started = false;
 
-  constructor(
-    eventBus: EventBus,
-    config?: Partial<AutoDebugConfig>,
-  ) {
+  constructor(eventBus: EventBus, config?: Partial<AutoDebugConfig>) {
     this.eventBus = eventBus;
     const fullConfig: AutoDebugConfig = {
       rules: config?.rules ?? createDefaultRules(),
@@ -387,7 +384,7 @@ export class AutoDebugEngine {
    * Handle process crash event.
    */
   private handleCrash(event: BusEvent, code: number): void {
-    const processId = event.data.processId as string || 'unknown';
+    const processId = (event.data.processId as string) || 'unknown';
     if (this.isCooldown('crash', processId)) return;
     this.setCooldown('crash', processId);
 
@@ -404,9 +401,10 @@ export class AutoDebugEngine {
       recentLogs: this.getRecentLogs(processId, 10),
       consoleErrors: [],
       networkFailures: [],
-      suggestedFix: code !== null
-        ? `Process exited with code ${code}. Check the process logs for error details. Common causes: uncaught exception, missing module, port already in use.`
-        : 'Process crashed. Check stderr logs for details.',
+      suggestedFix:
+        code !== null
+          ? `Process exited with code ${code}. Check the process logs for error details. Common causes: uncaught exception, missing module, port already in use.`
+          : 'Process crashed. Check stderr logs for details.',
     });
   }
 
@@ -414,7 +412,8 @@ export class AutoDebugEngine {
    * Handle stderr error event.
    */
   private handleStderrError(event: BusEvent, line: string): void {
-    const processId = event.data.processId as string || event.data.watcherId as string || 'unknown';
+    const processId =
+      (event.data.processId as string) || (event.data.watcherId as string) || 'unknown';
     if (this.isCooldown('error', processId)) return;
     this.setCooldown('error', processId);
 
@@ -431,7 +430,8 @@ export class AutoDebugEngine {
       recentLogs: this.getRecentLogs(processId, 10),
       consoleErrors: [],
       networkFailures: [],
-      suggestedFix: 'Review the error in the process logs. Check for missing dependencies, configuration issues, or runtime errors.',
+      suggestedFix:
+        'Review the error in the process logs. Check for missing dependencies, configuration issues, or runtime errors.',
     });
   }
 
@@ -440,8 +440,8 @@ export class AutoDebugEngine {
    */
   private handleBrowserError(event: BusEvent): void {
     const message = (event.data.message as string) || 'Unknown browser error';
-    const source = event.data.source as string || 'unknown';
-    const sessionId = event.data.sessionId as string || 'browser';
+    const source = (event.data.source as string) || 'unknown';
+    const sessionId = (event.data.sessionId as string) || 'browser';
 
     // Dedup: use source + first 100 chars of message as key
     const dedupKey = `${source}:${message.slice(0, 100)}`;
@@ -460,7 +460,8 @@ export class AutoDebugEngine {
       recentLogs: [],
       consoleErrors: [message.slice(0, 200)],
       networkFailures: [],
-      suggestedFix: 'Check the browser console for JavaScript errors. Common causes: undefined variables, network failures, DOM exceptions.',
+      suggestedFix:
+        'Check the browser console for JavaScript errors. Common causes: undefined variables, network failures, DOM exceptions.',
     });
   }
 
@@ -470,7 +471,7 @@ export class AutoDebugEngine {
   private handleNetworkError(event: BusEvent, status: number): void {
     const url = (event.data.url as string) || 'unknown';
     const method = (event.data.method as string) || 'GET';
-    const sessionId = event.data.sessionId as string || 'browser';
+    const sessionId = (event.data.sessionId as string) || 'browser';
 
     const dedupKey = `${sessionId}:${url}:${status}`;
     if (this.isCooldown('browser', dedupKey)) return;
@@ -489,11 +490,12 @@ export class AutoDebugEngine {
       recentLogs: [],
       consoleErrors: [],
       networkFailures: [`${method} ${url} → ${status}`],
-      suggestedFix: status === 500
-        ? 'Server error. Check the backend process logs for stack traces.'
-        : status === 502 || status === 503
-          ? 'Gateway error. The upstream service may be down or restarting.'
-          : `Network error ${status}. Check API endpoint and server status.`,
+      suggestedFix:
+        status === 500
+          ? 'Server error. Check the backend process logs for stack traces.'
+          : status === 502 || status === 503
+            ? 'Gateway error. The upstream service may be down or restarting.'
+            : `Network error ${status}. Check API endpoint and server status.`,
     });
   }
 
@@ -503,11 +505,14 @@ export class AutoDebugEngine {
   private getErrorGroups(): Array<{ hash: string; message: string; count: number }> {
     try {
       const dedup = getErrorDedup();
-      return dedup.getGroups().slice(0, 5).map((g) => ({
-        hash: g.hash,
-        message: g.message.slice(0, 100),
-        count: g.count,
-      }));
+      return dedup
+        .getGroups()
+        .slice(0, 5)
+        .map((g) => ({
+          hash: g.hash,
+          message: g.message.slice(0, 100),
+          count: g.count,
+        }));
     } catch {
       return [];
     }

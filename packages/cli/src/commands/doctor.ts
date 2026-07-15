@@ -98,7 +98,9 @@ export async function doctorCommand(args: string[] = []): Promise<void> {
   const zombieEntries = tracked.filter((t) => t.pid === 0);
   if (zombieEntries.length > 0) {
     if (fix) {
-      console.error(`  ${pc.cyan('⚡')} Cleaning ${zombieEntries.length} zombie PID 0 tracked entry(ies)...`);
+      console.error(
+        `  ${pc.cyan('⚡')} Cleaning ${zombieEntries.length} zombie PID 0 tracked entry(ies)...`,
+      );
       for (const z of zombieEntries) {
         const msg = `Zombie entry removed: "${z.name}" had PID 0 (stale from a failed spawn)`;
         removeTracked(z.name);
@@ -126,7 +128,8 @@ export async function doctorCommand(args: string[] = []): Promise<void> {
       const cmd = p.command;
       const name = p.name;
       // Must have 'fennec' somewhere (command or process name)
-      if (!cmd.toLowerCase().includes('fennec') && !name.toLowerCase().includes('fennec')) return false;
+      if (!cmd.toLowerCase().includes('fennec') && !name.toLowerCase().includes('fennec'))
+        return false;
       // Must have 'start' or 'server' as a whole word (so 'tsserver' won't match)
       if (!/\b(start|server)\b/i.test(cmd)) return false;
       // Exclude the doctor command itself
@@ -140,7 +143,9 @@ export async function doctorCommand(args: string[] = []): Promise<void> {
     });
     if (serverProcs.length > 1) {
       if (fix) {
-        console.error(`  ${pc.cyan('⚡')} Terminating ${serverProcs.length} duplicate Fennec server(s)...`);
+        console.error(
+          `  ${pc.cyan('⚡')} Terminating ${serverProcs.length} duplicate Fennec server(s)...`,
+        );
         for (const p of serverProcs) {
           try {
             process.kill(p.pid, 9);
@@ -163,7 +168,9 @@ export async function doctorCommand(args: string[] = []): Promise<void> {
     const orphanedSupervisors = supervisorProcs.filter((p) => p.pid !== activeSupPid);
     if (orphanedSupervisors.length > 0) {
       if (fix) {
-        console.error(`  ${pc.cyan('⚡')} Terminating ${orphanedSupervisors.length} orphaned supervisor(s)...`);
+        console.error(
+          `  ${pc.cyan('⚡')} Terminating ${orphanedSupervisors.length} orphaned supervisor(s)...`,
+        );
         for (const p of orphanedSupervisors) {
           try {
             process.kill(p.pid, 9);
@@ -184,7 +191,9 @@ export async function doctorCommand(args: string[] = []): Promise<void> {
     );
     if (playwrightProcs.length > 3) {
       if (fix) {
-        console.error(`  ${pc.cyan('⚡')} Terminating ${playwrightProcs.length} Chrome/Chromium processes...`);
+        console.error(
+          `  ${pc.cyan('⚡')} Terminating ${playwrightProcs.length} Chrome/Chromium processes...`,
+        );
         for (const p of playwrightProcs) {
           try {
             process.kill(p.pid, 9);

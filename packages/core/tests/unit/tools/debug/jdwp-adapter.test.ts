@@ -85,7 +85,9 @@ describe('JDWP Adapter', () => {
     it('should register and call onPaused handler', () => {
       const adapter = new JDWPAdapter();
       let called = false;
-      adapter.onPaused(() => { called = true; });
+      adapter.onPaused(() => {
+        called = true;
+      });
       adapter.onPaused((event: any) => {
         expect(event.reason).toBeDefined();
       });
@@ -95,7 +97,9 @@ describe('JDWP Adapter', () => {
     it('should register onResumed handler', () => {
       const adapter = new JDWPAdapter();
       let called = false;
-      adapter.onResumed(() => { called = true; });
+      adapter.onResumed(() => {
+        called = true;
+      });
       expect(typeof adapter.onResumed).toBe('function');
     });
   });

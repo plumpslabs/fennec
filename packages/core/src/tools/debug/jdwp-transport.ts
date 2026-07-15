@@ -161,22 +161,22 @@ export const JDWP_SUSPEND_POLICY = {
 } as const;
 
 export const JDWP_TAG = {
-  OBJECT: 'L'.charCodeAt(0),    // 0x4C
-  ARRAY: '['.charCodeAt(0),      // 0x5B
-  STRING: 's'.charCodeAt(0),     // 0x73 (short string)
-  THREAD: 't'.charCodeAt(0),     // 0x74
+  OBJECT: 'L'.charCodeAt(0), // 0x4C
+  ARRAY: '['.charCodeAt(0), // 0x5B
+  STRING: 's'.charCodeAt(0), // 0x73 (short string)
+  THREAD: 't'.charCodeAt(0), // 0x74
   THREAD_GROUP: 'g'.charCodeAt(0), // 0x67
   CLASS_LOADER: 'l'.charCodeAt(0), // 0x6C
   CLASS_OBJECT: 'c'.charCodeAt(0), // 0x63
-  BOOLEAN: 'Z'.charCodeAt(0),    // 0x5A
-  BYTE: 'B'.charCodeAt(0),       // 0x42
-  CHAR: 'C'.charCodeAt(0),       // 0x43
-  DOUBLE: 'D'.charCodeAt(0),     // 0x44
-  FLOAT: 'F'.charCodeAt(0),      // 0x46
-  INT: 'I'.charCodeAt(0),        // 0x49
-  LONG: 'J'.charCodeAt(0),       // 0x4A
-  SHORT: 'S'.charCodeAt(0),      // 0x53
-  VOID: 'V'.charCodeAt(0),       // 0x56
+  BOOLEAN: 'Z'.charCodeAt(0), // 0x5A
+  BYTE: 'B'.charCodeAt(0), // 0x42
+  CHAR: 'C'.charCodeAt(0), // 0x43
+  DOUBLE: 'D'.charCodeAt(0), // 0x44
+  FLOAT: 'F'.charCodeAt(0), // 0x46
+  INT: 'I'.charCodeAt(0), // 0x49
+  LONG: 'J'.charCodeAt(0), // 0x4A
+  SHORT: 'S'.charCodeAt(0), // 0x53
+  VOID: 'V'.charCodeAt(0), // 0x56
 };
 
 // ─── ID Sizes ────────────────────────────────────────────────────
@@ -257,7 +257,10 @@ export class JDWPReader {
   /**
    * Read a value with a known tag.
    */
-  readTaggedValue(tag: number, idSize: number): { type: string; value: unknown; objectId?: string } {
+  readTaggedValue(
+    tag: number,
+    idSize: number,
+  ): { type: string; value: unknown; objectId?: string } {
     switch (tag) {
       case JDWP_TAG.BOOLEAN:
         return { type: 'boolean', value: this.readBoolean() };
@@ -294,7 +297,11 @@ export class JDWPReader {
       }
       case JDWP_TAG.THREAD: {
         const threadId = this.readObjectID(idSize);
-        return { type: 'thread', value: `<thread#${threadId}>`, objectId: `jdwp_thread:${threadId}` };
+        return {
+          type: 'thread',
+          value: `<thread#${threadId}>`,
+          objectId: `jdwp_thread:${threadId}`,
+        };
       }
       case JDWP_TAG.CLASS_LOADER:
       case JDWP_TAG.CLASS_OBJECT: {
@@ -337,13 +344,13 @@ export class JDWPWriter {
 
   writeByte(v: number): void {
     const buf = Buffer.alloc(1);
-    buf.writeUInt8(v & 0xFF, 0);
+    buf.writeUInt8(v & 0xff, 0);
     this.chunks.push(buf);
   }
 
   writeShort(v: number): void {
     const buf = Buffer.alloc(2);
-    buf.writeInt16BE(v & 0xFFFF, 0);
+    buf.writeInt16BE(v & 0xffff, 0);
     this.chunks.push(buf);
   }
 
@@ -488,13 +495,15 @@ export class JDWPTransport {
             handshakeDone = true;
             this.connected = true;
             // Get ID sizes
-            this.getIDSizes().then(() => {
-              getLogger().info(
-                { port: this.port, ids: this.idSizes },
-                'JDWP transport connected',
-              );
-              resolve();
-            }).catch(reject);
+            this.getIDSizes()
+              .then(() => {
+                getLogger().info(
+                  { port: this.port, ids: this.idSizes },
+                  'JDWP transport connected',
+                );
+                resolve();
+              })
+              .catch(reject);
           } else {
             reject(new Error(`Invalid JDWP handshake reply: ${reply.slice(0, 20)}`));
           }
@@ -596,11 +605,7 @@ export class JDWPTransport {
   /**
    * Send a JDWP command and wait for the reply.
    */
-  async sendCommand(
-    commandSet: number,
-    command: number,
-    payload?: Buffer,
-  ): Promise<Buffer> {
+  async sendCommand(commandSet: number, command: number, payload?: Buffer): Promise<Buffer> {
     if (!this.connected) throw new Error('JDWP not connected');
 
     this.packetId++;

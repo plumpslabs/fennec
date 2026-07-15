@@ -131,6 +131,7 @@ Connect remote MCP clients with `{ "type": "remote", "url": "http://127.0.0.1:33
 ### Client-Specific Config Examples
 
 **For stdio clients** (Claude Desktop, Claude Code, Cline, Cursor, Windsurf):
+
 ```json
 {
   "mcpServers": {
@@ -143,6 +144,7 @@ Connect remote MCP clients with `{ "type": "remote", "url": "http://127.0.0.1:33
 ```
 
 **For OpenCode** (SSE required):
+
 ```json
 // ~/.config/opencode/opencode.json
 {
@@ -157,6 +159,7 @@ Connect remote MCP clients with `{ "type": "remote", "url": "http://127.0.0.1:33
 ```
 
 **For Continue.dev** (SSE recommended):
+
 ```json
 // config.json
 {
@@ -397,10 +400,10 @@ correlation:
   minConfidence: 0.7
 
 debug:
-  allowDebug: true          # Enable debug features globally
-  allowDebugEval: false     # Expression evaluation (high risk)
-  allowedDirs: []            # Restrict breakpoints to these dirs
-  allowDependencies: false   # Allow breakpoints in node_modules/.venv
+  allowDebug: true # Enable debug features globally
+  allowDebugEval: false # Expression evaluation (high risk)
+  allowedDirs: [] # Restrict breakpoints to these dirs
+  allowDependencies: false # Allow breakpoints in node_modules/.venv
 ```
 
 ## Security & Environment Variables

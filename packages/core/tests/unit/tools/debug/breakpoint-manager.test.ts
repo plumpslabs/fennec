@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { BreakpointSessionManager, getBreakpointManager } from '../../../../src/tools/debug/breakpoint-manager.js';
+import {
+  BreakpointSessionManager,
+  getBreakpointManager,
+} from '../../../../src/tools/debug/breakpoint-manager.js';
 import type { BrowserCDPSession } from '../../../../src/browser/types.js';
 
 /**
@@ -19,7 +22,9 @@ function createMockCDPSession(): BrowserCDPSession {
         eventId++;
         return {
           breakpointId: id,
-          locations: [{ scriptId: 'script_1', lineNumber: params?.lineNumber ?? 0, columnNumber: 0 }],
+          locations: [
+            { scriptId: 'script_1', lineNumber: params?.lineNumber ?? 0, columnNumber: 0 },
+          ],
         };
       }
       if (method === 'Runtime.getProperties') {
@@ -27,7 +32,10 @@ function createMockCDPSession(): BrowserCDPSession {
           result: [
             { name: 'x', value: { type: 'number', value: 42 } },
             { name: 'name', value: { type: 'string', value: 'hello' } },
-            { name: 'items', value: { type: 'object', objectId: 'obj_items', description: 'Array(3)' } },
+            {
+              name: 'items',
+              value: { type: 'object', objectId: 'obj_items', description: 'Array(3)' },
+            },
           ],
         };
       }
@@ -77,7 +85,9 @@ describe('BreakpointSessionManager', () => {
       await manager.getOrCreateSession('test_sess_1', cdp);
 
       // Debugger.enable should only be called once
-      const enableCalls = (cdp.send as any).mock.calls.filter((c: any[]) => c[0] === 'Debugger.enable');
+      const enableCalls = (cdp.send as any).mock.calls.filter(
+        (c: any[]) => c[0] === 'Debugger.enable',
+      );
       expect(enableCalls).toHaveLength(1);
     });
 
@@ -130,7 +140,9 @@ describe('BreakpointSessionManager', () => {
       expect(removed).toBe(true);
       expect(manager.listBreakpoints('test_sess_1')).toHaveLength(0);
       // Should call CDP removeBreakpoint
-      expect(cdp.send).toHaveBeenCalledWith('Debugger.removeBreakpoint', { breakpointId: bp.cdpId });
+      expect(cdp.send).toHaveBeenCalledWith('Debugger.removeBreakpoint', {
+        breakpointId: bp.cdpId,
+      });
     });
 
     it('should return false for removing non-existent breakpoint', async () => {
@@ -182,7 +194,17 @@ describe('BreakpointSessionManager', () => {
     it('should resume execution', async () => {
       // Simulate pause first
       cdp._triggerEvent('Debugger.paused', {
-        callFrames: [{ callFrameId: 'frame_1', functionName: 'fn', url: 'app.js', lineNumber: 1, columnNumber: 1, scopeChain: [], this: { type: 'object' } }],
+        callFrames: [
+          {
+            callFrameId: 'frame_1',
+            functionName: 'fn',
+            url: 'app.js',
+            lineNumber: 1,
+            columnNumber: 1,
+            scopeChain: [],
+            this: { type: 'object' },
+          },
+        ],
         reason: 'breakpoint',
       });
 
@@ -201,7 +223,17 @@ describe('BreakpointSessionManager', () => {
     beforeEach(async () => {
       await manager.getOrCreateSession('test_sess_1', cdp);
       cdp._triggerEvent('Debugger.paused', {
-        callFrames: [{ callFrameId: 'frame_1', functionName: 'fn', url: 'app.js', lineNumber: 1, columnNumber: 1, scopeChain: [], this: { type: 'object' } }],
+        callFrames: [
+          {
+            callFrameId: 'frame_1',
+            functionName: 'fn',
+            url: 'app.js',
+            lineNumber: 1,
+            columnNumber: 1,
+            scopeChain: [],
+            this: { type: 'object' },
+          },
+        ],
         reason: 'breakpoint',
       });
     });
@@ -250,7 +282,10 @@ describe('BreakpointSessionManager', () => {
     });
 
     it('should get variables when paused', async () => {
-      const variables = await manager.getVariables('test_sess_1', { maxVariables: 10, maxDepth: 2 });
+      const variables = await manager.getVariables('test_sess_1', {
+        maxVariables: 10,
+        maxDepth: 2,
+      });
       expect(variables.length).toBeGreaterThan(0);
       expect(variables[0]!.type).toBe('local');
       expect(variables[0]!.variables.length).toBeGreaterThan(0);
@@ -272,7 +307,17 @@ describe('BreakpointSessionManager', () => {
 
     it('should evaluate expression in paused context', async () => {
       cdp._triggerEvent('Debugger.paused', {
-        callFrames: [{ callFrameId: 'frame_1', functionName: 'fn', url: 'app.js', lineNumber: 1, columnNumber: 1, scopeChain: [], this: { type: 'object' } }],
+        callFrames: [
+          {
+            callFrameId: 'frame_1',
+            functionName: 'fn',
+            url: 'app.js',
+            lineNumber: 1,
+            columnNumber: 1,
+            scopeChain: [],
+            this: { type: 'object' },
+          },
+        ],
         reason: 'breakpoint',
       });
 
@@ -297,8 +342,24 @@ describe('BreakpointSessionManager', () => {
 
       cdp._triggerEvent('Debugger.paused', {
         callFrames: [
-          { callFrameId: 'f1', functionName: 'outer', url: 'http://localhost/app.js', lineNumber: 10, columnNumber: 5, scopeChain: [], this: { type: 'object' } },
-          { callFrameId: 'f2', functionName: 'inner', url: 'http://localhost/utils.js', lineNumber: 25, columnNumber: 3, scopeChain: [], this: { type: 'object' } },
+          {
+            callFrameId: 'f1',
+            functionName: 'outer',
+            url: 'http://localhost/app.js',
+            lineNumber: 10,
+            columnNumber: 5,
+            scopeChain: [],
+            this: { type: 'object' },
+          },
+          {
+            callFrameId: 'f2',
+            functionName: 'inner',
+            url: 'http://localhost/utils.js',
+            lineNumber: 25,
+            columnNumber: 3,
+            scopeChain: [],
+            this: { type: 'object' },
+          },
         ],
         reason: 'breakpoint',
       });

@@ -122,11 +122,7 @@ export class SourceMapResolver {
   /**
    * Resolve a stack trace line to its original source location.
    */
-  resolveLine(
-    filePath: string,
-    line: number,
-    column: number,
-  ): MappedPosition | null {
+  resolveLine(filePath: string, line: number, column: number): MappedPosition | null {
     const map = this.loadMap(filePath);
     if (!map) return null;
 

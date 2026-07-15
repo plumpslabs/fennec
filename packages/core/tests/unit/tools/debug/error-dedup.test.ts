@@ -10,7 +10,10 @@ describe('ErrorDedup', () => {
 
   describe('basic error grouping', () => {
     it('should store a single error', () => {
-      const result = dedup.add('TypeError: Cannot read property x', 'Error: TypeError\n  at fn (app.js:10:20)');
+      const result = dedup.add(
+        'TypeError: Cannot read property x',
+        'Error: TypeError\n  at fn (app.js:10:20)',
+      );
       expect(result).not.toBeNull();
       expect(result!.count).toBe(1);
       expect(result!.message).toBe('TypeError: Cannot read property x');
