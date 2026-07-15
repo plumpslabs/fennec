@@ -209,6 +209,15 @@ Total tool calls: 1,234 | Avg duration: 45ms | Error rate: 2.3% | Memory: 128MB
 
 ### Installation
 
+<p align="center">
+  <a href="https://www.npmjs.com/package/@plumpslabs/fennec-cli">
+    <img src="https://img.shields.io/npm/v/@plumpslabs/fennec-cli?label=npm&logo=npm&color=cb3837" alt="npm" />
+  </a>
+  <a href="https://www.npmjs.com/package/@plumpslabs/fennec-cli">
+    <img src="https://img.shields.io/npm/dm/@plumpslabs/fennec-cli?label=downloads&logo=npm&color=cb3837" alt="npm downloads" />
+  </a>
+</p>
+
 ```bash
 # Install globally
 npm install -g @plumpslabs/fennec-cli

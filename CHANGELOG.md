@@ -2,6 +2,34 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.15.0] - 2026-07-15
+
+### Added
+- **🐛 Debug Engine (26 tools, 3 levels).** Multi-language debugger:
+  - **Level 1 — Log Debug:** Smart error dedup by stack hash, source map resolution, grouped summaries. 10 identical errors → 1 entry.
+  - **Level 2 — Breakpoint Debugging:** V8/CDP, Python DAP, PHP DBGp→DAP, Java JDWP→DAP, Go/Ruby/.NET/Rust/Dart native DAP. Set/remove/list breakpoints, step over/into, inspect variables, evaluate expressions, logpoints.
+  - **Level 3 — Auto-Debug:** EventBus-driven triggers (process crash, stderr error, browser error, 5xx). Auto-attach debugger + structured snapshots with suggested fixes.
+  - **Cassette Record/Replay:** Record MCP tool call sessions, replay for regression testing, diff between sessions.
+  - **Lazy-load adapters:** V8/DAP/JDWP/DBGp adapters loaded only when used.
+- **🛡️ Redaction default-on for tool responses.** Sensitive data (Authorization, Cookie, Set-Cookie, *token*, *secret*, *password*, *api_key*) auto-masked with `***REDACTED***` before reaching the LLM context. Reuses existing `redactLogLine()` engine.
+- **⏱️ Time-series self-observability.** Ring buffer (120 snapshots = 1 hour), `analyzeTrend()` degradation detection, `diagnose_fennec_health` diagnostic tool.
+- **🔒 ProcessManager concurrency safety.** `spawnLock` (per-name mutex prevents concurrent spawn of same name) + `portClaims` (prevents two processes claiming same port).
+- **📊 IncidentEngine rate-limiting.** `NOISY_EVENT_TYPES` suppression, cooldown, hard-stop max counter, auto-decay (resets after 5 min inactivity), `suppressedCount` exposed in stats + pulse.
+- **🔍 Expose active engine in responses.** Every browser tool response now includes `_engine: "cdp" | "playwright"` so agents know which engine produced the result.
+- **📋 MCP Client transport compatibility.** Documented which clients need SSE vs stdio (OpenCode SSE-required, Continue.dev SSE-recommended).
+
+### Changed
+- **Batch 1 cleanup:** `console.error()` → `getLogger()` in tracking.ts + module/index.ts. Removed `CorrelationEngine`/`RootCauseInferrer` from public exports. Removed `devtools/index.ts` re-export hop.
+- **docs/index.html redesign:** Full-width layout, Lucide CDN icons, version auto-sync via bump script. MCP Client Setup section with 2-column transport layout.
+- **Documentation sync:** All READMEs updated with Debug Engine, concurrency safety, IncidentEngine rate-limiting, MCP client transport info. `docs/debugger.md` status changed from Proposal to Implemented.
+- **IncidentEngine:** Explicit NO-pattern-matched fallback (raw data returned instead of silent empty).
+- **Health check:** Multi-layer readiness (TCP liveness → HTTP /health → custom readiness checks).
+
+### Fixed
+- **PerformanceMetrics:** Added time-series ring buffer + `analyzeTrend()`. Dead data no longer — now queryable via `diagnose_fennec_health`.
+- **Dead code removal:** 4 methods + 1 field removed from ProcessManager (`acquireSpawnLock`, `releaseSpawnLock`, `_currentRelease`, `claimPort`, `releasePort`, `tryClaimPort`).
+- **IncidentEngine flooding:** Rate-limited with NOISY suppression, cooldown, hard-stop, auto-decay.
+
 ## [1.14.12] - 2026-07-14
 
 ### Fixed

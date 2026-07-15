@@ -28,12 +28,17 @@ const TARGETS = [
   },
   {
     // Matches `vX.Y.Z` in HTML for version badge + hero badge.
-    // The banner handler replacement template `$1${next}$2` produces
-    // `v1.15.0` from match `v1.14.12` (captures `v` as $1, version as
-    // the consumed match, $2 is empty since this is single-group).
     file: 'docs/index.html',
     type: 'banner',
     re: /(v)\d+\.\d+\.\d+/g,
+  },
+  {
+    // Matches `[X.Y.Z]` in CHANGELOG.md header for the top-most entry.
+    // Replaces `[1.14.12] - ...` with `[1.15.0] - ...` at the top entry only.
+    // Safe: only matches the first occurrence via single-match regex (no /g).
+    file: 'CHANGELOG.md',
+    type: 'banner',
+    re: /(\[)\d+\.\d+\.\d+(\])/,
   },
 ];
 
