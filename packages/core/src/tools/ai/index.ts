@@ -20,6 +20,7 @@ import { isProcessRunning } from '../../utils/system-process.js';
 import type { BrowserSession } from '../../browser/types.js';
 import type { BusEvent } from '../../correlation/EventBus.js';
 import type { Pulse } from '../../middleware/PulseContext.js';
+import type { L1Summary } from '../../middleware/LazyContext.js';
 
 // ─── Helper: Build a DOM summary from the page ──────────────────
 
@@ -657,6 +658,7 @@ export const explain = createTool({
             status,
             consoleErrors,
             consoleWarnings,
+            corsWarnings: 0,
             networkFailures: 0,
             networkSlow: 0,
             summary: parts.join(' | '),
@@ -665,7 +667,8 @@ export const explain = createTool({
         } catch {
           const pulse: Pulse = {
             level: 0, status: 'healthy', consoleErrors: 0,
-            consoleWarnings: 0, networkFailures: 0, networkSlow: 0,
+            consoleWarnings: 0, corsWarnings: 0,
+            networkFailures: 0, networkSlow: 0,
             summary: 'pulse unavailable',
           };
           return pulse;
@@ -745,21 +748,10 @@ export const explain = createTool({
   },
 });
 
-interface IncidentSummary {
-  severity?: string;
-  rootCause?: string;
-  fix?: string;
-}
-
-interface L1Summary {
-  incidents?: IncidentSummary[];
-  pulse?: { summary?: string };
-}
-
 /** Build a plain-language explanation from a L1Summary */
 function buildExplanation(summary: L1Summary): string {
   const parts: string[] = [];
-  if (summary.incidents && summary.incidents.length > 0) {
+  if (summary.incidents.length > 0) {
     const critical = summary.incidents.filter((i) => i.severity === 'critical');
     const errors = summary.incidents.filter((i) => i.severity === 'error');
 
@@ -779,7 +771,7 @@ function buildExplanation(summary: L1Summary): string {
     parts.push('No active incidents.');
   }
 
-  parts.push(`Pulse: ${summary.pulse?.summary ?? 'healthy'}`);
+  parts.push(`Pulse: ${summary.pulse.summary}`);
   return parts.join('\n');
 }
 

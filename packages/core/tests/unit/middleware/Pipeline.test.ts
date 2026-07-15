@@ -60,6 +60,8 @@ function createMockToolContext(): ToolContext {
     workflowScheduler: {} as any,
     eventBus: {} as any,
     lazyContext: {} as any,
+    incidentEngine: {} as any,
+    performanceMetrics: {} as any,
   };
 }
 
