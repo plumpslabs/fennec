@@ -7,6 +7,15 @@
  * - Creates formal Incidents with confidence scoring
  * - Manages incident lifecycle (active → resolved/dismissed)
  * - Generates alerts for the Level 0 pulse system
+ *
+ * Rate-limiting (anti-flood):
+ * - NOISY_EVENT_TYPES: certain high-frequency events (browser:console, browser:network)
+ *   never generate unclassified incidents (they're suppressed before inference)
+ * - Cooldown: same-type unclassified events within cooldown window are skipped
+ * - Max counter: hard cap per event type (prevents one noisy source from flooding)
+ * - Auto-delay: counter resets after inactivity period (default 5 min)
+ *   prevents permanent blocking of event types that were briefly noisy
+ * - suppressedCount: tracks total suppressed events, exposed via getStats() and getPulseSummary()
  */
 
 import { randomUUID } from 'node:crypto';
@@ -126,6 +135,11 @@ const INFERENCE_RULES: InferenceRule[] = [
   },
 ];
 
+// ─── Rate-limiting constants ─────────────────────────────────────
+// High-frequency event types that should never generate unclassified incidents.
+// They are suppressed before any inference rule matching and increment suppressedCount.
+const NOISY_EVENT_TYPES = new Set<EventType>(['browser:console', 'browser:network']);
+
 // ─── Incident Engine ─────────────────────────────────────────────
 
 export class IncidentEngine {
@@ -137,12 +151,31 @@ export class IncidentEngine {
   private correlationWindowMs: number;
   private minConfidence: number;
 
+  // ── Rate-limiting state ────────────────────────────────────
+  /** Per-event-type counter for unclassified events. */
+  private unclassifiedCounters = new Map<string, number>();
+  /** Cooldown: event type → timestamp when cooldown expires. */
+  private unclassifiedCooldowns = new Map<string, number>();
+  /** Last activity timestamp per event type (for auto-decay). */
+  private unclassifiedLastActivity = new Map<string, number>();
+  /** Total suppressed events across all types. */
+  private suppressedCount = 0;
+  /** Cooldown window for same-type unclassified events. */
+  private unclassifiedCooldownMs: number;
+  /** Hard cap per event type. */
+  private maxUnclassifiedPerType: number;
+  /** Auto-decay: reset counter after this many ms of inactivity per type. */
+  private unclassifiedDecayMs: number;
+
   constructor(
     eventBus: EventBus,
     options: {
       windowMs?: number;
       minConfidence?: number;
       maxAlerts?: number;
+      unclassifiedCooldownMs?: number;
+      maxUnclassifiedPerType?: number;
+      unclassifiedDecayMs?: number;
     } = {},
   ) {
     this.eventBus = eventBus;
@@ -150,6 +183,9 @@ export class IncidentEngine {
     this.correlationWindowMs = options.windowMs ?? 500;
     this.minConfidence = options.minConfidence ?? 0.7;
     this.maxAlerts = options.maxAlerts ?? 100;
+    this.unclassifiedCooldownMs = options.unclassifiedCooldownMs ?? 3000;
+    this.maxUnclassifiedPerType = options.maxUnclassifiedPerType ?? 10;
+    this.unclassifiedDecayMs = options.unclassifiedDecayMs ?? 300000; // 5 min
 
     // Auto-subscribe to EventBus for real-time incident detection
     this.subscribeToEvents();
@@ -181,9 +217,16 @@ export class IncidentEngine {
 
   /**
    * Attempt to infer an incident from a trigger event.
-   * Uses inference rules and the event bus correlation window.
+   * Applies rate-limiting before inference rule matching:
+   * 1. NOISY_EVENT_TYPES → suppress immediately (no inference)
+   * 2. Auto-decay → reset counter if inactive long enough
+   * 3. Cooldown check → skip if within cooldown window
+   * 4. Max counter → suppress if over limit
+   * 5. Inference rule matching
+   * 6. Unclassified → increment counter + set cooldown
    */
   private attemptInference(trigger: BusEvent): Incident | null {
+    // ── Inference ─────────────────────────────────────────────────
     const relatedEvents = this.eventBus.getEventsInWindow(
       trigger.timestamp - this.correlationWindowMs,
       trigger.timestamp,
@@ -206,6 +249,43 @@ export class IncidentEngine {
       }
     }
 
+    // ── Rate-limiting for unclassified events ─────────────────────
+    const type = trigger.type;
+
+    // 1. NOISY_EVENT_TYPES never create unclassified incidents
+    //    but they still participate in inference rule matching above.
+    if (NOISY_EVENT_TYPES.has(type)) {
+      this.suppressedCount++;
+      return null;
+    }
+
+    // 2. Auto-decay: reset counter if inactive beyond decay period
+    const now = trigger.timestamp;
+    const lastActivity = this.unclassifiedLastActivity.get(type) ?? 0;
+    if (now - lastActivity > this.unclassifiedDecayMs) {
+      this.unclassifiedCounters.delete(type);
+      this.unclassifiedCooldowns.delete(type);
+    }
+    this.unclassifiedLastActivity.set(type, now);
+
+    // 3. Cooldown: skip same-type events within cooldown window
+    const cooldownUntil = this.unclassifiedCooldowns.get(type) ?? 0;
+    if (now < cooldownUntil) {
+      this.suppressedCount++;
+      return null;
+    }
+
+    // 4. Max counter: suppress if over limit
+    const currentCounter = this.unclassifiedCounters.get(type) ?? 0;
+    if (currentCounter >= this.maxUnclassifiedPerType) {
+      this.suppressedCount++;
+      return null;
+    }
+
+    // Unclassified: increment counter + set cooldown
+    this.unclassifiedCounters.set(type, currentCounter + 1);
+    this.unclassifiedCooldowns.set(type, now + this.unclassifiedCooldownMs);
+
     return null;
   }
 
@@ -219,8 +299,8 @@ export class IncidentEngine {
 
     for (const part of parts) {
       const layer = part.split(':')[0] ?? '';
-      const keywordMatch = part.match(/:(\w+)$/);
-      const keyword = keywordMatch?.[1] ?? null;
+      const keywordMatch = part.match(/:\w+$/);
+      const keyword = keywordMatch?.[0]?.slice(1) ?? null;
 
       const found = allEvents.some((e) => {
         const matchesLayer = e.type.startsWith(layer);
@@ -400,11 +480,15 @@ export class IncidentEngine {
 
   /**
    * Get a summary string for the Level 0 pulse.
-   * E.g. "2 critical, 3 error(s), 1 warning"
+   * E.g. "2 critical, 3 error(s), 1 warning" or "healthy (5 suppressed)"
    */
   getPulseSummary(): string {
     const active = this.getActiveIncidents();
-    if (active.length === 0) return 'healthy';
+    if (active.length === 0 && this.suppressedCount === 0) return 'healthy';
+
+    if (active.length === 0 && this.suppressedCount > 0) {
+      return `healthy (${this.suppressedCount} suppressed)`;
+    }
 
     const critical = active.filter((i) => i.severity === 'critical').length;
     const errors = active.filter((i) => i.severity === 'error').length;
@@ -415,13 +499,17 @@ export class IncidentEngine {
     if (errors > 0) parts.push(`${errors} error(s)`);
     if (warnings > 0) parts.push(`${warnings} warning(s)`);
 
-    return parts.join(', ') || 'healthy';
+    let summary = parts.join(', ') || 'healthy';
+    if (this.suppressedCount > 0) {
+      summary += ` (${this.suppressedCount} suppressed)`;
+    }
+    return summary;
   }
 
   /**
-   * Get incident counts by severity.
+   * Get incident counts by severity + suppressed count.
    */
-  getStats(): { active: number; resolved: number; bySeverity: Record<string, number> } {
+  getStats(): { active: number; resolved: number; bySeverity: Record<string, number>; suppressedCount: number } {
     const all = Array.from(this.incidents.values());
     const active = all.filter((i) => i.status === 'active').length;
     const resolved = all.filter((i) => i.status === 'resolved').length;
@@ -431,7 +519,7 @@ export class IncidentEngine {
       bySeverity[i.severity] = (bySeverity[i.severity] ?? 0) + 1;
     }
 
-    return { active, resolved, bySeverity };
+    return { active, resolved, bySeverity, suppressedCount: this.suppressedCount };
   }
 
   /**
@@ -440,6 +528,10 @@ export class IncidentEngine {
   clear(): void {
     this.incidents.clear();
     this.alerts = [];
+    this.unclassifiedCounters.clear();
+    this.unclassifiedCooldowns.clear();
+    this.unclassifiedLastActivity.clear();
+    this.suppressedCount = 0;
   }
 
   // ─── Helpers ───────────────────────────────────────────────────

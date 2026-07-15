@@ -22,6 +22,7 @@
 import type { ToolDefinition, ToolContext } from '../tools/_registry.js';
 import type { ToolRegistry } from '../tools/_registry.js';
 import type { FennecConfig } from '../config/defaults.js';
+import { getLogger } from '../utils/logger.js';
 
 /**
  * Context passed to modules during initialization.
@@ -147,7 +148,7 @@ export class ModuleRegistry {
         try {
           await module.cleanup();
         } catch (error) {
-          console.error(`Error cleaning up module ${module.name}:`, error);
+          getLogger().error({ error }, `Error cleaning up module ${module.name}`);
         }
       }
     }

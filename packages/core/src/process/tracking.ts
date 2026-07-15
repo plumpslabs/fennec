@@ -8,6 +8,7 @@ import { existsSync, writeFileSync, readFileSync, mkdirSync } from 'node:fs';
 import { resolve, dirname, basename } from 'node:path';
 import { homedir } from 'node:os';
 import { isProcessRunning, getProcessEnviron, getProcessCmdline } from '../utils/system-process.js';
+import { getLogger } from '../utils/logger.js';
 
 export interface TrackedEntry {
   name: string;
@@ -74,9 +75,9 @@ export function saveTracked(processes: TrackedEntry[]): void {
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, JSON.stringify(processes, null, 2), 'utf-8');
   } catch (err) {
-    console.error(
-      '[fennec] Failed to save tracked processes:',
-      err instanceof Error ? err.message : String(err),
+    getLogger().error(
+      { error: err instanceof Error ? err.message : String(err) },
+      'Failed to save tracked processes',
     );
   }
 }

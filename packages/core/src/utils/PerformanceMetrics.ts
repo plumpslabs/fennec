@@ -25,7 +25,8 @@ export interface InternalMetrics {
 export class PerformanceMetrics {
   private toolCalls: ToolCallMetric[] = [];
   private maxHistory = 1000;
-  private startTime: number = Date.now();
+  /** Server start timestamp. Public so diagnostic tools can report uptime. */
+  readonly startTime: number = Date.now();
   private memorySnapshotInterval: ReturnType<typeof setInterval> | null = null;
 
   /**

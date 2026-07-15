@@ -12,12 +12,7 @@ export { ErrorEnricher } from './response/ErrorEnricher.js';
 export { ConfigLoader } from './config/ConfigLoader.js';
 export { defaultConfig } from './config/defaults.js';
 export type { FennecConfig } from './config/defaults.js';
-export {
-  EventBus,
-  CorrelationEngine,
-  RootCauseInferrer,
-  EventNormalizer,
-} from './correlation/index.js';
+export { EventBus } from './correlation/index.js';
 export type { NormalizedEvent, EventSource, EventSeverity } from './correlation/index.js';
 export { ProcessManager } from './process/ProcessManager.js';
 export { LogWatcher } from './process/LogWatcher.js';

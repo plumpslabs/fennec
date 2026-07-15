@@ -177,6 +177,7 @@ import {
   diagnoseAuth,
   diagnoseFullstack,
   diagnosePerformance,
+  diagnoseFennecHealth,
 } from './tools/diagnostic/index.js';
 // ─── Mobile Tools ────────────────────────────────────────────
 import {
@@ -454,6 +455,7 @@ export class FennecServer {
       diagnoseNetwork,
       diagnoseAuth,
       diagnoseFullstack,
+      diagnoseFennecHealth,
       diagnosePerformance,
       schedulerGetStats,
       schedulerGetLastResult,
@@ -539,6 +541,7 @@ export class FennecServer {
       eventBus: this.eventBus,
       lazyContext: this.lazyContext,
       incidentEngine: this.incidentEngine,
+      performanceMetrics: this.performanceMetrics,
       toolRegistry: this.toolRegistry,
       tokenBudget: { maxResponseTokens: this.config.tokenBudget.maxResponseTokens ?? 8000 },
     };
