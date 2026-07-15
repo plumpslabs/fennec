@@ -17,12 +17,22 @@ import { createTool } from '../_registry.js';
 import { getLogger } from '../../utils/logger.js';
 import { readTracked, isTrackedRunning } from '../../process/tracking.js';
 import { isProcessRunning } from '../../utils/system-process.js';
+import type { BrowserSession } from '../../browser/types.js';
+import type { BusEvent } from '../../correlation/EventBus.js';
+import type { Pulse } from '../../middleware/PulseContext.js';
 
 // ─── Helper: Build a DOM summary from the page ──────────────────
 
-async function getDomSummary(browser: any): Promise<string> {
+interface DomCounts {
+  total: number;
+  interactable: number;
+  depth: number;
+  tags: string;
+}
+
+async function getDomSummary(browser: BrowserSession): Promise<string> {
   try {
-    const result: any = await browser.evaluate(() => {
+    const result = await browser.evaluate<DomCounts>(() => {
       const tags: Record<string, number> = {};
       let interactable = 0;
       const interactableTags = new Set([
@@ -153,7 +163,7 @@ export const observe = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     const sources = input.sources ?? ['browser', 'console', 'network'];
-    const result: Record<string, any> = {};
+    const result: Record<string, unknown> = {};
 
     // Browser observation
     if (sources.includes('browser') && session.browser) {
@@ -177,7 +187,7 @@ export const observe = createTool({
 
       if (input.detail === 'full') {
         const errors = session.consoleBuffer.filter((l) => l.level === 'error').slice(-5);
-        result.console.errors = errors.map((e) => ({
+        (result.console as Record<string, unknown>).errors = errors.map((e) => ({
           message: e.message.slice(0, 200),
           source: e.source,
         }));
@@ -191,7 +201,7 @@ export const observe = createTool({
 
       if (input.detail === 'full') {
         const failed = session.networkBuffer.filter((r) => r.status >= 400).slice(-5);
-        result.network.failedRequests = failed.map((r) => ({
+        (result.network as Record<string, unknown>).failedRequests = failed.map((r) => ({
           url: r.url.slice(0, 100),
           method: r.method,
           status: r.status,
@@ -239,25 +249,25 @@ export const observe = createTool({
       /* best-effort */
     }
 
-    // Always include one-line summary
-    const summaryParts: string[] = [];
+    // Build one-line summary
+    const parts: string[] = [];
     if (result.page && typeof result.page === 'object') {
-      const p = result.page as Record<string, any>;
-      summaryParts.push(`Page: ${String(p.title ?? 'unknown').slice(0, 40)}`);
+      const p = result.page as { title?: string };
+      parts.push(`Page: ${String(p.title ?? 'unknown').slice(0, 40)}`);
     }
     if (result.console && typeof result.console === 'object') {
-      const c = result.console as Record<string, any>;
-      summaryParts.push(`Console: ${c.summary ?? 'ok'}`);
+      const c = result.console as { summary?: string };
+      parts.push(`Console: ${c.summary ?? 'ok'}`);
     }
     if (result.network && typeof result.network === 'object') {
-      const n = result.network as Record<string, any>;
-      summaryParts.push(`Network: ${n.summary ?? 'ok'}`);
+      const n = result.network as { summary?: string };
+      parts.push(`Network: ${n.summary ?? 'ok'}`);
     }
     if (result.process && typeof result.process === 'object') {
-      const p = result.process as Record<string, any>;
-      summaryParts.push(`Tracked: ${p.summary ?? 'none'}`);
+      const p = result.process as { summary?: string };
+      parts.push(`Tracked: ${p.summary ?? 'none'}`);
     }
-    result._summary = summaryParts.join(' | ');
+    result._summary = parts.join(' | ');
 
     return responseBuilder.success(result, sessionManager.buildMeta(session));
   },
@@ -296,7 +306,7 @@ export const aiDiagnose = createTool({
 
       // Server-side evidence (if processId provided)
       let serverErrors: string[] = [];
-      let processStatus: Record<string, any> | null = null;
+      let processStatus: { running: boolean; uptime: number; pid: number } | null = null;
 
       if (input.processId) {
         try {
@@ -433,7 +443,7 @@ export const correlate = createTool({
       const recentEvents = eventBus.getHistory(undefined, 50);
 
       // Build timeline
-      const timeline = recentEvents.map((e: any) => ({
+      const timeline = recentEvents.map((e: BusEvent) => ({
         time: new Date(e.timestamp).toISOString(),
         layer: e.type.startsWith('browser')
           ? ('browser' as const)
@@ -449,7 +459,7 @@ export const correlate = createTool({
       if (input.processId) {
         try {
           const logs = processManager.getLogs(input.processId, { lines: 20 });
-          serverTimeline = logs.map((l: any) => ({
+          serverTimeline = logs.map((l) => ({
             time: l.timestamp,
             line: l.line.slice(0, 200),
           }));
@@ -527,7 +537,7 @@ export const summarize = createTool({
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
-    const result: Record<string, any> = {};
+    const result: Record<string, unknown> = {};
     const limit = input.limit ?? 10;
 
     switch (input.source) {
@@ -630,33 +640,39 @@ export const explain = createTool({
       // Get pulse for context
       const pulse = await (async () => {
         try {
-          const p: Record<string, any> = {
+          const buf = session.consoleBuffer ?? [];
+          let consoleErrors = 0;
+          let consoleWarnings = 0;
+          for (const l of buf) {
+            if (l.level === 'error') consoleErrors++;
+            else if (l.level === 'warn') consoleWarnings++;
+          }
+          const status: Pulse['status'] =
+            consoleErrors > 0 ? 'error' : consoleWarnings > 0 ? 'warning' : 'healthy';
+          const parts: string[] = [`status: ${status}`];
+          if (consoleErrors > 0) parts.push(`${consoleErrors} error(s)`);
+          if (consoleWarnings > 0) parts.push(`${consoleWarnings} warning(s)`);
+          const pulse: Pulse = {
             level: 0,
-            status: 'healthy',
-            consoleErrors: 0,
-            consoleWarnings: 0,
+            status,
+            consoleErrors,
+            consoleWarnings,
             networkFailures: 0,
             networkSlow: 0,
-            summary: '',
+            summary: parts.join(' | '),
           };
-          const buf = session.consoleBuffer ?? [];
-          for (const l of buf) {
-            if (l.level === 'error') p.consoleErrors++;
-            else if (l.level === 'warn') p.consoleWarnings++;
-          }
-          if (p.consoleErrors > 0) p.status = 'error';
-          else if (p.consoleWarnings > 0) p.status = 'warning';
-          const parts: string[] = [`status: ${p.status}`];
-          if (p.consoleErrors > 0) parts.push(`${p.consoleErrors} error(s)`);
-          if (p.consoleWarnings > 0) parts.push(`${p.consoleWarnings} warning(s)`);
-          p.summary = parts.join(' | ');
-          return p;
+          return pulse;
         } catch {
-          return { level: 0, status: 'unknown', summary: 'pulse unavailable' } as any;
+          const pulse: Pulse = {
+            level: 0, status: 'healthy', consoleErrors: 0,
+            consoleWarnings: 0, networkFailures: 0, networkSlow: 0,
+            summary: 'pulse unavailable',
+          };
+          return pulse;
         }
       })();
 
-      const result: Record<string, any> = {
+      const result: Record<string, unknown> = {
         pulse,
         timestamp: new Date().toISOString(),
       };
@@ -664,7 +680,7 @@ export const explain = createTool({
       switch (input.focus) {
         case 'current': {
           // Explain current state using Lazy Context Level 1
-          const summary = lazyContext.getSummary(session, pulse as any);
+          const summary = lazyContext.getSummary(session, pulse);
           result.level = 1;
           result.summary = summary;
 
@@ -729,12 +745,23 @@ export const explain = createTool({
   },
 });
 
+interface IncidentSummary {
+  severity?: string;
+  rootCause?: string;
+  fix?: string;
+}
+
+interface L1Summary {
+  incidents?: IncidentSummary[];
+  pulse?: { summary?: string };
+}
+
 /** Build a plain-language explanation from a L1Summary */
-function buildExplanation(summary: any): string {
+function buildExplanation(summary: L1Summary): string {
   const parts: string[] = [];
   if (summary.incidents && summary.incidents.length > 0) {
-    const critical = summary.incidents.filter((i: any) => i.severity === 'critical');
-    const errors = summary.incidents.filter((i: any) => i.severity === 'error');
+    const critical = summary.incidents.filter((i) => i.severity === 'critical');
+    const errors = summary.incidents.filter((i) => i.severity === 'error');
 
     if (critical.length > 0) {
       parts.push(`${critical.length} critical issue(s):`);
@@ -784,19 +811,21 @@ export const investigate = createTool({
     const incidentId = input.incidentId;
 
     try {
-      const result: Record<string, any> = {};
+      const result: Record<string, unknown> = {};
 
       // Level 2: Get detailed timeline and correlation
-      result.level2 = lazyContext.getDetail(session, incidentId);
+      const level2Detail = lazyContext.getDetail(session, incidentId);
+      result.level2 = level2Detail;
 
       // Follow chain: trace events across layers
       if (input.followChain !== false) {
+        const l2 = level2Detail as { timeline?: Array<{ layer?: string; at?: string; event?: string }> };
         const chain: Array<{ layer: string; time: string; event: string }> = [];
-        for (const tl of result.level2.timeline ?? []) {
+        for (const tl of l2.timeline ?? []) {
           chain.push({
-            layer: tl.layer,
-            time: tl.at,
-            event: tl.event.slice(0, 150),
+            layer: tl.layer ?? '',
+            time: tl.at ?? '',
+            event: (tl.event ?? '').slice(0, 150),
           });
         }
         result.chain = chain;
@@ -808,8 +837,9 @@ export const investigate = createTool({
       }
 
       // Build investigation summary
-      const totalEvents = result.level2?.timeline?.length ?? 0;
-      const correlations = result.level2?.correlation?.length ?? 0;
+      const l2 = level2Detail as { timeline?: unknown[]; correlation?: unknown[] };
+      const totalEvents = l2.timeline?.length ?? 0;
+      const correlations = l2.correlation?.length ?? 0;
       result.summary = `Investigation complete. ${totalEvents} event(s) in timeline, ${correlations} correlation(s) found.${input.includeRaw ? ' Raw data included.' : ' Use includeRaw=true for Level 3 data.'}`;
 
       return responseBuilder.success(result, sessionManager.buildMeta(session));
@@ -847,13 +877,13 @@ export const predict = createTool({
 
       // Count error trends
       const browserErrors = recentEvents.filter(
-        (e: any) => e.type === 'browser:console' && String(e.data.level) === 'error',
+        (e: BusEvent) => e.type === 'browser:console' && String(e.data.level) === 'error',
       );
       const networkErrors = recentEvents.filter(
-        (e: any) => e.type === 'browser:network' && Number(e.data.status) >= 400,
+        (e: BusEvent) => e.type === 'browser:network' && Number(e.data.status) >= 400,
       );
-      const processErrors = recentEvents.filter((e: any) => e.type === 'process:stderr');
-      const toolExecutions = recentEvents.filter((e: any) => e.type === 'tool:executed');
+      const processErrors = recentEvents.filter((e: BusEvent) => e.type === 'process:stderr');
+      const toolExecutions = recentEvents.filter((e: BusEvent) => e.type === 'tool:executed');
 
       // Build predictions based on patterns
       const predictions: Array<{
@@ -909,7 +939,7 @@ export const predict = createTool({
       }
 
       // Pattern 5: High tool failure rate
-      const failedTools = toolExecutions.filter((e: any) => e.data.success === false);
+      const failedTools = toolExecutions.filter((e: BusEvent) => e.data.success === false);
       if (failedTools.length > 2) {
         predictions.push({
           type: 'tool',
@@ -925,7 +955,7 @@ export const predict = createTool({
           predictions,
           summary: predictions
             .map(
-              (p: any) =>
+              (p) =>
                 `[${p.type.toUpperCase()}] ${p.prediction} (${Math.round(p.confidence * 100)}%)`,
             )
             .join(' | '),
