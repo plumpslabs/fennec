@@ -611,7 +611,7 @@ export class FennecServer {
     });
 
     this.server.setRequestHandler(ListToolsRequestSchema, async (request) => {
-      const params = request.params as { categories?: string[] };
+      const params = (request.params ?? {}) as { categories?: string[] };
       const categories = params.categories;
 
       // Default categories when client doesn't specify: only load essential tool groups
@@ -620,6 +620,16 @@ export class FennecServer {
       // Includes process + terminal so agents can check running apps & logs without extra queries
       const defaultCategories = [
         'navigation',
+        'interaction',
+        'dom',
+        'smart',
+        'ai',
+        'diagnostic',
+        'process',
+        'terminal',
+        'auth',
+        'tabs',
+        'devtools',
       ];
       const selectedCategories = categories?.length ? categories : defaultCategories;
       const tools = this.toolRegistry.getByCategories(selectedCategories);
