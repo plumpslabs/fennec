@@ -48,7 +48,7 @@ function resolveLogName(processId: string): string | undefined {
 function suggestionsWithAvailable(extra?: string): string[] {
   const tracked = readTracked();
   const names = tracked.length > 0
-    ? tracked.map((t) => `  - ${t.name}${t.group ? ` (group: ${t.group})` : ''}${isTrackedRunning(t) ? ' ✅' : ' ⏸'}`)
+    ? tracked.map((t) => `  - ${t.name}${t.group ? ` (group: ${t.group})` : ''}${isTrackedRunning(t) ? ' (running)' : ' (stopped)'}`)
     : ['  (no tracked processes)'];
   const result: string[] = [
     'Available processes:',
