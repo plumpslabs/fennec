@@ -506,7 +506,7 @@ export const networkApiCall = createTool({
     const timeoutId = setTimeout(() => controller.abort(), input.timeout ?? 10000);
     try {
       const response = await fetch(input.url, {
-        method: input.method,
+        method: input.method ?? 'GET',
         headers: input.headers,
         body: ['GET', 'HEAD'].includes(input.method) ? undefined : input.body,
         signal: controller.signal,
