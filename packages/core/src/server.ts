@@ -874,6 +874,32 @@ export class FennecServer {
       logger.warn('Browser adapter detection failed — using default Playwright');
     }
 
+    // Connect transport first, so the server starts listening on stdio/SSE immediately
+    // and can respond to client initialization requests instantly without timing out.
+    if (this.config.transport.type === 'sse') {
+      await this.startSSE();
+    } else {
+      const transport = new StdioServerTransport();
+      logger.info('Starting Fennec MCP server (stdio transport)...');
+      await this.server.connect(transport);
+
+      const shutdown = async () => {
+        logger.info('Shutting down Fennec...');
+        this.workflowScheduler.stop();
+        this.resourceManager.stopAutoCleanup();
+        this.resourceManager.stopHealthChecks();
+        await this.resourceManager.releaseAll();
+        this.processManager.cleanup();
+        this.logWatcher.cleanup();
+        await this.sessionManager.close();
+        process.exit(0);
+      };
+
+      process.on('SIGINT', shutdown);
+      process.on('SIGTERM', shutdown);
+    }
+
+    // Now initialize the session manager (launches Playwright / browser)
     await this.sessionManager.initialize();
 
     // After a context rotation the underlying CDPSession is replaced, so
@@ -905,28 +931,5 @@ export class FennecServer {
 
     this.resourceManager.startAutoCleanup();
     this.resourceManager.startHealthChecks();
-
-    if (this.config.transport.type === 'sse') {
-      await this.startSSE();
-    } else {
-      const transport = new StdioServerTransport();
-      logger.info('Starting Fennec MCP server (stdio transport)...');
-      await this.server.connect(transport);
-
-      const shutdown = async () => {
-        logger.info('Shutting down Fennec...');
-        this.workflowScheduler.stop();
-        this.resourceManager.stopAutoCleanup();
-        this.resourceManager.stopHealthChecks();
-        await this.resourceManager.releaseAll();
-        this.processManager.cleanup();
-        this.logWatcher.cleanup();
-        await this.sessionManager.close();
-        process.exit(0);
-      };
-
-      process.on('SIGINT', shutdown);
-      process.on('SIGTERM', shutdown);
-    }
   }
 }
