@@ -37,6 +37,7 @@ import {
   createLazyLevel3,
   createStabilityMiddleware,
 } from './middleware/index.js';
+import type { ToolResult, MiddlewareParsedInput } from './middleware/Pipeline.js';
 import { ResourceManager } from './resource/ResourceManager.js';
 import { StateManager } from './state/index.js';
 import { PerformanceMetrics } from './utils/PerformanceMetrics.js';
@@ -593,8 +594,8 @@ export class FennecServer {
     const logger = getLogger();
 
     this.server.setRequestHandler(ListToolsRequestSchema, async (request) => {
-      const categories = (request.params as Record<string, unknown>)?.categories as
-        string[] | undefined;
+      const params = request.params as { categories?: string[] };
+      const categories = params.categories;
 
       // Default categories when client doesn't specify: only load essential tool groups
       // This saves ~1000+ tokens vs loading all 90+ tools
@@ -644,7 +645,7 @@ export class FennecServer {
       const maxTokens = this.config.tokenBudget.maxResponseTokens ?? 8000;
       return {
         tools: tools.map((t) => {
-          const { $schema, ...schema } = zodToJsonSchema(t.inputSchema) as any;
+          const { $schema, ...schema } = zodToJsonSchema(t.inputSchema) as Record<string, unknown>;
           return {
             name: t.name,
             description: t.description,
@@ -664,8 +665,8 @@ export class FennecServer {
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
-      const meta = (request.params as Record<string, unknown>)?._meta as
-        Record<string, unknown> | undefined;
+      const paramsWithMeta = request.params as { _meta?: Record<string, unknown> };
+      const meta = paramsWithMeta._meta;
       const progressToken = meta?.progressToken as string | number | undefined;
       const tool = this.toolRegistry.get(name);
 
@@ -701,15 +702,15 @@ export class FennecServer {
         // so the agent never sees a wall of "Unable to connect" errors.
         try {
           await this.sessionManager.ensureAlive(
-            (parsed as Record<string, unknown>).sessionId as string | undefined,
+            (parsed as MiddlewareParsedInput).sessionId,
           );
         } catch {
           // best-effort — the tool call itself will surface any real error
         }
         const result = await this.pipeline.execute(tool, parsed, context);
 
-        const isError =
-          result && typeof result === 'object' && 'success' in result && result.success === false;
+        const resultObj = result as ToolResult;
+        const isError = resultObj.success === false;
         return {
           content: [{ type: 'text', text: JSON.stringify(result) }],
           isError: isError === true ? true : undefined,
@@ -724,17 +725,11 @@ export class FennecServer {
         }
         logger.error({ tool: name, error }, 'Tool execution failed');
 
-        let enrichedContext: Record<string, unknown> = {};
-        try {
-          const session = this.sessionManager.getOrDefault();
-          const enricher = new ErrorEnricher();
-          enrichedContext = (await enricher.enrich(session)) as unknown as Record<string, unknown>;
-        } catch (err) {
-          logger.warn(
-            { tool: name, error: err },
-            'Tool execution error enrichment failed (non-fatal)',
-          );
-        }
+        const session = this.sessionManager.getOrDefault();
+        const enricher = new ErrorEnricher();
+        const enrichedContext: Record<string, unknown> = (await enricher
+          .enrich(session)
+          .catch(() => null)) ?? {};
 
         const errorResponse = this.responseBuilder.error(error, {
           code: 'TOOL_EXECUTION_FAILED',
