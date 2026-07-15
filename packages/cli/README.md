@@ -107,8 +107,7 @@ permissions. The recommended way is via environment variables in the MCP config:
 
 ### 3. (Optional) Run the server over SSE instead of stdio
 
-Some MCP clients (especially **OpenCode**) **require SSE transport** — they cannot
-connect via stdio. For these clients, start Fennec with `--sse`:
+While local client connections generally use standard input/output (stdio), you can also run Fennec over SSE (Server-Sent Events) for remote setups or custom requirements. Start Fennec with `--sse`:
 
 ```json
 {
@@ -130,7 +129,7 @@ Connect remote MCP clients with `{ "type": "remote", "url": "http://127.0.0.1:33
 
 ### Client-Specific Config Examples
 
-**For stdio clients** (Claude Desktop, Claude Code, Cline, Cursor, Windsurf):
+**For stdio clients** (Claude Desktop, Claude Code, Cline, Cursor, Windsurf, OpenCode):
 
 ```json
 {
@@ -143,7 +142,7 @@ Connect remote MCP clients with `{ "type": "remote", "url": "http://127.0.0.1:33
 }
 ```
 
-**For OpenCode** (SSE required):
+**For OpenCode (Optional SSE Connection)**:
 
 ```json
 // ~/.config/opencode/opencode.json

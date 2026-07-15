@@ -831,12 +831,12 @@ fennec start</pre>
                     <tr><td>Cursor</td><td class="check">✅</td><td class="check">✅</td><td>stdio default</td></tr>
                     <tr><td>Windsurf</td><td class="check">✅</td><td class="check">✅</td><td>stdio default</td></tr>
                     <tr><td>Continue.dev</td><td>⚠️</td><td class="check">✅</td><td>SSE recommended</td></tr>
-                    <tr><td>OpenCode</td><td>❌</td><td class="check">✅</td><td><strong>SSE required</strong></td></tr>
+                    <tr><td>OpenCode</td><td class="check">✅</td><td class="check">✅</td><td>stdio default (local build wrapper recommended)</td></tr>
                 </table>
             </div>
 
             <p style="color:var(--text-secondary);font-size:13px;">
-                💡 Run <code style="color:var(--accent);font-family:monospace;">fennec start --sse</code> — Fennec outputs the exact remote config snippet on startup. For OpenCode, add <code style="color:var(--accent);font-family:monospace;">type: remote, url: http://localhost:3333/sse</code> to <code style="color:var(--accent);font-family:monospace;">~/.config/opencode/opencode.json</code>.
+                💡 Run <code style="color:var(--accent);font-family:monospace;">fennec start --sse</code> — Fennec outputs the exact remote config snippet on startup. For OpenCode, you can add it as a local stdio server or add <code style="color:var(--accent);font-family:monospace;">type: remote, url: http://localhost:3333/sse</code> to <code style="color:var(--accent);font-family:monospace;">~/.config/opencode/opencode.json</code> for SSE.
             </p>
         </section>
 

@@ -186,7 +186,7 @@ Fennec works with all major MCP clients. Some clients require **SSE transport**
 | Cursor         |  ✅   | ✅  | stdio default                                                       |
 | Windsurf       |  ✅   | ✅  | stdio default                                                       |
 | Continue.dev   |  ⚠️   | ✅  | SSE recommended                                                     |
-| OpenCode       |  ❌   | ✅  | **SSE required** (`type: remote`, `url: http://localhost:3333/sse`) |
+| OpenCode       |  ✅   | ✅  | stdio default (local build wrapper recommended), SSE optional       |
 
 > **SSE mode:** `fennec start --sse` starts an HTTP+SSE endpoint on `http://127.0.0.1:3333/sse`.
 
