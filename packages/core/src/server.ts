@@ -727,9 +727,9 @@ export class FennecServer {
 
         const session = this.sessionManager.getOrDefault();
         const enricher = new ErrorEnricher();
-        const enrichedContext: Record<string, unknown> = (await enricher
+        const enrichedContext = ((await enricher
           .enrich(session)
-          .catch(() => null)) ?? {};
+          .catch(() => null)) ?? {}) as Record<string, unknown>;
 
         const errorResponse = this.responseBuilder.error(error, {
           code: 'TOOL_EXECUTION_FAILED',
