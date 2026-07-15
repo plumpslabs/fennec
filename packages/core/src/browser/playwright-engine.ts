@@ -73,7 +73,7 @@ function wrapLocator(pwLocator: ReturnType<Page['locator']>): Locator {
     setChecked: (checked) => pwLocator.setChecked(checked),
     waitFor: (options) => pwLocator.waitFor(options),
     evaluate: (fn: any, ...args: any[]) => pwLocator.evaluate(fn, ...args),
-    evaluateAll: (fn: any, ...args: any[]) => pwLocator.evaluateAll(fn, ...args),
+    evaluateAll: (fn: any, ...args: any[]) => pwLocator.evaluateAll(fn, args[0] as any),
     elementHandle: () => pwLocator.elementHandle().then((h) => (h ? wrapElementHandle(h) : null)),
     first: () => wrapLocator(pwLocator.first()),
     all: () => pwLocator.all().then(() => [] as Locator[]),

@@ -508,7 +508,7 @@ export const networkApiCall = createTool({
       const response = await fetch(input.url, {
         method: input.method ?? 'GET',
         headers: input.headers,
-        body: ['GET', 'HEAD'].includes(input.method) ? undefined : input.body,
+        body: ['GET', 'HEAD'].includes(input.method!) ? undefined : input.body,
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
