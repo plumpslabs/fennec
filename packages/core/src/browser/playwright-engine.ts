@@ -72,7 +72,7 @@ function wrapLocator(pwLocator: ReturnType<Page['locator']>): Locator {
     setInputFiles: (paths) => pwLocator.setInputFiles(paths),
     setChecked: (checked) => pwLocator.setChecked(checked),
     evaluate: (fn: any, ...args: any[]) => pwLocator.evaluate(fn, ...args),
-    evaluateAll: (fn: any, ...args: any[]) => pwLocator.evaluateAll(fn as any, ...args as any),
+    evaluateAll: (fn: any, ...args: any[]) => pwLocator.evaluateAll(fn as any, ...(args as any)),
     elementHandle: () => pwLocator.elementHandle().then((h) => (h ? wrapElementHandle(h) : null)),
     first: () => wrapLocator(pwLocator.first()),
     all: () => pwLocator.all().then(() => [] as Locator[]),
@@ -319,8 +319,7 @@ class PlaywrightSession implements BrowserSession {
     urlOrFn: string | ((url: string) => boolean),
     options?: { timeout?: number },
   ): Promise<void> {
-    const pwPredicate =
-      typeof urlOrFn === 'function' ? (url: URL) => urlOrFn(url.href) : urlOrFn;
+    const pwPredicate = typeof urlOrFn === 'function' ? (url: URL) => urlOrFn(url.href) : urlOrFn;
     await this.page.waitForURL(pwPredicate, { timeout: options?.timeout });
   }
 
@@ -355,7 +354,10 @@ class PlaywrightSession implements BrowserSession {
       typeof urlOrPredicate === 'string'
         ? (req: { url: () => string }) => req.url().includes(urlOrPredicate)
         : urlOrPredicate;
-    const req = await this.page.waitForRequest(predicate as (req: { url: () => string; method: () => string }) => boolean, { timeout: options?.timeout });
+    const req = await this.page.waitForRequest(
+      predicate as (req: { url: () => string; method: () => string }) => boolean,
+      { timeout: options?.timeout },
+    );
     return {
       url: req.url(),
       method: req.method(),
@@ -396,12 +398,16 @@ class PlaywrightSession implements BrowserSession {
     type?: 'png' | 'jpeg';
     quality?: number;
   }): Promise<Buffer> {
-    return this.page.screenshot(options as {
-      fullPage?: boolean;
-      clip?: { x: number; y: number; width: number; height: number };
-      type?: 'png' | 'jpeg';
-      quality?: number;
-    } | undefined);
+    return this.page.screenshot(
+      options as
+        | {
+            fullPage?: boolean;
+            clip?: { x: number; y: number; width: number; height: number };
+            type?: 'png' | 'jpeg';
+            quality?: number;
+          }
+        | undefined,
+    );
   }
 
   // ── Network Interception ──
@@ -416,12 +422,17 @@ class PlaywrightSession implements BrowserSession {
           postData: pwRoute.request().postData(),
         },
         continue: () => pwRoute.continue(),
-        fulfill: (opts) => pwRoute.fulfill(opts as {
-          status?: number;
-          contentType?: string;
-          body?: string;
-          headers?: Record<string, string>;
-        }).then(),
+        fulfill: (opts) =>
+          pwRoute
+            .fulfill(
+              opts as {
+                status?: number;
+                contentType?: string;
+                body?: string;
+                headers?: Record<string, string>;
+              },
+            )
+            .then(),
       });
     });
   }
@@ -633,8 +644,7 @@ class PlaywrightPageSession implements BrowserSession {
     urlOrFn: string | ((url: string) => boolean),
     options?: { timeout?: number },
   ): Promise<void> {
-    const pwPredicate =
-      typeof urlOrFn === 'function' ? (url: URL) => urlOrFn(url.href) : urlOrFn;
+    const pwPredicate = typeof urlOrFn === 'function' ? (url: URL) => urlOrFn(url.href) : urlOrFn;
     await this.page.waitForURL(pwPredicate, { timeout: options?.timeout });
   }
   async waitForLoadState(
@@ -666,7 +676,10 @@ class PlaywrightPageSession implements BrowserSession {
       typeof urlOrPredicate === 'string'
         ? (req: { url: () => string }) => req.url().includes(urlOrPredicate)
         : urlOrPredicate;
-    const req = await this.page.waitForRequest(predicate as (req: { url: () => string; method: () => string }) => boolean, { timeout: options?.timeout });
+    const req = await this.page.waitForRequest(
+      predicate as (req: { url: () => string; method: () => string }) => boolean,
+      { timeout: options?.timeout },
+    );
     return {
       url: req.url(),
       method: req.method(),
@@ -698,12 +711,16 @@ class PlaywrightPageSession implements BrowserSession {
     type?: 'png' | 'jpeg';
     quality?: number;
   }): Promise<Buffer> {
-    return this.page.screenshot(options as {
-      fullPage?: boolean;
-      clip?: { x: number; y: number; width: number; height: number };
-      type?: 'png' | 'jpeg';
-      quality?: number;
-    } | undefined);
+    return this.page.screenshot(
+      options as
+        | {
+            fullPage?: boolean;
+            clip?: { x: number; y: number; width: number; height: number };
+            type?: 'png' | 'jpeg';
+            quality?: number;
+          }
+        | undefined,
+    );
   }
   async route(urlPattern: string, handler: (route: Route) => Promise<void>): Promise<void> {
     await this.page.route(urlPattern, async (pwRoute) => {
@@ -715,12 +732,17 @@ class PlaywrightPageSession implements BrowserSession {
           postData: pwRoute.request().postData(),
         },
         continue: () => pwRoute.continue(),
-        fulfill: (opts) => pwRoute.fulfill(opts as {
-          status?: number;
-          contentType?: string;
-          body?: string;
-          headers?: Record<string, string>;
-        }).then(),
+        fulfill: (opts) =>
+          pwRoute
+            .fulfill(
+              opts as {
+                status?: number;
+                contentType?: string;
+                body?: string;
+                headers?: Record<string, string>;
+              },
+            )
+            .then(),
       });
     });
   }

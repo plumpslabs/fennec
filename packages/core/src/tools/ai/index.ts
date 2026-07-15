@@ -666,9 +666,13 @@ export const explain = createTool({
           return pulse;
         } catch {
           const pulse: Pulse = {
-            level: 0, status: 'healthy', consoleErrors: 0,
-            consoleWarnings: 0, corsWarnings: 0,
-            networkFailures: 0, networkSlow: 0,
+            level: 0,
+            status: 'healthy',
+            consoleErrors: 0,
+            consoleWarnings: 0,
+            corsWarnings: 0,
+            networkFailures: 0,
+            networkSlow: 0,
             summary: 'pulse unavailable',
           };
           return pulse;
@@ -811,7 +815,9 @@ export const investigate = createTool({
 
       // Follow chain: trace events across layers
       if (input.followChain !== false) {
-        const l2 = level2Detail as { timeline?: Array<{ layer?: string; at?: string; event?: string }> };
+        const l2 = level2Detail as {
+          timeline?: Array<{ layer?: string; at?: string; event?: string }>;
+        };
         const chain: Array<{ layer: string; time: string; event: string }> = [];
         for (const tl of l2.timeline ?? []) {
           chain.push({

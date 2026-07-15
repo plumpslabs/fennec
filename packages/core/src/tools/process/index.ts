@@ -47,13 +47,14 @@ function resolveLogName(processId: string): string | undefined {
 /** Build a suggestion list of available process names from tracked.json. */
 function suggestionsWithAvailable(extra?: string): string[] {
   const tracked = readTracked();
-  const names = tracked.length > 0
-    ? tracked.map((t) => `  - ${t.name}${t.group ? ` (group: ${t.group})` : ''}${isTrackedRunning(t) ? ' (running)' : ' (stopped)'}`)
-    : ['  (no tracked processes)'];
-  const result: string[] = [
-    'Available processes:',
-    ...names,
-  ];
+  const names =
+    tracked.length > 0
+      ? tracked.map(
+          (t) =>
+            `  - ${t.name}${t.group ? ` (group: ${t.group})` : ''}${isTrackedRunning(t) ? ' (running)' : ' (stopped)'}`,
+        )
+      : ['  (no tracked processes)'];
+  const result: string[] = ['Available processes:', ...names];
   if (extra) result.push(extra);
   return result;
 }
@@ -123,9 +124,7 @@ export const processSpawn = createTool({
       }
       // Idempotent by name: if the same tracked name is already running, reuse it.
       if (input.name) {
-        const existing = readTracked().find(
-          (t) => t.name === input.name && isTrackedRunning(t),
-        );
+        const existing = readTracked().find((t) => t.name === input.name && isTrackedRunning(t));
         if (existing) {
           return responseBuilder.success(
             {
@@ -885,21 +884,21 @@ export const processRestart = createTool({
             stdio: ['ignore', 'pipe', 'pipe'],
             detached: true,
           });
-        const newPid = child.pid ?? 0;
-        // PID 0 means the spawn failed — skip this entry.
-        if (newPid === 0) {
-          skipped.push(name);
-          return;
-        }
-        mkdirSync(dirname(logFilePath), { recursive: true });
-        const logStream = createWriteStream(logFilePath, { flags: 'a' });
-        if (child.stdout) child.stdout.pipe(logStream);
-        if (child.stderr) child.stderr.pipe(logStream);
-        child.unref();
-        removeTrackedByPid(m.pid);
-        addTracked({
-          name: m.name,
-          pid: newPid,
+          const newPid = child.pid ?? 0;
+          // PID 0 means the spawn failed — skip this entry.
+          if (newPid === 0) {
+            skipped.push(name);
+            return;
+          }
+          mkdirSync(dirname(logFilePath), { recursive: true });
+          const logStream = createWriteStream(logFilePath, { flags: 'a' });
+          if (child.stdout) child.stdout.pipe(logStream);
+          if (child.stderr) child.stderr.pipe(logStream);
+          child.unref();
+          removeTrackedByPid(m.pid);
+          addTracked({
+            name: m.name,
+            pid: newPid,
             command: m.command,
             args: m.args,
             port: m.port,

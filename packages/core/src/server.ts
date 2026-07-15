@@ -701,9 +701,7 @@ export class FennecServer {
         // died (e.g. cross-scheme navigation), recreate it before the call
         // so the agent never sees a wall of "Unable to connect" errors.
         try {
-          await this.sessionManager.ensureAlive(
-            (parsed as MiddlewareParsedInput).sessionId,
-          );
+          await this.sessionManager.ensureAlive((parsed as MiddlewareParsedInput).sessionId);
         } catch {
           // best-effort — the tool call itself will surface any real error
         }
@@ -727,9 +725,8 @@ export class FennecServer {
 
         const session = this.sessionManager.getOrDefault();
         const enricher = new ErrorEnricher();
-        const enrichedContext = ((await enricher
-          .enrich(session)
-          .catch(() => null)) ?? {}) as Record<string, unknown>;
+        const enrichedContext = ((await enricher.enrich(session).catch(() => null)) ??
+          {}) as Record<string, unknown>;
 
         const errorResponse = this.responseBuilder.error(error, {
           code: 'TOOL_EXECUTION_FAILED',
