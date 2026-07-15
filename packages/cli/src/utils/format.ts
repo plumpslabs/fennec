@@ -23,8 +23,8 @@ import CliTable3 from 'cli-table3';
  * versions due to CJS/ESM interop issues. We detect and fall back.
  */
 function hex(color: string): (s: string) => string {
-  if (typeof (pc as any).hex === 'function') {
-    return (pc as any).hex(color);
+  if (typeof pc.hex === 'function') {
+    return pc.hex(color);
   }
   return (s: string) => s;
 }

@@ -14,8 +14,8 @@ import pc from 'picocolors';
 // ─── Hex color helper ──────────────────────────────────────────
 
 export function hexColor(color: string): (s: string) => string {
-  if (typeof (pc as any).hex === 'function') {
-    return (pc as any).hex(color);
+  if (typeof pc.hex === 'function') {
+    return pc.hex(color);
   }
   return (s: string) => s;
 }

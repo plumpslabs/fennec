@@ -154,8 +154,8 @@ export const budgetGetSummary = createTool({
             redirectTime: nav.redirectEnd - nav.redirectStart,
             dnsTime: nav.domainLookupEnd - nav.domainLookupStart,
             tcpTime: nav.connectEnd - nav.connectStart,
-            secureTime: (nav as any).secureConnectionStart
-              ? nav.connectEnd - (nav as any).secureConnectionStart
+            secureTime: nav.secureConnectionStart
+              ? nav.connectEnd - nav.secureConnectionStart
               : 0,
           };
         })

@@ -275,10 +275,9 @@ export const browserPressKey = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const pressOptions = input.modifiers?.length
-        ? ({ modifiers: input.modifiers } as any)
-        : undefined;
-      await session.browser.keyboardPress(input.key, { modifiers: input.modifiers });
+      await session.browser.keyboardPress(input.key, {
+        modifiers: input.modifiers,
+      });
       return responseBuilder.success({}, sessionManager.buildMeta(session));
     } catch (error) {
       return responseBuilder.error(error);

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { createTool } from '../_registry.js';
+import type { CookieInput } from '../../browser/types.js';
 
 export const storageGetLocal = createTool({
   name: 'storage_get_local',
@@ -501,7 +502,7 @@ export const storageImportState = createTool({
       // Restore cookies
       if (state.cookies && state.cookies.length > 0) {
         await session.browser.contextAddCookies(
-          state.cookies.map((c: Record<string, any>) => ({
+          state.cookies.map((c: CookieInput) => ({
             name: c.name,
             value: c.value,
             domain: c.domain,

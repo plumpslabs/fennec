@@ -80,18 +80,18 @@ export class ConfigLoader {
 
   private deepMerge(base: FennecConfig, partial: Partial<FennecConfig>): FennecConfig {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = structuredClone(base) as any;
+    const result = structuredClone(base) as FennecConfig;
     for (const key of Object.keys(partial) as (keyof FennecConfig)[]) {
       const val = partial[key];
       if (val !== undefined) {
         if (typeof val === 'object' && !Array.isArray(val) && val !== null) {
-          result[key] = { ...result[key], ...val };
+          (result as Record<string, unknown>)[key] = { ...(result as Record<string, unknown>)[key] as Record<string, unknown>, ...val as Record<string, unknown> };
         } else {
-          result[key] = val;
+          (result as Record<string, unknown>)[key] = val;
         }
       }
     }
-    return result as FennecConfig;
+    return result;
   }
 
   getConfig(): FennecConfig {
