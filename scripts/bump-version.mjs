@@ -40,6 +40,12 @@ const TARGETS = [
     type: 'banner',
     re: /(\[)\d+\.\d+\.\d+(\])/,
   },
+  {
+    // Matches `version: 'X.Y.Z'` in the MCP Server constructor (packages/core/src/server.ts)
+    file: 'packages/core/src/server.ts',
+    type: 'banner',
+    re: /(version: ['"])\d+\.\d+\.\d+(['"])/,
+  },
 ];
 
 function readVersion() {

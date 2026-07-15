@@ -1,7 +1,7 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { CallToolRequestSchema, ListToolsRequestSchema, ListPromptsRequestSchema, ListResourcesRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { createServer, type Server as HttpServer } from 'node:http';
 import { ZodError } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
@@ -329,8 +329,8 @@ export class FennecServer {
     this.performanceMetrics.startMemoryMonitoring();
 
     this.server = new Server(
-      { name: 'fennec', version: '1.11.2' },
-      { capabilities: { tools: {} } },
+      { name: 'fennec', version: '1.15.0' },
+      { capabilities: { tools: {}, prompts: {}, resources: {} } },
     );
 
     this.registerModules();
@@ -593,6 +593,15 @@ export class FennecServer {
   private setupHandlers(): void {
     const logger = getLogger();
 
+    // Empty handlers for optional MCP methods that some clients (e.g. OpenCode) require
+    this.server.setRequestHandler(ListPromptsRequestSchema, async () => {
+      return { prompts: [] };
+    });
+
+    this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
+      return { resources: [] };
+    });
+
     this.server.setRequestHandler(ListToolsRequestSchema, async (request) => {
       const params = request.params as { categories?: string[] };
       const categories = params.categories;
@@ -617,32 +626,7 @@ export class FennecServer {
       const selectedCategories = categories?.length ? categories : defaultCategories;
       const tools = this.toolRegistry.getByCategories(selectedCategories);
 
-      // Token tier per tool helps the agent prefer cheap tools before expensive ones.
-      // Single source of truth: declare any exceptions in TIER_OVERRIDE, otherwise
-      // the name-based heuristic below decides. Category is used as a secondary
-      // signal so a high-cost tool can't silently get a "low" tier.
-      const TIER_OVERRIDE: Record<string, 'low' | 'medium' | 'high'> = {
-        // "tool_name": "high",
-      };
-      const HIGH_BANDWIDTH =
-        /(screenshot|dom_snapshot|screenshot_diff|screenshot_export|screenshot_annotated|screenshot_baseline)/;
-      const MED_BANDWIDTH =
-        /(network_get_logs|storage_export|console|performance|get_dom|get_accessibility)/;
-      const HIGH_CATEGORY = new Set(['dom', 'smart']);
-      const MED_CATEGORY = new Set(['devtools', 'storage', 'diagnostic']);
-      const tokenTier = (name: string, category?: string): 'low' | 'medium' | 'high' =>
-        TIER_OVERRIDE[name] ??
-        (HIGH_BANDWIDTH.test(name)
-          ? 'high'
-          : MED_BANDWIDTH.test(name)
-            ? 'medium'
-            : HIGH_CATEGORY.has(category ?? '')
-              ? 'high'
-              : MED_CATEGORY.has(category ?? '')
-                ? 'medium'
-                : 'low');
 
-      const maxTokens = this.config.tokenBudget.maxResponseTokens ?? 8000;
       return {
         tools: tools.map((t) => {
           const { $schema, ...schema } = zodToJsonSchema(t.inputSchema) as Record<string, unknown>;
@@ -650,16 +634,8 @@ export class FennecServer {
             name: t.name,
             description: t.description,
             inputSchema: schema,
-            _category: t.category,
-            _tokenTier: tokenTier(t.name, t.category),
           };
         }),
-        _categories: this.toolRegistry.getCategories(),
-        _hint:
-          'Use ?categories=[...] to load specific tool groups. Available categories: ' +
-          this.toolRegistry.getCategories().join(', ') +
-          `. Prefer _tokenTier:"low" tools (text/state-based) before "high" ones (screenshots / DOM dumps). ` +
-          `Each tool response is truncated at ~${maxTokens} tokens.`,
       };
     });
 
@@ -812,12 +788,15 @@ export class FennecServer {
 
         const url = new URL(req.url ?? '/', `http://${host}:${port}`);
 
-        if (req.method === 'GET' && url.pathname === '/sse') {
-          // SSE endpoint: create a new SSEServerTransport for this connection
-          // Close any stale server state first (e.g. from a partially-disconnected
-          // transport) so the guard below isn't stuck forever.
-          await this.server.close().catch(() => {});
+        // Health check endpoint
+        if (url.pathname === '/health') {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ status: 'ok', transport: 'sse' }));
+          return;
+        }
 
+        if (req.method === 'GET' && url.pathname === '/sse') {
+          // SSE endpoint: create a new SSEServerTransport for this connection.
           // If a client is already connected, silently ignore the duplicate to
           // prevent the connect → close → reconnect loop. The first connection
           // stays active and the second gets a 409 so it backs off.
@@ -835,10 +814,11 @@ export class FennecServer {
           try {
             await this.server.connect(transport);
             logger.debug('MCP server connected via SSE transport');
-            resolve();
           } catch (error) {
             logger.error({ error }, 'Failed to connect MCP server via SSE');
-            reject(error);
+            this.sseTransport = null;
+            res.end();
+            return;
           }
 
           // Handle client disconnect
@@ -862,12 +842,6 @@ export class FennecServer {
             res.writeHead(400).end('No active SSE connection');
           }
         } else {
-          // Health check endpoint
-          if (url.pathname === '/health') {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ status: 'ok', transport: 'sse' }));
-            return;
-          }
           res.writeHead(404).end('Not found');
         }
       });
