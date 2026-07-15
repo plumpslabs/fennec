@@ -52,8 +52,8 @@ function generateSessionId(): string {
 // ─── Helper: wrap a Playwright locator into a Fennec Locator ─────
 
 function wrapLocator(pwLocator: ReturnType<Page['locator']>): Locator {
-  return {
-    click: (opts) => pwLocator.click(opts as any).then(),
+  const wrapped: Locator & { _pwLocator?: ReturnType<Page['locator']> } = {
+    click: (opts) => pwLocator.click(opts).then(),
     fill: (text) => pwLocator.fill(text),
     pressSequentially: (text, opts) => pwLocator.pressSequentially(text, opts).then(),
     selectOption: (value) => pwLocator.selectOption(value),
@@ -72,13 +72,19 @@ function wrapLocator(pwLocator: ReturnType<Page['locator']>): Locator {
     setInputFiles: (paths) => pwLocator.setInputFiles(paths),
     setChecked: (checked) => pwLocator.setChecked(checked),
     evaluate: (fn: any, ...args: any[]) => pwLocator.evaluate(fn, ...args),
-    evaluateAll: (fn: any, ...args: any[]) => (pwLocator as any).evaluateAll(fn, ...args),
+    evaluateAll: (fn: any, ...args: any[]) => pwLocator.evaluateAll(fn as any, ...args as any),
     elementHandle: () => pwLocator.elementHandle().then((h) => (h ? wrapElementHandle(h) : null)),
     first: () => wrapLocator(pwLocator.first()),
     all: () => pwLocator.all().then(() => [] as Locator[]),
-    dragTo: (target) => pwLocator.dragTo((target as any).toString() as any),
+    dragTo: (target) =>
+      pwLocator.dragTo(
+        ((target as unknown as { _pwLocator?: ReturnType<Page['locator']> })._pwLocator ??
+          target) as unknown as ReturnType<Page['locator']>,
+      ),
     count: () => pwLocator.count(),
   };
+  wrapped._pwLocator = pwLocator;
+  return wrapped;
 }
 
 // ─── Helper: wrap a Playwright element handle into a Fennec ElementHandle ─
@@ -313,7 +319,9 @@ class PlaywrightSession implements BrowserSession {
     urlOrFn: string | ((url: string) => boolean),
     options?: { timeout?: number },
   ): Promise<void> {
-    await this.page.waitForURL(urlOrFn as any, { timeout: options?.timeout });
+    const pwPredicate =
+      typeof urlOrFn === 'function' ? (url: URL) => urlOrFn(url.href) : urlOrFn;
+    await this.page.waitForURL(pwPredicate, { timeout: options?.timeout });
   }
 
   async waitForLoadState(
@@ -345,9 +353,9 @@ class PlaywrightSession implements BrowserSession {
   }> {
     const predicate =
       typeof urlOrPredicate === 'string'
-        ? (req: any) => req.url().includes(urlOrPredicate)
+        ? (req: { url: () => string }) => req.url().includes(urlOrPredicate)
         : urlOrPredicate;
-    const req = await this.page.waitForRequest(predicate as any, { timeout: options?.timeout });
+    const req = await this.page.waitForRequest(predicate as (req: { url: () => string; method: () => string }) => boolean, { timeout: options?.timeout });
     return {
       url: req.url(),
       method: req.method(),
@@ -369,7 +377,9 @@ class PlaywrightSession implements BrowserSession {
     fn: string | ((...args: unknown[]) => T),
     ...args: unknown[]
   ): Promise<T> {
-    return typeof fn === 'string' ? this.page.evaluate(fn) : this.page.evaluate(fn as any, ...args);
+    return typeof fn === 'string'
+      ? this.page.evaluate(fn)
+      : this.page.evaluate(fn as (...args: unknown[]) => T, ...args);
   }
 
   // ── Locator ──
@@ -386,7 +396,12 @@ class PlaywrightSession implements BrowserSession {
     type?: 'png' | 'jpeg';
     quality?: number;
   }): Promise<Buffer> {
-    return this.page.screenshot(options as any);
+    return this.page.screenshot(options as {
+      fullPage?: boolean;
+      clip?: { x: number; y: number; width: number; height: number };
+      type?: 'png' | 'jpeg';
+      quality?: number;
+    } | undefined);
   }
 
   // ── Network Interception ──
@@ -401,7 +416,12 @@ class PlaywrightSession implements BrowserSession {
           postData: pwRoute.request().postData(),
         },
         continue: () => pwRoute.continue(),
-        fulfill: (opts) => pwRoute.fulfill(opts as any).then(),
+        fulfill: (opts) => pwRoute.fulfill(opts as {
+          status?: number;
+          contentType?: string;
+          body?: string;
+          headers?: Record<string, string>;
+        }).then(),
       });
     });
   }
@@ -413,7 +433,15 @@ class PlaywrightSession implements BrowserSession {
   // ── Keyboard ──
 
   async keyboardPress(key: string, options?: { modifiers?: string[] }): Promise<void> {
-    await this.page.keyboard.press(key, options as any);
+    if (options?.modifiers?.length) {
+      for (const mod of options.modifiers) await this.page.keyboard.down(mod);
+    }
+    await this.page.keyboard.press(key);
+    if (options?.modifiers?.length) {
+      for (let i = options.modifiers.length - 1; i >= 0; i--) {
+        await this.page.keyboard.up(options.modifiers[i]!);
+      }
+    }
   }
 
   // ── CDP ──
@@ -421,9 +449,11 @@ class PlaywrightSession implements BrowserSession {
   cdp(): BrowserCDPSession {
     return {
       send: <T>(method: string, params?: Record<string, unknown>) =>
-        this.cdpSession.send(method as never, params as never) as Promise<T>,
-      on: (event, handler) => void this.cdpSession.on(event as never, handler as never),
-      off: (event, handler) => void this.cdpSession.off(event as never, handler as never),
+        this.cdpSession.send(method as string, params as Record<string, unknown>) as Promise<T>,
+      on: (event, handler) =>
+        void this.cdpSession.on(event as string, handler as (params: unknown) => void),
+      off: (event, handler) =>
+        void this.cdpSession.off(event as string, handler as (params: unknown) => void),
     };
   }
 
@@ -467,7 +497,7 @@ class PlaywrightSession implements BrowserSession {
   }
 
   async contextAddCookies(cookies: CookieInput[]): Promise<void> {
-    await this.context.addCookies(cookies as any);
+    await this.context.addCookies(cookies);
   }
 
   async contextClearCookies(): Promise<void> {
@@ -603,7 +633,9 @@ class PlaywrightPageSession implements BrowserSession {
     urlOrFn: string | ((url: string) => boolean),
     options?: { timeout?: number },
   ): Promise<void> {
-    await this.page.waitForURL(urlOrFn as any, { timeout: options?.timeout });
+    const pwPredicate =
+      typeof urlOrFn === 'function' ? (url: URL) => urlOrFn(url.href) : urlOrFn;
+    await this.page.waitForURL(pwPredicate, { timeout: options?.timeout });
   }
   async waitForLoadState(
     state?: 'load' | 'domcontentloaded' | 'networkidle',
@@ -632,9 +664,9 @@ class PlaywrightPageSession implements BrowserSession {
   }> {
     const predicate =
       typeof urlOrPredicate === 'string'
-        ? (req: any) => req.url().includes(urlOrPredicate)
+        ? (req: { url: () => string }) => req.url().includes(urlOrPredicate)
         : urlOrPredicate;
-    const req = await this.page.waitForRequest(predicate as any, { timeout: options?.timeout });
+    const req = await this.page.waitForRequest(predicate as (req: { url: () => string; method: () => string }) => boolean, { timeout: options?.timeout });
     return {
       url: req.url(),
       method: req.method(),
@@ -653,7 +685,9 @@ class PlaywrightPageSession implements BrowserSession {
     fn: string | ((...args: unknown[]) => T),
     ...args: unknown[]
   ): Promise<T> {
-    return typeof fn === 'string' ? this.page.evaluate(fn) : this.page.evaluate(fn as any, ...args);
+    return typeof fn === 'string'
+      ? this.page.evaluate(fn)
+      : this.page.evaluate(fn as (...args: unknown[]) => T, ...args);
   }
   locator(selector: string): Locator {
     return wrapLocator(this.page.locator(selector));
@@ -664,7 +698,12 @@ class PlaywrightPageSession implements BrowserSession {
     type?: 'png' | 'jpeg';
     quality?: number;
   }): Promise<Buffer> {
-    return this.page.screenshot(options as any);
+    return this.page.screenshot(options as {
+      fullPage?: boolean;
+      clip?: { x: number; y: number; width: number; height: number };
+      type?: 'png' | 'jpeg';
+      quality?: number;
+    } | undefined);
   }
   async route(urlPattern: string, handler: (route: Route) => Promise<void>): Promise<void> {
     await this.page.route(urlPattern, async (pwRoute) => {
@@ -676,7 +715,12 @@ class PlaywrightPageSession implements BrowserSession {
           postData: pwRoute.request().postData(),
         },
         continue: () => pwRoute.continue(),
-        fulfill: (opts) => pwRoute.fulfill(opts as any).then(),
+        fulfill: (opts) => pwRoute.fulfill(opts as {
+          status?: number;
+          contentType?: string;
+          body?: string;
+          headers?: Record<string, string>;
+        }).then(),
       });
     });
   }
@@ -684,14 +728,24 @@ class PlaywrightPageSession implements BrowserSession {
     await this.page.unroute(urlPattern);
   }
   async keyboardPress(key: string, options?: { modifiers?: string[] }): Promise<void> {
-    await this.page.keyboard.press(key, options as any);
+    if (options?.modifiers?.length) {
+      for (const mod of options.modifiers) await this.page.keyboard.down(mod);
+    }
+    await this.page.keyboard.press(key);
+    if (options?.modifiers?.length) {
+      for (let i = options.modifiers.length - 1; i >= 0; i--) {
+        await this.page.keyboard.up(options.modifiers[i]!);
+      }
+    }
   }
   cdp(): BrowserCDPSession {
     return {
       send: <T>(method: string, params?: Record<string, unknown>) =>
-        this.cdpSession.send(method as never, params as never) as Promise<T>,
-      on: (event, handler) => void this.cdpSession.on(event as never, handler as never),
-      off: (event, handler) => void this.cdpSession.off(event as never, handler as never),
+        this.cdpSession.send(method as string, params as Record<string, unknown>) as Promise<T>,
+      on: (event, handler) =>
+        void this.cdpSession.on(event as string, handler as (params: unknown) => void),
+      off: (event, handler) =>
+        void this.cdpSession.off(event as string, handler as (params: unknown) => void),
     };
   }
   async contextCookies(): Promise<import('./types.js').Cookie[]> {
@@ -708,7 +762,7 @@ class PlaywrightPageSession implements BrowserSession {
     }));
   }
   async contextAddCookies(cookies: CookieInput[]): Promise<void> {
-    await this.context.addCookies(cookies as any);
+    await this.context.addCookies(cookies);
   }
   async contextClearCookies(): Promise<void> {
     await this.context.clearCookies();
