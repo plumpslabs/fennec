@@ -458,13 +458,13 @@ class PlaywrightSession implements BrowserSession {
   // ── CDP ──
 
   cdp(): BrowserCDPSession {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pw = this.cdpSession as any;
     return {
       send: <T>(method: string, params?: Record<string, unknown>) =>
-        this.cdpSession.send(method as string, params as Record<string, unknown>) as Promise<T>,
-      on: (event, handler) =>
-        void this.cdpSession.on(event as string, handler as (params: unknown) => void),
-      off: (event, handler) =>
-        void this.cdpSession.off(event as string, handler as (params: unknown) => void),
+        pw.send(method, params) as Promise<T>,
+      on: (event, handler) => void pw.on(event, handler),
+      off: (event, handler) => void pw.off(event, handler),
     };
   }
 
@@ -761,13 +761,13 @@ class PlaywrightPageSession implements BrowserSession {
     }
   }
   cdp(): BrowserCDPSession {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pw = this.cdpSession as any;
     return {
       send: <T>(method: string, params?: Record<string, unknown>) =>
-        this.cdpSession.send(method as string, params as Record<string, unknown>) as Promise<T>,
-      on: (event, handler) =>
-        void this.cdpSession.on(event as string, handler as (params: unknown) => void),
-      off: (event, handler) =>
-        void this.cdpSession.off(event as string, handler as (params: unknown) => void),
+        pw.send(method, params) as Promise<T>,
+      on: (event, handler) => void pw.on(event, handler),
+      off: (event, handler) => void pw.off(event, handler),
     };
   }
   async contextCookies(): Promise<import('./types.js').Cookie[]> {
