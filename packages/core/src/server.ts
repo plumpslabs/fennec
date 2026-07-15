@@ -556,7 +556,15 @@ export class FennecServer {
   private async setupSessionCDPMonitoring(session?: FennecSession): Promise<void> {
     const logger = getLogger();
     try {
-      const target = session ?? this.sessionManager.getOrDefault();
+      let target: FennecSession | undefined = session;
+      if (!target) {
+        try {
+          target = this.sessionManager.getOrDefault();
+        } catch {
+          // Defer until the browser/session is initialized lazily
+          return;
+        }
+      }
       if (!target) {
         logger.warn('No session available for CDP monitoring');
         return;
@@ -912,8 +920,6 @@ export class FennecServer {
         // session may already be gone — ignore
       }
     });
-
-    await this.setupSessionCDPMonitoring();
 
     this.workflowEngine.createDebugWorkflow('auto-diagnose');
     this.workflowEngine.createLoginWorkflow('auto-login');
