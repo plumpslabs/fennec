@@ -8,7 +8,6 @@ const DANGEROUS_TOOLS = new Set([
   'storage_clear_local',
   'storage_delete_cookie',
   'storage_remove_local',
-  'doctor',
 ]);
 
 const SPAWN_RELATED_TOOLS = new Set([
@@ -145,26 +144,9 @@ export function createPermissionGuard(): MiddlewareFn {
           };
         }
 
-        if (toolName === 'doctor' && !config.security.allowProcessKill) {
-          logger.warn({ tool: toolName }, 'Permission denied: doctor (process kill) not allowed');
-          return {
-            success: false,
-            error: {
-              code: 'PERMISSION_DENIED',
-              message: 'Doctor tool is blocked in sandbox mode (can kill processes). Enable allowProcessKill in config.',
-              suggestions: [
-                'Set security.allowProcessKill to true in config',
-                'Disable sandbox mode with security.sandbox: false',
-              ],
-              context: {},
-            },
-            meta: {
-              elapsed: Date.now() - ctx.startTime,
-              sessionId: ctx.session?.id ?? '',
-              timestamp: new Date().toISOString(),
-            },
-          };
-        }
+        // doctor is handled in the tool handler itself:
+        // read-only (no --fix) always allowed;
+        // only `doctor --fix` checks allowProcessKill.
       }
 
       // Domain restrictions for browser navigation
