@@ -278,29 +278,29 @@ export function createSpinner(text: string): Spinner {
 
   const interval = setInterval(() => {
     if (!running) return;
-    process.stdout.write(`\r${pc.cyan(frames[i])} ${text}`);
+    process.stderr.write(`\r${pc.cyan(frames[i])} ${text}`);
     i = (i + 1) % frames.length;
   }, 80);
 
   return {
     update(newText: string) {
       if (!running) return;
-      process.stdout.write(`\r${pc.cyan(frames[i])} ${newText}`);
+      process.stderr.write(`\r${pc.cyan(frames[i])} ${newText}`);
     },
     succeed(msg: string) {
       running = false;
       clearInterval(interval);
-      process.stdout.write(`\r${pc.green('✓')} ${msg}\n`);
+      process.stderr.write(`\r${pc.green('✓')} ${msg}\n`);
     },
     fail(msg: string) {
       running = false;
       clearInterval(interval);
-      process.stdout.write(`\r${pc.red('✗')} ${msg}\n`);
+      process.stderr.write(`\r${pc.red('✗')} ${msg}\n`);
     },
     warn(msg: string) {
       running = false;
       clearInterval(interval);
-      process.stdout.write(`\r${pc.yellow('⚠')} ${msg}\n`);
+      process.stderr.write(`\r${pc.yellow('⚠')} ${msg}\n`);
     },
     stop() {
       running = false;

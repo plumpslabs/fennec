@@ -191,7 +191,7 @@ async function spawnAllStopped(procs: TrackedProcess[]): Promise<void> {
   }
 
   spinner.stop();
-  process.stdout.write('\r\x1b[K');
+  process.stderr.write('\r\x1b[K');
 
   if (spawned > 0) {
     console.error(`  ${pc.green('✓')} ${pc.bold(`Spawned ${spawned} process(es)`)}`);
