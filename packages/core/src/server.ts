@@ -620,16 +620,6 @@ export class FennecServer {
       // Includes process + terminal so agents can check running apps & logs without extra queries
       const defaultCategories = [
         'navigation',
-        'interaction',
-        'dom',
-        'smart',
-        'ai',
-        'diagnostic',
-        'process',
-        'terminal',
-        'auth',
-        'tabs',
-        'devtools',
       ];
       const selectedCategories = categories?.length ? categories : defaultCategories;
       const tools = this.toolRegistry.getByCategories(selectedCategories);
