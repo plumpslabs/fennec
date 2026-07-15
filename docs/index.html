@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         :root {
             --orange-50: #fff7ed;
@@ -46,10 +47,12 @@
             --accent: var(--orange-500);
             --accent-hover: var(--orange-400);
             --accent-glow: rgba(249, 115, 22, 0.15);
-            --sidebar-width: 260px;
+            --sidebar-width: 240px;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -75,15 +78,15 @@
             border-right: 1px solid var(--border-color);
             overflow-y: auto;
             z-index: 100;
-            padding: 24px 0;
-            transition: transform 0.3s ease;
+            padding: 28px 0;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .sidebar-logo {
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 0 20px 24px;
+            padding: 0 16px 24px;
             border-bottom: 1px solid var(--border-color);
             margin-bottom: 16px;
         }
@@ -96,57 +99,48 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 18px;
-            font-weight: 700;
             color: #fff;
             flex-shrink: 0;
         }
 
-        .sidebar-logo span {
-            font-size: 18px;
+        .sidebar-logo .logo-text {
+            font-size: 16px;
             font-weight: 700;
             color: var(--text-primary);
+            line-height: 1.2;
         }
 
-        .sidebar-logo small {
-            font-size: 11px;
+        .sidebar-logo .logo-sub {
+            font-size: 10px;
             color: var(--text-muted);
-            display: block;
             font-weight: 400;
-            margin-top: -2px;
         }
 
-        .nav-section {
-            padding: 0 12px;
-            margin-bottom: 8px;
-        }
+        .nav-section { padding: 0 8px; margin-bottom: 6px; }
 
         .nav-section-title {
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.08em;
+            letter-spacing: 0.1em;
             color: var(--text-muted);
-            padding: 8px 8px 6px;
+            padding: 8px 8px 4px;
         }
 
         .nav-item {
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 7px 12px;
+            padding: 6px 10px;
             border-radius: 6px;
-            font-size: 14px;
+            font-size: 13px;
             color: var(--text-secondary);
             text-decoration: none;
             transition: all 0.15s ease;
             cursor: pointer;
         }
 
-        .nav-item:hover {
-            background: var(--bg-hover);
-            color: var(--text-primary);
-        }
+        .nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
 
         .nav-item.active {
             background: var(--accent-glow);
@@ -155,13 +149,21 @@
         }
 
         .nav-item .nav-icon {
-            width: 18px;
-            text-align: center;
-            font-size: 14px;
+            width: 16px;
+            height: 16px;
             flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        /* ── Mobile Menu Button ── */
+        .nav-item .nav-icon svg { width: 14px; height: 14px; }
+        .nav-item.active .nav-icon svg { stroke: var(--accent); }
+
+        .nav-external { font-size: 12px; color: var(--text-muted); padding: 5px 10px; }
+        .nav-external:hover { color: var(--text-primary); }
+
+        /* ── Mobile Menu ── */
         .menu-toggle {
             display: none;
             position: fixed;
@@ -171,10 +173,9 @@
             background: var(--bg-tertiary);
             border: 1px solid var(--border-color);
             border-radius: 8px;
-            padding: 8px 10px;
+            padding: 8px;
             color: var(--text-primary);
             cursor: pointer;
-            font-size: 18px;
         }
 
         .sidebar-overlay {
@@ -183,6 +184,7 @@
             inset: 0;
             background: rgba(0,0,0,0.6);
             z-index: 99;
+            backdrop-filter: blur(4px);
         }
 
         /* ── Main Content ── */
@@ -191,23 +193,20 @@
             min-height: 100vh;
         }
 
+        /* Each section is full-width, content is padded */
         section {
-            padding: 80px 48px;
-            max-width: 900px;
+            padding: 80px 64px;
+            max-width: 1200px;
+            margin: 0 auto;
         }
 
-        section:first-of-type {
-            padding-top: 100px;
-        }
-
-        @media (max-width: 900px) {
-            section { padding: 60px 24px; }
-        }
+        section:first-of-type { padding-top: 100px; }
 
         /* ── Hero ── */
         .hero {
-            padding: 120px 48px 100px;
-            max-width: 900px;
+            padding: 120px 64px 100px;
+            max-width: 1200px;
+            margin: 0 auto;
             position: relative;
             overflow: hidden;
         }
@@ -215,11 +214,26 @@
         .hero::before {
             content: '';
             position: absolute;
-            top: -50%;
-            right: -20%;
-            width: 600px;
-            height: 600px;
+            top: -40%;
+            right: -10%;
+            width: 60vw;
+            height: 60vw;
+            max-width: 700px;
+            max-height: 700px;
             background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: -10%;
+            width: 40vw;
+            height: 40vw;
+            max-width: 450px;
+            max-height: 450px;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.06) 0%, transparent 70%);
             pointer-events: none;
         }
 
@@ -231,17 +245,17 @@
             color: var(--accent);
             font-size: 13px;
             font-weight: 500;
-            padding: 4px 14px;
+            padding: 5px 16px;
             border-radius: 20px;
             border: 1px solid rgba(249, 115, 22, 0.2);
-            margin-bottom: 20px;
+            margin-bottom: 24px;
         }
 
         .hero h1 {
-            font-size: clamp(40px, 6vw, 64px);
+            font-size: clamp(44px, 6vw, 72px);
             font-weight: 800;
-            line-height: 1.1;
-            margin-bottom: 16px;
+            line-height: 1.05;
+            margin-bottom: 20px;
             letter-spacing: -0.03em;
         }
 
@@ -253,29 +267,31 @@
         }
 
         .hero p {
-            font-size: 18px;
+            font-size: 19px;
             color: var(--text-secondary);
-            max-width: 600px;
+            max-width: 680px;
             line-height: 1.7;
-            margin-bottom: 32px;
+            margin-bottom: 36px;
         }
 
         .hero-actions {
             display: flex;
             gap: 12px;
             flex-wrap: wrap;
+            position: relative;
+            z-index: 1;
         }
 
         .btn {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 12px 24px;
-            border-radius: 8px;
+            padding: 14px 28px;
+            border-radius: 10px;
             font-size: 15px;
             font-weight: 500;
             text-decoration: none;
-            transition: all 0.15s ease;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
             border: none;
         }
@@ -286,8 +302,8 @@
         }
         .btn-primary:hover {
             background: var(--accent-hover);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 20px rgba(249, 115, 22, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(249, 115, 22, 0.3);
         }
 
         .btn-secondary {
@@ -298,45 +314,93 @@
         .btn-secondary:hover {
             background: var(--bg-hover);
             border-color: var(--gray-600);
-            transform: translateY(-1px);
+            transform: translateY(-2px);
+        }
+
+        /* ── Stats ── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-top: 56px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px 20px;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+
+        .stat-card:hover {
+            border-color: var(--gray-700);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--orange-400), var(--orange-600));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            font-weight: 500;
         }
 
         /* ── Section Headers ── */
         .section-tag {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.1em;
+            letter-spacing: 0.12em;
             color: var(--accent);
             margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
+        .section-tag svg { width: 14px; height: 14px; stroke: var(--accent); }
+
         .section-title {
-            font-size: 32px;
+            font-size: clamp(26px, 3vw, 38px);
             font-weight: 700;
             margin-bottom: 12px;
             letter-spacing: -0.02em;
+            line-height: 1.2;
         }
 
         .section-desc {
             font-size: 16px;
             color: var(--text-secondary);
-            max-width: 600px;
+            max-width: 680px;
             margin-bottom: 40px;
+            line-height: 1.7;
         }
 
         /* ── Features Grid ── */
         .features-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 16px;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 12px;
         }
 
         .feature-card {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: 12px;
-            padding: 24px;
+            padding: 28px 24px;
             transition: all 0.2s ease;
         }
 
@@ -346,17 +410,18 @@
             box-shadow: 0 8px 30px rgba(0,0,0,0.2);
         }
 
-        .feature-card .icon {
-            width: 40px;
-            height: 40px;
+        .feature-card .icon-wrap {
+            width: 44px;
+            height: 44px;
             background: var(--accent-glow);
             border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
-            margin-bottom: 14px;
+            margin-bottom: 16px;
         }
+
+        .feature-card .icon-wrap svg { width: 22px; height: 22px; stroke: var(--accent); }
 
         .feature-card h3 {
             font-size: 16px;
@@ -378,105 +443,25 @@
             padding: 20px 24px;
             overflow-x: auto;
             font-family: 'JetBrains Mono', 'Fira Code', monospace;
-            font-size: 13.5px;
+            font-size: 13px;
             line-height: 1.7;
             color: var(--text-primary);
             margin: 16px 0;
-            position: relative;
         }
 
         pre .comment { color: var(--gray-500); font-style: italic; }
         pre .keyword { color: #c084fc; }
         pre .string { color: #86efac; }
-        pre .function { color: #60a5fa; }
+        pre .func { color: #60a5fa; }
         pre .number { color: #facc15; }
-        pre .punctuation { color: var(--gray-400); }
-        pre .operator { color: var(--orange-400); }
-        pre .variable { color: #fca5a5; }
+        pre .punct { color: var(--gray-400); }
+        pre .op { color: var(--orange-400); }
+        pre .var { color: #fca5a5; }
 
-        .code-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
+        /* ── Tables ── */
+        .table-wrap { overflow-x: auto; margin: 16px 0; }
 
-        .code-header .label {
-            font-size: 12px;
-            color: var(--text-muted);
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .copy-btn {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            font-size: 12px;
-            padding: 4px 8px;
-            border-radius: 4px;
-            transition: all 0.15s;
-        }
-        .copy-btn:hover {
-            background: var(--bg-hover);
-            color: var(--text-secondary);
-        }
-
-        /* ── Tool Groups ── */
-        .tool-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 8px;
-        }
-
-        .tool-group-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 16px;
-            transition: all 0.15s ease;
-        }
-
-        .tool-group-card:hover {
-            border-color: var(--gray-700);
-        }
-
-        .tool-group-card .group-name {
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .tool-group-card .tool-count {
-            font-size: 12px;
-            color: var(--text-muted);
-        }
-
-        .tool-group-card ul {
-            list-style: none;
-        }
-
-        .tool-group-card li {
-            font-size: 13px;
-            color: var(--text-secondary);
-            padding: 3px 0;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 12px;
-        }
-
-        .tool-group-card li::before {
-            content: '→ ';
-            color: var(--accent);
-            opacity: 0.6;
-        }
-
-        /* ── Comparison Table ── */
-        .comparison-table {
+        table {
             width: 100%;
             border-collapse: separate;
             border-spacing: 0;
@@ -486,73 +471,93 @@
             font-size: 14px;
         }
 
-        .comparison-table th {
+        table th {
             background: var(--bg-tertiary);
-            padding: 12px 16px;
+            padding: 10px 16px;
             text-align: left;
             font-weight: 600;
-            font-size: 13px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
             border-bottom: 1px solid var(--border-color);
         }
 
-        .comparison-table td {
-            padding: 10px 16px;
+        table td {
+            padding: 9px 16px;
             border-bottom: 1px solid var(--border-color);
             color: var(--text-secondary);
         }
 
-        .comparison-table tr:last-child td {
-            border-bottom: none;
-        }
+        table tr:last-child td { border-bottom: none; }
+        table tr:hover td { background: var(--bg-tertiary); }
+        table .check { color: #86efac; font-weight: 600; }
 
-        .comparison-table .check {
-            color: #86efac;
-            font-weight: 600;
-        }
-
-        .comparison-table .cross {
-            color: var(--gray-600);
-        }
-
-        .comparison-table tr:hover td {
-            background: var(--bg-tertiary);
-        }
-
-        /* ── Stats ── */
-        .stats-grid {
+        /* ── Tool Grid ── */
+        .tool-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 16px;
-            margin: 32px 0;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 10px;
         }
 
-        .stat-card {
+        .tool-group-card {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: 10px;
-            padding: 20px;
-            text-align: center;
+            padding: 18px 16px;
+            transition: all 0.15s ease;
         }
 
-        .stat-card .stat-number {
-            font-size: 28px;
-            font-weight: 800;
-            background: linear-gradient(135deg, var(--orange-400), var(--orange-600));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+        .tool-group-card:hover { border-color: var(--gray-700); }
+
+        .tool-group-card .group-name {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
-        .stat-card .stat-label {
-            font-size: 13px;
+        .tool-group-card .tool-count {
+            font-size: 11px;
             color: var(--text-muted);
-            margin-top: 4px;
+            margin-bottom: 8px;
         }
+
+        .tool-group-card ul { list-style: none; }
+
+        .tool-group-card li {
+            font-size: 12px;
+            color: var(--text-secondary);
+            padding: 2px 0;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .tool-group-card li::before {
+            content: '→ ';
+            color: var(--accent);
+            opacity: 0.5;
+        }
+
+        .tag {
+            display: inline-block;
+            font-size: 9px;
+            font-weight: 600;
+            padding: 1px 7px;
+            border-radius: 4px;
+            margin-left: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .tag-new { background: var(--accent-glow); color: var(--accent); }
+        .tag-beta { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
 
         /* ── Footer ── */
         footer {
             border-top: 1px solid var(--border-color);
-            padding: 32px 48px;
+            padding: 28px 64px;
             margin-left: var(--sidebar-width);
             color: var(--text-muted);
             font-size: 13px;
@@ -563,97 +568,119 @@
             gap: 12px;
         }
 
-        footer a {
-            color: var(--text-secondary);
-            text-decoration: none;
-        }
+        footer a { color: var(--text-secondary); text-decoration: none; transition: color 0.15s; }
+        footer a:hover { color: var(--accent); }
 
-        footer a:hover {
-            color: var(--accent);
+        footer .footer-links { display: flex; gap: 20px; }
+        footer .footer-links a { display: flex; align-items: center; gap: 5px; }
+        footer .footer-links svg { width: 14px; height: 14px; }
+
+        footer .version-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 12px;
+            color: var(--text-secondary);
         }
 
         /* ── Responsive ── */
+        @media (max-width: 1024px) {
+            section { padding: 60px 32px; }
+            .hero { padding: 100px 32px 80px; }
+            footer { padding: 24px 32px; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
         @media (max-width: 768px) {
             .sidebar { transform: translateX(-100%); }
             .sidebar.open { transform: translateX(0); }
-            .menu-toggle { display: block; }
+            .menu-toggle { display: flex; align-items: center; justify-content: center; }
             .sidebar-overlay.open { display: block; }
             .main { margin-left: 0; }
-            footer { margin-left: 0; padding: 24px 20px; }
+            footer { margin-left: 0; padding: 20px; }
             .hero { padding: 80px 20px 60px; }
             section { padding: 48px 20px; }
             .features-grid { grid-template-columns: 1fr; }
-            .tool-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
-            .comparison-table { font-size: 12px; }
-            .comparison-table th, .comparison-table td { padding: 8px 10px; }
+            .tool-grid { grid-template-columns: repeat(2, 1fr); }
+            .stats-grid { gap: 10px; }
+            footer .footer-links { gap: 12px; }
+        }
+
+        @media (max-width: 480px) {
+            .tool-grid { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .hero h1 { font-size: 32px; }
         }
     </style>
 </head>
 <body>
 
     <!-- ── Mobile Menu ── -->
-    <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">☰</button>
+    <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
     <!-- ── Sidebar ── -->
     <nav class="sidebar" id="sidebar">
         <div class="sidebar-logo">
-            <div class="logo-icon">🦊</div>
+            <div class="logo-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><path d="M12 2C7 2 2 7 2 12s5 10 10 10 10-5 10-10S17 2 12 2z"/><path d="M8 12a4 4 0 0 1 8 0"/><path d="M9 10h6"/></svg>
+            </div>
             <div>
-                <span>Fennec</span>
-                <small>AI-native observability</small>
+                <div class="logo-text">Fennec</div>
+                <div class="logo-sub">AI-native observability</div>
             </div>
         </div>
 
         <div class="nav-section">
             <div class="nav-section-title">Getting Started</div>
             <a class="nav-item active" href="#overview" data-section="overview">
-                <span class="nav-icon">🏠</span> Overview
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+                Overview
             </a>
             <a class="nav-item" href="#install" data-section="install">
-                <span class="nav-icon">📦</span> Installation
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
+                Installation
             </a>
             <a class="nav-item" href="#quickstart" data-section="quickstart">
-                <span class="nav-icon">🚀</span> Quick Start
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
+                Quick Start
             </a>
         </div>
 
         <div class="nav-section">
             <div class="nav-section-title">Features</div>
             <a class="nav-item" href="#features" data-section="features">
-                <span class="nav-icon">⚡</span> Core Features
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+                Core Features
+            </a>
+            <a class="nav-item" href="#debug" data-section="debug">
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+                Debug Engine <span class="tag tag-new">NEW</span>
             </a>
             <a class="nav-item" href="#correlation" data-section="correlation">
-                <span class="nav-icon">🔗</span> Full-Stack Correlation
-            </a>
-            <a class="nav-item" href="#modes" data-section="modes">
-                <span class="nav-icon">🎮</span> Modes of Operation
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
+                Full-Stack Correlation
             </a>
         </div>
 
         <div class="nav-section">
             <div class="nav-section-title">Reference</div>
             <a class="nav-item" href="#tools" data-section="tools">
-                <span class="nav-icon">🧰</span> Tool Reference
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span>
+                Tool Reference
             </a>
-
         </div>
 
-        <div class="nav-section" style="margin-top:8px;padding:0 12px;">
-            <a class="nav-item" href="https://github.com/plumpslabs/fennec/blob/main/docs/getting-started.md" target="_blank" style="font-size:13px;">
-                <span class="nav-icon">📖</span> Getting Started Guide →
-            </a>
-            <a class="nav-item" href="https://github.com/plumpslabs/fennec/blob/main/docs/tools/README.md" target="_blank" style="font-size:13px;">
-                <span class="nav-icon">🔧</span> Full Tool Reference →
-            </a>
-            <a class="nav-item" href="https://github.com/plumpslabs/fennec/blob/main/docs/configuration.md" target="_blank" style="font-size:13px;">
-                <span class="nav-icon">⚙️</span> Configuration →
-            </a>
-            <a class="nav-item" href="https://github.com/plumpslabs/fennec/blob/main/examples/README.md" target="_blank" style="font-size:13px;">
-                <span class="nav-icon">💡</span> Usage Examples →
-            </a>
-            <a class="nav-item" href="https://github.com/plumpslabs/fennec" target="_blank" style="font-size:13px;">
-                <span class="nav-icon">📂</span> GitHub →
+        <div class="nav-section" style="margin-top:8px;padding:0 8px;">
+            <a class="nav-item nav-external" href="https://github.com/plumpslabs/fennec" target="_blank">
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg></span>
+                GitHub
             </a>
         </div>
     </nav>
@@ -663,7 +690,10 @@
 
         <!-- ── Hero ── -->
         <section class="hero" id="overview">
-            <div class="hero-badge">🦊 v1.10.0 — MIT License</div>
+            <div class="hero-badge">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                v1.14.12 — MIT License
+            </div>
             <h1>
                 <span class="highlight">Ears everywhere</span><br />
                 in your stack.
@@ -674,32 +704,41 @@
                 browser, terminal, and processes — all in one unified interface.
             </p>
             <div class="hero-actions">
-                <a href="#install" class="btn btn-primary">📦 Get Started</a>
-                <a href="https://github.com/plumpslabs/fennec" target="_blank" class="btn btn-secondary">📂 GitHub</a>
+                <a href="#install" class="btn btn-primary">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Get Started
+                </a>
+                <a href="https://github.com/plumpslabs/fennec" target="_blank" class="btn btn-secondary">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+                    GitHub
+                </a>
             </div>
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-number">123</div>
+                    <div class="stat-number">165+</div>
                     <div class="stat-label">MCP Tools</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">16</div>
+                    <div class="stat-number">18</div>
                     <div class="stat-label">Categories</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">478</div>
+                    <div class="stat-number">679</div>
                     <div class="stat-label">Tests</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-number">MIT</div>
-                    <div class="stat-label">License</div>
+                    <div class="stat-number">26</div>
+                    <div class="stat-label">Debug Tools</div>
                 </div>
             </div>
         </section>
 
         <!-- ── The Problem ── -->
         <section id="the-problem" style="padding-top:0;">
-            <div class="section-tag">The Problem</div>
+            <div class="section-tag">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                The Problem
+            </div>
             <h2 class="section-title">AI agents are blind without context</h2>
             <p class="section-desc">
                 When a developer asks an AI agent "why is my login broken?", the agent has no access to 
@@ -707,61 +746,48 @@
                 copy-paste bridge.
             </p>
             <pre><span class="comment"># What the AI agent sees without Fennec:</span>
-<span class="punctuation">"</span>I can't access your terminal<span class="punctuation">"</span>
-<span class="punctuation">"</span>Please paste the error message<span class="punctuation">"</span>
-<span class="punctuation">"</span>I don't have browser access<span class="punctuation">"</span>
+<span class="punct">"</span>I can't access your terminal<span class="punct">"</span>
+<span class="punct">"</span>Please paste the error message<span class="punct">"</span>
+<span class="punct">"</span>I don't have browser access<span class="punct">"</span>
 
 <span class="comment"># What the developer sees:</span>
-<span class="variable">✗</span> TypeError: jwt.sign is undefined          <span class="comment">// Browser Console</span>
-<span class="variable">✗</span> Error: JWT_SECRET not set in env          <span class="comment">// Terminal</span>
-<span class="variable">✗</span> POST /api/login -<span class="operator">&gt;</span> <span class="number">500</span>                 <span class="comment">// Network Tab</span></pre>
+<span class="var">✗</span> TypeError: jwt.sign is undefined          <span class="comment">// Browser Console</span>
+<span class="var">✗</span> Error: JWT_SECRET not set in env          <span class="comment">// Terminal</span>
+<span class="var">✗</span> POST /api/login -<span class="op">&gt;</span> <span class="number">500</span>                 <span class="comment">// Network Tab</span></pre>
         </section>
 
         <!-- ── Installation ── -->
         <section id="install">
-            <div class="section-tag">Setup</div>
+            <div class="section-tag">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Setup
+            </div>
             <h2 class="section-title">Installation &amp; Configuration</h2>
             <p class="section-desc">
                 Get Fennec running in under 2 minutes. No external services, no cloud accounts — 
                 everything runs locally.
             </p>
 
-            <h3 style="font-size:16px;font-weight:600;margin-bottom:8px;">Prerequisites</h3>
-            <div style="overflow-x:auto;">
-                <table class="comparison-table" style="margin-bottom:24px;">
-                    <tr><th>Requirement</th><th>Version</th></tr>
-                    <tr><td>Node.js</td><td>>&thinsp;= 20.0.0</td></tr>
-                    <tr><td>npm / pnpm / yarn</td><td>Latest stable</td></tr>
-                    <tr><td>OS</td><td>macOS, Linux, Windows (WSL2 recommended)</td></tr>
-                </table>
-            </div>
-
             <h3 style="font-size:16px;font-weight:600;margin-bottom:8px;">Quick Install</h3>
-            <pre><span class="comment"># 1. Install globally</span>
-npm install <span class="operator">-g</span> @plumpslabs/fennec-cli
+            <pre><span class="comment"># Install globally</span>
+npm install <span class="op">-g</span> @plumpslabs/fennec-cli
 
-<span class="comment"># 2. Install browser engines (Chromium)</span>
+<span class="comment"># Install browser engines (optional)</span>
 fennec install-browsers
 
-<span class="comment"># 3. Generate config (optional)</span>
-fennec init
-
-<span class="comment"># 4. Start the MCP server</span>
+<span class="comment"># Start the MCP server</span>
 fennec start</pre>
 
-            <h3 style="font-size:16px;font-weight:600;margin:16px 0 8px;">From Source</h3>
-            <pre>git clone https:<span class="punctuation">//</span>github.com<span class="punctuation">/</span>plumpslabs<span class="punctuation">/</span>fennec.git
-<span class="keyword">cd</span> fennec
-pnpm install
-pnpm build
-npx playwright install chromium <span class="operator">--</span>with-deps
-node packages/cli/dist/index.js start</pre>
-
-            <h3 style="font-size:16px;font-weight:600;margin:16px 0 8px;">Configure MCP Client</h3>
+            <h3 style="font-size:16px;font-weight:600;margin:28px 0 8px;">MCP Client Config</h3>
             <p style="color:var(--text-secondary);font-size:14px;margin-bottom:8px;">
-                Add to your Claude Desktop config (<code style="color:var(--accent);font-family:monospace;">claude_desktop_config.json</code>):
+                Add to your MCP client's config file. Connect via <strong style="color:var(--text-primary);">stdio</strong> (default) or <strong style="color:var(--text-primary);">SSE</strong> (<code style="color:var(--accent);font-family:monospace;">--sse</code>).
             </p>
-            <pre>{
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+                <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:10px;padding:16px;">
+                    <div style="font-weight:600;margin-bottom:8px;">✅ stdio (default)</div>
+                    <p style="color:var(--text-secondary);font-size:13px;margin-bottom:8px;">Works with Claude Desktop, Claude Code, Cline, Cursor, Windsurf:</p>
+                    <pre style="margin:0;padding:12px 14px;font-size:12px;">{
   <span class="string">"mcpServers"</span>: {
     <span class="string">"fennec"</span>: {
       <span class="string">"command"</span>: <span class="string">"fennec"</span>,
@@ -769,20 +795,57 @@ node packages/cli/dist/index.js start</pre>
     }
   }
 }</pre>
+                </div>
+                <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:10px;padding:16px;">
+                    <div style="font-weight:600;margin-bottom:8px;">🌐 SSE (remote)</div>
+                    <p style="color:var(--text-secondary);font-size:13px;margin-bottom:8px;"><strong style="color:var(--accent);">Required</strong> for OpenCode, recommended for Continue.dev:</p>
+                    <pre style="margin:0;padding:12px 14px;font-size:12px;">{
+  <span class="string">"mcpServers"</span>: {
+    <span class="string">"fennec"</span>: {
+      <span class="string">"command"</span>: <span class="string">"fennec"</span>,
+      <span class="string">"args"</span>: [<span class="string">"start"</span>, <span class="string">"--sse"</span>]
+    }
+  }
+}</pre>
+                </div>
+            </div>
+
+            <p style="color:var(--text-secondary);font-size:14px;margin-bottom:8px;">
+                <strong style="color:var(--text-primary);">Client compatibility:</strong>
+            </p>
+            <div class="table-wrap" style="margin-bottom:16px;">
+                <table>
+                    <tr><th>Client</th><th>stdio</th><th>SSE</th><th>Notes</th></tr>
+                    <tr><td>Claude Desktop</td><td class="check">✅</td><td class="check">✅</td><td>stdio default</td></tr>
+                    <tr><td>Claude Code</td><td class="check">✅</td><td class="check">✅</td><td>stdio default</td></tr>
+                    <tr><td>Cline</td><td class="check">✅</td><td class="check">✅</td><td>stdio default</td></tr>
+                    <tr><td>Cursor</td><td class="check">✅</td><td class="check">✅</td><td>stdio default</td></tr>
+                    <tr><td>Windsurf</td><td class="check">✅</td><td class="check">✅</td><td>stdio default</td></tr>
+                    <tr><td>Continue.dev</td><td>⚠️</td><td class="check">✅</td><td>SSE recommended</td></tr>
+                    <tr><td>OpenCode</td><td>❌</td><td class="check">✅</td><td><strong>SSE required</strong></td></tr>
+                </table>
+            </div>
+
+            <p style="color:var(--text-secondary);font-size:13px;">
+                💡 Run <code style="color:var(--accent);font-family:monospace;">fennec start --sse</code> — Fennec outputs the exact remote config snippet on startup. For OpenCode, add <code style="color:var(--accent);font-family:monospace;">type: remote, url: http://localhost:3333/sse</code> to <code style="color:var(--accent);font-family:monospace;">~/.config/opencode/opencode.json</code>.
+            </p>
         </section>
 
         <!-- ── Quick Start ── -->
         <section id="quickstart">
-            <div class="section-tag">Your First Diagnosis</div>
+            <div class="section-tag">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Your First Diagnosis
+            </div>
             <h2 class="section-title">Quick Start</h2>
             <p class="section-desc">
                 Once Fennec is running and connected to your AI agent, pipe your server output 
                 and let the AI investigate.
             </p>
             <pre><span class="comment"># Terminal: Start your app with Fennec watching</span>
-npm run dev <span class="number">2</span>&gt;&amp;<span class="number">1</span> <span class="operator">|</span> fennec pipe <span class="operator">--</span>name <span class="string">"my-app"</span></pre>
-            <p style="color:var(--text-secondary);font-size:14px;margin:12px 0 8px;">
-                Then ask your AI agent: <strong style="color:var(--text-primary);">"Check why my app is broken"</strong>
+npm run dev <span class="number">2</span>&gt;&amp;<span class="number">1</span> <span class="op">|</span> fennec pipe <span class="op">--</span>name <span class="string">"my-app"</span></pre>
+            <p style="color:var(--text-secondary);font-size:14px;margin:16px 0 8px;">
+                Then ask your AI agent: <strong style="color:var(--text-primary);">"Why is my app broken?"</strong>
             </p>
             <p style="color:var(--text-secondary);font-size:14px;">
                 The AI will automatically use Fennec tools to open the browser, check console errors, 
@@ -792,83 +855,130 @@ npm run dev <span class="number">2</span>&gt;&amp;<span class="number">1</span> 
 
         <!-- ── Features ── -->
         <section id="features">
-            <div class="section-tag">Capabilities</div>
+            <div class="section-tag">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Capabilities
+            </div>
             <h2 class="section-title">Core Features</h2>
-            <p class="section-desc">Fennec packs 123 MCP tools across 16 categories, covering everything from browser 
-automation to Android device management.
+            <p class="section-desc">
+                165+ MCP tools across 18 categories — browser automation, process management, 
+                multi-language debugging, and mobile device control.
             </p>
             <div class="features-grid">
                 <div class="feature-card">
-                    <div class="icon">🌐</div>
+                    <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
                     <h3>Browser Automation</h3>
-                    <p>Navigate, click, type, scroll, drag-drop, screenshot. Full DOM and accessibility tree access.</p>
+                    <p>Navigate, click, type, scroll. Full DOM and accessibility tree access with zero-dependency CDP engine.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="icon">📋</div>
-                    <h3>Console Monitoring</h3>
-                    <p>Real-time console log collection, filtering by level, JS error tracking with stack traces.</p>
+                    <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div>
+                    <h3>Console &amp; Network</h3>
+                    <p>Real-time console monitoring, network interception, request mocking, and CORS detection.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="icon">🌍</div>
-                    <h3>Network Intelligence</h3>
-                    <p>Monitor all requests/responses, intercept and mock, detect CORS issues and slow requests.</p>
+                    <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
+                    <h3>Debug Engine <span class="tag tag-new">NEW</span></h3>
+                    <p>Multi-language debugger: V8/CDP, Python, PHP, Java/Kotlin, Go, .NET, Ruby, Rust. Auto-debug with EventBus triggers. 26 tools across 3 levels.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="icon">⚡</div>
-                    <h3>Performance Metrics</h3>
-                    <p>Core Web Vitals (FCP, LCP, CLS), memory profiling, DOM counters, network simulation.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="icon">🔐</div>
-                    <h3>Auth &amp; Sessions</h3>
-                    <p>Auto-fill login forms, save/load authenticated sessions, multi-user parallel testing.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="icon">🖥️</div>
-                    <h3>Process Management</h3>
-                    <p>Spawn, monitor, and interact with processes. Attach by PID or port. Auto-detect log levels.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="icon">📡</div>
-                    <h3>Log Watching</h3>
-                    <p>Watch log files, pipe streams, named pipes (FIFO). Level-aware filtering and error extraction.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="icon">🔗</div>
+                    <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
                     <h3>Full-Stack Correlation</h3>
-                    <p>Correlate browser errors with server logs. Automatic root cause inference with confidence scoring.</p>
+                    <p>Correlate browser errors with server logs. Automatic root cause inference with confidence scoring across 11+ patterns.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="icon">📁</div>
-                    <h3>Storage Access</h3>
-                    <p>Read/write localStorage, sessionStorage, cookies, IndexedDB. Export and import full state.</p>
+                    <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
+                    <h3>Process Management</h3>
+                    <p>Spawn, monitor, adopt, and supervise processes. Auto-restart, health checks, flapping detection, and concurrency safety.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="icon">🔄</div>
-                    <h3>Multi-Tab &amp; Context</h3>
-                    <p>Multiple isolated browser sessions with independent cookies, storage, and auth state.</p>
+                    <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+                    <h3>Auth &amp; Sessions</h3>
+                    <p>Auto-fill login forms, save/load authenticated sessions, multi-user parallel testing. Persist across conversations.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="icon">🔍</div>
-                    <h3>Diagnostic Tools</h3>
-                    <p>Page diagnostics, element debugging, network health, auth checks, performance analysis.</p>
+                    <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>
+                    <h3>Incident Engine</h3>
+                    <p>Rate-limited incident detection via EventBus. NOISY event suppression, auto-decay, cooldown. Structured alerts with suppressed count tracking.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="icon">📱</div>
-                    <h3>Android Mobile</h3>
-                    <p>Manage Android devices via ADB — list devices, tap, type, swipe, logcat, screenshot, install/launch apps.</p>
+                    <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></div>
+                    <h3>Self-Observability</h3>
+                    <p>Time-series trend analysis, memory monitoring, tool call metrics, and diagnose_fennec_health diagnostic tool.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="icon">🛡️</div>
-                    <h3>Security First</h3>
-                    <p>Sandbox mode, process allowlists, domain restrictions. Secure defaults with opt-in permissions.</p>
+                    <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div>
+                    <h3>Mobile (ADB)</h3>
+                    <p>Android device management: tap, type, swipe, logcat, screenshot, install APK. Wireless ADB support.</p>
                 </div>
             </div>
         </section>
 
+        <!-- ── Debug Engine ── -->
+        <section id="debug">
+            <div class="section-tag">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                Debug Engine
+            </div>
+            <h2 class="section-title">AI-Native Debugging for 10+ Runtimes</h2>
+            <p class="section-desc">
+                Fennec's Debug Engine provides three levels of debugging — from passive log analysis to 
+                active breakpoint debugging to proactive auto-debug — across JavaScript, Python, PHP, 
+                Java/Kotlin, Go, .NET, Ruby, Rust, and more.
+            </p>
+
+            <div class="features-grid" style="margin-bottom:28px;">
+                <div class="feature-card">
+                    <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></div>
+                    <h3>Level 1 — Log Debug</h3>
+                    <p>Passive error dedup by stack hash, source map resolution, grouped error summaries. Token-efficient: 10 identical errors → 1 entry.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="10" y1="13" x2="10" y2="4"/><line x1="14" y1="13" x2="14" y2="4"/><rect x="4" y="13" width="16" height="8" rx="2"/></svg></div>
+                    <h3>Level 2 — Breakpoint</h3>
+                    <p>Set breakpoints, step over/into, inspect variables, evaluate expressions. V8/CDP, Python DAP, PHP DBGp, Java JDWP. Logpoints for non-blocking observation.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
+                    <h3>Level 3 — Auto-Debug</h3>
+                    <p>EventBus-driven: auto-attach debugger on process crash, stderr error, browser error, or 5xx. Structured snapshots with suggested fixes.</p>
+                </div>
+            </div>
+
+            <h3 style="font-size:16px;font-weight:600;margin-bottom:8px;">Multi-Language Support</h3>
+            <div class="table-wrap">
+                <table>
+                    <tr><th>Runtime</th><th>Protocol</th><th>Status</th></tr>
+                    <tr><td>Node.js / Browser</td><td>V8 Inspector (CDP→DAP)</td><td class="check">✅</td></tr>
+                    <tr><td>Python</td><td>debugpy (DAP)</td><td class="check">✅</td></tr>
+                    <tr><td>PHP</td><td>Xdebug (DBGp→DAP)</td><td class="check">✅</td></tr>
+                    <tr><td>JVM (Java/Kotlin/Scala)</td><td>JDWP→DAP</td><td class="check">✅</td></tr>
+                    <tr><td>Go</td><td>Delve (DAP)</td><td class="check">✅</td></tr>
+                    <tr><td>.NET (C#, F#, VB)</td><td>NetCoreDbg (DAP)</td><td class="check">✅</td></tr>
+                    <tr><td>Ruby</td><td>ruby/debug (DAP)</td><td class="check">✅</td></tr>
+                    <tr><td>Rust / C / C++ / Zig / Swift</td><td>lldb-dap</td><td class="check">✅</td></tr>
+                    <tr><td>Dart / Flutter</td><td>Dart DAP</td><td class="check">✅</td></tr>
+                </table>
+            </div>
+
+            <h3 style="font-size:16px;font-weight:600;margin:28px 0 8px;">Record &amp; Replay (Cassette)</h3>
+            <p style="color:var(--text-secondary);font-size:14px;margin-bottom:8px;">
+                Record MCP tool call sessions and replay them to detect regressions:
+            </p>
+            <pre><span class="comment"># Record a debugging session</span>
+debug_record_session(<span class="string">"login-bug"</span>)
+<span class="comment"># ... perform debug steps ...</span>
+debug_stop_recording()
+
+<span class="comment"># Replay and compare</span>
+debug_diff_sessions(cassette_a, cassette_b)</pre>
+        </section>
+
         <!-- ── Correlation ── -->
         <section id="correlation">
-            <div class="section-tag">Signature Feature</div>
+            <div class="section-tag">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Signature Feature
+            </div>
             <h2 class="section-title">Full-Stack Correlation</h2>
             <p class="section-desc">
                 The crown jewel of Fennec. A single command correlates browser errors with server logs 
@@ -877,7 +987,7 @@ automation to Android device management.
             <pre><span class="comment">// diagnose_fullstack({ processId: "dev-server" })</span>
 {
   <span class="string">"correlation"</span>: {
-    <span class="string">"rootCause"</span>: <span class="string">"JWT_SECRET environment variable missing on server"</span>,
+    <span class="string">"rootCause"</span>: <span class="string">"JWT_SECRET environment variable missing"</span>,
     <span class="string">"confidence"</span>: <span class="number">0.94</span>,
     <span class="string">"fix"</span>: <span class="string">"Add JWT_SECRET to your .env file"</span>,
     <span class="string">"timeline"</span>: [
@@ -887,58 +997,23 @@ automation to Android device management.
     ]
   }
 }</pre>
-            <p style="color:var(--text-secondary);font-size:14px;margin-top:12px;">
-                Fennec automatically constructs a timeline across layers, infers the root cause with 
-                confidence scoring, and suggests a fix — all from a single MCP tool call.
-            </p>
-        </section>
-
-        <!-- ── Modes ── -->
-        <section id="modes">
-            <div class="section-tag">Flexibility</div>
-            <h2 class="section-title">Modes of Operation</h2>
-            <p class="section-desc">
-                Fennec adapts to your workflow. Choose the mode that fits, or combine them.
-            </p>
-
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;">
-                <div class="feature-card">
-                    <div class="icon">👀</div>
-                    <h3>Observe (Passive)</h3>
-                    <p>Run your server normally, Fennec listens passively via piped output or file watching.</p>
-                    <pre style="margin-top:12px;font-size:12px;padding:12px 16px;">npm run dev <span class="number">2</span>&gt;&amp;<span class="number">1</span> <span class="operator">|</span> fennec pipe <span class="operator">--</span>name my-app</pre>
-                </div>
-                <div class="feature-card">
-                    <div class="icon">🎮</div>
-                    <h3>Control (Active)</h3>
-                    <p>AI spawns and manages processes directly — start servers, run builds, execute tests.</p>
-                    <pre style="margin-top:12px;font-size:12px;padding:12px 16px;">process_spawn({
-  command: <span class="string">"npm run dev"</span>
-})</pre>
-                </div>
-                <div class="feature-card">
-                    <div class="icon">🔀</div>
-                    <h3>Hybrid (Recommended)</h3>
-                    <p>Developer spawns the server, AI controls the browser and observes logs simultaneously.</p>
-                    <pre style="margin-top:12px;font-size:12px;padding:12px 16px;"><span class="comment"># Terminal: pipe server output</span>
-npm run dev <span class="operator">|</span> fennec pipe <span class="operator">--</span>name dev-server
-
-<span class="comment"># AI has full visibility</span></pre>
-                </div>
-            </div>
         </section>
 
         <!-- ── Tool Reference ── -->
         <section id="tools">
-            <div class="section-tag">MCP Tools</div>
+            <div class="section-tag">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                MCP Tools
+            </div>
             <h2 class="section-title">Tool Reference</h2>
-            <p class="section-desc">123 tools organized into 16 categories. Every tool follows MCP conventions with 
-structured Zod schemas, descriptive error messages, and consistent response formats.
+            <p class="section-desc">
+                165+ tools organized into 18 categories. Every tool follows MCP conventions with 
+                structured Zod schemas and token-efficient responses.
             </p>
 
             <div class="tool-grid">
                 <div class="tool-group-card">
-                    <div class="group-name">🧭 Navigation</div>
+                    <div class="group-name">🚀 Navigation</div>
                     <div class="tool-count">6 tools</div>
                     <ul>
                         <li>browser_navigate</li>
@@ -993,16 +1068,17 @@ structured Zod schemas, descriptive error messages, and consistent response form
                 </div>
                 <div class="tool-group-card">
                     <div class="group-name">🌍 Network</div>
-                    <div class="tool-count">9 tools</div>
+                    <div class="tool-count">10 tools</div>
                     <ul>
                         <li>network_get_logs</li>
                         <li>network_get_failed_requests</li>
                         <li>network_get_cors_issues</li>
                         <li>network_clear_logs</li>
+                        <li>network_wait_for_request</li>
+                        <li>network_wait_for_api_response</li>
                         <li>network_intercept</li>
                         <li>network_remove_intercept</li>
                         <li>network_mock_response</li>
-                        <li>network_wait_for_request</li>
                         <li>network_get_request_detail</li>
                     </ul>
                 </div>
@@ -1016,6 +1092,38 @@ structured Zod schemas, descriptive error messages, and consistent response form
                         <li>devtools_simulate_network</li>
                         <li>devtools_start_profiling</li>
                         <li>devtools_stop_profiling</li>
+                    </ul>
+                </div>
+                <div class="tool-group-card" style="border-color:rgba(249,115,22,0.3);">
+                    <div class="group-name" style="color:var(--accent);">🐛 Debug <span class="tag tag-new">NEW</span></div>
+                    <div class="tool-count">26 tools</div>
+                    <ul>
+                        <li>debug_get_errors</li>
+                        <li>debug_get_error_detail</li>
+                        <li>debug_investigate</li>
+                        <li>debug_summary</li>
+                        <li>debug_logs_since</li>
+                        <li>debug_configure</li>
+                        <li>debug_set_breakpoint</li>
+                        <li>debug_remove_breakpoint</li>
+                        <li>debug_list_breakpoints</li>
+                        <li>debug_continue</li>
+                        <li>debug_step_over</li>
+                        <li>debug_step_into</li>
+                        <li>debug_get_variables</li>
+                        <li>debug_get_pause_state</li>
+                        <li>debug_evaluate</li>
+                        <li>debug_set_logpoint</li>
+                        <li>debug_investigate_runtime</li>
+                        <li>debug_record_session</li>
+                        <li>debug_stop_recording</li>
+                        <li>debug_replay_session</li>
+                        <li>debug_diff_sessions</li>
+                        <li>debug_list_cassettes</li>
+                        <li>debug_auto_report</li>
+                        <li>debug_auto_history</li>
+                        <li>debug_auto_configure</li>
+                        <li>debug_auto_stats</li>
                     </ul>
                 </div>
                 <div class="tool-group-card">
@@ -1049,8 +1157,8 @@ structured Zod schemas, descriptive error messages, and consistent response form
                     </ul>
                 </div>
                 <div class="tool-group-card">
-                    <div class="group-name">📑 Tabs &amp; Contexts</div>
-                    <div class="tool-count">7 tools</div>
+                    <div class="group-name">📑 Tabs</div>
+                    <div class="tool-count">9 tools</div>
                     <ul>
                         <li>tab_new</li>
                         <li>tab_close</li>
@@ -1059,22 +1167,33 @@ structured Zod schemas, descriptive error messages, and consistent response form
                         <li>tab_get_current</li>
                         <li>context_new</li>
                         <li>context_close</li>
+                        <li>context_rotate</li>
+                        <li>browser_session_recover</li>
                     </ul>
                 </div>
                 <div class="tool-group-card">
                     <div class="group-name">⚙️ Process</div>
-                    <div class="tool-count">10 tools</div>
+                    <div class="tool-count">19 tools</div>
                     <ul>
                         <li>process_spawn</li>
+                        <li>process_run_and_wait</li>
                         <li>process_list</li>
                         <li>process_get_logs</li>
                         <li>process_get_status</li>
-                        <li>process_send_input</li>
                         <li>process_kill</li>
                         <li>process_restart</li>
+                        <li>process_spawn_tracked</li>
+                        <li>process_stop_tracked</li>
+                        <li>process_adopt</li>
+                        <li>process_get_tracked</li>
                         <li>process_wait_for_ready</li>
                         <li>process_attach_pid</li>
                         <li>process_attach_port</li>
+                        <li>process_set_group</li>
+                        <li>process_rename_tracked</li>
+                        <li>process_cleanup_tracked</li>
+                        <li>process_clear_logs</li>
+                        <li>process_send_input</li>
                     </ul>
                 </div>
                 <div class="tool-group-card">
@@ -1092,7 +1211,7 @@ structured Zod schemas, descriptive error messages, and consistent response form
                 </div>
                 <div class="tool-group-card">
                     <div class="group-name">🔍 Diagnostic</div>
-                    <div class="tool-count">6 tools</div>
+                    <div class="tool-count">8 tools</div>
                     <ul>
                         <li>diagnose_page</li>
                         <li>diagnose_element</li>
@@ -1100,6 +1219,7 @@ structured Zod schemas, descriptive error messages, and consistent response form
                         <li>diagnose_auth</li>
                         <li>diagnose_fullstack</li>
                         <li>diagnose_performance</li>
+                        <li>diagnose_fennec_health</li>
                     </ul>
                 </div>
                 <div class="tool-group-card">
@@ -1117,7 +1237,7 @@ structured Zod schemas, descriptive error messages, and consistent response form
                 </div>
                 <div class="tool-group-card">
                     <div class="group-name">🧠 Smart</div>
-                    <div class="tool-count">7 tools</div>
+                    <div class="tool-count">12 tools</div>
                     <ul>
                         <li>smart_wait</li>
                         <li>smart_navigate</li>
@@ -1125,7 +1245,12 @@ structured Zod schemas, descriptive error messages, and consistent response form
                         <li>smart_validate_form</li>
                         <li>browser_screenshot_annotated</li>
                         <li>browser_screenshot_export</li>
+                        <li>browser_screenshot_baseline</li>
                         <li>browser_screenshot_diff</li>
+                        <li>compare_sessions</li>
+                        <li>test_with_state</li>
+                        <li>browser_get_element_component</li>
+                        <li>tools_help</li>
                     </ul>
                 </div>
                 <div class="tool-group-card">
@@ -1140,7 +1265,18 @@ structured Zod schemas, descriptive error messages, and consistent response form
                     </ul>
                 </div>
                 <div class="tool-group-card">
-                    <div class="group-name" style="color:#fb923c;">📱 Mobile <span style="font-size:10px;background:var(--accent-glow);padding:1px 6px;border-radius:4px;margin-left:4px;">NEW</span></div>
+                    <div class="group-name">🧪 Recorder</div>
+                    <div class="tool-count">5 tools</div>
+                    <ul>
+                        <li>recorder_start</li>
+                        <li>recorder_stop</li>
+                        <li>recorder_export</li>
+                        <li>recorder_list</li>
+                        <li>recorder_capture</li>
+                    </ul>
+                </div>
+                <div class="tool-group-card">
+                    <div class="group-name">📱 Mobile</div>
                     <div class="tool-count">11 tools</div>
                     <ul>
                         <li>mobile_list_devices</li>
@@ -1157,26 +1293,37 @@ structured Zod schemas, descriptive error messages, and consistent response form
                     </ul>
                 </div>
             </div>
-            <p style="color:var(--text-muted);font-size:13px;margin-top:16px;">
+            <p style="color:var(--text-muted);font-size:13px;margin-top:20px;">
                 See the <a href="https://github.com/plumpslabs/fennec/blob/main/docs/tools/README.md" target="_blank" style="color:var(--accent);">full tool reference</a> for detailed schemas and examples.
             </p>
         </section>
-
-
 
     </div>
 
     <!-- ── Footer ── -->
     <footer>
-        <span>🦊 Fennec — MIT License</span>
         <span>
-            <a href="https://github.com/plumpslabs/fennec" target="_blank">GitHub</a>
-            &nbsp;·&nbsp;
-            <a href="https://github.com/plumpslabs/fennec/issues" target="_blank">Issues</a>
-            &nbsp;·&nbsp;
-            <a href="https://github.com/plumpslabs/fennec/discussions" target="_blank">Discussions</a>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:middle;margin-right:4px;"><path d="M12 2C7 2 2 7 2 12s5 10 10 10 10-5 10-10S17 2 12 2z"/><path d="M8 12a4 4 0 0 1 8 0"/><path d="M9 10h6"/></svg>
+            Fennec
+            <span class="version-badge">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                v1.14.12
+            </span>
         </span>
-        <span>Built with ❤️ for AI-native development</span>
+        <span class="footer-links">
+            <a href="https://github.com/plumpslabs/fennec" target="_blank">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+                GitHub
+            </a>
+            <a href="https://github.com/plumpslabs/fennec/issues" target="_blank">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                Issues
+            </a>
+            <a href="https://github.com/plumpslabs/fennec/discussions" target="_blank">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                Discussions
+            </a>
+        </span>
     </footer>
 
     <script>
@@ -1202,10 +1349,8 @@ structured Zod schemas, descriptive error messages, and consistent response form
                 if (target) {
                     target.scrollIntoView({ behavior: 'smooth' });
                 }
-                // Close mobile menu
                 sidebar.classList.remove('open');
                 overlay.classList.remove('open');
-                // Update active
                 document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
                 item.classList.add('active');
             });
@@ -1226,6 +1371,9 @@ structured Zod schemas, descriptive error messages, and consistent response form
         }, { threshold: 0.3 });
 
         sections.forEach(s => observer.observe(s));
+
+        // ── Lucide Icons ──
+        lucide.createIcons();
     </script>
 </body>
 </html>

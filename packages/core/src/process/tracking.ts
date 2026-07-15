@@ -10,6 +10,8 @@ import { homedir } from 'node:os';
 import { isProcessRunning, getProcessEnviron, getProcessCmdline } from '../utils/system-process.js';
 import { getLogger } from '../utils/logger.js';
 
+export type DebugMode = 'off' | 'log' | 'breakpoint' | 'auto';
+
 export interface TrackedEntry {
   name: string;
   pid: number;
@@ -34,6 +36,14 @@ export interface TrackedEntry {
   group?: string;
   /** Log capture mode (mirrors CLI). */
   logMode?: 'text' | 'json';
+  /**
+   * Debug/observation mode for this process.
+   * - 'off' (default): normal operation, no debug features
+   * - 'log': Level 1 — smart log debugging (passive)
+   * - 'breakpoint': Level 2 — breakpoint debug (active)
+   * - 'auto': Level 3 — auto-debug (proactive)
+   */
+  debugMode?: DebugMode;
   /**
    * True when the user/agent explicitly stopped this process.
    * Prevents resurrectTracked() from re-spawning it on server restart.

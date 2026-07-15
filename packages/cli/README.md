@@ -107,6 +107,9 @@ permissions. The recommended way is via environment variables in the MCP config:
 
 ### 3. (Optional) Run the server over SSE instead of stdio
 
+Some MCP clients (especially **OpenCode**) **require SSE transport** — they cannot
+connect via stdio. For these clients, start Fennec with `--sse`:
+
 ```json
 {
   "mcpServers": {
@@ -124,6 +127,52 @@ permissions. The recommended way is via environment variables in the MCP config:
 
 With `--sse`, Fennec starts an HTTP+SSE endpoint (default `http://127.0.0.1:3333/sse`).
 Connect remote MCP clients with `{ "type": "remote", "url": "http://127.0.0.1:3333/sse" }`.
+
+### Client-Specific Config Examples
+
+**For stdio clients** (Claude Desktop, Claude Code, Cline, Cursor, Windsurf):
+```json
+{
+  "mcpServers": {
+    "fennec": {
+      "command": "fennec",
+      "args": ["start"]
+    }
+  }
+}
+```
+
+**For OpenCode** (SSE required):
+```json
+// ~/.config/opencode/opencode.json
+{
+  "mcpServers": [
+    {
+      "name": "fennec",
+      "type": "remote",
+      "url": "http://localhost:3333/sse"
+    }
+  ]
+}
+```
+
+**For Continue.dev** (SSE recommended):
+```json
+// config.json
+{
+  "experimental": {
+    "mcpServers": [
+      {
+        "name": "fennec",
+        "transport": "sse",
+        "url": "http://localhost:3333/sse"
+      }
+    ]
+  }
+}
+```
+
+> **Tip:** When using SSE, Fennec outputs the exact MCP config snippet on startup so you can copy-paste it directly into your client config. Run `fennec start --sse` and look for the `MCP Config` line.
 
 ### 4. Ask your AI to diagnose issues
 
@@ -346,6 +395,12 @@ correlation:
   windowMs: 500
   enableRootCauseInference: true
   minConfidence: 0.7
+
+debug:
+  allowDebug: true          # Enable debug features globally
+  allowDebugEval: false     # Expression evaluation (high risk)
+  allowedDirs: []            # Restrict breakpoints to these dirs
+  allowDependencies: false   # Allow breakpoints in node_modules/.venv
 ```
 
 ## Security & Environment Variables

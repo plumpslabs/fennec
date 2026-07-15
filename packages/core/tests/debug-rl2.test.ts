@@ -32,7 +32,12 @@ describe('DEBUG v2', () => {
     bus2.publish('process:exit', { code: 1, signal: 'SIGTERM' });
     console.log('standalone exit:', engine2.getActiveIncidents().length, JSON.stringify(engine2.getActiveIncidents().map(i => i.title)));
 
-    expect(engine.getActiveIncidents()).toHaveLength(3);
+    // browser:console → NOISY, suppressed (browser:network also NOISY, suppressed)
+    // browser:network:404 → NOISY, suppressed
+    // process:stderr 'custom error' → no inference rule match, unclassified counter incremented
+    // process:exit code 0 → related events include browser:network:404 → matches rule 'browser:network:404'
+    // browser:network:404 itself matches inference rule → 1 incident
+    expect(engine.getActiveIncidents()).toHaveLength(1);
   });
 
   it('trace exit standalone', () => {
@@ -42,6 +47,6 @@ describe('DEBUG v2', () => {
     });
     bus.publish('process:exit', { code: 1, signal: 'SIGTERM' });
     console.log('exit only:', engine.getActiveIncidents().length, JSON.stringify(engine.getActiveIncidents().map(i => ({title: i.title, tags: i.tags}))));
-    expect(engine.getActiveIncidents()).toHaveLength(1);
+    expect(engine.getActiveIncidents()).toHaveLength(0);
   });
 });

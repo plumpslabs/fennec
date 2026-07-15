@@ -43,8 +43,8 @@ function getDebugState(): DebugState {
 }
 
 /** Check if debug features are allowed by config. */
-function isDebugAllowed(config: { security: { allowDebug: boolean } }): boolean {
-  return config.security.allowDebug === true;
+function isDebugAllowed(config: { debug?: { allowDebug: boolean } }): boolean {
+  return config.debug?.allowDebug === true;
 }
 
 // ─── Helper: get logs for a process from tracked.json's log file ──
@@ -765,9 +765,9 @@ export const debugEvaluate = createTool({
     if (!isDebugAllowed(config)) {
       return responseBuilder.error(new Error('Debug disabled'), { code: 'DEBUG_DISABLED' });
     }
-    if (!config.security.allowDebugEval) {
+    if (!config.debug?.allowDebugEval) {
       return responseBuilder.error(
-        new Error('Expression evaluation is disabled. Set security.allowDebugEval: true in config'),
+        new Error('Expression evaluation is disabled. Set debug.allowDebugEval: true in config'),
         { code: 'DEBUG_EVAL_DISABLED' },
       );
     }

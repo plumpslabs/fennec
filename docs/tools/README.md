@@ -1,12 +1,42 @@
 # Fennec Tool Reference
 
-Fennec provides **136 MCP tools** organized into **17 categories**. Each tool is designed to be consumed by AI agents, with structured input/output and actionable error messages.
+Fennec provides **165+ MCP tools** organized into **18 categories**. Each tool is designed to be consumed by AI agents, with structured input/output and actionable error messages.
 
 > 💡 **Token-Efficient**: MCP clients can request specific categories to reduce context window usage. Every tool response also carries a `_tokenTier` (low/medium/high) in `tools/list` so agents prefer cheap tools first. Screenshots default to compressed JPEG and `smart_navigate` returns structured JSON (no image) unless you ask for one.
 
 ---
 
 ## Tool Categories
+
+### [Debug](../debugger.md) 🆕 (26 tools)
+
+Multi-language debugger: V8/CDP, Python DAP, PHP DBGp→DAP, Java JDWP→DAP, Go/Ruby/.NET/Rust/Dart native DAP.
+Auto-debug engine with EventBus-driven snapshots. Cassette record/replay for regression testing.
+
+| Tool                         | Description                     |
+| ---------------------------- | ------------------------------- |
+| `debug_get_errors`           | Grouped errors by stack hash    |
+| `debug_get_error_detail`     | Full stack + source map         |
+| `debug_investigate`          | Root cause analysis             |
+| `debug_summary`              | 1-line health check             |
+| `debug_set_breakpoint`       | Set breakpoint at file:line     |
+| `debug_continue`             | Resume execution                |
+| `debug_step_over`            | Step over function call         |
+| `debug_step_into`            | Step into function              |
+| `debug_get_variables`        | Inspect scope variables         |
+| `debug_evaluate`             | Evaluate expression             |
+| `debug_set_logpoint`         | Non-blocking logpoint           |
+| `debug_investigate_runtime`  | Guided composite investigation  |
+| `debug_record_session`       | Start recording                 |
+| `debug_stop_recording`       | Stop and save cassette          |
+| `debug_replay_session`       | Replay cassette                 |
+| `debug_diff_sessions`        | Diff two cassettes              |
+| `debug_list_cassettes`       | List saved cassettes            |
+| `debug_auto_report`          | Latest auto-debug report        |
+| `debug_auto_history`         | Auto-debug history              |
+| `debug_auto_configure`       | Enable/disable auto rules       |
+| `debug_auto_stats`           | Auto-debug statistics           |
+| `debug_configure`            | Set debug mode (log/bp/auto)    |
 
 ### [Navigation](navigation.md) (6 tools)
 
@@ -286,7 +316,8 @@ Token-efficient assertions for AI-driven verification (no screenshot needed).
 | Planner              | 5       |          ❌           |
 | Recorder             | 5       |          ✅           |
 | Assert               | 1       |          ✅           |
-| **Total**            | **134** | **0 without browser** |
+| Debug                | 26      |          ❌           |
+| **Total**            | **165+**| **0 without browser** |
 
 > **0 tools work without Playwright/browser engines** — process, terminal, storage (basic), scheduler, planner, and partial auth + diagnostic.
 

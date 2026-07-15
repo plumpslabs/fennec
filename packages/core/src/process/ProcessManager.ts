@@ -30,6 +30,14 @@ export class ProcessManager {
   private config: ProcessConfig;
   private eventBus: EventBus | null = null;
 
+  // ── Concurrency safety ──────────────────────────────────────
+  /** Per-process-name mutex: prevents concurrent spawn of the same name.
+   *  Managed internally by spawn() — sets before spawn, deletes after. */
+  private spawnLock = new Set<string>();
+  /** Port claims: prevents two processes from claiming the same port.
+   *  Claimed before spawn, released on process exit or spawn error. */
+  private portClaims = new Set<number>();
+
   constructor(config: ProcessConfig) {
     this.config = config;
   }
@@ -47,17 +55,18 @@ export class ProcessManager {
     cwd?: string,
     env?: Record<string, string>,
     name?: string,
+    port?: number,
   ): ManagedProcess {
     const logger = getLogger();
 
-    // Check allowlist
+    // ── Check allowlist ──────────────────────────────────────────
     if (this.config.spawnAllowlist.length > 0 && !this.config.spawnAllowlist.includes(command)) {
       throw new Error(
         `Command not in spawn allowlist: ${command}. Allowed: ${this.config.spawnAllowlist.join(', ')}`,
       );
     }
 
-    // Check max processes
+    // ── Check max processes ──────────────────────────────────────
     const runningCount = this.getRunningCount();
     if (runningCount >= this.config.maxProcesses) {
       throw new Error(
@@ -65,97 +74,125 @@ export class ProcessManager {
       );
     }
 
-    const processId = name ?? `proc_${++this.nextId}`;
-
-    const child = spawn(command, args, {
-      cwd,
-      env: env ? { ...process.env, ...env } : process.env,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      shell: process.platform === 'win32',
-      // 🔥 DAEMON MODE: process survives after Fennec server exits
-      // (matching CLI's fennec start behavior)
-      detached: true,
-    });
-
-    const managed: ManagedProcess = {
-      processId,
-      pid: child.pid ?? 0,
-      name: processId,
-      command: `${command} ${args.join(' ')}`,
-      spawnArgs: args,
-      cwd,
-      startedAt: new Date(),
-      child,
-      logBuffer: [],
-      running: true,
-    };
-
-    // Unref — lets the parent (Fennec server) exit without killing child
-    child.unref();
-
-    // Collect stdout
-    if (child.stdout) {
-      child.stdout.on('data', (data: Buffer) => {
-        const lines = data
-          .toString()
-          .split('\n')
-          .filter((l) => l.trim());
-        for (const line of lines) {
-          const level = detectLogLevel(line);
-          managed.logBuffer.push({ line, level, timestamp: new Date().toISOString() });
-          if (managed.logBuffer.length > this.config.logBufferLines) {
-            managed.logBuffer.shift();
-          }
-        }
-      });
+    // ── Concurrency guard: per-name spawn lock ────────────────────
+    if (name && this.spawnLock.has(name)) {
+      throw new Error(
+        `Concurrent spawn detected for "${name}". A spawn is already in progress. Wait for it to complete or use a different name.`,
+      );
+    }
+    if (name) {
+      this.spawnLock.add(name);
     }
 
-    // Collect stderr
-    if (child.stderr) {
-      child.stderr.on('data', (data: Buffer) => {
-        const lines = data
-          .toString()
-          .split('\n')
-          .filter((l) => l.trim());
-        for (const line of lines) {
-          managed.logBuffer.push({ line, level: 'error', timestamp: new Date().toISOString() });
-          if (managed.logBuffer.length > this.config.logBufferLines) {
-            managed.logBuffer.shift();
-          }
-
-          // Publish stderr lines to EventBus for scheduler auto-trigger
-          if (this.eventBus) {
-            this.eventBus.publish('process:stderr', { line, processId });
-          }
-        }
-      });
+    // ── Port claim: prevent duplicate port binds ─────────────────
+    const claimedPort = (port !== undefined && port > 0) ? port : undefined;
+    if (claimedPort !== undefined) {
+      if (this.portClaims.has(claimedPort)) {
+        if (name)        this.spawnLock.delete(name);
+        throw new Error(
+          `Port :${claimedPort} is already claimed by another managed process. Use a different port or release it first.`,
+        );
+      }
+      this.portClaims.add(claimedPort);
     }
 
-    // Handle exit
-    child.on('exit', (code, signal) => {
-      managed.running = false;
-      managed.exitCode = code ?? -1;
-      logger.info({ processId, code, signal }, 'Process exited');
+    try {
+      const processId = name ?? `proc_${++this.nextId}`;
 
-      // Publish exit event to EventBus for scheduler auto-trigger
-      if (this.eventBus) {
-        this.eventBus.publish('process:exit', {
-          code: code ?? -1,
-          signal: signal ?? null,
-          processId,
+      const child = spawn(command, args, {
+        cwd,
+        env: env ? { ...process.env, ...env } : process.env,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        shell: process.platform === 'win32',
+        // 🔥 DAEMON MODE: process survives after Fennec server exits
+        detached: true,
+      });
+
+      const managed: ManagedProcess = {
+        processId,
+        pid: child.pid ?? 0,
+        name: processId,
+        command: `${command} ${args.join(' ')}`,
+        spawnArgs: args,
+        cwd,
+        startedAt: new Date(),
+        child,
+        logBuffer: [],
+        running: true,
+      };
+
+      child.unref();
+
+      // Collect stdout
+      if (child.stdout) {
+        child.stdout.on('data', (data: Buffer) => {
+          const lines = data.toString().split('\n').filter((l) => l.trim());
+          for (const line of lines) {
+            const level = detectLogLevel(line);
+            managed.logBuffer.push({ line, level, timestamp: new Date().toISOString() });
+            if (managed.logBuffer.length > this.config.logBufferLines) {
+              managed.logBuffer.shift();
+            }
+          }
         });
       }
-    });
 
-    child.on('error', (err) => {
-      managed.running = false;
-      logger.error({ processId, err }, 'Process error');
-    });
+      // Collect stderr
+      if (child.stderr) {
+        child.stderr.on('data', (data: Buffer) => {
+          const lines = data.toString().split('\n').filter((l) => l.trim());
+          for (const line of lines) {
+            managed.logBuffer.push({ line, level: 'error', timestamp: new Date().toISOString() });
+            if (managed.logBuffer.length > this.config.logBufferLines) {
+              managed.logBuffer.shift();
+            }
+            if (this.eventBus) {
+              this.eventBus.publish('process:stderr', { line, processId });
+            }
+          }
+        });
+      }
 
-    this.processes.set(processId, managed);
-    logger.info({ processId, pid: managed.pid, command }, 'Process spawned');
+      // Handle exit — cleanup locks and port claims
+      child.on('exit', (code, signal) => {
+        managed.running = false;
+        managed.exitCode = code ?? -1;
+        logger.info({ processId, code, signal }, 'Process exited');
 
-    return managed;
+        // Release port claim on exit
+        if (claimedPort !== undefined) {
+          this.portClaims.delete(claimedPort);
+        }
+
+        if (this.eventBus) {
+          this.eventBus.publish('process:exit', {
+            code: code ?? -1,
+            signal: signal ?? null,
+            processId,
+          });
+        }
+      });
+
+      child.on('error', (err) => {
+        managed.running = false;
+        logger.error({ processId, err }, 'Process error');
+      });
+
+      this.processes.set(processId, managed);
+      logger.info({ processId, pid: managed.pid, command }, 'Process spawned');
+
+      // Release spawn lock on success
+      if (name) {
+        if (name) this.spawnLock.delete(name);
+      }
+
+      return managed;
+    } catch (err) {
+      // On error, release locks and port claims
+      if (name) this.spawnLock.delete(name);
+      if (claimedPort !== undefined) this.portClaims.delete(claimedPort);
+      throw err;
+    }
   }
 
   get(processId: string): ManagedProcess {
