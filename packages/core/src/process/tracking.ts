@@ -4,7 +4,7 @@
  * a persistent process registry accessible from both CLI (`fennec ps`)
  * and MCP tools (`process_get_tracked`).
  */
-import { existsSync, writeFileSync, readFileSync, mkdirSync } from 'node:fs';
+import { existsSync, writeFileSync, readFileSync, mkdirSync, renameSync } from 'node:fs';
 import { resolve, dirname, basename } from 'node:path';
 import { homedir } from 'node:os';
 import { isProcessRunning, getProcessEnviron, getProcessCmdline } from '../utils/system-process.js';
@@ -79,11 +79,18 @@ export function readTracked(): TrackedEntry[] {
   }
 }
 
+/**
+ * Save tracked processes atomically: write to a temp file, then rename.
+ * Prevents concurrent reader-writer races (read-modify-write from
+ * another agent session).
+ */
 export function saveTracked(processes: TrackedEntry[]): void {
   try {
     const path = getTrackedPath();
+    const tmp = `${path}.${process.pid}.tmp`;
     mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, JSON.stringify(processes, null, 2), 'utf-8');
+    writeFileSync(tmp, JSON.stringify(processes, null, 2), 'utf-8');
+    renameSync(tmp, path);
   } catch (err) {
     getLogger().error(
       { error: err instanceof Error ? err.message : String(err) },

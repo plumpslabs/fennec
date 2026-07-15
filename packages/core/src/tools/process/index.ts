@@ -133,6 +133,7 @@ export const processSpawn = createTool({
         input.cwd,
         input.env,
         input.name,
+        input.port,
       );
 
       // Sync to tracked.json so CLI's `fennec ps` sees agent-spawned processes
@@ -204,6 +205,7 @@ export const processRunAndWait = createTool({
         input.env,
         input.name,
       );
+
       const start = Date.now();
       let timedOut = false;
       let exitCode = -1;

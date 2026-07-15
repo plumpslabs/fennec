@@ -16,6 +16,8 @@ export interface ManagedProcess {
   logBuffer: Array<{ line: string; level: LogLevel; timestamp: string }>;
   running: boolean;
   exitCode?: number;
+  /** Port claimed at spawn time — released immediately on kill() (not async on 'exit'). */
+  claimedPort?: number;
 }
 
 export interface ProcessConfig {
@@ -119,6 +121,7 @@ export class ProcessManager {
         child,
         logBuffer: [],
         running: true,
+        claimedPort: claimedPort,
       };
 
       child.unref();
@@ -182,9 +185,7 @@ export class ProcessManager {
       logger.info({ processId, pid: managed.pid, command }, 'Process spawned');
 
       // Release spawn lock on success
-      if (name) {
-        if (name) this.spawnLock.delete(name);
-      }
+      if (name) this.spawnLock.delete(name);
 
       return managed;
     } catch (err) {
@@ -211,6 +212,13 @@ export class ProcessManager {
     const proc = this.processes.get(processId);
     if (!proc) return false;
     if (!proc.running) return true;
+
+    // Release port claim immediately — don't wait for async 'exit' event
+    // (process may linger before kernel cleanup). Use the stored port from
+    // spawn time, not regex parsing on the command string.
+    if (proc.claimedPort !== undefined) {
+      this.portClaims.delete(proc.claimedPort);
+    }
 
     try {
       proc.child.kill(signal);
