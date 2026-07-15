@@ -94,13 +94,14 @@
         .sidebar-logo .logo-icon {
             width: 32px;
             height: 32px;
-            background: linear-gradient(135deg, var(--orange-500), var(--orange-600));
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
             flex-shrink: 0;
+        }
+
+        .sidebar-logo .logo-icon img {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            object-fit: cover;
         }
 
         .sidebar-logo .logo-text {
@@ -629,7 +630,7 @@
     <nav class="sidebar" id="sidebar">
         <div class="sidebar-logo">
             <div class="logo-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><path d="M12 2C7 2 2 7 2 12s5 10 10 10 10-5 10-10S17 2 12 2z"/><path d="M8 12a4 4 0 0 1 8 0"/><path d="M9 10h6"/></svg>
+                <img src="https://raw.githubusercontent.com/plumpslabs/fennec/main/public/fennec.png" alt="Fennec" />
             </div>
             <div>
                 <div class="logo-text">Fennec</div>
@@ -692,12 +693,16 @@
         <section class="hero" id="overview">
             <div class="hero-badge">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                v1.15.0$2 — MIT License
+                v1.15.0 — MIT License
             </div>
-            <h1>
+            
+            <div style="display:flex;align-items:center;gap:32px;margin-bottom:24px;flex-wrap:wrap;">
+              <img src="https://raw.githubusercontent.com/plumpslabs/fennec/main/public/fennec.png" alt="Fennec" style="width:110px;height:110px;flex-shrink:0;filter:drop-shadow(0 0 20px rgba(249,115,22,0.3));" />
+              <h1 style="margin-bottom:0;">
                 <span class="highlight">Ears everywhere</span><br />
                 in your stack.
             </h1>
+            </div>
             <p>
                 Fennec is an AI-native developer observability MCP server that gives AI agents 
                 <strong>full-stack visibility</strong> into your development environment — 
@@ -1311,7 +1316,7 @@ debug_diff_sessions(cassette_a, cassette_b)</pre>
             Fennec
             <span class="version-badge">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                v1.15.0$2
+                v1.15.0
             </span>
         </span>
         <span class="footer-links">
