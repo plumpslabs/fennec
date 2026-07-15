@@ -44,6 +44,20 @@ function resolveLogName(processId: string): string | undefined {
   return undefined;
 }
 
+/** Build a suggestion list of available process names from tracked.json. */
+function suggestionsWithAvailable(extra?: string): string[] {
+  const tracked = readTracked();
+  const names = tracked.length > 0
+    ? tracked.map((t) => `  - ${t.name}${t.group ? ` (group: ${t.group})` : ''}${isTrackedRunning(t) ? ' ✅' : ' ⏸'}`)
+    : ['  (no tracked processes)'];
+  const result: string[] = [
+    'Available processes:',
+    ...names,
+  ];
+  if (extra) result.push(extra);
+  return result;
+}
+
 export const processSpawn = createTool({
   name: 'process_spawn',
   category: 'process',
@@ -346,7 +360,7 @@ export const processGetLogs = createTool({
     } catch (error) {
       return responseBuilder.error(error, {
         code: 'PROCESS_NOT_FOUND',
-        suggestions: ['Use process_list to see available processes'],
+        suggestions: suggestionsWithAvailable(),
       });
     }
   },
@@ -370,7 +384,10 @@ export const processGetStatus = createTool({
         cpuPercent: null as number | null,
       });
     } catch (error) {
-      return responseBuilder.error(error, { code: 'PROCESS_NOT_FOUND' });
+      return responseBuilder.error(error, {
+        code: 'PROCESS_NOT_FOUND',
+        suggestions: suggestionsWithAvailable(),
+      });
     }
   },
 });
@@ -390,7 +407,10 @@ export const processSendInput = createTool({
         sent: processManager.sendInput(input.processId, input.input),
       });
     } catch (error) {
-      return responseBuilder.error(error, { code: 'PROCESS_NOT_FOUND' });
+      return responseBuilder.error(error, {
+        code: 'PROCESS_NOT_FOUND',
+        suggestions: suggestionsWithAvailable(),
+      });
     }
   },
 });
@@ -466,7 +486,10 @@ export const processKill = createTool({
 
       return responseBuilder.success({ killed, notFound, count: killed.length });
     } catch (error) {
-      return responseBuilder.error(error, { code: 'PROCESS_NOT_FOUND' });
+      return responseBuilder.error(error, {
+        code: 'PROCESS_NOT_FOUND',
+        suggestions: suggestionsWithAvailable(),
+      });
     }
   },
 });
@@ -716,6 +739,7 @@ export const processRenameTracked = createTool({
     if (!match) {
       return responseBuilder.error(new Error(`No tracked process named "${input.oldName}"`), {
         code: 'PROCESS_NOT_FOUND',
+        suggestions: suggestionsWithAvailable(),
       });
     }
 
@@ -922,7 +946,7 @@ export const processRestart = createTool({
     } catch (error) {
       return responseBuilder.error(error, {
         code: 'PROCESS_NOT_FOUND',
-        suggestions: ['Use process_list to see available processes'],
+        suggestions: suggestionsWithAvailable(),
       });
     }
   },
@@ -982,7 +1006,10 @@ export const processWaitForReady = createTool({
         check();
       });
     } catch (error) {
-      return responseBuilder.error(error, { code: 'PROCESS_NOT_FOUND' });
+      return responseBuilder.error(error, {
+        code: 'PROCESS_NOT_FOUND',
+        suggestions: suggestionsWithAvailable(),
+      });
     }
   },
 });
