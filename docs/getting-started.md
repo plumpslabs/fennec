@@ -198,7 +198,23 @@ This starts the Fennec MCP server with stdio transport. Your AI agent (Claude De
 
 ### 2. Configure Your MCP Client
 
-Add Fennec to any MCP client:
+Config format depends on your client:
+
+**OpenCode** (`~/.config/opencode/opencode.json`):
+
+```json
+{
+  "mcpServers": {
+    "fennec": {
+      "type": "local",
+      "command": ["fennec", "start"],
+      "enabled": true
+    }
+  }
+}
+```
+
+**Claude Desktop / Cline / Cursor / Windsurf** (standard format):
 
 ```json
 {
@@ -211,7 +227,7 @@ Add Fennec to any MCP client:
 }
 ```
 
-The config file location depends on your client. Run `fennec setup` for guided configuration.
+See [`packages/cli/README.md`](https://github.com/plumpslabs/fennec/blob/main/packages/cli/README.md) for per-client examples (SSE, Continue.dev, process permissions, etc.).
 
 ### 3. Use Fennec Tools
 

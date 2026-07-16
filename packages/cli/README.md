@@ -67,7 +67,36 @@ npx playwright install chromium
 
 ### 1. Configure your MCP client
 
-Add this to your MCP client's config file (e.g. `claude_desktop_config.json`, `~/.config/opencode/opencode.json`, Cline/Cursor settings):
+Configuration format depends on your MCP client:
+
+**OpenCode** (`~/.config/opencode/opencode.json`):
+
+```json
+{
+  "mcpServers": {
+    "fennec": {
+      "type": "local",
+      "command": ["fennec", "start"],
+      "enabled": true
+    }
+  }
+}
+```
+
+**Claude Desktop** (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "fennec": {
+      "command": "fennec",
+      "args": ["start"]
+    }
+  }
+}
+```
+
+**Cline / Cursor / Windsurf** (same standard format):
 
 ```json
 {
@@ -85,7 +114,7 @@ That's it — Fennec speaks **stdio** by default and needs no extra permissions 
 ### 2. (Optional) Let the AI control processes
 
 If you want your AI agent to **start, restart, and stop** apps for you, enable process
-permissions. The recommended way is via environment variables in the MCP config:
+permissions via environment variables in the MCP config:
 
 ```json
 {
@@ -102,41 +131,53 @@ permissions. The recommended way is via environment variables in the MCP config:
 }
 ```
 
+> For OpenCode, add `"env"` inside the server entry:
+> ```json
+> {
+>   "mcpServers": {
+>     "fennec": {
+>       "type": "local",
+>       "command": ["fennec", "start"],
+>       "enabled": true,
+>       "env": {
+>         "FENNEC_SECURITY_ALLOW_PROCESS_SPAWN": "true",
+>         "FENNEC_SECURITY_ALLOW_PROCESS_KILL": "true"
+>       }
+>     }
+>   }
+> }
+> ```
+>
 > Spawn is enabled by default; kill is off by default (safer). Set both to `true`
 > only in trusted, local dev environments. See [Security & Environment Variables](#security--environment-variables).
 
 ### 3. (Optional) Run the server over SSE instead of stdio
 
-While local client connections generally use standard input/output (stdio), you can also run Fennec over SSE (Server-Sent Events) for remote setups or custom requirements. Start Fennec with `--sse`:
+While local client connections generally use stdio, you can also run Fennec over SSE (Server-Sent Events) for remote setups. Start Fennec with `--sse`:
 
 ```json
 {
   "mcpServers": {
     "fennec": {
       "command": "fennec",
-      "args": ["start", "--sse"],
-      "env": {
-        "FENNEC_SECURITY_ALLOW_PROCESS_SPAWN": "true",
-        "FENNEC_SECURITY_ALLOW_PROCESS_KILL": "true"
-      }
+      "args": ["start", "--sse"]
     }
   }
 }
 ```
 
 With `--sse`, Fennec starts an HTTP+SSE endpoint (default `http://127.0.0.1:3333/sse`).
-Connect remote MCP clients with `{ "type": "remote", "url": "http://127.0.0.1:3333/sse" }`.
+Configure SSE clients as `{ "type": "remote", "url": "http://localhost:3333/sse" }`.
 
-### Client-Specific Config Examples
-
-All stdio-based MCP clients (Claude Desktop, Claude Code, Cline, Cursor, Windsurf, OpenCode) use the same format:
+**For OpenCode (SSE):**
 
 ```json
 {
   "mcpServers": {
     "fennec": {
-      "command": "fennec",
-      "args": ["start"]
+      "type": "remote",
+      "url": "http://localhost:3333/sse",
+      "enabled": true
     }
   }
 }

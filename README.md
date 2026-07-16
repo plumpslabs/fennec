@@ -238,7 +238,23 @@ fennec init
 
 ### Configure Your MCP Client
 
-Add to your MCP client config:
+Config format depends on your client:
+
+**OpenCode** (`~/.config/opencode/opencode.json`):
+
+```json
+{
+  "mcpServers": {
+    "fennec": {
+      "type": "local",
+      "command": ["fennec", "start"],
+      "enabled": true
+    }
+  }
+}
+```
+
+**Claude Desktop / Cline / Cursor / Windsurf** (standard format):
 
 ```json
 {
@@ -251,8 +267,7 @@ Add to your MCP client config:
 }
 ```
 
-That's enough for **observation** (browser, terminal, logs). For **AI-driven process
-control** (start/restart/stop apps), add the permission env vars:
+**For AI-driven process control**, add the permission env vars:
 
 ```json
 {
@@ -269,26 +284,36 @@ control** (start/restart/stop apps), add the permission env vars:
 }
 ```
 
-For **SSE transport** (HTTP-based remote MCP) instead of stdio:
+> For OpenCode, add `"env"` inside the server entry with `"type": "local"` / `"command"` array format.
+
+For **SSE transport** instead of stdio:
 
 ```json
 {
   "mcpServers": {
     "fennec": {
       "command": "fennec",
-      "args": ["start", "--sse"],
-      "env": {
-        "FENNEC_SECURITY_ALLOW_PROCESS_SPAWN": "true",
-        "FENNEC_SECURITY_ALLOW_PROCESS_KILL": "true"
-      }
+      "args": ["start", "--sse"]
+    }
+  }
+}
+```
+
+OpenCode SSE config:
+
+```json
+{
+  "mcpServers": {
+    "fennec": {
+      "type": "remote",
+      "url": "http://localhost:3333/sse",
+      "enabled": true
     }
   }
 }
 ```
 
 ### MCP Client Compatibility
-
-Different MCP clients detect and connect to Fennec differently. Some require **SSE transport** (`--sse`) instead of default stdio:
 
 | Client             | stdio | SSE | Notes                                                                     |
 | ------------------ | :---: | :-: | ------------------------------------------------------------------------- |
@@ -297,10 +322,8 @@ Different MCP clients detect and connect to Fennec differently. Some require **S
 | **Cline**          |  ✅   | ✅  | stdio default                                                             |
 | **Cursor**         |  ✅   | ✅  | stdio default                                                             |
 | **Windsurf**       |  ✅   | ✅  | stdio default                                                             |
-| **Continue.dev**   |  ⚠️   | ✅  | **Recommended: SSE** — some versions have stdio detection issues          |
-| **OpenCode**       |  ✅   | ✅  | stdio default, SSE optionally supported                                   |
-
-> **💡 SSE mode:** Run `fennec start --sse` to start the server over HTTP+SSE (default `http://127.0.0.1:3333/sse`). Configure clients with `{ "type": "remote", "url": "http://localhost:3333/sse" }`.
+| **Continue.dev**   |  ⚠️   | ✅  | **Recommended: SSE** — uses `experimental.mcpServers` array format        |
+| **OpenCode**       |  ✅   | ✅  | stdio (`type: local`), SSE (`type: remote`)                               |
 
 ### Your First Diagnosis
 
