@@ -222,7 +222,7 @@ async function tryRecoverAction(
                     tag,
                     id: el.id,
                     text,
-                    class: el.className.slice(0, 100),
+                    class: String(el.className).slice(0, 100),
                     role: el.getAttribute('role') ?? '',
                   });
                 }
