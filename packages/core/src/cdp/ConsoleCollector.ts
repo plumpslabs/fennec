@@ -56,6 +56,7 @@ export class ConsoleCollector {
               text: string;
               url?: string;
               lineNumber?: number;
+              columnNumber?: number;
               stackTrace?: {
                 callFrames: Array<{
                   functionName: string;
@@ -64,9 +65,32 @@ export class ConsoleCollector {
                   columnNumber: number;
                 }>;
               };
+              exception?: {
+                type: string;
+                subtype?: string;
+                className?: string;
+                description?: string;
+                objectId?: string;
+              };
             };
           },
         );
+      });
+
+      // Inject window.onerror to capture errors that CDP's Runtime.exceptionThrown
+      // may miss (e.g. React production builds, cross-origin errors).
+      await cdpSession.send('Runtime.evaluate', {
+        expression: `
+          try {
+            window.__fennecOnerror = window.onerror;
+            window.onerror = function(msg, url, line, col, error) {
+              if (window.__fennecOnerror) window.__fennecOnerror(msg, url, line, col, error);
+              var detail = error && error.stack ? error.stack : (String(msg) + ' at ' + url + ':' + line + ':' + col);
+              console.error('[FENNEC]', detail);
+              return true;
+            };
+          } catch(e) {}
+        `,
       });
 
       this.enabled = true;
@@ -114,6 +138,7 @@ export class ConsoleCollector {
       text: string;
       url?: string;
       lineNumber?: number;
+      columnNumber?: number;
       stackTrace?: {
         callFrames: Array<{
           functionName: string;
@@ -122,13 +147,34 @@ export class ConsoleCollector {
           columnNumber: number;
         }>;
       };
+      exception?: {
+        type: string;
+        subtype?: string;
+        className?: string;
+        description?: string;
+        objectId?: string;
+      };
     };
   }): void {
-    if (this.shouldIgnore(msg.exceptionDetails.text)) return;
+    // CDP's exceptionDetails.text is often just "Uncaught" — the actual
+    // error message lives in exceptionDetails.exception.description.
+    let message = msg.exceptionDetails.text ?? '';
+    if (!message || message === 'Uncaught') {
+      const ex = msg.exceptionDetails.exception;
+      if (ex?.description) {
+        message = ex.description;
+      } else if (ex?.className) {
+        message = `${ex.className}`;
+      }
+    }
+    if (this.shouldIgnore(message)) return;
+
     const event: ConsoleEvent = {
       level: 'error',
-      message: msg.exceptionDetails.text,
-      source: msg.exceptionDetails.url ?? 'unknown',
+      message,
+      source: msg.exceptionDetails.url
+        ? `${msg.exceptionDetails.url}:${msg.exceptionDetails.lineNumber ?? 0}:${msg.exceptionDetails.columnNumber ?? 0}`
+        : 'unknown',
       timestamp: new Date().toISOString(),
     };
 
