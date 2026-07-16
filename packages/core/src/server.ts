@@ -991,6 +991,11 @@ export class FennecServer {
       }
     });
 
+    // Hook up CDP monitoring for the default session immediately
+    // (not just on rotation), otherwise network/console events are
+    // silently lost until the first recovery cycle.
+    await this.setupSessionCDPMonitoring();
+
     // Initialize plugins that registered tool contributions + lifecycle hooks
     await this.pluginSystem.initializeAll();
 

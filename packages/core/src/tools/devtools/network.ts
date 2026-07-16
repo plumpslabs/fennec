@@ -33,6 +33,7 @@ export const networkGetLogs = createTool({
     status: z.number().optional().describe('Filter by HTTP status code'),
     method: z.string().optional().describe('Filter by HTTP method (GET, POST, etc.)'),
     urlPattern: z.string().optional().describe('Filter by URL pattern'),
+    since: z.string().optional().describe('ISO timestamp filter — only return requests after this time'),
     limit: z.number().optional().default(50).describe('Maximum number of requests to return'),
     includeResponseBodies: z
       .boolean()
@@ -47,6 +48,12 @@ export const networkGetLogs = createTool({
     const session = sessionManager.getOrDefault(input.sessionId);
     let requests = session.networkBuffer;
 
+    if (input.since) {
+      const since = new Date(input.since).getTime();
+      if (!isNaN(since)) {
+        requests = requests.filter((r) => new Date(r.timestamp).getTime() >= since);
+      }
+    }
     if (input.status) {
       const status = input.status;
       requests = requests.filter((r) => r.status === status);
