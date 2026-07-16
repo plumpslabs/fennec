@@ -2,22 +2,31 @@
 
 All notable changes to Fennec will be documented in this file.
 
-## [1.15.1] - 2026-07-16
+## [1.15.2] - 2026-07-16
 
 ### Added
-- **`fennec debug attach/detach/status` CLI command.** Set/remove/query per-process debug mode (`--mode log|breakpoint|auto`). Supports `--group` for batch ops.
-- **`--debug` flag for `fennec start` / `fennec spawn`.** Start a process with a debug mode: `fennec start npm run dev --debug log`.
-- **Debug mode column (`D`) in `fennec ps`.** Shows L/B/A for log/breakpoint/auto, color-coded.
-- **`debug_get_mode` MCP tool.** Query per-process debug mode from tracked.json via MCP.
-- **`debugMode` field in `process_get_tracked` response.** AI agents can now see per-process debug status.
+- **Element index selector.** `index` param on `browser_click`, `browser_type`, `browser_hover`, `browser_focus`, `browser_get_element_info` — resolves strict mode violations when selector matches N elements (#47).
+- **`fennec_flow` composite tool.** Single-call `debug-element`, `page-health`, `form-fill` flows replacing 3-5 separate tool calls (#54).
+- **Token budget awareness.** `compact:true` mode on `browser_get_accessibility_tree` (flat list + child counts vs full nested tree). Estimated response sizes in tool descriptions (#58).
+- **`url` param on `auth_load_session`.** Navigate to a specific page after restoring session instead of the saved origin (#59).
+- **`compact` mode on `browser_screenshot_annotated`.** Return elements-only without base64 screenshot (#48).
+- **`maxDepth` option on `browser_get_dom_snapshot`.** Default 10, max 50, with `truncated:true` flag when hit (#50).
+- **`inheritSession` option on `tab_new`.** Copies cookies + localStorage to new tab (#52).
 
 ### Changed
-- **CLI ↔ MCP debug sync.** `debug_configure` MCP tool now persists to `tracked.json` (was in-memory only). CLI `fennec debug attach` writes to same file. Two-way sync: CLI and AI agents share the same per-process debug state.
-- **All 27 debug tools now registered** (were dead code — defined but never imported in `server.ts`). 26 existing + 1 new (`debug_get_mode`) → 186 total registered tools.
-- **Per-process `debugMode` storage** via `setDebugMode()`/`getDebugMode()` in tracking.ts.
+- **Error recovery improvements.** Strict mode violation detected in catch blocks — suggests `index` param. Element-not-found errors include `context.url` with current page URL (#56).
+- **`smart_fill_form` field matching.** Prioritizes type-exact matches (`type="email"` for query "email") before partial string matching — fixes field mis-identification (#59).
+- **`process_wait_for_ready` error message.** Shows stopped tracked processes with actionable `process_spawn_tracked` suggestion (#59).
+- **Tool naming audit.** Verified all 164+ tool names use snake_case consistently (#53).
 
 ### Fixed
-- **All 12 documentation audit issues.** SECURITY.md version+email, CODE_OF_CONDUCT.md outdated contact, tool counts (unified to 165+), configuration.md missing fields+env vars, ARCHITECTURE.md stale categories+counts, CONTRIBUTING.md broken links, getting-started.md code fence, README.md table bleed+missing groups, cli/README.md language+env vars, bug_report.md link, smart.md fence, VISION.md typos.
+- **browser_get_dom_snapshot SVG crash.** `className.slice` on SVG elements fixed via `String()` coercion (#45).
+- **Browser click latency ~35s.** Per-strategy 2s timeout + per-session selector cache (#43).
+- **browser_find_elements false negatives.** Vanilla DOM fallback via `querySelectorAll` when unified engine returns 0 (#44).
+- **Network log gaps (Axios/XHR).** CDP monitoring starts on default session, not only on rotation. `since` filter on `network_get_logs` (#46).
+- **Empty JS error messages.** Fallback to CDP `exception.description` when `text` is empty. `window.onerror` injection (#55).
+- **observe stale incidents.** URL tracking + console/network buffer flush on navigation + `fresh:true` flag (#51).
+- **Session ID opacity.** New `session_list` tool, `listSessions()`, `getDefaultSessionId()` (#57).
 
 ## [1.15.0] - 2026-07-15
 
