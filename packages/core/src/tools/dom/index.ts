@@ -156,6 +156,11 @@ export const browserGetDomSnapshot = createTool({
       .optional()
       .default(false)
       .describe('Include all elements (not just interactable ones)'),
+    maxDepth: z
+      .number()
+      .optional()
+      .default(10)
+      .describe('Maximum tree depth (default 10, max 50). Prevents overflow on deeply nested pages.'),
     sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
@@ -165,9 +170,11 @@ export const browserGetDomSnapshot = createTool({
         function evaluateSnapshot({
           selector,
           includeAll,
+          maxDepth,
         }: {
           selector?: string;
           includeAll?: boolean;
+          maxDepth?: number;
         }): Record<string, unknown> {
           function getRoot(sel?: string): Element | null {
             if (!sel) return document.documentElement;
@@ -217,7 +224,13 @@ export const browserGetDomSnapshot = createTool({
             'spinbutton',
           ]);
 
+          let truncated = false;
+
           function buildTree(node: Element, currentDepth: number): Record<string, unknown> | null {
+            if (currentDepth > (maxDepth ?? 10)) {
+              truncated = true;
+              return null;
+            }
             totalElements++;
             const tag = node.tagName.toLowerCase();
             tagCounts[tag] = (tagCounts[tag] ?? 0) + 1;
@@ -304,11 +317,13 @@ export const browserGetDomSnapshot = createTool({
             summary: summaryParts.join('. '),
             tagBreakdown: sortedTags.map(([tag, count]) => ({ tag, count })),
             structure: structure ? [structure] : [],
+            ...(truncated ? { truncated: true, maxDepth: maxDepth ?? 10 } : {}),
           };
         },
         {
           selector: input.selector,
           includeAll: input.includeAllElements ?? false,
+          maxDepth: Math.min(input.maxDepth ?? 10, 50),
         },
       );
 
