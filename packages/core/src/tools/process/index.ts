@@ -555,7 +555,7 @@ export const processStopTracked = createTool({
     names: z
       .array(z.string())
       .optional()
-      .describe("Names of MULTIPLE tracked processes to stop (e.g. ['be-crm','fe-crm'])"),
+      .describe("Names of MULTIPLE tracked processes to stop (e.g. ['api-service','web-app'])"),
     group: z
       .string()
       .optional()
@@ -1169,5 +1169,76 @@ export const processAdopt = createTool({
         suggestions: ['Verify the PID is running', 'Check permissions'],
       });
     }
+  },
+});
+
+// ─── process_export_tracked ─────────────────────────────────────
+
+export const processExportTracked = createTool({
+  name: 'process_export_tracked',
+  category: 'process',
+  description:
+    '`<use_case>Process management</use_case> 📤 Export all tracked processes as JSON. Returns the full tracked.json contents. Use to backup or transfer process tracking state between machines. For importing, use process_import_tracked. Token cost: ~50 tokens plus the exported data size.`',
+  inputSchema: z.object({}),
+  handler: async (_input, { responseBuilder }) => {
+    const tracked = readTracked();
+    return responseBuilder.success(
+      { count: tracked.length, processes: tracked },
+      { elapsed: 0, sessionId: '', timestamp: new Date().toISOString() },
+    );
+  },
+});
+
+// ─── process_import_tracked ─────────────────────────────────────
+
+export const processImportTracked = createTool({
+  name: 'process_import_tracked',
+  category: 'process',
+  description:
+    '`<use_case>Process management</use_case> 📥 Import processes from JSON and merge into tracked.json. Existing processes with the same name are overwritten. Returns the merged count. Use to restore a previous export or transfer processes between machines. Token cost: ~50 tokens.`',
+  inputSchema: z.object({
+    processes: z
+      .array(z.record(z.unknown()))
+      .describe('Array of process objects to import. Each must have at least "name" and "command".'),
+    dryRun: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe('If true, show what would be imported without actually merging.'),
+  }),
+  handler: async (input, { responseBuilder }) => {
+    const incoming = input.processes as Array<Record<string, unknown>>;
+    const existing = readTracked();
+    let merged = 0;
+    let overwritten = 0;
+
+    for (const proc of incoming) {
+      if (!proc.name) continue;
+      const name = String(proc.name);
+      const idx = existing.findIndex((t) => t.name === name);
+      if (idx !== -1) {
+        if (!input.dryRun) existing[idx] = { ...existing[idx], ...proc } as TrackedEntry;
+        overwritten++;
+      } else {
+        if (!input.dryRun) existing.push(proc as unknown as TrackedEntry);
+        merged++;
+      }
+    }
+
+    if (!input.dryRun) {
+      saveTracked(existing);
+    }
+
+    return responseBuilder.success(
+      {
+        total: incoming.length,
+        merged,
+        overwritten,
+        skipped: incoming.length - merged - overwritten,
+        dryRun: input.dryRun ?? false,
+        totalAfter: existing.length,
+      },
+      { elapsed: 0, sessionId: '', timestamp: new Date().toISOString() },
+    );
   },
 });

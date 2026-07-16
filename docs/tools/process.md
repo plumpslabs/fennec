@@ -68,7 +68,7 @@ const attached = await toolRegistry.call('process_attach_port', {
 The CLI (`fennec start/kill/stop/spawn/restart/ps`) and these MCP tools are kept in
 sync — same behavior, same flags:
 
-- **Multiple names at once** — pass `names: ["be-crm","fe-crm"]` (or space-separated
+- **Multiple names at once** — pass `names: ["api-service","web-app"]` (or space-separated
   positionals on the CLI) for one-shot bulk ops. Already-running entries are skipped
   ("already running"); already-stopped ones too ("skipped").
 - **Logical groups** — tag apps with `process_spawn({ group })` / `fennec start --group`,

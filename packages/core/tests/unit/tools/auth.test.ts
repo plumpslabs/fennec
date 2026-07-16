@@ -85,11 +85,11 @@ describe('auth_fill_login_form tool', () => {
     const result = authFillLoginForm.inputSchema.safeParse({
       username: 'user',
       password: 'pass',
-      sessionName: 'myapp-prod',
+      sessionName: 'demo-app-prod',
     });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.sessionName).toBe('myapp-prod');
+      expect(result.data.sessionName).toBe('demo-app-prod');
     }
   });
 

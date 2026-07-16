@@ -49,6 +49,7 @@ import { PerformanceMetrics } from './utils/PerformanceMetrics.js';
 import { CapabilityDetector } from './capability/Detector.js';
 import { Planner } from './planner/Planner.js';
 import { WorkflowEngine } from './workflow/WorkflowEngine.js';
+import { PluginSystem } from './plugin/index.js';
 import { Recorder } from './recorder/Recorder.js';
 import { WorkflowScheduler } from './scheduler/WorkflowScheduler.js';
 import { EventBus } from './correlation/EventBus.js';
@@ -165,6 +166,8 @@ import {
   processRenameTracked,
   processCleanupTracked,
   processClearLogs,
+  processExportTracked,
+  processImportTracked,
 } from './tools/process/index.js';
 import { inspect, supervisorControl, persistControl, doctor } from './tools/process/supervisor.js';
 import {
@@ -297,6 +300,7 @@ export class FennecServer {
   private capabilityDetector: CapabilityDetector;
   private planner: Planner;
   private workflowEngine: WorkflowEngine;
+  private pluginSystem: PluginSystem;
   private recorder: Recorder;
   private workflowScheduler: WorkflowScheduler;
   private eventBus: EventBus;
@@ -331,6 +335,7 @@ export class FennecServer {
     this.workflowEngine = new WorkflowEngine(
       this.config.session.persistPath.replace('sessions', 'workflows'),
     );
+    this.pluginSystem = new PluginSystem();
     this.recorder = new Recorder();
     this.eventBus = new EventBus();
     this.workflowScheduler = new WorkflowScheduler(this.eventBus, this.workflowEngine);
@@ -474,6 +479,8 @@ export class FennecServer {
       processRenameTracked,
       processCleanupTracked,
       processClearLogs,
+      processExportTracked,
+      processImportTracked,
       inspect,
       supervisorControl,
       persistControl,
@@ -599,6 +606,7 @@ export class FennecServer {
       capabilityDetector: this.capabilityDetector,
       planner: this.planner,
       workflowEngine: this.workflowEngine,
+      pluginSystem: this.pluginSystem,
       recorder: this.recorder,
       workflowScheduler: this.workflowScheduler,
       eventBus: this.eventBus,
@@ -955,6 +963,7 @@ export class FennecServer {
       const shutdown = async () => {
         logger.info('Shutting down Fennec...');
         this.workflowScheduler.stop();
+        await this.pluginSystem.cleanupAll();
         this.resourceManager.stopAutoCleanup();
         this.resourceManager.stopHealthChecks();
         await this.resourceManager.releaseAll();
@@ -981,6 +990,9 @@ export class FennecServer {
         // session may already be gone — ignore
       }
     });
+
+    // Initialize plugins that registered tool contributions + lifecycle hooks
+    await this.pluginSystem.initializeAll();
 
     this.workflowEngine.createDebugWorkflow('auto-diagnose');
     this.workflowEngine.createLoginWorkflow('auto-login');

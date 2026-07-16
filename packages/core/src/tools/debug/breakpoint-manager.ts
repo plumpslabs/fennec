@@ -86,37 +86,73 @@ export class BreakpointSessionManager {
    * This associates a Fennec session ID with a V8 debugging session.
    */
   async getOrCreateSession(sessionId: string, cdp: BrowserCDPSession): Promise<string> {
-    // Check if we already have a session for this ID
     const existing = this.sessions.get(sessionId);
     if (existing) {
       existing.lastActivity = Date.now();
       return sessionId;
     }
 
-    // Detect runtime and create appropriate adapter
-    let adapter: DebugAdapter;
+    const adapter = await this.createAdapter(sessionId, cdp);
+    return this.finalizeSession(sessionId, adapter);
+  }
+
+  /**
+   * Get or create a debug session for a tracked process by name.
+   * Uses runtime detection to pick the right adapter (DAP, DBGp, JDWP, CDP).
+   * No CDP session needed — works for non-browser runtimes.
+   */
+  async getOrCreateProcessSession(name: string): Promise<string> {
+    const existing = this.sessions.get(name);
+    if (existing) {
+      existing.lastActivity = Date.now();
+      return name;
+    }
+
+    const adapter = await this.createAdapter(name);
+    return this.finalizeSession(name, adapter);
+  }
+
+  /**
+   * Detect runtime and create the appropriate debug adapter.
+   * Falls back to V8/CDP if no specific adapter is found.
+   */
+  private async createAdapter(sessionId: string, cdp?: BrowserCDPSession): Promise<DebugAdapter> {
     const tracked = readTracked();
     const proc = tracked.find((t) => t.name === sessionId);
     const command = proc?.command ?? '';
     const registry = getAdapterRegistry();
     const runtime = registry.detectRuntime(command);
 
-    if (runtime === 'node' || runtime === 'unknown') {
-      // Default to V8/CDP for Node.js — lazy-loaded
+    if (runtime === 'node' || (runtime === 'unknown' && cdp)) {
       const { V8DebuggerAdapter } = await import('./v8-adapter.js');
-      adapter = new V8DebuggerAdapter(cdp);
-    } else {
-      // Use runtime-specific adapter
-      const runtimeAdapter = await registry.createAdapter(runtime);
-      if (runtimeAdapter) {
-        adapter = runtimeAdapter;
-      } else {
-        // Fallback to V8/CDP — lazy-loaded
-        getLogger().warn({ runtime }, 'No specific adapter found, falling back to V8/CDP');
-        const { V8DebuggerAdapter } = await import('./v8-adapter.js');
-        adapter = new V8DebuggerAdapter(cdp);
-      }
+      if (!cdp) throw new Error(`Node.js debugging requires a browser session (CDP). Use a sessionId or run in a browser context.`);
+      return new V8DebuggerAdapter(cdp);
     }
+
+    const runtimeAdapter = await registry.createAdapter(runtime, cdp);
+    if (runtimeAdapter) return runtimeAdapter;
+
+    // Last resort fallback
+    if (cdp) {
+      const { V8DebuggerAdapter } = await import('./v8-adapter.js');
+      return new V8DebuggerAdapter(cdp);
+    }
+
+    throw new Error(
+      `No debug adapter available for runtime "${runtime}". ` +
+      `Supported: Node.js (CDP), Python/Go/.NET/Ruby/Rust/Dart (DAP), PHP (DBGp), Java (JDWP). ` +
+      `Ensure the debug tool is installed (e.g. debugpy for Python, dlv for Go).`,
+    );
+  }
+
+  /**
+   * Wire up event handlers and register the session.
+   */
+  private async finalizeSession(sessionId: string, adapter: DebugAdapter): Promise<string> {
+    const tracked = readTracked();
+    const proc = tracked.find((t) => t.name === sessionId);
+    const registry = getAdapterRegistry();
+    const runtime = registry.detectRuntime(proc?.command ?? sessionId);
 
     await adapter.enable();
 

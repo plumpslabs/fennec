@@ -10,6 +10,7 @@ import type { StateManager } from '../state/index.js';
 import type { CapabilityDetector } from '../capability/Detector.js';
 import type { Planner } from '../planner/Planner.js';
 import type { WorkflowEngine } from '../workflow/WorkflowEngine.js';
+import type { PluginSystem } from '../plugin/index.js';
 import type { Recorder } from '../recorder/Recorder.js';
 import type { WorkflowScheduler } from '../scheduler/WorkflowScheduler.js';
 import type { EventBus } from '../correlation/EventBus.js';
@@ -32,6 +33,7 @@ export interface ToolContext {
   capabilityDetector: CapabilityDetector;
   planner: Planner;
   workflowEngine: WorkflowEngine;
+  pluginSystem: PluginSystem;
   recorder: Recorder;
   workflowScheduler: WorkflowScheduler;
   eventBus: EventBus;

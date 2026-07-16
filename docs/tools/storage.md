@@ -37,13 +37,13 @@ await toolRegistry.call('storage_set_cookie', {
 
 // Export full state to file
 const state = await toolRegistry.call('storage_export_state', {
-  filePath: 'myapp-state.json',
+  filePath: 'demo-state.json',
 });
 // Returns: { cookies: [...], localStorage: {...}, sessionStorage: {...}, savedTo: "..." }
 
 // Import state from file
 const restored = await toolRegistry.call('storage_import_state', {
-  filePath: 'myapp-state.json',
+  filePath: 'demo-state.json',
 });
 // Returns: { cookiesRestored: N, itemsRestored: N }
 

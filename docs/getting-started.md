@@ -271,7 +271,7 @@ network_get_failed_requests()
 
 ```
 auth_fill_login_form({ username: "user@example.com", password: "mypassword", submitAfter: true })
-auth_save_session({ name: "myapp-prod" })
+auth_save_session({ name: "demo-app-prod" })
 ```
 
 ### Full-Stack Diagnosis

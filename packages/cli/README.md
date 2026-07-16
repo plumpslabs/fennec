@@ -381,14 +381,14 @@ fennec dev down               # stop everything (keeps it in the registry)
 
 ```bash
 # Tag apps into groups when starting (or retroactively with `fennec group`)
-fennec start "npm run dev-be" --name be-crm --group crm
-fennec start "npm run dev-fe" --name fe-crm --group crm
+fennec start "npm run dev-be" --name api-service --group crm
+fennec start "npm run dev-fe" --name web-app --group crm
 
 # One-shot bulk: pass MULTIPLE names at once
-fennec stop  be-crm fe-crm          # pause both, keep them in the registry
-fennec spawn be-crm fe-crm          # re-spawn both paused apps
-fennec kill  be-crm fe-crm -y        # kill + forget both
-fennec restart be-crm fe-crm -y     # restart both from saved config
+fennec stop  api-service web-app          # pause both, keep them in the registry
+fennec spawn api-service web-app          # re-spawn both paused apps
+fennec kill  api-service web-app -y        # kill + forget both
+fennec restart api-service web-app -y     # restart both from saved config
 
 # Group-scoped bulk: only that group is touched (other groups safe)
 fennec kill  --group crm -y

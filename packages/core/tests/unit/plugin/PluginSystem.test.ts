@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { PluginSystem } from '../../../src/plugin/PluginSystem.js';
-import type { PluginManifest } from '../../../src/plugin/PluginSystem.js';
+import { PluginSystem } from '../../../src/plugin/index.js';
+import type { PluginManifest } from '../../../src/plugin/index.js';
 
 describe('PluginSystem', () => {
   let pluginSystem: PluginSystem;
@@ -36,29 +36,29 @@ describe('PluginSystem', () => {
     });
   });
 
-  describe('getPlugin', () => {
+  describe('get', () => {
     it('should return a plugin by instanceId', async () => {
       const instance = await pluginSystem.register(createDummyFactory('find-me'));
-      const found = pluginSystem.getPlugin(instance.instanceId);
+      const found = pluginSystem.get(instance.instanceId);
       expect(found).toBeDefined();
       expect(found!.manifest.name).toBe('find-me');
     });
 
     it('should return undefined for unknown plugin', () => {
-      expect(pluginSystem.getPlugin('nonexistent')).toBeUndefined();
+      expect(pluginSystem.get('nonexistent')).toBeUndefined();
     });
   });
 
-  describe('listPlugins', () => {
+  describe('getAll', () => {
     it('should list all registered plugins', async () => {
       await pluginSystem.register(createDummyFactory('a'));
       await pluginSystem.register(createDummyFactory('b'));
-      const list = pluginSystem.listPlugins();
+      const list = pluginSystem.getAll();
       expect(list).toHaveLength(2);
     });
 
     it('should return empty array when no plugins registered', () => {
-      expect(pluginSystem.listPlugins()).toHaveLength(0);
+      expect(pluginSystem.getAll()).toHaveLength(0);
     });
   });
 
@@ -104,10 +104,10 @@ describe('PluginSystem', () => {
   describe('setEnabled / unregister', () => {
     it('should toggle plugin enabled state', async () => {
       const instance = await pluginSystem.register(createDummyFactory('togglable'));
-      expect(pluginSystem.getPlugin(instance.instanceId)!.enabled).toBe(true);
+      expect(pluginSystem.get(instance.instanceId)!.enabled).toBe(true);
 
       pluginSystem.setEnabled(instance.instanceId, false);
-      expect(pluginSystem.getPlugin(instance.instanceId)!.enabled).toBe(false);
+      expect(pluginSystem.get(instance.instanceId)!.enabled).toBe(false);
     });
 
     it('should return false when enabling unknown plugin', () => {
@@ -116,11 +116,11 @@ describe('PluginSystem', () => {
 
     it('should unregister a plugin', async () => {
       const instance = await pluginSystem.register(createDummyFactory('gone'));
-      expect(pluginSystem.listPlugins()).toHaveLength(1);
+      expect(pluginSystem.getAll()).toHaveLength(1);
 
       const result = await pluginSystem.unregister(instance.instanceId);
       expect(result).toBe(true);
-      expect(pluginSystem.listPlugins()).toHaveLength(0);
+      expect(pluginSystem.getAll()).toHaveLength(0);
     });
 
     it('should return false when unregistering unknown plugin', async () => {
@@ -145,7 +145,7 @@ describe('PluginSystem', () => {
 
       await pluginSystem.register(factory);
       expect(capturedApi).toBeDefined();
-      expect(typeof capturedApi.logger).toBe('function');
+      expect(typeof capturedApi.logger).toBe('object');
       expect(typeof capturedApi.registerHook).toBe('function');
       expect(typeof capturedApi.unregisterHook).toBe('function');
       expect(typeof capturedApi.getConfig).toBe('function');
@@ -158,21 +158,20 @@ describe('PluginSystem', () => {
       let registeredHookId = '';
 
       const factory = async (api: any) => {
-        registeredHookId = api.registerHook('beforeTool', async () => {});
+        registeredHookId = api.registerHook('beforeToolCall', async () => {});
         return {
           name: 'hook-test',
           version: '1.0.0',
           description: '',
           capabilities: [],
-          hooks: ['beforeTool'],
+          hooks: ['beforeToolCall'],
         } as PluginManifest;
       };
 
       await pluginSystem.register(factory);
       expect(registeredHookId).toContain('hook_');
 
-      // Unregister the hook
-      const instance = pluginSystem.listPlugins()[0]!;
+      const instance = pluginSystem.getAll()[0]!;
       const result = instance.api.unregisterHook(registeredHookId);
       expect(result).toBe(true);
     });
@@ -237,20 +236,20 @@ describe('PluginSystem', () => {
   describe('executeHooks', () => {
     it('should execute hooks in order and merge context', async () => {
       const factory = async (api: any) => {
-        api.registerHook('beforeTool', async (ctx: any) => ({ step1: 'done' }));
-        api.registerHook('beforeTool', async (ctx: any) => ({ step2: 'done' }));
+        api.registerHook('beforeToolCall', async (ctx: any) => ({ step1: 'done' }));
+        api.registerHook('beforeToolCall', async (ctx: any) => ({ step2: 'done' }));
         return {
           name: 'hook-exec',
           version: '1.0.0',
           description: '',
           capabilities: [],
-          hooks: ['beforeTool'],
+          hooks: ['beforeToolCall'],
         } as PluginManifest;
       };
 
       await pluginSystem.register(factory);
 
-      const result = await pluginSystem.executeHooks('beforeTool', { initial: true });
+      const result = await pluginSystem.executeHooks('beforeToolCall', { initial: true });
       expect(result).toHaveProperty('initial', true);
       expect(result).toHaveProperty('step1', 'done');
       expect(result).toHaveProperty('step2', 'done');
@@ -258,22 +257,22 @@ describe('PluginSystem', () => {
 
     it('should handle hook errors gracefully without breaking chain', async () => {
       const factory = async (api: any) => {
-        api.registerHook('beforeTool', async () => {
+        api.registerHook('beforeToolCall', async () => {
           throw new Error('Hook failed');
         });
-        api.registerHook('beforeTool', async (ctx: any) => ({ afterError: 'ok' }));
+        api.registerHook('beforeToolCall', async (ctx: any) => ({ afterError: 'ok' }));
         return {
           name: 'error-handler',
           version: '1.0.0',
           description: '',
           capabilities: [],
-          hooks: ['beforeTool'],
+          hooks: ['beforeToolCall'],
         } as PluginManifest;
       };
 
       await pluginSystem.register(factory);
 
-      const result = await pluginSystem.executeHooks('beforeTool', {});
+      const result = await pluginSystem.executeHooks('beforeToolCall', {});
       expect(result).toHaveProperty('afterError', 'ok');
     });
   });

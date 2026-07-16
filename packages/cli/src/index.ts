@@ -31,6 +31,7 @@ import { renameCommand } from './commands/rename.js';
 import { exportCommand, importCommand } from './commands/export-import.js';
 import { groupCommand } from './commands/group.js';
 import { debugCommand } from './commands/debug.js';
+import { workflowCommand } from './commands/workflow.js';
 
 const [, , command, ...args] = process.argv;
 
@@ -100,6 +101,9 @@ async function main(): Promise<void> {
     await groupCommand(args);
   } else if (command === 'debug') {
     await debugCommand(args);
+  } else if (command === 'workflow' || command === 'wf') {
+    printBanner();
+    await workflowCommand(args);
   } else if (command === 'export') {
     await exportCommand(args);
   } else if (command === 'import') {

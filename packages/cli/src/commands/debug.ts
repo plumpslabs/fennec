@@ -6,7 +6,7 @@
  * to know which level of debugging to apply to each process.
  *
  * Subcommands:
- *   attach <name|--group> [--mode log|breakpoint|auto]  — enable debug
+ *   attach <name|--group> [--mode log|breakpoint]  — enable debug
  *   detach <name|--group>                                 — disable debug
  *   status [name]                                         — show debug status
  *
@@ -31,7 +31,7 @@ import {
   formatUptime,
 } from './tracker.js';
 
-const MODES = ['log', 'breakpoint', 'auto'] as const;
+const MODES = ['log', 'breakpoint'] as const;
 type DebugMode = (typeof MODES)[number];
 
 function isValidMode(s: string | undefined): s is DebugMode {
@@ -44,8 +44,6 @@ function modeLabel(mode: DebugMode): string {
       return pc.green('L');
     case 'breakpoint':
       return pc.yellow('B');
-    case 'auto':
-      return pc.magenta('A');
   }
 }
 
@@ -55,8 +53,6 @@ function modeName(mode: DebugMode): string {
       return 'log';
     case 'breakpoint':
       return 'breakpoint';
-    case 'auto':
-      return 'auto-debug';
   }
 }
 
@@ -79,7 +75,7 @@ export async function debugCommand(args: string[]): Promise<void> {
 
 /**
  * Attach debug mode to one or more tracked apps.
- * Usage: fennec debug attach <name> [--mode log|breakpoint|auto]
+ * Usage: fennec debug attach <name> [--mode log|breakpoint]
  *        fennec debug attach --group <g> [--mode ...]
  *        fennec debug attach <name1> <name2> [--mode ...]
  *        fennec debug <name>                              ← shorthand
@@ -92,7 +88,7 @@ async function debugAttach(args: string[]): Promise<void> {
   if (target.kind === 'none') {
     console.error(renderError(
       'Missing target',
-      'Usage: fennec debug attach <name|--group <g>> [--mode log|breakpoint|auto]',
+      'Usage: fennec debug attach <name|--group <g>> [--mode log|breakpoint]',
     ));
     process.exit(1);
   }
@@ -220,7 +216,7 @@ async function debugStatus(args: string[]): Promise<void> {
       console.error(`  ${pc.dim('Use')} ${pc.cyan(`fennec debug attach ${nameFilter} --mode log`)} ${pc.dim('to enable debug.')}`);
     } else {
       console.error(`\n  ${pc.dim('No apps have debug mode attached.')}`);
-      console.error(`  ${pc.dim('Use')} ${pc.cyan('fennec debug attach <name> [--mode log|breakpoint|auto]')}`);
+      console.error(`  ${pc.dim('Use')} ${pc.cyan('fennec debug attach <name> [--mode log|breakpoint]')}`);
     }
     console.error();
     return;
@@ -235,7 +231,6 @@ async function debugStatus(args: string[]): Promise<void> {
         const m = v as string;
         return m === 'log' ? pc.green('log') :
                m === 'breakpoint' ? pc.yellow('breakpoint') :
-               m === 'auto' ? pc.magenta('auto-debug') :
                pc.dim('-');
       },
     },

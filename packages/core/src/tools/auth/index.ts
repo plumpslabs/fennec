@@ -30,7 +30,7 @@ export const authFillLoginForm = createTool({
   name: 'auth_fill_login_form',
   category: 'auth',
   description:
-    "`<use_case>Auth</use_case> 🔑 Auto-detect and fill a login form (username/email + password). Smart field detection matches by label, name, id, placeholder, aria-label, data-testid. Options: submitAfter (submit form after filling), saveAfterLogin (auto-save auth session on success — DEFAULT ON), sessionName (name for the saved session, e.g. 'myapp-prod'). Returns formFound, fieldsDetected, submitted, sessionSaved. Use as the PRIMARY way to log into sites — smarter than manually finding fields with browser_type. For non-login forms, use smart_fill_form instead. For checking auth state, use auth_check_logged_in or diagnose_auth.`",
+    "`<use_case>Auth</use_case> 🔑 Auto-detect and fill a login form (username/email + password). Smart field detection matches by label, name, id, placeholder, aria-label, data-testid. Options: submitAfter (submit form after filling), saveAfterLogin (auto-save auth session on success — DEFAULT ON), sessionName (name for the saved session, e.g. 'demo-app-prod'). Returns formFound, fieldsDetected, submitted, sessionSaved. Use as the PRIMARY way to log into sites — smarter than manually finding fields with browser_type. For non-login forms, use smart_fill_form instead. For checking auth state, use auth_check_logged_in or diagnose_auth.`",
   inputSchema: z.object({
     username: z.string().describe('Username or email to fill'),
     password: z.string().describe('Password to fill'),
@@ -43,7 +43,7 @@ export const authFillLoginForm = createTool({
     sessionName: z
       .string()
       .optional()
-      .describe("Name to save the session as (e.g. 'myapp-prod'). Defaults to auto-<domain>."),
+      .describe("Name to save the session as (e.g. 'demo-app-prod'). Defaults to auto-<domain>."),
     sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder, sessionStore }) => {

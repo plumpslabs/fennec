@@ -27,6 +27,8 @@ import {
   processRenameTracked,
   processCleanupTracked,
   processClearLogs,
+  processExportTracked,
+  processImportTracked,
   processAdopt,
 } from '../../tools/process/index.js';
 import {
@@ -64,6 +66,8 @@ export const processModule: FennecModule = {
     processRenameTracked,
     processCleanupTracked,
     processClearLogs,
+    processExportTracked,
+    processImportTracked,
     processAdopt,
     terminalWatchFile,
     terminalGetLogs,

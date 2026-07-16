@@ -10,7 +10,7 @@ import { homedir } from 'node:os';
 import { isProcessRunning, getProcessEnviron, getProcessCmdline } from '../utils/system-process.js';
 import { getLogger } from '../utils/logger.js';
 
-export type DebugMode = 'off' | 'log' | 'breakpoint' | 'auto';
+export type DebugMode = 'off' | 'log' | 'breakpoint';
 
 export interface TrackedEntry {
   name: string;
@@ -120,7 +120,7 @@ export function removeTrackedByPid(pid: number): void {
 
 // ─── Group + multi-target resolution (CLI parity) ───────────────
 // Lets MCP tools do `process_kill --group backend`, `process_stop_tracked
-// be-crm fe-crm`, `process_spawn_tracked --all`, etc. — the same bulk
+// api-service web-app`, `process_spawn_tracked --all`, etc. — the same bulk
 // operations the CLI now supports.
 
 export type Target =
@@ -149,7 +149,7 @@ export function getGroups(): string[] {
  * Resolve a list of positional args (+ flags) into a single/multi/group/all
  * target. Mirrors the CLI's `resolveTargets`.
  *
- *   kill be-crm fe-crm      -> { kind: "names", values: [...] }
+ *   kill api-service web-app      -> { kind: "names", values: [...] }
  *   kill --group backend     -> { kind: "group", group: "backend" }
  *   kill --all / -a         -> { kind: "all" }
  *   kill web                -> { kind: "single", value: "web" }

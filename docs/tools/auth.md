@@ -26,11 +26,11 @@ const login = await toolRegistry.call('auth_fill_login_form', {
 // Returns: { formFound: true, fieldsDetected: {...}, submitted: true, sessionSaved: true, sessionName: "auto-example.com" }
 
 // Save session manually after login
-await toolRegistry.call('auth_save_session', { name: 'myapp-prod' });
+await toolRegistry.call('auth_save_session', { name: 'demo-app-prod' });
 // Returns: { sessionId: "...", savedAt: "..." }
 
 // In another conversation — load saved session
-const loaded = await toolRegistry.call('auth_load_session', { name: 'myapp-prod' });
+const loaded = await toolRegistry.call('auth_load_session', { name: 'demo-app-prod' });
 // Returns: { cookiesLoaded: N, storageLoaded: N }
 
 // Check if logged in

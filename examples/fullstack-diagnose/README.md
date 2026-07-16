@@ -54,7 +54,7 @@ The AI spawns and manages the server directly using `process_spawn`.
   "arguments": {
     "command": "npm",
     "args": ["run", "dev"],
-    "cwd": "/home/user/myapp",
+    "cwd": "/home/user/demo-app",
     "name": "dev-server"
   }
 }
@@ -345,7 +345,7 @@ If your app writes to log files instead of stdout:
 {
   "name": "terminal_watch_file",
   "arguments": {
-    "filePath": "/home/user/myapp/logs/app.log",
+    "filePath": "/home/user/demo-app/logs/app.log",
     "name": "app-log",
     "follow": true
   }

@@ -38,10 +38,10 @@ Save an authenticated session so you don't need to log in again:
 
 ```javascript
 // After successful login:
-auth_save_session({ name: 'myapp-prod' });
+auth_save_session({ name: 'demo-app-prod' });
 
 // Next conversation — skip login entirely:
-auth_load_session({ name: 'myapp-prod' });
+auth_load_session({ name: 'demo-app-prod' });
 // → { cookiesLoaded: 8, storageLoaded: 12 }
 ```
 

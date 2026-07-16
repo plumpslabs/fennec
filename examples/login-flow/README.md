@@ -130,7 +130,7 @@ Demonstrates Fennec's **auth session persistence** — login once, save the sess
 {
   "name": "auth_save_session",
   "arguments": {
-    "name": "myapp-prod"
+    "name": "demo-app-prod"
   }
 }
 ```
@@ -147,7 +147,7 @@ Demonstrates Fennec's **auth session persistence** — login once, save the sess
 }
 ```
 
-> **What gets saved?** Cookies (including HttpOnly), localStorage, and the origin URL. The session is stored in `.fennec/sessions/myapp-prod.json`.
+> **What gets saved?** Cookies (including HttpOnly), localStorage, and the origin URL. The session is stored in `.fennec/sessions/demo-app-prod.json`.
 
 ---
 
@@ -172,7 +172,7 @@ When you start a new AI conversation, you can skip the entire login flow:
 {
   "content": [
     {
-      "text": "{\"success\":true,\"data\":{\"sessions\":[{\"name\":\"myapp-prod\",\"savedAt\":\"2026-06-28T10:00:08.000Z\",\"origin\":\"https://example.com\"}],\"count\":1}}"
+      "text": "{\"success\":true,\"data\":{\"sessions\":[{\"name\":\"demo-app-prod\",\"savedAt\":\"2026-06-28T10:00:08.000Z\",\"origin\":\"https://example.com\"}],\"count\":1}}"
     }
   ]
 }
@@ -186,7 +186,7 @@ When you start a new AI conversation, you can skip the entire login flow:
 {
   "name": "auth_load_session",
   "arguments": {
-    "name": "myapp-prod"
+    "name": "demo-app-prod"
   }
 }
 ```

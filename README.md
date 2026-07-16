@@ -180,10 +180,10 @@ Save and load browser auth states across conversations:
 ```bash
 # In one session
 AI: auth_fill_login_form("admin@example.com", "password", submitAfter: true)
-AI: auth_save_session("myapp-prod")
+AI: auth_save_session("demo-app-prod")
 
 # In another conversation
-AI: auth_load_session("myapp-prod")  # skip login entirely!
+AI: auth_load_session("demo-app-prod")  # skip login entirely!
 ```
 
 Sessions persist to a single global store (`~/.fennec`, overridable via `FENNEC_HOME`) and are manageable from **any directory** with the **`fennec store`** command. Run **`fennec doctor`** to catch secret leakage — world-readable permissions, stores living under synced directories (chezmoi/Dropbox/OneDrive), or secrets embedded in tracked launch commands.

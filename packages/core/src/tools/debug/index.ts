@@ -9,7 +9,7 @@
  * Design principles:
  * - Zero overhead when not used: all debug state is lazy-initialized
  * - Token-efficient: structured output, bounded, auto-summarized
- * - Security-first: all tools check `security.allowDebug` before executing
+ * - Security-first: all tools check `debug.allowDebug` before executing
  * - Secrets redacted: inherits existing redaction pipeline
  */
 import { existsSync, readFileSync } from 'node:fs';
@@ -26,7 +26,7 @@ interface DebugState {
   errorDedup: ReturnType<typeof getErrorDedup>;
   sourceMapResolver: ReturnType<typeof getSourceMapResolver>;
   /** Map of process name → current debug mode */
-  processModes: Map<string, 'log' | 'breakpoint' | 'auto'>;
+  processModes: Map<string, 'log' | 'breakpoint'>;
 }
 
 let _debugState: DebugState | null = null;
@@ -96,7 +96,7 @@ export const debugGetErrors = createTool({
   name: 'debug_get_errors',
   category: 'debug',
   description:
-    '`<use_case>Smart debugging</use_case> 🐛 Get grouped errors for a tracked process. Returns errors grouped by stack hash — identical errors are deduped with a count. Token-efficient: 10 identical errors → 1 entry. Filter by process name, time range (since), or max groups. Returns: groups[], count, summary. Use for quick error triage without reading raw logs. Requires security.allowDebug: true in config.`',
+    '`<use_case>Smart debugging</use_case> 🐛 Get grouped errors for a tracked process. Returns errors grouped by stack hash — identical errors are deduped with a count. Token-efficient: 10 identical errors → 1 entry. Filter by process name, time range (since), or max groups. Returns: groups[], count, summary. Use for quick error triage without reading raw logs. Requires debug.allowDebug: true in config.`',
   inputSchema: z.object({
     name: z.string().describe('Process name (from fennec ps / process_get_tracked)'),
     since: z.string().optional().describe('ISO timestamp — only errors after this time'),
@@ -105,7 +105,7 @@ export const debugGetErrors = createTool({
   handler: async (input, { config, responseBuilder }) => {
     if (!isDebugAllowed(config)) {
       return responseBuilder.error(
-        new Error('Debug mode is disabled. Set security.allowDebug: true in fennec.config.yaml'),
+        new Error('Debug mode is disabled. Set debug.allowDebug: true in fennec.config.yaml'),
         { code: 'DEBUG_DISABLED' },
       );
     }
@@ -438,10 +438,10 @@ export const debugConfigure = createTool({
   name: 'debug_configure',
   category: 'debug',
   description:
-    '`<use_case>Smart debugging</use_case> ⚙️ Configure debug mode for a process. Sets the observation mode: log (passive), breakpoint (active), auto (proactive), or off. Returns current mode. Requires security.allowDebug: true.`',
+    '`<use_case>Smart debugging</use_case> ⚙️ Configure debug mode for a process. Sets the observation mode: log (passive) or breakpoint (active). Returns current mode. Requires debug.allowDebug: true.`',
   inputSchema: z.object({
     name: z.string().describe('Process name'),
-    mode: z.enum(['log', 'breakpoint', 'auto', 'off']).describe('Debug mode to set'),
+    mode: z.enum(['log', 'breakpoint', 'off']).describe('Debug mode to set'),
   }),
   handler: async (input, { config, responseBuilder }) => {
     if (!isDebugAllowed(config)) {
@@ -482,7 +482,7 @@ export const debugGetMode = createTool({
   name: 'debug_get_mode',
   category: 'debug',
   description:
-    '`<use_case>Smart debugging</use_case> 🔍 Get the per-process debug mode from persistent storage. Returns the current debug mode (off/log/breakpoint/auto) for a tracked process. Reads from tracked.json so the MCP tools and CLI (`fennec debug status`) see the same state. Requires security.allowDebug: true.`',
+    '`<use_case>Smart debugging</use_case> 🔍 Get the per-process debug mode from persistent storage. Returns the current debug mode (off/log/breakpoint) for a tracked process. Reads from tracked.json so the MCP tools and CLI (`fennec debug status`) see the same state. Requires debug.allowDebug: true.`',
   inputSchema: z.object({
     name: z.string().describe('Process name (from fennec ps / process_get_tracked)'),
   }),
@@ -524,33 +524,62 @@ export type {
   PropertiesResult,
 } from './adapter-types.js';
 
+/**
+ * Resolve the debug session ID from either a process name or browser session ID.
+ * Falls back to the default browser session if neither is provided.
+ */
+function resolveSessionId(
+  name: string | undefined,
+  sessionId: string | undefined,
+  sessionManager: any,
+): string {
+  if (name) return name; // Process-based session
+  const session = sessionManager.getOrDefault(sessionId);
+  return session.id;
+}
+
 export const debugSetBreakpoint = createTool({
   name: 'debug_set_breakpoint',
   category: 'debug',
   description:
-    '`<use_case>Breakpoint debugging</use_case> ⏸️ Set a breakpoint at file:line in the browser session. Execution will pause when the breakpoint is hit. CDP Debugger.setBreakpointByUrl is used under the hood. Returns breakpoint ID. Requires config debug.mode set to breakpoint/auto and security.allowDebug:true. Token cost: ~30 tokens.`',
+    '`<use_case>Breakpoint debugging</use_case> ⏸️ Set a breakpoint at file:line. Auto-detects runtime: CDP (browser/Node.js), DAP (Python/Go/.NET/Ruby/Rust/Dart), DBGp (PHP), JDWP (Java). Provide name (tracked process) OR sessionId (browser session). Returns breakpoint ID. Requires debug.mode set to breakpoint and debug.allowDebug:true. Token cost: ~30 tokens.`',
   inputSchema: z.object({
+    name: z.string().optional().describe('Tracked process name (from fennec ps). Use this for non-browser runtimes (Python, Go, etc.).'),
     file: z
       .string()
-      .describe('Source file URL or path (e.g., app.js or http://localhost:3000/app.js)'),
+      .describe('Source file URL or path (e.g., app.js, /src/index.ts, main.py)'),
     line: z.number().describe('Line number (0-based)'),
     condition: z
       .string()
       .optional()
-      .describe('Optional breakpoint condition (JavaScript expression)'),
-    sessionId: z.string().optional().describe('Browser session ID (defaults to active session)'),
+      .describe('Optional breakpoint condition (runtime expression)'),
+    sessionId: z.string().optional().describe('Browser session ID (use for browser/Node.js debugging)'),
   }),
   handler: async (input, { config, responseBuilder, sessionManager }) => {
     if (!isDebugAllowed(config)) {
       return responseBuilder.error(new Error('Debug disabled'), { code: 'DEBUG_DISABLED' });
     }
 
-    const session = sessionManager.getOrDefault(input.sessionId);
-    const cdp = session.browser.cdp();
     const bpManager = getBreakpointManager();
+    let debugSessionId: string;
 
-    await bpManager.getOrCreateSession(session.id, cdp);
-    const bp = await bpManager.setBreakpoint(session.id, input.file, input.line, {
+    if (input.name) {
+      // Debug by process name — uses runtime detection (DAP/DBGp/JDWP/CDP)
+      debugSessionId = await bpManager.getOrCreateProcessSession(input.name);
+    } else {
+      // Debug by browser session — uses CDP
+      const session = sessionManager.getOrDefault(input.sessionId);
+      const cdp = session.browser.cdp();
+      if (!cdp) {
+        return responseBuilder.error(
+          new Error('No CDP session available. Provide a "name" for non-browser debugging, or open a browser tab first.'),
+          { code: 'CDP_NOT_AVAILABLE' },
+        );
+      }
+      debugSessionId = await bpManager.getOrCreateSession(session.id, cdp);
+    }
+
+    const bp = await bpManager.setBreakpoint(debugSessionId, input.file, input.line, {
       condition: input.condition,
     });
 
@@ -558,9 +587,9 @@ export const debugSetBreakpoint = createTool({
       {
         breakpoint: bp,
         active: true,
-        note: `Breakpoint set at ${input.file}:${input.line}. Execute the relevant code to hit it, then use debug_get_variables to inspect state.`,
+        note: `Breakpoint set at ${input.file}:${input.line}${input.name ? ` for process "${input.name}"` : ''}. Execute the relevant code to hit it, then use debug_get_variables to inspect state.`,
       },
-      sessionManager.buildMeta(session),
+      { elapsed: 0, sessionId: debugSessionId, timestamp: new Date().toISOString() },
     );
   },
 });
@@ -569,9 +598,10 @@ export const debugRemoveBreakpoint = createTool({
   name: 'debug_remove_breakpoint',
   category: 'debug',
   description:
-    '`<use_case>Breakpoint debugging</use_case> ❌ Remove a breakpoint by ID. Returns confirmation. Token cost: ~10 tokens.`',
+    '`<use_case>Breakpoint debugging</use_case> ❌ Remove a breakpoint by ID. Accepts name (tracked process) or sessionId (browser). Returns confirmation. Token cost: ~10 tokens.`',
   inputSchema: z.object({
     breakpointId: z.string().describe('Breakpoint ID from debug_set_breakpoint'),
+    name: z.string().optional().describe('Tracked process name'),
     sessionId: z.string().optional().describe('Browser session ID'),
   }),
   handler: async (input, { config, responseBuilder, sessionManager }) => {
@@ -579,17 +609,13 @@ export const debugRemoveBreakpoint = createTool({
       return responseBuilder.error(new Error('Debug disabled'), { code: 'DEBUG_DISABLED' });
     }
 
-    const session = sessionManager.getOrDefault(input.sessionId);
+    const sid = resolveSessionId(input.name, input.sessionId, sessionManager);
     const bpManager = getBreakpointManager();
-    const removed = await bpManager.removeBreakpoint(session.id, input.breakpointId);
+    const removed = await bpManager.removeBreakpoint(sid, input.breakpointId);
 
     return responseBuilder.success(
-      {
-        removed,
-        breakpointId: input.breakpointId,
-        note: removed ? 'Breakpoint removed' : 'Breakpoint not found',
-      },
-      sessionManager.buildMeta(session),
+      { removed, breakpointId: input.breakpointId, note: removed ? 'Breakpoint removed' : 'Breakpoint not found' },
+      { elapsed: 0, sessionId: sid, timestamp: new Date().toISOString() },
     );
   },
 });
@@ -598,8 +624,9 @@ export const debugListBreakpoints = createTool({
   name: 'debug_list_breakpoints',
   category: 'debug',
   description:
-    '`<use_case>Breakpoint debugging</use_case> 📋 List all active breakpoints for a browser session. Returns breakpoints with file, line, condition. Token cost: ~20 tokens.`',
+    '`<use_case>Breakpoint debugging</use_case> 📋 List all active breakpoints. Accepts name (tracked process) or sessionId (browser). Returns breakpoints with file, line, condition. Token cost: ~20 tokens.`',
   inputSchema: z.object({
+    name: z.string().optional().describe('Tracked process name'),
     sessionId: z.string().optional().describe('Browser session ID'),
   }),
   handler: async (input, { config, responseBuilder, sessionManager }) => {
@@ -607,16 +634,13 @@ export const debugListBreakpoints = createTool({
       return responseBuilder.error(new Error('Debug disabled'), { code: 'DEBUG_DISABLED' });
     }
 
-    const session = sessionManager.getOrDefault(input.sessionId);
+    const sid = resolveSessionId(input.name, input.sessionId, sessionManager);
     const bpManager = getBreakpointManager();
-    const breakpoints = bpManager.listBreakpoints(session.id);
+    const breakpoints = bpManager.listBreakpoints(sid);
 
     return responseBuilder.success(
-      {
-        breakpoints,
-        count: breakpoints.length,
-      },
-      sessionManager.buildMeta(session),
+      { breakpoints, count: breakpoints.length },
+      { elapsed: 0, sessionId: sid, timestamp: new Date().toISOString() },
     );
   },
 });
@@ -625,8 +649,9 @@ export const debugContinue = createTool({
   name: 'debug_continue',
   category: 'debug',
   description:
-    '`<use_case>Breakpoint debugging</use_case> ▶️ Resume execution after a breakpoint pause. Requires debugger to be paused (use debug_set_breakpoint first). Token cost: ~10 tokens.`',
+    '`<use_case>Breakpoint debugging</use_case> ▶️ Resume execution after a breakpoint pause. Accepts name (tracked process) or sessionId (browser). Requires debugger to be paused. Token cost: ~10 tokens.`',
   inputSchema: z.object({
+    name: z.string().optional().describe('Tracked process name'),
     sessionId: z.string().optional().describe('Browser session ID'),
   }),
   handler: async (input, { config, responseBuilder, sessionManager }) => {
@@ -634,11 +659,11 @@ export const debugContinue = createTool({
       return responseBuilder.error(new Error('Debug disabled'), { code: 'DEBUG_DISABLED' });
     }
 
-    const session = sessionManager.getOrDefault(input.sessionId);
+    const sid = resolveSessionId(input.name, input.sessionId, sessionManager);
     const bpManager = getBreakpointManager();
 
     try {
-      const resumed = await bpManager.resume(session.id);
+      const resumed = await bpManager.resume(sid);
       if (!resumed) {
         return responseBuilder.error(
           new Error('Debugger is not paused. Set a breakpoint and trigger it first.'),
@@ -647,7 +672,7 @@ export const debugContinue = createTool({
       }
       return responseBuilder.success(
         { resumed: true, note: 'Execution resumed' },
-        sessionManager.buildMeta(session),
+        { elapsed: 0, sessionId: sid, timestamp: new Date().toISOString() },
       );
     } catch (error) {
       return responseBuilder.error(error as Error, { code: 'DEBUG_RESUME_FAILED' });
@@ -659,8 +684,9 @@ export const debugStepOver = createTool({
   name: 'debug_step_over',
   category: 'debug',
   description:
-    '`<use_case>Breakpoint debugging</use_case> 👣 Step over the next function call. Requires debugger to be paused. Token cost: ~10 tokens.`',
+    '`<use_case>Breakpoint debugging</use_case> 👣 Step over the next function call. Accepts name (tracked process) or sessionId (browser). Requires debugger to be paused. Token cost: ~10 tokens.`',
   inputSchema: z.object({
+    name: z.string().optional().describe('Tracked process name'),
     sessionId: z.string().optional().describe('Browser session ID'),
   }),
   handler: async (input, { config, responseBuilder, sessionManager }) => {
@@ -668,11 +694,11 @@ export const debugStepOver = createTool({
       return responseBuilder.error(new Error('Debug disabled'), { code: 'DEBUG_DISABLED' });
     }
 
-    const session = sessionManager.getOrDefault(input.sessionId);
+    const sid = resolveSessionId(input.name, input.sessionId, sessionManager);
     const bpManager = getBreakpointManager();
 
     try {
-      const stepped = await bpManager.stepOver(session.id);
+      const stepped = await bpManager.stepOver(sid);
       if (!stepped) {
         return responseBuilder.error(
           new Error('Debugger is not paused. Set a breakpoint and trigger it first.'),
@@ -681,7 +707,7 @@ export const debugStepOver = createTool({
       }
       return responseBuilder.success(
         { stepped: true, note: 'Stepped over. Use debug_get_variables to inspect state.' },
-        sessionManager.buildMeta(session),
+        { elapsed: 0, sessionId: sid, timestamp: new Date().toISOString() },
       );
     } catch (error) {
       return responseBuilder.error(error as Error, { code: 'DEBUG_STEP_FAILED' });
@@ -693,8 +719,9 @@ export const debugStepInto = createTool({
   name: 'debug_step_into',
   category: 'debug',
   description:
-    '`<use_case>Breakpoint debugging</use_case> 🔍 Step into the next function call. Requires debugger to be paused. Token cost: ~10 tokens.`',
+    '`<use_case>Breakpoint debugging</use_case> 🔍 Step into the next function call. Accepts name (tracked process) or sessionId (browser). Requires debugger to be paused. Token cost: ~10 tokens.`',
   inputSchema: z.object({
+    name: z.string().optional().describe('Tracked process name'),
     sessionId: z.string().optional().describe('Browser session ID'),
   }),
   handler: async (input, { config, responseBuilder, sessionManager }) => {
@@ -702,11 +729,11 @@ export const debugStepInto = createTool({
       return responseBuilder.error(new Error('Debug disabled'), { code: 'DEBUG_DISABLED' });
     }
 
-    const session = sessionManager.getOrDefault(input.sessionId);
+    const sid = resolveSessionId(input.name, input.sessionId, sessionManager);
     const bpManager = getBreakpointManager();
 
     try {
-      const stepped = await bpManager.stepInto(session.id);
+      const stepped = await bpManager.stepInto(sid);
       if (!stepped) {
         return responseBuilder.error(new Error('Debugger is not paused.'), {
           code: 'DEBUG_NOT_PAUSED',
@@ -714,7 +741,7 @@ export const debugStepInto = createTool({
       }
       return responseBuilder.success(
         { stepped: true, note: 'Stepped into. Use debug_get_variables to inspect state.' },
-        sessionManager.buildMeta(session),
+        { elapsed: 0, sessionId: sid, timestamp: new Date().toISOString() },
       );
     } catch (error) {
       return responseBuilder.error(error as Error, { code: 'DEBUG_STEP_FAILED' });
@@ -726,8 +753,9 @@ export const debugGetVariables = createTool({
   name: 'debug_get_variables',
   category: 'debug',
   description:
-    '`<use_case>Breakpoint debugging</use_case> 📦 Get current scope variables at a breakpoint pause. Bounded: max 20 variables per scope, 3 levels deep. Returns scopes[] with variables[]. Use after debug_set_breakpoint + hitting the breakpoint. Token cost: ~150 tokens (bounded).`',
+    '`<use_case>Breakpoint debugging</use_case> 📦 Get current scope variables at a breakpoint pause. Accepts name (tracked process) or sessionId (browser). Bounded: max 20 variables per scope, 3 levels deep. Returns scopes[] with variables[]. Use after debug_set_breakpoint + hitting the breakpoint. Token cost: ~150 tokens (bounded).`',
   inputSchema: z.object({
+    name: z.string().optional().describe('Tracked process name'),
     maxVariables: z.number().optional().default(20).describe('Max variables per scope'),
     maxDepth: z.number().optional().default(2).describe('Max depth for nested objects'),
     sessionId: z.string().optional().describe('Browser session ID'),
@@ -737,31 +765,22 @@ export const debugGetVariables = createTool({
       return responseBuilder.error(new Error('Debug disabled'), { code: 'DEBUG_DISABLED' });
     }
 
-    const session = sessionManager.getOrDefault(input.sessionId);
+    const sid = resolveSessionId(input.name, input.sessionId, sessionManager);
     const bpManager = getBreakpointManager();
-    const pauseState = bpManager.getPauseState(session.id);
+    const pauseState = bpManager.getPauseState(sid);
 
     if (!pauseState) {
       return responseBuilder.success(
-        {
-          paused: false,
-          scopes: [],
-          summary: 'Debugger is not paused. Set a breakpoint and execute code to trigger it.',
-        },
-        sessionManager.buildMeta(session),
+        { paused: false, scopes: [], summary: 'Debugger is not paused. Set a breakpoint and execute code to trigger it.' },
+        { elapsed: 0, sessionId: sid, timestamp: new Date().toISOString() },
       );
     }
 
-    // Respect tokenBudget config for variable limits
     const maxVars = input.maxVariables ?? config.tokenBudget?.debugMaxVariables ?? 20;
-    const maxDepth = input.maxDepth ?? 2; // Keep safe default; depth != stack frames
+    const maxDepth = input.maxDepth ?? 2;
 
-    const scopes = await bpManager.getVariables(session.id, {
-      maxVariables: maxVars,
-      maxDepth: maxDepth,
-    });
+    const scopes = await bpManager.getVariables(sid, { maxVariables: maxVars, maxDepth });
 
-    // Token-efficient call stack summary
     const maxFrames = config.tokenBudget?.debugMaxStackFrames ?? 5;
     const callStack = pauseState.callFrames.slice(0, maxFrames).map((f) => ({
       function: f.functionName || '<anonymous>',
@@ -775,13 +794,10 @@ export const debugGetVariables = createTool({
         paused: true,
         reason: pauseState.reason,
         callStack,
-        scopes: scopes.map((s) => ({
-          type: s.type,
-          variables: s.variables,
-        })),
+        scopes: scopes.map((s) => ({ type: s.type, variables: s.variables })),
         summary: `Paused at ${callStack[0]?.function ?? 'unknown'} in ${callStack[0]?.file ?? 'unknown'}:${callStack[0]?.line ?? 0}`,
       },
-      sessionManager.buildMeta(session),
+      { elapsed: 0, sessionId: sid, timestamp: new Date().toISOString() },
     );
   },
 });
@@ -790,9 +806,10 @@ export const debugEvaluate = createTool({
   name: 'debug_evaluate',
   category: 'debug',
   description:
-    '`<use_case>Breakpoint debugging</use_case> ⚡ Evaluate a JavaScript expression in the current breakpoint context. Gated by security.allowDebugEval (default: false). Requires debugger to be paused on a breakpoint. Returns value, type. Token cost: ~30 tokens.`',
+    '`<use_case>Breakpoint debugging</use_case> ⚡ Evaluate an expression in the current breakpoint context. Accepts name (tracked process) or sessionId (browser). Gated by debug.allowDebugEval (default: false). Requires debugger to be paused. Returns value, type. Token cost: ~30 tokens.`',
   inputSchema: z.object({
-    expression: z.string().describe('JavaScript expression to evaluate in the paused context'),
+    name: z.string().optional().describe('Tracked process name'),
+    expression: z.string().describe('Expression to evaluate in the paused context'),
     sessionId: z.string().optional().describe('Browser session ID'),
   }),
   handler: async (input, { config, responseBuilder, sessionManager }) => {
@@ -806,11 +823,11 @@ export const debugEvaluate = createTool({
       );
     }
 
-    const session = sessionManager.getOrDefault(input.sessionId);
+    const sid = resolveSessionId(input.name, input.sessionId, sessionManager);
     const bpManager = getBreakpointManager();
 
     try {
-      const result = await bpManager.evaluate(session.id, input.expression);
+      const result = await bpManager.evaluate(sid, input.expression);
       return responseBuilder.success(
         {
           expression: input.expression,
@@ -819,7 +836,7 @@ export const debugEvaluate = createTool({
           exception: result.exception ?? null,
           success: !result.exception,
         },
-        sessionManager.buildMeta(session),
+        { elapsed: 0, sessionId: sid, timestamp: new Date().toISOString() },
       );
     } catch (error) {
       return responseBuilder.error(error as Error, { code: 'DEBUG_EVAL_FAILED' });
@@ -833,8 +850,9 @@ export const debugGetPauseState = createTool({
   name: 'debug_get_pause_state',
   category: 'debug',
   description:
-    '`<use_case>Breakpoint debugging</use_case> 📍 Get current debugger pause state. Returns whether paused, reason, call stack summary. Token-efficient: ~50 tokens. Use before debug_get_variables to check if debugger is actually paused.`',
+    '`<use_case>Breakpoint debugging</use_case> 📍 Get current debugger pause state. Accepts name (tracked process) or sessionId (browser). Returns whether paused, reason, call stack summary. Token-efficient: ~50 tokens.`',
   inputSchema: z.object({
+    name: z.string().optional().describe('Tracked process name'),
     sessionId: z.string().optional().describe('Browser session ID'),
   }),
   handler: async (input, { config, responseBuilder, sessionManager }) => {
@@ -842,22 +860,19 @@ export const debugGetPauseState = createTool({
       return responseBuilder.error(new Error('Debug disabled'), { code: 'DEBUG_DISABLED' });
     }
 
-    const session = sessionManager.getOrDefault(input.sessionId);
+    const sid = resolveSessionId(input.name, input.sessionId, sessionManager);
     const bpManager = getBreakpointManager();
-    const pauseState = bpManager.getPauseState(session.id);
+    const pauseState = bpManager.getPauseState(sid);
 
     if (!pauseState) {
       return responseBuilder.success(
-        {
-          paused: false,
-          summary: 'Debugger is not paused',
-        },
-        sessionManager.buildMeta(session),
+        { paused: false, summary: 'Debugger is not paused' },
+        { elapsed: 0, sessionId: sid, timestamp: new Date().toISOString() },
       );
     }
 
     const maxFrames = config.tokenBudget?.debugMaxStackFrames ?? 5;
-    const summary = bpManager.getPauseSummary(session.id, maxFrames);
+    const summary = bpManager.getPauseSummary(sid, maxFrames);
     return responseBuilder.success(
       {
         paused: true,
@@ -866,7 +881,7 @@ export const debugGetPauseState = createTool({
         summary,
         hitBreakpoints: pauseState.hitBreakpoints,
       },
-      sessionManager.buildMeta(session),
+      { elapsed: 0, sessionId: sid, timestamp: new Date().toISOString() },
     );
   },
 });
@@ -877,43 +892,46 @@ export const debugInvestigateRuntime = createTool({
   name: 'debug_investigate_runtime',
   category: 'debug',
   description:
-    '`<use_case>Breakpoint debugging</use_case> 🔬 Guided runtime investigation — sets a breakpoint and returns structured variable state. Orchestrates multiple debug steps in ONE call instead of requiring 3-5 separate tool calls. Accepts a question and optionally hint_file/hint_line for the breakpoint location. Returns: summary, callStack, variables, suggestedFix. Token cost: ~200-500 tokens. Requires security.allowDebug: true.`',
+    '`<use_case>Breakpoint debugging</use_case> 🔬 Guided runtime investigation — sets a breakpoint and returns structured variable state. Orchestrates multiple debug steps in ONE call. Accepts name (tracked process, auto-detects runtime) or sessionId (browser/CDP). Returns: summary, callStack, variables, suggestedFix. Token cost: ~200-500 tokens. Requires debug.allowDebug: true.`',
   inputSchema: z.object({
-    name: z.string().describe('Process or session name to investigate'),
+    name: z.string().optional().describe('Tracked process name — auto-detects runtime (DAP for Python/Go, CDP for browser)'),
     question: z.string().describe('The question to answer (e.g., "Why is login failing?")'),
     hintFile: z.string().optional().describe('Hint: source file to set breakpoint at'),
     hintLine: z.number().optional().describe('Hint: line number for breakpoint (0-based)'),
-    sessionId: z.string().optional().describe('Browser session ID'),
+    sessionId: z.string().optional().describe('Browser session ID (for browser/Node.js debugging)'),
   }),
   handler: async (input, { config, responseBuilder, sessionManager }) => {
     if (!isDebugAllowed(config)) {
       return responseBuilder.error(new Error('Debug disabled'), { code: 'DEBUG_DISABLED' });
     }
 
-    const session = sessionManager.getOrDefault(input.sessionId);
-    const cdp = session.browser.cdp();
-    const bpManager = getBreakpointManager(); // Guard: CDP session required (V8/Node.js only)
-    if (!cdp) {
-      return responseBuilder.error(
-        new Error(
-          'Runtime investigation requires a browser/Node.js session with CDP support. For other runtimes (Python, Java, Go), use the individual debug_* tools.',
-        ),
-        { code: 'CDP_NOT_AVAILABLE' },
-      );
+    const bpManager = getBreakpointManager();
+    let debugSessionId: string;
+
+    // 1. Create debug session (process-based or browser-based)
+    if (input.name) {
+      debugSessionId = await bpManager.getOrCreateProcessSession(input.name);
+    } else {
+      const session = sessionManager.getOrDefault(input.sessionId);
+      const cdp = session.browser.cdp();
+      if (!cdp) {
+        return responseBuilder.error(
+          new Error('No CDP session available. Provide a "name" for non-browser debugging, or open a browser tab first.'),
+          { code: 'CDP_NOT_AVAILABLE' },
+        );
+      }
+      debugSessionId = await bpManager.getOrCreateSession(session.id, cdp);
     }
 
     try {
-      // 1. Create debug session if not exists
-      await bpManager.getOrCreateSession(session.id, cdp);
-
       // 2. If hint file/line provided, set breakpoint
       let bp = null;
       if (input.hintFile && input.hintLine !== undefined) {
-        bp = await bpManager.setBreakpoint(session.id, input.hintFile, input.hintLine);
+        bp = await bpManager.setBreakpoint(debugSessionId, input.hintFile, input.hintLine);
       }
 
       // 3. Check if already paused
-      let pauseState = bpManager.getPauseState(session.id);
+      let pauseState = bpManager.getPauseState(debugSessionId);
 
       // 4. If hint given but not paused, guide user to trigger the code path
       if (!pauseState && input.hintFile) {
@@ -927,7 +945,7 @@ export const debugInvestigateRuntime = createTool({
       let variables = null;
       let callStack = null;
       if (pauseState) {
-        const scopes = await bpManager.getVariables(session.id, {
+        const scopes = await bpManager.getVariables(debugSessionId, {
           maxVariables: config.tokenBudget?.debugMaxVariables ?? 20,
           maxDepth: 2,
         });
@@ -963,7 +981,7 @@ export const debugInvestigateRuntime = createTool({
             : null,
           note: 'For deeper inspection, call again after the breakpoint hits, or use debug_get_variables directly.',
         },
-        sessionManager.buildMeta(session),
+        { elapsed: 0, sessionId: debugSessionId, timestamp: new Date().toISOString() },
       );
     } catch (error) {
       return responseBuilder.error(error as Error, { code: 'INVESTIGATE_FAILED' });
@@ -977,8 +995,9 @@ export const debugSetLogpoint = createTool({
   name: 'debug_set_logpoint',
   category: 'debug',
   description:
-    '`<use_case>Breakpoint debugging</use_case> 📝 Set a logpoint — a non-blocking breakpoint that logs an expression and continues execution. Unlike debug_set_breakpoint, execution does NOT pause. Great for debugging async/timing-sensitive code where pausing would change behavior. Uses CDP/DAP logMessage internally. Token cost: ~20 tokens.`',
+    '`<use_case>Breakpoint debugging</use_case> 📝 Set a logpoint — a non-blocking breakpoint that logs an expression and continues. Accepts name (tracked process, DAP runtimes: Python/Go/.NET/Ruby/Rust/Dart) or sessionId (browser). Unlike set_breakpoint, execution does NOT pause. Token cost: ~20 tokens.`',
   inputSchema: z.object({
+    name: z.string().optional().describe('Tracked process name (DAP runtimes: Python/Go/.NET/Ruby/Rust/Dart)'),
     file: z.string().describe('Source file URL or path'),
     line: z.number().describe('Line number (0-based)'),
     expression: z
@@ -993,61 +1012,51 @@ export const debugSetLogpoint = createTool({
       return responseBuilder.error(new Error('Debug disabled'), { code: 'DEBUG_DISABLED' });
     }
 
-    const session = sessionManager.getOrDefault(input.sessionId);
-    const cdp = session.browser.cdp();
     const bpManager = getBreakpointManager();
+    let debugSessionId: string;
+
+    if (input.name) {
+      debugSessionId = await bpManager.getOrCreateProcessSession(input.name);
+    } else {
+      const session = sessionManager.getOrDefault(input.sessionId);
+      const cdp = session.browser.cdp();
+      if (!cdp) {
+        return responseBuilder.error(
+          new Error('No CDP session. Provide a "name" for DAP-based logpoints (Python/Go/.NET).'),
+          { code: 'CDP_NOT_AVAILABLE' },
+        );
+      }
+      debugSessionId = await bpManager.getOrCreateSession(session.id, cdp);
+    }
 
     try {
-      // Create session and set breakpoint with logMessage
-      await bpManager.getOrCreateSession(session.id, cdp);
-
-      // Determine runtime to check if logMessage is supported
-      // DAP adapters (Python, Go, .NET, Ruby, Rust, Dart) support logMessage natively.
-      // V8 (CDP), PHP (DBGp), and Java (JDWP) do NOT.
-      const adapter = bpManager.getAdapter(session.id);
+      const adapter = bpManager.getAdapter(debugSessionId);
       const dapRuntimes: RuntimeType[] = ['python', 'go', 'dotnet', 'ruby', 'rust', 'dart'];
       const isDAP = dapRuntimes.includes(adapter.runtime);
 
-      // Pass expression as logMessage for DAP adapters (native support)
-      // For V8/CDP, logMessage is ignored (would need condition hack)
-      const bp = await bpManager.setBreakpoint(session.id, input.file, input.line, {
+      const bp = await bpManager.setBreakpoint(debugSessionId, input.file, input.line, {
         logMessage: isDAP ? input.expression : undefined,
       });
 
       if (isDAP) {
-        // DAP adapters (Python, Go, .NET, Ruby, Rust, Dart) support logMessage natively
         return responseBuilder.success(
           {
-            logpoint: {
-              id: bp.id,
-              file: input.file,
-              line: input.line,
-              expression: input.expression,
-            },
+            logpoint: { id: bp.id, file: input.file, line: input.line, expression: input.expression },
             active: true,
             runtime: adapter.runtime,
-            note: `✅ Logpoint active on ${adapter.runtime} adapter. Expression "${input.expression}" will be logged without pausing execution.`,
+            note: `Logpoint active on ${adapter.runtime}. Expression "${input.expression}" will be logged without pausing.`,
           },
-          sessionManager.buildMeta(session),
+          { elapsed: 0, sessionId: debugSessionId, timestamp: new Date().toISOString() },
         );
       } else {
-        // V8/CDP: logMessage not natively supported in CDP
         return responseBuilder.success(
           {
-            logpoint: {
-              id: bp.id,
-              file: input.file,
-              line: input.line,
-              expression: input.expression,
-            },
+            logpoint: { id: bp.id, file: input.file, line: input.line, expression: input.expression },
             active: false,
             runtime: 'v8',
-            note:
-              `⚠️ Logpoints not yet supported on V8/CDP (no native logMessage in CDP). ` +
-              `Breakpoint set without logMessage. Use debug_set_breakpoint then debug_continue manually. ` +
-              `Breakpoint ID: ${bp.id}`,
+            note: `Logpoints not supported on V8/CDP. Breakpoint set without logMessage. Breakpoint ID: ${bp.id}`,
           },
-          sessionManager.buildMeta(session),
+          { elapsed: 0, sessionId: debugSessionId, timestamp: new Date().toISOString() },
         );
       }
     } catch (error) {
@@ -1064,7 +1073,7 @@ export const debugRecordSession = createTool({
   name: 'debug_record_session',
   category: 'debug',
   description:
-    '`<use_case>Smart debugging</use_case> ⏺️ Start recording all tool calls into a VCR cassette. Every subsequent tool call (browser, process, debug, etc.) is captured with input/output/duration. Stop with debug_stop_recording. Use for regression testing: record a debug session, then replay to detect regressions. Requires security.allowDebug: true.`',
+    '`<use_case>Smart debugging</use_case> ⏺️ Start recording all tool calls into a VCR cassette. Every subsequent tool call (browser, process, debug, etc.) is captured with input/output/duration. Stop with debug_stop_recording. Use for regression testing: record a debug session, then replay to detect regressions. Requires debug.allowDebug: true.`',
   inputSchema: z.object({
     name: z.string().optional().describe('Optional name for this recording'),
     description: z.string().optional().describe('Optional description'),
@@ -1305,7 +1314,7 @@ export const debugAutoReport = createTool({
   name: 'debug_auto_report',
   category: 'debug',
   description:
-    '`<use_case>Auto-debugging</use_case> 🤖 Get the latest auto-debug report for a process. Auto-debug subscribes to EventBus events (process:exit, process:stderr, browser:console:error, browser:network:5xx) and auto-captures structured snapshots with error context, logs, and suggested fixes. Token cost: ~100-300 tokens. Requires security.allowDebug: true.`',
+    '`<use_case>Auto-debugging</use_case> 🤖 Get the latest auto-debug report for a process. Auto-debug subscribes to EventBus events (process:exit, process:stderr, browser:console:error, browser:network:5xx) and auto-captures structured snapshots with error context, logs, and suggested fixes. Token cost: ~100-300 tokens. Requires debug.allowDebug: true.`',
   inputSchema: z.object({
     name: z.string().describe('Process name or session ID to get report for'),
   }),
@@ -1319,7 +1328,7 @@ export const debugAutoReport = createTool({
       return responseBuilder.success(
         {
           status: 'not_started',
-          note: 'Auto-debug engine is not started. Start Fennec with security.allowDebug: true to enable auto-debug.',
+          note: 'Auto-debug engine is not started. Start Fennec with debug.allowDebug: true to enable auto-debug.',
         },
         { elapsed: 0, sessionId: 'debug', timestamp: new Date().toISOString() },
       );
@@ -1435,7 +1444,7 @@ export const debugAutoConfigure = createTool({
   name: 'debug_auto_configure',
   category: 'debug',
   description:
-    '`<use_case>Auto-debugging</use_case> ⚙️ Configure auto-debug rules. Enable/disable specific auto-debug triggers: crash (process exit), error (stderr), browser (console+5xx), hang (port down), timeout. Returns current rule status. Requires security.allowDebug: true. Token cost: ~20 tokens.`',
+    '`<use_case>Auto-debugging</use_case> ⚙️ Configure auto-debug rules. Enable/disable specific auto-debug triggers: crash (process exit), error (stderr), browser (console+5xx), hang (port down), timeout. Returns current rule status. Requires debug.allowDebug: true. Token cost: ~20 tokens.`',
   inputSchema: z.object({
     ruleId: z
       .enum(['crash', 'error', 'browser', 'hang', 'timeout'])

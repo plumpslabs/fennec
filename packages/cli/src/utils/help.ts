@@ -129,35 +129,35 @@ export const COMMANDS: Record<string, CommandDoc> = {
     options: [
       ['--all, -a', 'Re-spawn all stopped apps that have a saved command'],
       ['--group <g>, -g <g>', 'Re-spawn only stopped apps in group <g>'],
-      ['--debug <mode>', 'Re-spawn with debug mode: log | breakpoint | auto'],
+      ['--debug <mode>', 'Re-spawn with debug mode: log | breakpoint'],
     ],
-    examples: ['spawn', 'spawn web', 'spawn be-crm fe-crm', 'spawn --all', 'spawn --group backend', 'spawn be-crm --debug breakpoint'],
+    examples: ['spawn', 'spawn web', 'spawn api-service web-app', 'spawn --all', 'spawn --group backend', 'spawn api-service --debug breakpoint'],
   },
   stop: {
     name: 'stop',
     usage: 'stop <name|--all> [name...] [--group <g>]',
     summary: 'Stop (pause) a tracked app but keep it in the registry',
     description:
-      'Sends SIGTERM but keeps the entry in tracked.json so it can be revived later with `fennec spawn`. Stops the ENTIRE process tree so no orphaned children are left. Accepts multiple names at once (e.g. `stop be-crm fe-crm`).',
+      'Sends SIGTERM but keeps the entry in tracked.json so it can be revived later with `fennec spawn`. Stops the ENTIRE process tree so no orphaned children are left. Accepts multiple names at once (e.g. `stop api-service web-app`).',
     options: [
       ['--all, -a', 'Stop all running tracked apps'],
       ['--group <g>, -g <g>', 'Stop only running apps in group <g>'],
     ],
-    examples: ['stop web', 'stop be-crm fe-crm -y', 'stop --all', 'stop --group backend'],
+    examples: ['stop web', 'stop api-service web-app -y', 'stop --all', 'stop --group backend'],
   },
   restart: {
     name: 'restart',
     usage: 'restart <name|pid> [name...] [--group <g>]',
     summary: 'Stop and re-spawn a tracked app from its saved config',
     options: [['--group <g>, -g <g>', 'Restart all apps in group <g>']],
-    examples: ['restart web', 'restart be-crm fe-crm -y', 'restart --group backend'],
+    examples: ['restart web', 'restart api-service web-app -y', 'restart --group backend'],
   },
   kill: {
     name: 'kill',
     usage: 'kill <pid|name|all> [name...] [--group <g>]',
     summary: 'Kill a process and remove it from the registry',
     description:
-      'Permanently removes a tracked app (unlike `stop`, which keeps it). By NAME it only matches Fennec-tracked apps — use an explicit PID to kill a system process. Prompts before killing. Kills the ENTIRE process tree (e.g. npm → vite → esbuild) so no orphaned children are left behind. Accepts multiple names at once (e.g. `kill be-crm fe-crm`).',
+      'Permanently removes a tracked app (unlike `stop`, which keeps it). By NAME it only matches Fennec-tracked apps — use an explicit PID to kill a system process. Prompts before killing. Kills the ENTIRE process tree (e.g. npm → vite → esbuild) so no orphaned children are left behind. Accepts multiple names at once (e.g. `kill api-service web-app`).',
     options: [
       ['--signal <sig>', 'Signal to send (default: SIGTERM). e.g. SIGKILL, SIGINT'],
       ['--all, -a', 'Kill ALL tracked apps (asks for confirmation)'],
@@ -167,7 +167,7 @@ export const COMMANDS: Record<string, CommandDoc> = {
     examples: [
       'kill web',
       'kill 12345 --signal SIGKILL',
-      'kill be-crm fe-crm -y',
+      'kill api-service web-app -y',
       'kill all -y',
       'kill --group backend -y',
     ],
@@ -326,30 +326,44 @@ export const COMMANDS: Record<string, CommandDoc> = {
   },
   debug: {
     name: 'debug',
-    usage: 'debug <attach|detach|status> <name|--group <g>> [--mode log|breakpoint|auto]',
+    usage: 'debug <attach|detach|status> <name|--group <g>> [--mode log|breakpoint]',
     short: 'debug <action> <name|--group>',
     summary: 'Attach/detach debug mode to tracked apps',
     description:
       'Controls debug mode for tracked apps. Debug mode is a flag consumed by MCP debug tools (debug_get_errors, debug_set_breakpoint, debug_auto_report, etc.) to know which level of debugging to apply.\n\n' +
-      'Three levels:\n' +
+      'Two modes:\n' +
       '  log (L)        — smart log debugging: error dedup, source maps, grouped summaries (default)\n' +
-      '  breakpoint (B) — active breakpoint debugging: V8/CDP, Python DAP, PHP DBGp, Java JDWP\n' +
-      '  auto (A)       — auto-debug: EventBus-driven snapshots on crash/stderr/5xx',
+      '  breakpoint (B) — active breakpoint debugging: CDP (browser/Node), DAP (Python/Go/.NET/Ruby/Rust), DBGp (PHP), JDWP (Java)',
     options: [
       ['attach <name> [--mode]', 'Enable debug mode on a tracked app (default: log)'],
       ['detach <name>', 'Disable debug mode on a tracked app'],
       ['status [name]', 'Show debug status for all or one app'],
-      ['--mode log|breakpoint|auto', 'Debug level to attach (default: log)'],
+      ['--mode log|breakpoint', 'Debug mode to attach (default: log)'],
       ['--group <g>, -g <g>', 'Bulk attach/detach debug for all apps in group <g>'],
     ],
     examples: [
-      'debug attach be-crm',
-      'debug attach be-crm --mode breakpoint',
+      'debug attach api-service',
+      'debug attach api-service --mode breakpoint',
       'debug attach --group crm',
-      'debug detach be-crm',
+      'debug detach api-service',
       'debug detach --group crm',
       'debug status',
     ],
+  },
+  workflow: {
+    name: 'workflow',
+    aliases: ['wf'],
+    usage: 'workflow <list|show|run> [name]',
+    short: 'workflow <action> [name]',
+    summary: 'List, show, or run workflows created by the planner/scheduler',
+    description:
+      'Workflows are multi-step plans created automatically by the planner (planner_execute_goal) or the scheduler (auto-diagnosis rules). They persist to disk so you can inspect or re-run them.',
+    options: [
+      ['list (default)', 'List all registered workflows'],
+      ['show <name|id>', 'Show workflow details and steps'],
+      ['run <name|id>', 'Execute a workflow'],
+    ],
+    examples: ['workflow', 'workflow list', 'workflow show auto-diagnose'],
   },
   'install-browsers': {
     name: 'install-browsers',

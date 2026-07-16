@@ -61,7 +61,7 @@ export class SessionManager {
 
   async initialize(): Promise<void> {
     const logger = getLogger();
-    logger.info('Initializing Fennec session manager (lazy mode)');
+    logger.info('Initializing Fennec session manager');
 
     // Create engine if not already set (backward compat: default to Playwright)
     if (!this.engine) {
@@ -69,6 +69,9 @@ export class SessionManager {
       const factory = new PlaywrightEngineFactory();
       this.engine = factory.create(this.config.browser.type);
     }
+
+    // Launch browser and create default session on startup
+    await this.ensureBrowserLaunched();
   }
 
   async ensureBrowserLaunched(): Promise<void> {

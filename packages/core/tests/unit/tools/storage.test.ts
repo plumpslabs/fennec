@@ -17,11 +17,11 @@ describe('storage_export_state tool', () => {
 
   it('should accept optional filePath', () => {
     const result = storageExportState.inputSchema.safeParse({
-      filePath: 'myapp-state.json',
+      filePath: 'demo-state.json',
     });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.filePath).toBe('myapp-state.json');
+      expect(result.data.filePath).toBe('demo-state.json');
     }
   });
 
@@ -57,7 +57,7 @@ describe('storage_import_state tool', () => {
 
   it('should accept optional filePath', () => {
     const result = storageImportState.inputSchema.safeParse({
-      filePath: 'myapp-state.json',
+      filePath: 'demo-state.json',
     });
     expect(result.success).toBe(true);
   });
