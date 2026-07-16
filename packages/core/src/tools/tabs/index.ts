@@ -8,6 +8,13 @@ export const tabNew = createTool({
     '`<use_case>Tab management</use_case> ➕ Create a new browser tab. Optionally navigate to a URL immediately. Returns tabId (the URL of the new tab) and sessionId. The new tab is automatically focused, so subsequent operations (screenshot, get_page_text, click, etc.) target it without an explicit tab_switch. For just navigating the current tab, use browser_navigate instead.`',
   inputSchema: z.object({
     url: z.string().optional().describe('URL to navigate to in the new tab'),
+    inheritSession: z
+      .boolean()
+      .optional()
+      .default(true)
+      .describe(
+        'Copy cookies and localStorage from the current session to the new tab (default true). Ensures auth state is preserved.',
+      ),
     sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
@@ -18,8 +25,43 @@ export const tabNew = createTool({
       // active page at it, so get_page_text etc. read the new tab.
       await newPage.bringToFront().catch(() => {});
       sessionManager.setActivePage(session.id, newPage);
+
       if (input.url) {
         await newPage.navigate(input.url, { waitUntil: 'domcontentloaded' });
+      }
+
+      // Copy cookies to the new tab when inheritSession is enabled
+      if (input.inheritSession ?? true) {
+        try {
+          const cookies = await session.browser.contextCookies();
+          if (cookies.length > 0) {
+            await newPage.contextAddCookies(cookies);
+          }
+          // Also restore localStorage from the current page to the new one
+          const ls = await session.browser
+            .evaluate(() => {
+              const out: Record<string, string> = {};
+              for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k) out[k] = localStorage.getItem(k) ?? '';
+              }
+              return out;
+            })
+            .catch(() => ({} as Record<string, string>));
+          if (Object.keys(ls).length > 0) {
+            await newPage.evaluate((data: Record<string, string>) => {
+              try {
+                for (const [k, v] of Object.entries(data)) {
+                  localStorage.setItem(k, v);
+                }
+              } catch {
+                /* best-effort */
+              }
+            }, ls as unknown);
+          }
+        } catch {
+          // Cookie/localStorage copy is best-effort
+        }
       }
 
       return responseBuilder.success(
