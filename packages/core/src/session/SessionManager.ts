@@ -178,6 +178,11 @@ export class SessionManager {
     }
   }
 
+  /** The default session ID, or null if none has been created yet. */
+  getDefaultSessionId(): string | null {
+    return this.defaultSessionId;
+  }
+
   /**
    * Point a session's active page at a different BrowserSession (e.g. a freshly
    * opened tab). Keeps `session.browser` in sync with what the agent sees as
@@ -211,17 +216,8 @@ export class SessionManager {
     }
   }
 
-  listSessions(): Array<{ id: string; name?: string; createdAt: Date; lastUsedAt: Date }> {
-    const list: Array<{ id: string; name?: string; createdAt: Date; lastUsedAt: Date }> = [];
-    for (const [id, session] of this.sessions) {
-      list.push({
-        id,
-        name: session.name,
-        createdAt: session.createdAt,
-        lastUsedAt: session.lastUsedAt,
-      });
-    }
-    return list;
+  listSessions(): FennecSession[] {
+    return Array.from(this.sessions.values());
   }
 
   addConsoleEvent(sessionId: string, event: ConsoleEvent): void {

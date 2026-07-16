@@ -188,6 +188,7 @@ import {
   diagnosePerformance,
   diagnoseFennecHealth,
 } from './tools/diagnostic/index.js';
+import { sessionList } from './tools/session/index.js';
 // ─── Mobile Tools ────────────────────────────────────────────
 import {
   mobileListDevices,
@@ -528,6 +529,8 @@ export class FennecServer {
       investigate,
       predict,
       toolsHelp,
+      // Session
+      sessionList,
       // Performance Budget
       budgetCheckPage,
       budgetGetSummary,
