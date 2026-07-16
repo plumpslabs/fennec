@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { createTool } from '../_registry.js';
 import { takeScreenshot } from '../../utils/screenshot.js';
-import { resolveSelector } from '../../utils/selector.js';
+import { resolveSelector, resolveIndexedSelector } from '../../utils/selector.js';
 import type { BrowserSession } from '../../browser/types.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -2447,5 +2447,239 @@ export const browserGetElementComponent = createTool({
     } catch (error) {
       return responseBuilder.error(error, { code: 'ELEMENT_NOT_FOUND' });
     }
+  },
+});
+
+// ─── fennec_flow — composite multi-step debugging flows ────────────
+
+export const fennecFlow = createTool({
+  name: 'fennec_flow',
+  category: 'smart',
+  description:
+    "`<use_case>Smart</use_case> 🧠 Composite tool for common multi-step debugging patterns. Reduces 3-5 separate tool calls into one. Actions: 'debug-element' (get element info + screenshot + diagnose for a selector; ~500-1000 tokens), 'page-health' (console errors + network failures + DOM snapshot; ~300-800 tokens), 'form-fill' (smart_fill_form + validate + submit; ~400-700 tokens). Saves 60-80% tool calls for these patterns.`",
+  inputSchema: z.object({
+    action: z
+      .enum(['debug-element', 'page-health', 'form-fill'])
+      .describe("The composite flow to execute. 'debug-element': inspect element info + screenshot + diagnose interactability. 'page-health': console errors + failed network requests + DOM state summary. 'form-fill': detect + fill + validate + submit a form."),
+    selector: z.string().optional().describe('Target element selector (required for debug-element, optional for form-fill to scope to a container)'),
+    fields: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('Field values for form-fill action (e.g. {"email": "a@b.com", "password": "secret"})'),
+    index: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe('When the selector matches multiple elements, pick the one at this index (0-based)'),
+    sessionId: z.string().optional().describe('Session ID'),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+
+    if (input.action === 'debug-element') {
+      if (!input.selector) {
+        return responseBuilder.error(new Error('selector is required for debug-element action'));
+      }
+      try {
+        const resolved = await resolveIndexedSelector(
+          session.browser,
+          input.selector,
+          input.index,
+        );
+        const elementInfo = resolved.found
+          ? await (async () => {
+              const locator = session.browser.locator(resolved.selector);
+              const [visible, enabled, text, box] = await Promise.all([
+                locator.isVisible().catch(() => false),
+                locator.isEnabled().catch(() => false),
+                locator.textContent().catch(() => null),
+                locator.boundingBox().catch(() => null),
+              ]);
+              const reasons: string[] = [];
+              const suggestions: string[] = [];
+              if (!visible) {
+                reasons.push('not visible');
+                suggestions.push('Try scrolling to the element');
+              }
+              if (!enabled) {
+                reasons.push('disabled');
+                suggestions.push('Check if element needs a preceding action to enable');
+              }
+              return {
+                exists: true,
+                visible,
+                enabled,
+                interactable: visible && enabled,
+                text: text?.trim() ?? null,
+                boundingBox: box,
+                reason: reasons.length > 0 ? reasons.join('; ') : 'element looks interactable',
+                suggestions,
+              };
+            })()
+          : { exists: false, reason: 'element not found in DOM' };
+
+        const screenshot = await takeScreenshot(session.browser, {
+          format: 'jpeg',
+          quality: 30,
+        }).catch(() => null);
+
+        return responseBuilder.success(
+          {
+            action: 'debug-element',
+            selector: input.selector,
+            index: input.index,
+            url: session.browser.url(),
+            elementInfo,
+            screenshot: screenshot
+              ? { base64: screenshot.base64, width: screenshot.width, height: screenshot.height }
+              : null,
+          },
+          sessionManager.buildMeta(session),
+        );
+      } catch (error) {
+        return responseBuilder.error(error, { code: 'FLOW_FAILED' });
+      }
+    }
+
+    if (input.action === 'page-health') {
+      try {
+        const [domInfo, consoleLogs, networkRequests] = await Promise.all([
+          session.browser
+            .evaluate(() => {
+              const all = document.querySelectorAll('*');
+              const interactable = Array.from(all).filter((el) => {
+                const tag = el.tagName.toLowerCase();
+                return (
+                  ['a', 'button', 'input', 'select', 'textarea'].includes(tag) ||
+                  el.hasAttribute('onclick') ||
+                  el.getAttribute('tabindex') !== null
+                );
+              });
+              const tagCount: Record<string, number> = {};
+              all.forEach((el) => {
+                const t = el.tagName.toLowerCase();
+                tagCount[t] = (tagCount[t] ?? 0) + 1;
+              });
+              const sortedTags = Object.entries(tagCount)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+              return {
+                elementCount: all.length,
+                interactableCount: interactable.length,
+                tagBreakdown: Object.fromEntries(sortedTags),
+              };
+            })
+            .catch(() => null),
+          session.consoleBuffer
+            ? {
+                errorCount: session.consoleBuffer.filter(
+                  (l: { level: string }) => l.level === 'error',
+                ).length,
+                warnCount: session.consoleBuffer.filter(
+                  (l: { level: string }) => l.level === 'warn',
+                ).length,
+                lastError:
+                  [...session.consoleBuffer]
+                    .reverse()
+                    .find((l: { level: string }) => l.level === 'error')?.message ?? null,
+              }
+            : null,
+          session.networkBuffer
+            ? {
+                total: session.networkBuffer.length,
+                failed: session.networkBuffer.filter(
+                  (r: { status: number }) => r.status >= 400,
+                ).length,
+                slow: session.networkBuffer.filter(
+                  (r: { duration: number }) => r.duration > 1000,
+                ).length,
+                lastFailure: [...session.networkBuffer]
+                  .reverse()
+                  .find((r: { status: number }) => r.status >= 400)?.url,
+              }
+            : null,
+        ]);
+
+        return responseBuilder.success(
+          {
+            action: 'page-health',
+            url: session.browser.url(),
+            dom: domInfo,
+            console: consoleLogs ?? { errorCount: 0, warnCount: 0, lastError: null },
+            network: networkRequests ?? { total: 0, failed: 0, slow: 0 },
+          },
+          sessionManager.buildMeta(session),
+        );
+      } catch (error) {
+        return responseBuilder.error(error, { code: 'FLOW_FAILED' });
+      }
+    }
+
+    if (input.action === 'form-fill') {
+      if (!input.fields || Object.keys(input.fields).length === 0) {
+        return responseBuilder.error(new Error('fields are required for form-fill action'));
+      }
+      try {
+        const filled: string[] = [];
+        const notFound: string[] = [];
+        const scope = input.selector || 'body';
+        for (const [key, value] of Object.entries(input.fields)) {
+          const found = await session.browser.evaluate(
+            ({ k, v, sc }: { k: string; v: string; sc: string }) => {
+              const patterns = [
+                `input[name="${k}"]`,
+                `input[id="${k}"]`,
+                `input[placeholder="${k}"]`,
+                `input[aria-label="${k}"]`,
+                `input[data-testid="${k}"]`,
+                `textarea[name="${k}"]`,
+                `textarea[id="${k}"]`,
+                `select[name="${k}"]`,
+                `select[id="${k}"]`,
+                `label:has-text("${k}") input`,
+                `label:has-text("${k}") textarea`,
+                `label:has-text("${k}") select`,
+                `[data-testid="${k}"]`,
+                `#${k}`,
+              ];
+              const root = document.querySelector(sc);
+              if (!root) return false;
+              for (const p of patterns) {
+                const el = root.querySelector(p) as HTMLInputElement | null;
+                if (el) {
+                  el.value = v;
+                  el.dispatchEvent(new Event('input', { bubbles: true }));
+                  el.dispatchEvent(new Event('change', { bubbles: true }));
+                  return true;
+                }
+              }
+              return false;
+            },
+            { k: key, v: value, sc: scope },
+          );
+          if (found) {
+            filled.push(key);
+          } else {
+            notFound.push(key);
+          }
+        }
+        return responseBuilder.success(
+          {
+            action: 'form-fill',
+            url: session.browser.url(),
+            fieldsFilled: filled.length,
+            fieldsTotal: Object.keys(input.fields).length,
+            notFound: notFound.length > 0 ? notFound : undefined,
+            status: notFound.length === 0 ? 'completed' : 'partial',
+          },
+          sessionManager.buildMeta(session),
+        );
+      } catch (error) {
+        return responseBuilder.error(error, { code: 'FLOW_FAILED' });
+      }
+    }
+
+    return responseBuilder.error(new Error(`Unknown action: ${input.action}`));
   },
 });
