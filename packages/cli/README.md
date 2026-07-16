@@ -237,7 +237,8 @@ Fennec is both an MCP server **and** a CLI you can use directly in your terminal
 | `fennec dev <up\|down\|status\|restart <app>>`       | Orchestrate a whole dev stack from `fennec.config.yaml`.                                                                                                        |
 | `fennec inspect <name\|pid>`                         | Compact, AI-safe snapshot (status + recent logs + error scan).                                                                                                  |
 | `fennec info <name>`                                 | Detailed info for a tracked app.                                                                                                                                |
-| `fennec rename <old> <new>`                          | Rename a tracked app.                                                                                                                                           |
+| `fennec rename <old> <new>`                          | Rename a tracked app.                                                                           |
+| `fennec debug <attach\|detach\|status> <name\|--group>` | Attach/detach debug mode to tracked apps. Three levels: `log` (L), `breakpoint` (B), `auto` (A). Supports bulk via `--group`. |
 
 **`start` / `run` options:**
 
@@ -248,6 +249,7 @@ Fennec is both an MCP server **and** a CLI you can use directly in your terminal
 | `--cwd <dir>`     | Working directory                                                        |
 | `--restart`       | Auto-restart on crash / port-down, survives terminal close               |
 | `--group <group>` | Tag for scoped bulk ops                                                  |
+| `--debug <mode>`  | Start with debug mode: `log`, `breakpoint`, or `auto`                    |
 | `--jsonl`         | Structured JSON-lines logs                                               |
 
 **`ps` options:**
@@ -296,6 +298,8 @@ The `MEM` column shows each running app's RSS cross-platform.
 | Bulk kill                       | `fennec kill <name1> <name2> -y`                                     |
 | Bulk restart                    | `fennec restart <name1> <name2> -y`                                  |
 | Bulk spawn                      | `fennec spawn <name1> <name2>`                                       |
+| Bulk debug attach               | `fennec debug attach --group <g> --mode <mode>`                      |
+| Bulk debug detach               | `fennec debug detach --group <g>`                                    |
 
 Groups are **preserved** across `spawn`/`restart`. Already-running entries are never double-spawned. `--all` targets every tracked app.
 
@@ -359,7 +363,7 @@ fennec ps
 fennec log web -f
 ```
 
-### Idiot-proof `dev up` (idempotent)
+### Idempotent `dev up`
 
 `fennec dev up` reads `fennec.config.yaml` and brings the whole stack up. It is
 **idempotent**: already-running apps with unchanged config are skipped, apps whose
@@ -500,6 +504,12 @@ permissions. Environment variables override the config file:
 | `FENNEC_DEFAULT_TIMEOUT`                           | Browser default timeout (ms).                                            |
 | `FENNEC_VIEWPORT_WIDTH` / `FENNEC_VIEWPORT_HEIGHT` | Viewport size.                                                           |
 | `FENNEC_LOG_LEVEL`                                 | `debug` \| `info` \| `warn` \| `error`.                                  |
+| `FENNEC_SECURITY_ALLOW_FILE_READ`                  | `true` allows the AI to read files.                                      |
+| `FENNEC_SECURITY_ALLOW_FILE_WRITE`                 | `true` allows the AI to write files.                                     |
+| `FENNEC_SECURITY_ALLOW_CDP_RAW_ACCESS`             | `true` allows direct CDP raw access.                                     |
+| `FENNEC_SECURITY_DEBUG_ALLOWED_DIRS`               | Restrict debug breakpoints to these directories (comma-separated).       |
+| `FENNEC_BROWSER_ADAPTER`                           | Browser adapter: `auto` \| `cdp` \| `playwright`.                        |
+| `FENNEC_SESSION_ROTATION_INTERVAL_SECS`            | Context rotation interval in seconds (0 = off).                          |
 
 Security features:
 

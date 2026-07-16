@@ -4,13 +4,13 @@
 
 | Version | Supported             |
 | ------- | --------------------- |
-| 0.1.x   | ✅ Active development |
+| 1.15.x  | ✅ Active development |
 
 ## Reporting a Vulnerability
 
 Fennec gives AI agents powerful access to browser automation, process management, and file system operations. Security is a top priority.
 
-If you discover a security vulnerability, please do **not** open a public issue. Instead, report it privately by emailing [INSERT SECURITY EMAIL].
+If you discover a security vulnerability, please do **not** open a public issue. Instead, report it privately by emailing security@plumpslabs.com.
 
 Please include the following details in your report:
 

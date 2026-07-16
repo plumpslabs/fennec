@@ -56,6 +56,7 @@ export const COMMANDS: Record<string, CommandDoc> = {
         'Auto-restart if it crashes or its port stops listening (detached supervisor, survives terminal close)',
       ],
       ['--group <group>', 'Logical group/namespace for bulk ops (kill/spawn/stop --group <group>)'],
+      ['--debug <mode>', 'Start with debug mode: log | breakpoint | auto'],
     ],
     examples: [
       'start "npm run dev" --name web --port 3000',
@@ -74,6 +75,7 @@ export const COMMANDS: Record<string, CommandDoc> = {
       ['--cwd <dir>', 'Working directory'],
       ['--restart', 'Auto-restart if it crashes or its port stops listening'],
       ['--group <group>', 'Logical group for bulk ops'],
+      ['--debug <mode>', 'Start with debug mode: log | breakpoint | auto'],
     ],
     examples: ['run npm start --name web --port 8080 --group frontend'],
   },
@@ -127,8 +129,9 @@ export const COMMANDS: Record<string, CommandDoc> = {
     options: [
       ['--all, -a', 'Re-spawn all stopped apps that have a saved command'],
       ['--group <g>, -g <g>', 'Re-spawn only stopped apps in group <g>'],
+      ['--debug <mode>', 'Re-spawn with debug mode: log | breakpoint | auto'],
     ],
-    examples: ['spawn', 'spawn web', 'spawn be-crm fe-crm', 'spawn --all', 'spawn --group backend'],
+    examples: ['spawn', 'spawn web', 'spawn be-crm fe-crm', 'spawn --all', 'spawn --group backend', 'spawn be-crm --debug breakpoint'],
   },
   stop: {
     name: 'stop',
@@ -321,6 +324,33 @@ export const COMMANDS: Record<string, CommandDoc> = {
     summary: 'Interactively configure your MCP client for Fennec',
     examples: ['setup'],
   },
+  debug: {
+    name: 'debug',
+    usage: 'debug <attach|detach|status> <name|--group <g>> [--mode log|breakpoint|auto]',
+    short: 'debug <action> <name|--group>',
+    summary: 'Attach/detach debug mode to tracked apps',
+    description:
+      'Controls debug mode for tracked apps. Debug mode is a flag consumed by MCP debug tools (debug_get_errors, debug_set_breakpoint, debug_auto_report, etc.) to know which level of debugging to apply.\n\n' +
+      'Three levels:\n' +
+      '  log (L)        — smart log debugging: error dedup, source maps, grouped summaries (default)\n' +
+      '  breakpoint (B) — active breakpoint debugging: V8/CDP, Python DAP, PHP DBGp, Java JDWP\n' +
+      '  auto (A)       — auto-debug: EventBus-driven snapshots on crash/stderr/5xx',
+    options: [
+      ['attach <name> [--mode]', 'Enable debug mode on a tracked app (default: log)'],
+      ['detach <name>', 'Disable debug mode on a tracked app'],
+      ['status [name]', 'Show debug status for all or one app'],
+      ['--mode log|breakpoint|auto', 'Debug level to attach (default: log)'],
+      ['--group <g>, -g <g>', 'Bulk attach/detach debug for all apps in group <g>'],
+    ],
+    examples: [
+      'debug attach be-crm',
+      'debug attach be-crm --mode breakpoint',
+      'debug attach --group crm',
+      'debug detach be-crm',
+      'debug detach --group crm',
+      'debug status',
+    ],
+  },
   'install-browsers': {
     name: 'install-browsers',
     usage: 'install-browsers',
@@ -386,6 +416,7 @@ const GROUPS: { title: string; keys: string[] }[] = [
       'restart',
       'kill',
       'group',
+      'debug',
       'supervisor',
       'persist',
       'dev',

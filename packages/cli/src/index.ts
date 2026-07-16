@@ -30,6 +30,7 @@ import { infoCommand } from './commands/info.js';
 import { renameCommand } from './commands/rename.js';
 import { exportCommand, importCommand } from './commands/export-import.js';
 import { groupCommand } from './commands/group.js';
+import { debugCommand } from './commands/debug.js';
 
 const [, , command, ...args] = process.argv;
 
@@ -97,6 +98,8 @@ async function main(): Promise<void> {
     await renameCommand(args);
   } else if (command === 'group') {
     await groupCommand(args);
+  } else if (command === 'debug') {
+    await debugCommand(args);
   } else if (command === 'export') {
     await exportCommand(args);
   } else if (command === 'import') {

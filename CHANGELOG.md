@@ -2,6 +2,23 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.15.1] - 2026-07-16
+
+### Added
+- **`fennec debug attach/detach/status` CLI command.** Set/remove/query per-process debug mode (`--mode log|breakpoint|auto`). Supports `--group` for batch ops.
+- **`--debug` flag for `fennec start` / `fennec spawn`.** Start a process with a debug mode: `fennec start npm run dev --debug log`.
+- **Debug mode column (`D`) in `fennec ps`.** Shows L/B/A for log/breakpoint/auto, color-coded.
+- **`debug_get_mode` MCP tool.** Query per-process debug mode from tracked.json via MCP.
+- **`debugMode` field in `process_get_tracked` response.** AI agents can now see per-process debug status.
+
+### Changed
+- **CLI ↔ MCP debug sync.** `debug_configure` MCP tool now persists to `tracked.json` (was in-memory only). CLI `fennec debug attach` writes to same file. Two-way sync: CLI and AI agents share the same per-process debug state.
+- **All 27 debug tools now registered** (were dead code — defined but never imported in `server.ts`). 26 existing + 1 new (`debug_get_mode`) → 186 total registered tools.
+- **Per-process `debugMode` storage** via `setDebugMode()`/`getDebugMode()` in tracking.ts.
+
+### Fixed
+- **All 12 documentation audit issues.** SECURITY.md version+email, CODE_OF_CONDUCT.md outdated contact, tool counts (unified to 165+), configuration.md missing fields+env vars, ARCHITECTURE.md stale categories+counts, CONTRIBUTING.md broken links, getting-started.md code fence, README.md table bleed+missing groups, cli/README.md language+env vars, bug_report.md link, smart.md fence, VISION.md typos.
+
 ## [1.15.0] - 2026-07-15
 
 ### Added

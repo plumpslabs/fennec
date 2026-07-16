@@ -67,6 +67,14 @@ export interface TrackedProcess {
   group?: string;
   /** True if the process was manually stopped by the user. */
   manualStop?: boolean;
+  /**
+   * Debug mode for this process:
+   * - 'log': smart log debugging (passive — error dedup, source maps)
+   * - 'breakpoint': breakpoint debugging (active — V8/DAP/JDWP/DBGp)
+   * - 'auto': auto-debug (proactive — EventBus-driven snapshots on crash/5xx)
+   * - undefined/omitted: debug disabled
+   */
+  debugMode?: 'log' | 'breakpoint' | 'auto';
 }
 
 export type TargetKind = 'single' | 'names' | 'group' | 'all' | 'none';

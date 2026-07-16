@@ -192,6 +192,38 @@ export function setGroup(name: string, group: string): boolean {
 }
 
 /**
+ * Get the debug mode for a tracked process from persistent storage.
+ * Returns 'off' if the process is not found or has no debugMode set.
+ * Used by both CLI and MCP tools so they share the same per-process state.
+ */
+export function getDebugMode(name: string): DebugMode {
+  const tracked = readTracked();
+  const match = tracked.find((t) => t.name === name);
+  return match?.debugMode ?? 'off';
+}
+
+/**
+ * Set (or clear) the debug mode for a tracked process. Persists to
+ * tracked.json so MCP tools (`debug_configure`), CLI (`fennec debug
+ * attach`), and the supervisor all see the same state.
+ */
+export function setDebugMode(name: string, mode: DebugMode): void {
+  const tracked = readTracked();
+  let changed = false;
+  for (const t of tracked) {
+    if (t.name === name) {
+      if (mode === 'off' || mode === 'log' || mode === 'breakpoint' || mode === 'auto') {
+        t.debugMode = mode === 'off' ? undefined : mode;
+      } else {
+        delete t.debugMode;
+      }
+      changed = true;
+    }
+  }
+  if (changed) saveTracked(tracked);
+}
+
+/**
  * Toggle the auto-restart flag for a tracked app by name.
  * Used so an intentional `stop` isn't immediately undone by the supervisor.
  */

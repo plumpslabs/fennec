@@ -18,6 +18,7 @@ This creates `./fennec.config.yaml` with all default values.
 # fennec.config.yaml
 
 browser:
+  adapter: auto # auto | cdp | playwright
   type: chromium # chromium | firefox | webkit
   headless: true
   slowMo: 0 # ms delay between actions (useful for debugging)
@@ -33,6 +34,7 @@ browser:
 session:
   maxSessions: 10
   idleTimeoutSecs: 1800 # auto-cleanup after idle
+  rotationIntervalSecs: 0 # 0 = off; periodic context recycling to prevent DOM/listener bloat
   persistPath: './.fennec/sessions'
 
 process:
@@ -82,6 +84,11 @@ correlation:
   enableRootCauseInference: true
   minConfidence: 0.7
 
+lazyContext:
+  level1: true # Auto-attach summary on errors
+  level2: false # Attach detail on expand
+  level3: false # Attach raw data on request
+
 debug:
   allowDebug: false # Enable debug features globally
   allowDebugEval: false # Expression evaluation (high risk)
@@ -92,6 +99,9 @@ security:
   sandbox: true
   allowProcessSpawn: true
   allowProcessKill: false
+  allowJSEvaluation: true
+  allowFileRead: false
+  allowFileWrite: false
   allowedDomains: []
   blockedDomains: []
   allowFileProtocol: false
@@ -125,4 +135,17 @@ All configuration values can be overridden via environment variables:
 | `FENNEC_PORT`            | SSE port                                   |
 | `FENNEC_LOG_LEVEL`       | Log level (debug/info/warn/error)          |
 | `FENNEC_SANDBOX`         | Enable sandbox mode (true/false)           |
+| `FENNEC_SECURITY_ALLOW_PROCESS_SPAWN` | Allow AI to spawn processes    |
+| `FENNEC_SECURITY_ALLOW_PROCESS_KILL`  | Allow AI to kill processes      |
+| `FENNEC_SECURITY_ALLOW_JS_EVALUATION` | Allow in-page JS evaluation     |
+| `FENNEC_SECURITY_ALLOW_FILE_READ`     | Allow file read operations       |
+| `FENNEC_SECURITY_ALLOW_FILE_WRITE`    | Allow file write operations      |
+| `FENNEC_SECURITY_ALLOW_CDP_RAW_ACCESS`| Allow direct CDP raw access      |
+| `FENNEC_SECURITY_DEBUG_ALLOWED_DIRS`  | Restrict debug to these dirs     |
+| `FENNEC_DEBUG_ALLOW_DEPENDENCIES`     | Allow breakpoints in dependencies|
+| `FENNEC_BROWSER_ADAPTER`  | Browser adapter (auto/cdp/playwright)       |
+| `FENNEC_SESSION_ROTATION_INTERVAL_SECS` | Context rotation interval (secs) |
+| `FENNEC_TOKEN_BUDGET_LEVEL1` | Token budget for Lazy Context L1         |
+| `FENNEC_TOKEN_BUDGET_LEVEL2` | Token budget for Lazy Context L2         |
+| `FENNEC_TOKEN_BUDGET_LEVEL3` | Token budget for Lazy Context L3         |
 | `FENNEC_CONFIG`          | Path to config file                        |

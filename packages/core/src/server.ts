@@ -251,6 +251,35 @@ import {
   recorderCapture,
 } from './tools/recorder/index.js';
 import { browserAssert } from './tools/assert/index.js';
+import {
+  debugGetErrors,
+  debugGetErrorDetail,
+  debugInvestigate,
+  debugSummary,
+  debugLogsSince,
+  debugConfigure,
+  debugGetMode,
+  debugSetBreakpoint,
+  debugRemoveBreakpoint,
+  debugListBreakpoints,
+  debugContinue,
+  debugStepOver,
+  debugStepInto,
+  debugGetVariables,
+  debugEvaluate,
+  debugGetPauseState,
+  debugInvestigateRuntime,
+  debugSetLogpoint,
+  debugRecordSession,
+  debugStopRecording,
+  debugReplaySession,
+  debugDiffSessions,
+  debugListCassettes,
+  debugAutoReport,
+  debugAutoHistory,
+  debugAutoConfigure,
+  debugAutoStats,
+} from './tools/debug/index.js';
 
 export class FennecServer {
   private server: Server;
@@ -334,7 +363,7 @@ export class FennecServer {
     this.performanceMetrics.startMemoryMonitoring();
 
     this.server = new Server(
-      { name: 'fennec', version: '1.15.0' },
+      { name: 'fennec', version: '1.15.1' },
       { capabilities: { tools: {}, prompts: {}, resources: {} } },
     );
 
@@ -521,6 +550,34 @@ export class FennecServer {
       recorderList,
       recorderCapture,
       browserAssert,
+      // Debug tools (Level 1-3)
+      debugGetErrors,
+      debugGetErrorDetail,
+      debugInvestigate,
+      debugSummary,
+      debugLogsSince,
+      debugConfigure,
+      debugGetMode,
+      debugSetBreakpoint,
+      debugRemoveBreakpoint,
+      debugListBreakpoints,
+      debugContinue,
+      debugStepOver,
+      debugStepInto,
+      debugGetVariables,
+      debugEvaluate,
+      debugGetPauseState,
+      debugInvestigateRuntime,
+      debugSetLogpoint,
+      debugRecordSession,
+      debugStopRecording,
+      debugReplaySession,
+      debugDiffSessions,
+      debugListCassettes,
+      debugAutoReport,
+      debugAutoHistory,
+      debugAutoConfigure,
+      debugAutoStats,
     ];
 
     for (const tool of tools) {
