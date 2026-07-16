@@ -969,7 +969,7 @@ export const processWaitForReady = createTool({
   handler: async (input, { responseBuilder, processManager }) => {
     const startTime = Date.now();
     try {
-      processManager.get(input.processId); // Validate exists
+      processManager.get(input.processId); // Validate exists in MCP manager
       const patterns = input.pattern!.split('|');
 
       return await new Promise((resolve) => {
@@ -1006,9 +1006,18 @@ export const processWaitForReady = createTool({
         check();
       });
     } catch (error) {
+      const tracked = readTracked();
+      const stoppedNames = tracked.filter((t) => !isTrackedRunning(t)).map((t) => `  - ${t.name}`);
       return responseBuilder.error(error, {
         code: 'PROCESS_NOT_FOUND',
-        suggestions: suggestionsWithAvailable(),
+        suggestions: [
+          `process_wait_for_ready requires a running MCP-managed process.`,
+          `Use process_spawn first (or process_spawn_tracked for resumed processes).`,
+          ...(stoppedNames.length > 0
+            ? [`Stopped tracked processes (resume with process_spawn_tracked):`, ...stoppedNames]
+            : []),
+          ...suggestionsWithAvailable(),
+        ],
       });
     }
   },

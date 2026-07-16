@@ -321,7 +321,12 @@ export function matchField(fields: DetectedField[], query: string): DetectedFiel
     }
   }
 
-  // Partial / includes match
+  // Partial / includes match — prefer type-exact matches first
+  const typeMatch = fields.find(
+    (f) => f.type === q || (q === 'email' && f.type === 'email') || (q === 'phone' && f.type === 'tel'),
+  );
+  if (typeMatch) return typeMatch;
+
   for (const f of fields) {
     if (
       f.label.toLowerCase().includes(q) ||
