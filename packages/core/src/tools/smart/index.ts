@@ -1638,7 +1638,7 @@ export const smartWait = createTool({
                   elements.push({
                     tag,
                     id: el.id,
-                    class: el.className.slice(0, 100),
+                    class: String(el.className).slice(0, 100),
                     text,
                     role: el.getAttribute('role') ?? '',
                   });

@@ -253,7 +253,7 @@ export const browserGetDomSnapshot = createTool({
               tag,
               text,
               id: node.id || undefined,
-              class: node.className.slice(0, 100) || undefined,
+              class: String(node.className).slice(0, 100) || undefined,
               role: role || undefined,
               type: (node as HTMLInputElement).type || undefined,
               name: (node as HTMLInputElement).name || node.getAttribute('name') || undefined,
