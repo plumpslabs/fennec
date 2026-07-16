@@ -239,15 +239,65 @@ Fennec is both an MCP server **and** a CLI you can use directly in your terminal
 | `fennec info <name>`                                 | Detailed info for a tracked app.                                                                                                                                |
 | `fennec rename <old> <new>`                          | Rename a tracked app.                                                                                                                                           |
 
-**`start` / `run` options:** `--name <name>` (recommended), `--port <port>` (Fennec waits until it accepts connections), `--cwd <dir>`, `--restart` (auto-restart on crash / port-down, survives terminal close), `--group <group>` (tag for scoped bulk ops), `--jsonl` (structured JSON-lines logs).
+**`start` / `run` options:**
 
-**`ps` options:** `-w/--watch` (live refresh), `--system/-a/--all` (include non-Fennec system processes), `--json`, `--name <filter>`, `--group <g>` (show only apps in group `<g>`), `--sort <cpu|mem|pid|name>`. The `MEM` column shows each running app's resident memory (RSS) cross-platform, so you can spot leaks from long-lived apps.
+| Option            | Description                                                              |
+| ----------------- | ------------------------------------------------------------------------ |
+| `--name <name>`   | Process name (recommended)                                               |
+| `--port <port>`   | Wait until port accepts connections                                      |
+| `--cwd <dir>`     | Working directory                                                        |
+| `--restart`       | Auto-restart on crash / port-down, survives terminal close               |
+| `--group <group>` | Tag for scoped bulk ops                                                  |
+| `--jsonl`         | Structured JSON-lines logs                                               |
 
-**Logical groups + bulk (multiple names):** tag apps with `fennec start <cmd> --name <n> --group <g>`, or retroactively with `fennec group <name> <g>` (existing entries too — `fennec group <name> --unset` clears). You can ALSO assign a group to MANY apps at once (bulk): `fennec group <group> <name1> <name2> ...` — e.g. `fennec group crm be-crm fe-crm` tags all three as `crm` in one shot (alternatively `fennec group --group crm be-crm fe-crm`). Then scope bulk ops to just that group: `fennec kill --group <g>`, `fennec stop --group <g>`, `fennec spawn --group <g>`, `fennec restart --group <g>`, `fennec ps --group <g>`. A bare group name as the positional (e.g. `fennec kill <g>`) is also accepted as shorthand. You can ALSO pass MULTIPLE names at once for one-shot bulk ops: `fennec stop be-crm fe-crm`, `fennec kill be-crm fe-crm -y`, `fennec restart be-crm fe-crm -y`, `fennec spawn be-crm fe-crm`. The group is PRESERVED across `spawn`/`restart` (stop→resume keeps the tag). Already-running entries in scope are reported as "already running" (never double-spawned); `--all` still targets **every** tracked app across all groups.
+**`ps` options:**
 
-**`log` options:** `-f/--follow`, `--lines N`, `--since 10m|1h|2d`, `--level error|warn|info|debug`, `--json` (bounded, redacted, machine-readable for AI), `--no-redact`, `--clear`.
+| Option                     | Description                                          |
+| -------------------------- | ---------------------------------------------------- |
+| `-w` / `--watch`           | Live refresh                                         |
+| `--system` / `-a` / `--all`| Include non-Fennec system processes                  |
+| `--json`                   | JSON output                                         |
+| `--name <filter>`          | Filter by name                                       |
+| `--group <g>`              | Show only apps in group                              |
+| `--sort <cpu\|mem\|pid\|name>` | Sort column                                      |
 
-**`inspect` options:** `--plain` (short human summary), `--tail N`, `--since 10m`.
+The `MEM` column shows each running app's RSS cross-platform.
+
+**`log` options:**
+
+| Option                | Description                                          |
+| --------------------- | ---------------------------------------------------- |
+| `-f` / `--follow`     | Tail logs live                                       |
+| `--lines N`           | Number of recent lines                               |
+| `--since 10m\|1h\|2d` | Filter by time                                       |
+| `--level error\|warn\|info\|debug` | Filter by level                    |
+| `--json`              | Bounded, redacted, machine-readable                  |
+| `--no-redact`         | Skip secret redaction                                |
+| `--clear`             | Clear log file                                       |
+
+**`inspect` options:**
+
+| Option        | Description                        |
+| ------------- | ---------------------------------- |
+| `--plain`     | Short human summary                |
+| `--tail N`    | Recent log lines                   |
+| `--since 10m` | Filter by time                     |
+
+**Logical groups & bulk operations:**
+
+| Action                          | Command                                                              |
+| ------------------------------- | -------------------------------------------------------------------- |
+| Tag when starting               | `fennec start <cmd> --name <n> --group <g>`                          |
+| Tag existing app                | `fennec group <name> <g>`                                            |
+| Clear group tag                 | `fennec group <name> --unset`                                        |
+| Bulk tag                        | `fennec group <g> <name1> <name2> ...`                               |
+| Scope ops to group              | `fennec kill --group <g>`, `stop --group <g>`, `ps --group <g>`      |
+| Bulk stop (multiple names)      | `fennec stop <name1> <name2>`                                        |
+| Bulk kill                       | `fennec kill <name1> <name2> -y`                                     |
+| Bulk restart                    | `fennec restart <name1> <name2> -y`                                  |
+| Bulk spawn                      | `fennec spawn <name1> <name2>`                                       |
+
+Groups are **preserved** across `spawn`/`restart`. Already-running entries are never double-spawned. `--all` targets every tracked app.
 
 ### Observation
 
