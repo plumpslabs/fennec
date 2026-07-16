@@ -624,7 +624,12 @@ export const browserGetElementInfo = createTool({
         sessionManager.buildMeta(session),
       );
     } catch (error) {
-      return responseBuilder.error(error);
+      const suggestions: string[] = [];
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg.includes('strict mode violation') || (msg.includes('resolved to') && msg.includes('elements'))) {
+        suggestions.push('Use the index parameter to target a specific element when multiple match');
+      }
+      return responseBuilder.error(error, { code: 'ELEMENT_CHECK_FAILED', suggestions });
     }
   },
 });
