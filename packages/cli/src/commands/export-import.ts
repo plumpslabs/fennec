@@ -6,6 +6,7 @@ import { existsSync, writeFileSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { renderError, confirmPrompt, symbols, renderKVColor } from '../utils/format.js';
 import { readTracked, saveTracked } from './tracker.js';
+import type { TrackedProcess } from './tracker.js';
 
 /**
  * fennec export [--file path]
@@ -62,14 +63,7 @@ export async function importCommand(args: string[]): Promise<void> {
     process.exit(1);
   }
 
-  let imported: {
-    name: string;
-    pid: number;
-    command: string;
-    port?: number;
-    cwd?: string;
-    startedAt: string;
-  }[];
+  let imported: TrackedProcess[];
   try {
     imported = JSON.parse(readFileSync(resolvedPath, 'utf-8'));
     if (!Array.isArray(imported) || imported.length === 0) {
@@ -112,7 +106,7 @@ export async function importCommand(args: string[]): Promise<void> {
     if (idx !== -1) {
       merged[idx] = { ...merged[idx], ...proc };
     } else {
-      merged.push(proc as any);
+      merged.push(proc);
     }
   }
 

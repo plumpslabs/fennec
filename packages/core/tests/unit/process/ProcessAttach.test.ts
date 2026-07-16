@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { z } from 'zod';
 
 // Mock PortDetector before importing the tools
@@ -25,7 +25,43 @@ vi.mock('../../../src/process/PortDetector.js', () => ({
   })),
 }));
 
-import { processAttachPid, processAttachPort } from '../../../src/tools/process/index.js';
+// Mock tracking module for suggestionsWithAvailable tests
+const { mockReadTracked } = vi.hoisted(() => ({
+  mockReadTracked: vi.fn(),
+}));
+
+vi.mock('../../../src/process/tracking.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...(typeof actual === 'object' && actual !== null ? actual : {}),
+    readTracked: mockReadTracked,
+  };
+});
+
+// Mock processManager
+const mockProcessManager = {
+  list: vi.fn().mockReturnValue([]),
+  getLogs: vi.fn(),
+  getStatus: vi.fn(),
+  get: vi.fn(),
+  spawn: vi.fn(),
+  restart: vi.fn(),
+  kill: vi.fn(),
+  sendInput: vi.fn(),
+  waitForExit: vi.fn(),
+};
+
+const mockTokenBudget = {
+  getRemaining: vi.fn().mockReturnValue(1000),
+};
+
+import {
+  processAttachPid,
+  processAttachPort,
+  processGetLogs,
+  processGetStatus,
+  processKill,
+} from '../../../src/tools/process/index.js';
 import { PortDetector } from '../../../src/process/PortDetector.js';
 
 describe('process_attach_pid tool', () => {
@@ -121,6 +157,137 @@ describe('process_attach_pid tool', () => {
     );
   });
 });
+
+// ─── PROCESS_NOT_FOUND suggestions ──────────────────────────────
+
+describe('PROCESS_NOT_FOUND suggestions', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockReadTracked.mockReturnValue([
+      {
+        name: 'server-app',
+        pid: 12345,
+        command: 'node server.js',
+        group: 'backend',
+        startedAt: new Date().toISOString(),
+      },
+      {
+        name: 'web-app',
+        pid: 12346,
+        command: 'node web.js --port 3001',
+        startedAt: new Date().toISOString(),
+      },
+    ]);
+  });
+
+  it('should include available processes in process_get_logs error suggestions', async () => {
+    mockProcessManager.getLogs.mockImplementation(() => {
+      throw new Error('Process not found: unknown-app');
+    });
+
+    const mockResponseBuilder = {
+      success: vi.fn((data) => ({ success: true, data })),
+      error: vi.fn((error, opts) => ({
+        success: false,
+        error: { message: error.message, code: opts?.code, suggestions: opts?.suggestions },
+      })),
+    };
+
+    const result = await processGetLogs.handler({ processId: 'unknown-app', lines: 10 }, {
+      responseBuilder: mockResponseBuilder as any,
+      processManager: mockProcessManager as any,
+      tokenBudget: mockTokenBudget as any,
+    } as any);
+
+    expect(result.success).toBe(false);
+    expect((result as any).error.code).toBe('PROCESS_NOT_FOUND');
+    expect((result as any).error.suggestions).toBeDefined();
+    expect((result as any).error.suggestions[0]).toBe('Available processes:');
+    // Should list the mocked processes
+    const suggestionsStr = (result as any).error.suggestions.join(' ');
+    expect(suggestionsStr).toContain('server-app');
+    expect(suggestionsStr).toContain('web-app');
+    expect(suggestionsStr).toContain('backend');
+  });
+
+  it('should include available processes in process_get_status error suggestions', async () => {
+    mockProcessManager.getStatus.mockImplementation(() => {
+      throw new Error('Process not found');
+    });
+
+    const mockResponseBuilder = {
+      success: vi.fn((data) => ({ success: true, data })),
+      error: vi.fn((error, opts) => ({
+        success: false,
+        error: { message: error.message, code: opts?.code, suggestions: opts?.suggestions },
+      })),
+    };
+
+    const result = await processGetStatus.handler({ processId: 'missing' }, {
+      responseBuilder: mockResponseBuilder as any,
+      processManager: mockProcessManager as any,
+    } as any);
+
+    expect(result.success).toBe(false);
+    expect((result as any).error.code).toBe('PROCESS_NOT_FOUND');
+    expect((result as any).error.suggestions).toBeDefined();
+    const suggestionsStr = (result as any).error.suggestions.join(' ');
+    expect(suggestionsStr).toContain('server-app');
+    expect(suggestionsStr).toContain('web-app');
+  });
+
+  it('should handle empty tracked processes gracefully', async () => {
+    mockReadTracked.mockReturnValue([]);
+    mockProcessManager.getLogs.mockImplementation(() => {
+      throw new Error('Process not found');
+    });
+
+    const mockResponseBuilder = {
+      success: vi.fn((data) => ({ success: true, data })),
+      error: vi.fn((error, opts) => ({
+        success: false,
+        error: { message: error.message, code: opts?.code, suggestions: opts?.suggestions },
+      })),
+    };
+
+    const result = await processGetLogs.handler({ processId: 'nobody', lines: 10 }, {
+      responseBuilder: mockResponseBuilder as any,
+      processManager: mockProcessManager as any,
+      tokenBudget: mockTokenBudget as any,
+    } as any);
+
+    expect(result.success).toBe(false);
+    expect((result as any).error.suggestions).toBeDefined();
+    const suggestionsStr = (result as any).error.suggestions.join(' ');
+    expect(suggestionsStr).toContain('(no tracked processes)');
+  });
+
+  it('should include group name when process has a group', async () => {
+    mockProcessManager.getLogs.mockImplementation(() => {
+      throw new Error('Process not found');
+    });
+
+    const mockResponseBuilder = {
+      success: vi.fn((data) => ({ success: true, data })),
+      error: vi.fn((error, opts) => ({
+        success: false,
+        error: { message: error.message, code: opts?.code, suggestions: opts?.suggestions },
+      })),
+    };
+
+    const result = await processGetLogs.handler({ processId: 'ghost', lines: 10 }, {
+      responseBuilder: mockResponseBuilder as any,
+      processManager: mockProcessManager as any,
+      tokenBudget: mockTokenBudget as any,
+    } as any);
+
+    expect(result.success).toBe(false);
+    const suggestionsStr = (result as any).error.suggestions.join(' ');
+    expect(suggestionsStr).toContain('(group: backend)');
+  });
+});
+
+// ─── process_attach_port ───────────────────────────────────────
 
 describe('process_attach_port tool', () => {
   it('should have correct name and description', () => {

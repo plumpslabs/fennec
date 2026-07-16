@@ -6,7 +6,13 @@
 import pc from 'picocolors';
 import { renderError, createSpinner, confirmPrompt } from '../utils/format.js';
 import { killTree as sysKill, isProcessRunning } from '../utils/system-process.js';
-import { readTracked, isTrackedRunning, setAutoRestart, setManualStop, resolveTargets } from './tracker.js';
+import {
+  readTracked,
+  isTrackedRunning,
+  setAutoRestart,
+  setManualStop,
+  resolveTargets,
+} from './tracker.js';
 import { psCommand } from './ps.js';
 
 export async function stopCommand(args: string[]): Promise<void> {
@@ -133,7 +139,7 @@ async function stopAllTracked(args: string[], group?: string): Promise<void> {
 
   await new Promise((r) => setTimeout(r, 300));
   spinner.stop();
-  process.stdout.write('\r\x1b[K');
+  process.stderr.write('\r\x1b[K');
 
   if (stopped > 0) {
     console.error(

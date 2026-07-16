@@ -14,8 +14,10 @@ import pc from 'picocolors';
 // ─── Hex color helper ──────────────────────────────────────────
 
 export function hexColor(color: string): (s: string) => string {
-  if (typeof (pc as any).hex === 'function') {
-    return (pc as any).hex(color);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pw = pc as any;
+  if (typeof pw.hex === 'function') {
+    return pw.hex(color);
   }
   return (s: string) => s;
 }
@@ -25,7 +27,7 @@ const fennecGold = hexColor('#FFB347');
 
 // ─── Version ────────────────────────────────────────────────────
 
-export const VERSION = '1.14.12';
+export const VERSION = '1.15.0';
 
 // ─── Banner generation ──────────────────────────────────────────
 

@@ -1,7 +1,12 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+  ListPromptsRequestSchema,
+  ListResourcesRequestSchema,
+} from '@modelcontextprotocol/sdk/types.js';
 import { createServer, type Server as HttpServer } from 'node:http';
 import { ZodError } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
@@ -37,6 +42,7 @@ import {
   createLazyLevel3,
   createStabilityMiddleware,
 } from './middleware/index.js';
+import type { ToolResult, MiddlewareParsedInput } from './middleware/Pipeline.js';
 import { ResourceManager } from './resource/ResourceManager.js';
 import { StateManager } from './state/index.js';
 import { PerformanceMetrics } from './utils/PerformanceMetrics.js';
@@ -177,6 +183,7 @@ import {
   diagnoseAuth,
   diagnoseFullstack,
   diagnosePerformance,
+  diagnoseFennecHealth,
 } from './tools/diagnostic/index.js';
 // ─── Mobile Tools ────────────────────────────────────────────
 import {
@@ -327,8 +334,8 @@ export class FennecServer {
     this.performanceMetrics.startMemoryMonitoring();
 
     this.server = new Server(
-      { name: 'fennec', version: '1.11.2' },
-      { capabilities: { tools: {} } },
+      { name: 'fennec', version: '1.15.0' },
+      { capabilities: { tools: {}, prompts: {}, resources: {} } },
     );
 
     this.registerModules();
@@ -454,6 +461,7 @@ export class FennecServer {
       diagnoseNetwork,
       diagnoseAuth,
       diagnoseFullstack,
+      diagnoseFennecHealth,
       diagnosePerformance,
       schedulerGetStats,
       schedulerGetLastResult,
@@ -539,6 +547,7 @@ export class FennecServer {
       eventBus: this.eventBus,
       lazyContext: this.lazyContext,
       incidentEngine: this.incidentEngine,
+      performanceMetrics: this.performanceMetrics,
       toolRegistry: this.toolRegistry,
       tokenBudget: { maxResponseTokens: this.config.tokenBudget.maxResponseTokens ?? 8000 },
     };
@@ -552,7 +561,15 @@ export class FennecServer {
   private async setupSessionCDPMonitoring(session?: FennecSession): Promise<void> {
     const logger = getLogger();
     try {
-      const target = session ?? this.sessionManager.getOrDefault();
+      let target: FennecSession | undefined = session;
+      if (!target) {
+        try {
+          target = this.sessionManager.getOrDefault();
+        } catch {
+          // Defer until the browser/session is initialized lazily
+          return;
+        }
+      }
       if (!target) {
         logger.warn('No session available for CDP monitoring');
         return;
@@ -589,9 +606,18 @@ export class FennecServer {
   private setupHandlers(): void {
     const logger = getLogger();
 
+    // Empty handlers for optional MCP methods that some clients (e.g. OpenCode) require
+    this.server.setRequestHandler(ListPromptsRequestSchema, async () => {
+      return { prompts: [] };
+    });
+
+    this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
+      return { resources: [] };
+    });
+
     this.server.setRequestHandler(ListToolsRequestSchema, async (request) => {
-      const categories = (request.params as Record<string, unknown>)?.categories as
-        string[] | undefined;
+      const params = (request.params ?? {}) as { categories?: string[] };
+      const categories = params.categories;
 
       // Default categories when client doesn't specify: only load essential tool groups
       // This saves ~1000+ tokens vs loading all 90+ tools
@@ -613,56 +639,22 @@ export class FennecServer {
       const selectedCategories = categories?.length ? categories : defaultCategories;
       const tools = this.toolRegistry.getByCategories(selectedCategories);
 
-      // Token tier per tool helps the agent prefer cheap tools before expensive ones.
-      // Single source of truth: declare any exceptions in TIER_OVERRIDE, otherwise
-      // the name-based heuristic below decides. Category is used as a secondary
-      // signal so a high-cost tool can't silently get a "low" tier.
-      const TIER_OVERRIDE: Record<string, 'low' | 'medium' | 'high'> = {
-        // "tool_name": "high",
-      };
-      const HIGH_BANDWIDTH =
-        /(screenshot|dom_snapshot|screenshot_diff|screenshot_export|screenshot_annotated|screenshot_baseline)/;
-      const MED_BANDWIDTH =
-        /(network_get_logs|storage_export|console|performance|get_dom|get_accessibility)/;
-      const HIGH_CATEGORY = new Set(['dom', 'smart']);
-      const MED_CATEGORY = new Set(['devtools', 'storage', 'diagnostic']);
-      const tokenTier = (name: string, category?: string): 'low' | 'medium' | 'high' =>
-        TIER_OVERRIDE[name] ??
-        (HIGH_BANDWIDTH.test(name)
-          ? 'high'
-          : MED_BANDWIDTH.test(name)
-            ? 'medium'
-            : HIGH_CATEGORY.has(category ?? '')
-              ? 'high'
-              : MED_CATEGORY.has(category ?? '')
-                ? 'medium'
-                : 'low');
-
-      const maxTokens = this.config.tokenBudget.maxResponseTokens ?? 8000;
       return {
         tools: tools.map((t) => {
-          const { $schema, ...schema } = zodToJsonSchema(t.inputSchema) as any;
+          const { $schema, ...schema } = zodToJsonSchema(t.inputSchema) as Record<string, unknown>;
           return {
             name: t.name,
             description: t.description,
             inputSchema: schema,
-            _category: t.category,
-            _tokenTier: tokenTier(t.name, t.category),
           };
         }),
-        _categories: this.toolRegistry.getCategories(),
-        _hint:
-          'Use ?categories=[...] to load specific tool groups. Available categories: ' +
-          this.toolRegistry.getCategories().join(', ') +
-          `. Prefer _tokenTier:"low" tools (text/state-based) before "high" ones (screenshots / DOM dumps). ` +
-          `Each tool response is truncated at ~${maxTokens} tokens.`,
       };
     });
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
-      const meta = (request.params as Record<string, unknown>)?._meta as
-        Record<string, unknown> | undefined;
+      const paramsWithMeta = request.params as { _meta?: Record<string, unknown> };
+      const meta = paramsWithMeta._meta;
       const progressToken = meta?.progressToken as string | number | undefined;
       const tool = this.toolRegistry.get(name);
 
@@ -697,16 +689,14 @@ export class FennecServer {
         // died (e.g. cross-scheme navigation), recreate it before the call
         // so the agent never sees a wall of "Unable to connect" errors.
         try {
-          await this.sessionManager.ensureAlive(
-            (parsed as Record<string, unknown>).sessionId as string | undefined,
-          );
+          await this.sessionManager.ensureAlive((parsed as MiddlewareParsedInput).sessionId);
         } catch {
           // best-effort — the tool call itself will surface any real error
         }
         const result = await this.pipeline.execute(tool, parsed, context);
 
-        const isError =
-          result && typeof result === 'object' && 'success' in result && result.success === false;
+        const resultObj = result as ToolResult;
+        const isError = resultObj.success === false;
         return {
           content: [{ type: 'text', text: JSON.stringify(result) }],
           isError: isError === true ? true : undefined,
@@ -721,17 +711,10 @@ export class FennecServer {
         }
         logger.error({ tool: name, error }, 'Tool execution failed');
 
-        let enrichedContext: Record<string, unknown> = {};
-        try {
-          const session = this.sessionManager.getOrDefault();
-          const enricher = new ErrorEnricher();
-          enrichedContext = (await enricher.enrich(session)) as unknown as Record<string, unknown>;
-        } catch (err) {
-          logger.warn(
-            { tool: name, error: err },
-            'Tool execution error enrichment failed (non-fatal)',
-          );
-        }
+        const session = this.sessionManager.getOrDefault();
+        const enricher = new ErrorEnricher();
+        const enrichedContext = ((await enricher.enrich(session).catch(() => null)) ??
+          {}) as Record<string, unknown>;
 
         const errorResponse = this.responseBuilder.error(error, {
           code: 'TOOL_EXECUTION_FAILED',
@@ -817,12 +800,15 @@ export class FennecServer {
 
         const url = new URL(req.url ?? '/', `http://${host}:${port}`);
 
-        if (req.method === 'GET' && url.pathname === '/sse') {
-          // SSE endpoint: create a new SSEServerTransport for this connection
-          // Close any stale server state first (e.g. from a partially-disconnected
-          // transport) so the guard below isn't stuck forever.
-          await this.server.close().catch(() => {});
+        // Health check endpoint
+        if (url.pathname === '/health') {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ status: 'ok', transport: 'sse' }));
+          return;
+        }
 
+        if (req.method === 'GET' && url.pathname === '/sse') {
+          // SSE endpoint: create a new SSEServerTransport for this connection.
           // If a client is already connected, silently ignore the duplicate to
           // prevent the connect → close → reconnect loop. The first connection
           // stays active and the second gets a 409 so it backs off.
@@ -840,10 +826,11 @@ export class FennecServer {
           try {
             await this.server.connect(transport);
             logger.debug('MCP server connected via SSE transport');
-            resolve();
           } catch (error) {
             logger.error({ error }, 'Failed to connect MCP server via SSE');
-            reject(error);
+            this.sseTransport = null;
+            res.end();
+            return;
           }
 
           // Handle client disconnect
@@ -867,12 +854,6 @@ export class FennecServer {
             res.writeHead(400).end('No active SSE connection');
           }
         } else {
-          // Health check endpoint
-          if (url.pathname === '/health') {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ status: 'ok', transport: 'sse' }));
-            return;
-          }
           res.writeHead(404).end('Not found');
         }
       });
@@ -905,38 +886,8 @@ export class FennecServer {
       logger.warn('Browser adapter detection failed — using default Playwright');
     }
 
-    await this.sessionManager.initialize();
-
-    // After a context rotation the underlying CDPSession is replaced, so
-    // re-enable the console/network collectors on the fresh context.
-    this.sessionManager.setOnRotate(async (id: string) => {
-      try {
-        const session = this.sessionManager.getSession(id);
-        await this.setupSessionCDPMonitoring(session);
-      } catch {
-        // session may already be gone — ignore
-      }
-    });
-
-    await this.setupSessionCDPMonitoring();
-
-    this.workflowEngine.createDebugWorkflow('auto-diagnose');
-    this.workflowEngine.createLoginWorkflow('auto-login');
-
-    const debugWf = this.workflowEngine.findByTag('diagnostic')[0];
-    if (debugWf) {
-      const defaultRules = WorkflowScheduler.createDefaultRules(debugWf.id);
-      this.workflowScheduler.addRules(defaultRules);
-      this.workflowScheduler.start();
-      logger.info(
-        { rules: defaultRules.length },
-        'WorkflowScheduler: auto-trigger rules registered',
-      );
-    }
-
-    this.resourceManager.startAutoCleanup();
-    this.resourceManager.startHealthChecks();
-
+    // Connect transport first, so the server starts listening on stdio/SSE immediately
+    // and can respond to client initialization requests instantly without timing out.
     if (this.config.transport.type === 'sse') {
       await this.startSSE();
     } else {
@@ -959,5 +910,36 @@ export class FennecServer {
       process.on('SIGINT', shutdown);
       process.on('SIGTERM', shutdown);
     }
+
+    // Now initialize the session manager (launches Playwright / browser)
+    await this.sessionManager.initialize();
+
+    // After a context rotation the underlying CDPSession is replaced, so
+    // re-enable the console/network collectors on the fresh context.
+    this.sessionManager.setOnRotate(async (id: string) => {
+      try {
+        const session = this.sessionManager.getSession(id);
+        await this.setupSessionCDPMonitoring(session);
+      } catch {
+        // session may already be gone — ignore
+      }
+    });
+
+    this.workflowEngine.createDebugWorkflow('auto-diagnose');
+    this.workflowEngine.createLoginWorkflow('auto-login');
+
+    const debugWf = this.workflowEngine.findByTag('diagnostic')[0];
+    if (debugWf) {
+      const defaultRules = WorkflowScheduler.createDefaultRules(debugWf.id);
+      this.workflowScheduler.addRules(defaultRules);
+      this.workflowScheduler.start();
+      logger.info(
+        { rules: defaultRules.length },
+        'WorkflowScheduler: auto-trigger rules registered',
+      );
+    }
+
+    this.resourceManager.startAutoCleanup();
+    this.resourceManager.startHealthChecks();
   }
 }

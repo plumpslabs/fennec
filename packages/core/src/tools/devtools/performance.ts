@@ -1,8 +1,50 @@
 import { z } from 'zod';
 import { createTool } from '../_registry.js';
 import { PerformanceCollector } from '../../cdp/PerformanceCollector.js';
+import type { FennecSession } from '../../session/types.js';
 
 const collector = new PerformanceCollector();
+
+// ─── Runtime metadata ───────────────────────────────────────────
+// Extends FennecSession.metadata with CPU profiling state.
+
+interface ActiveProfileInfo {
+  startedAt: number;
+}
+
+interface PerformanceRuntimeMeta {
+  activeProfiles?: Record<string, ActiveProfileInfo>;
+}
+
+function getPerfMeta(session: FennecSession): PerformanceRuntimeMeta {
+  return session.metadata as PerformanceRuntimeMeta;
+}
+
+// ─── CDP Profiler types ─────────────────────────────────────────
+
+interface CPUProfileNode {
+  id: number;
+  callFrame: {
+    functionName: string;
+    scriptId: string;
+    url: string;
+    lineNumber: number;
+    columnNumber: number;
+  };
+  hitCount?: number;
+  children?: number[];
+}
+
+interface CPUProfile {
+  nodes: CPUProfileNode[];
+  totalSamples?: number;
+  startTime?: number;
+  endTime?: number;
+}
+
+interface ProfilerStopResult {
+  profile: CPUProfile;
+}
 
 export const devtoolsGetPerformanceMetrics = createTool({
   name: 'devtools_get_performance_metrics',
@@ -84,10 +126,10 @@ export const devtoolsStartProfiling = createTool({
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
       const cdpSession = session.browser.cdp();
-      await cdpSession.send('Profiler.enable' as never);
-      await cdpSession.send('Profiler.start' as never);
+      await cdpSession.send('Profiler.enable');
+      await cdpSession.send('Profiler.start');
       const profileId = `profile_${Date.now()}`;
-      const meta = session.metadata as Record<string, any>;
+      const meta = getPerfMeta(session);
       if (!meta.activeProfiles) meta.activeProfiles = {};
       meta.activeProfiles[profileId] = { startedAt: Date.now() };
       return responseBuilder.success({ profileId }, sessionManager.buildMeta(session));
@@ -112,7 +154,7 @@ export const devtoolsStopProfiling = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const meta = session.metadata as Record<string, any>;
+      const meta = getPerfMeta(session);
       const profileMeta = meta.activeProfiles?.[input.profileId];
       if (!profileMeta) {
         return responseBuilder.error(new Error(`Profile not found: ${input.profileId}`), {
@@ -121,22 +163,24 @@ export const devtoolsStopProfiling = createTool({
       }
 
       const cdpSession = session.browser.cdp();
-      const result = (await cdpSession.send('Profiler.stop' as never)) as any;
+      const result = await cdpSession.send<ProfilerStopResult>('Profiler.stop');
       const profile = result.profile;
 
       const nodes = profile.nodes ?? [];
       const topFunctions = nodes
-        .filter((n: any) => (n.hitCount ?? 0) > 0)
-        .sort((a: any, b: any) => (b.hitCount ?? 0) - (a.hitCount ?? 0))
+        .filter((n) => (n.hitCount ?? 0) > 0)
+        .sort((a, b) => (b.hitCount ?? 0) - (a.hitCount ?? 0))
         .slice(0, 20)
-        .map((n: any) => ({
+        .map((n) => ({
           functionName: n.callFrame.functionName || '(anonymous)',
           url: n.callFrame.url || '',
           lineNumber: n.callFrame.lineNumber,
           hitCount: n.hitCount ?? 0,
         }));
 
-      delete meta.activeProfiles[input.profileId];
+      if (meta.activeProfiles) {
+        delete meta.activeProfiles[input.profileId];
+      }
 
       return responseBuilder.success(
         {
@@ -172,15 +216,14 @@ export const devtoolsSimulateNetwork = createTool({
       const cdpSession = session.browser.cdp();
 
       // Reset first
-      await cdpSession.send(
-        'Network.emulateNetworkConditions' as never,
-        {
-          offline: false,
-          latency: 0,
-          downloadThroughput: 0,
-          uploadThroughput: 0,
-        } as never,
-      );
+      const resetParams = {
+        offline: false,
+        latency: 0,
+        downloadThroughput: 0,
+        uploadThroughput: 0,
+      } satisfies Record<string, unknown>;
+
+      await cdpSession.send('Network.emulateNetworkConditions', resetParams);
 
       const conditions: Record<
         string,
@@ -209,7 +252,7 @@ export const devtoolsSimulateNetwork = createTool({
       };
 
       const cond = conditions[input.condition]!;
-      await cdpSession.send('Network.emulateNetworkConditions' as never, cond as never);
+      await cdpSession.send('Network.emulateNetworkConditions', cond);
 
       return responseBuilder.success(
         { applied: input.condition },

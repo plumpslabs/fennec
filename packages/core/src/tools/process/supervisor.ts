@@ -321,9 +321,27 @@ export const doctor = createTool({
   description:
     '`<use_case>DIAGNOSING fennec health</use_case> Run the Fennec store and process diagnostic doctor utility. Set fix = true to automatically clean up duplicate server processes, orphaned supervisors, and leaked Chrome/Chromium processes.`',
   inputSchema: z.object({
-    fix: z.boolean().optional().describe('Attempt to automatically fix detected issues (kills duplicate processes)'),
+    fix: z
+      .boolean()
+      .optional()
+      .describe('Attempt to automatically fix detected issues (kills duplicate processes)'),
   }),
-  handler: async (input, { responseBuilder }) => {
+  handler: async (input, { responseBuilder, config }) => {
+    // Read-only diagnostic always allowed without allowProcessKill.
+    // Only --fix (kills duplicate processes) requires the permission.
+    if (input.fix && !config.security.allowProcessKill) {
+      return responseBuilder.error(
+        new Error('Doctor --fix requires allowProcessKill to be enabled'),
+        {
+          code: 'PERMISSION_DENIED',
+          suggestions: [
+            'Run doctor without --fix for read-only diagnostic',
+            'Set security.allowProcessKill to true in config to enable --fix',
+          ],
+        },
+      );
+    }
+
     try {
       const args = ['doctor'];
       if (input.fix) args.push('--fix');
@@ -337,4 +355,3 @@ export const doctor = createTool({
     }
   },
 });
-

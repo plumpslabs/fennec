@@ -194,6 +194,10 @@ export interface Locator {
   all(): Promise<Locator[]>;
   dragTo(target: Locator): Promise<void>;
   count(): Promise<number>;
+  waitFor(options?: {
+    state?: 'attached' | 'detached' | 'visible' | 'hidden';
+    timeout?: number;
+  }): Promise<void>;
 }
 
 export interface ElementHandle {

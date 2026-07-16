@@ -23,8 +23,10 @@ import CliTable3 from 'cli-table3';
  * versions due to CJS/ESM interop issues. We detect and fall back.
  */
 function hex(color: string): (s: string) => string {
-  if (typeof (pc as any).hex === 'function') {
-    return (pc as any).hex(color);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pw = pc as any;
+  if (typeof pw.hex === 'function') {
+    return pw.hex(color);
   }
   return (s: string) => s;
 }
@@ -276,29 +278,29 @@ export function createSpinner(text: string): Spinner {
 
   const interval = setInterval(() => {
     if (!running) return;
-    process.stdout.write(`\r${pc.cyan(frames[i])} ${text}`);
+    process.stderr.write(`\r${pc.cyan(frames[i])} ${text}`);
     i = (i + 1) % frames.length;
   }, 80);
 
   return {
     update(newText: string) {
       if (!running) return;
-      process.stdout.write(`\r${pc.cyan(frames[i])} ${newText}`);
+      process.stderr.write(`\r${pc.cyan(frames[i])} ${newText}`);
     },
     succeed(msg: string) {
       running = false;
       clearInterval(interval);
-      process.stdout.write(`\r${pc.green('✓')} ${msg}\n`);
+      process.stderr.write(`\r${pc.green('✓')} ${msg}\n`);
     },
     fail(msg: string) {
       running = false;
       clearInterval(interval);
-      process.stdout.write(`\r${pc.red('✗')} ${msg}\n`);
+      process.stderr.write(`\r${pc.red('✗')} ${msg}\n`);
     },
     warn(msg: string) {
       running = false;
       clearInterval(interval);
-      process.stdout.write(`\r${pc.yellow('⚠')} ${msg}\n`);
+      process.stderr.write(`\r${pc.yellow('⚠')} ${msg}\n`);
     },
     stop() {
       running = false;

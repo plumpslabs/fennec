@@ -1,4 +1,4 @@
-import type { MiddlewareFn, MiddlewareContext } from './Pipeline.js';
+import type { MiddlewareFn, MiddlewareContext, ToolResult } from './Pipeline.js';
 import { getLogger } from '../utils/logger.js';
 
 interface RetryConfig {
@@ -29,7 +29,8 @@ const DEFAULT_CONFIG: RetryConfig = {
 
 function isRetryable(error: unknown, retryableErrors: RetryConfig['retryableErrors']): boolean {
   const errorStr = String(error);
-  const errorCode = (error as Record<string, unknown>).code as string | undefined;
+  const err = error as { code?: string };
+  const errorCode = err.code;
 
   for (const rule of retryableErrors) {
     if (rule.code && errorCode === rule.code) return true;
@@ -70,17 +71,17 @@ export function createRetryHandler(config: Partial<RetryConfig> = {}): Middlewar
         const result = await next();
         // If this was a retry and it succeeded, mark it
         if (attempt > 0) {
-          (result as Record<string, unknown>).retried = true;
-          (result as Record<string, unknown>).retryCount = attempt;
+          const r = result as ToolResult;
+          r.retried = true;
+          r.retryCount = attempt;
         }
         return result;
       } catch (error) {
         lastError = error;
 
         // Check if error is retryable by inspecting the result structure
-        const errorResult = error as Record<string, unknown>;
-        const errorCode = (errorResult.error as Record<string, unknown> | undefined)?.code as
-          string | undefined;
+        const errorResult = error as ToolResult;
+        const errorCode = errorResult.error?.code;
 
         if (errorCode) {
           // Check if contains a retryable error code

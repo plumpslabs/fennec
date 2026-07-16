@@ -1,6 +1,7 @@
 /**
  * Command: ps, status — List tracked processes and system overview.
  */
+import { readFileSync } from 'node:fs';
 import pc from 'picocolors';
 import { printBanner } from '../utils/banner.js';
 import {
@@ -234,8 +235,6 @@ async function psJson(): Promise<void> {
 export async function statusCommand(_args: string[]): Promise<void> {
   const watchFlag = _args.includes('-w') || _args.includes('--watch');
   const tracked = readTracked();
-  const topSystem = getSystemProcesses({ userOnly: true, sortBy: 'cpu', limit: 5 });
-  const totalUserProcs = getSystemProcesses({ userOnly: true }).length;
 
   console.error(`\n  ${symbols.fox} ${pc.bold('Fennec Status')}\n`);
 
@@ -262,25 +261,54 @@ export async function statusCommand(_args: string[]): Promise<void> {
     );
   }
 
-  console.error(`  ${pc.bold('System')} ${pc.dim(`(${totalUserProcs} user processes)`)}`);
-  for (const p of topSystem) {
-    const cpuStr =
-      p.cpuPercent > 10
-        ? pc.red(`${p.cpuPercent}%`)
-        : p.cpuPercent > 5
-          ? pc.yellow(`${p.cpuPercent}%`)
-          : pc.dim(`${p.cpuPercent}%`);
-    const memStr =
-      p.memPercent > 10
-        ? pc.red(`${p.memPercent}%`)
-        : p.memPercent > 5
-          ? pc.yellow(`${p.memPercent}%`)
-          : pc.dim(`${p.memPercent}%`);
-    console.error(`  ${pc.dim(`PID ${p.pid}`)} ${pc.bold(p.name)} — CPU: ${cpuStr} MEM: ${memStr}`);
+  // Version update check (non-blocking, cached 24h)
+  if (!process.env.NO_UPDATE_NOTIFIER) {
+    checkVersion().catch(() => {});
   }
+
+  // Docs & resources footer
+  console.error(`  ${pc.dim('📖')} ${pc.cyan('https://plumpslabs.github.io/fennec/')}`);
+  console.error(
+    `  ${pc.dim('💬')} ${pc.dim('Report issues:')} ${pc.cyan('https://github.com/plumpslabs/fennec/issues')}`,
+  );
 
   if (watchFlag) await watchSystemProcesses('cpu', 15);
   console.error();
+}
+
+// ─── Version Update Check ────────────────────────────────────────
+
+const UPDATE_CACHE_MS = 24 * 60 * 60 * 1000; // 24 hours
+let lastUpdateCheck = 0;
+
+async function checkVersion(): Promise<void> {
+  const now = Date.now();
+  if (now - lastUpdateCheck < UPDATE_CACHE_MS) return;
+  lastUpdateCheck = now;
+
+  try {
+    const response = await fetch('https://registry.npmjs.org/@plumpslabs/fennec/latest', {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = (await response.json()) as any;
+    const latest = data?.version;
+    if (!latest) return;
+
+    const { version: currentVersion } = JSON.parse(
+      readFileSync(new URL('../../package.json', import.meta.url), 'utf-8'),
+    );
+    if (latest !== currentVersion) {
+      console.error(
+        `  ${symbols.info} ${pc.yellow(`Update available: ${pc.bold('v' + currentVersion)} → ${pc.bold('v' + latest)}`)}`,
+      );
+      console.error(`    ${pc.dim('Run:')} ${pc.cyan('npm install -g @plumpslabs/fennec@latest')}`);
+      console.error();
+    }
+  } catch {
+    // Silently fail — never block the CLI
+  }
 }
 
 async function watchSystemProcesses(sortBy: string, limit: number): Promise<void> {

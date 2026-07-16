@@ -75,6 +75,8 @@ Fennec's signature feature correlates browser errors with server logs to identif
 | Server 500 + stderr Error   | POST /api/login → 500 + DB timeout | 0.90       |
 | Auth token issue            | 401 + JWT verification failed      | 0.92       |
 | Missing file/env            | ENOENT + .env not found            | 0.88       |
+| Database timeout            | JDBC timeout + connection refused  | 0.85       |
+| CORS blocked request        | status 0 + blocked by CORS policy  | 0.90       |
 | Network failure + TypeError | request failed + JS TypeError      | 0.85       |
 
 > ✅ **The confidence scores above are derived from actual inference rules with unit-tested pattern matching**, not fabricated illustrations.
@@ -94,11 +96,11 @@ This is what makes Fennec more than an observer. Your AI agent can **run, superv
 
 > 🤖 **Why this matters for agents:** when an agent runs `npm run dev` through raw bash, the process is invisible to Fennec and easy to orphan. With Fennec the agent uses `process_spawn` (idempotent — it adopts an existing process on the same port) or `process_adopt`, and gets structured status, logs, and health back. One tool call instead of five, with no double-starts.
 
-### 🔧 130+ MCP Tools Across 17 Categories
+### 🔧 165+ MCP Tools Across 18 Categories
 
 | Category                 | Tools | What You Can Do                                                                                                                   |
 | ------------------------ | ----- | --------------------------------------------------------------------------------------------------------------------------------- |
-| **Navigation**           | 6     | Navigate, go back/forward, reload, wait for navigation                                                                            |
+| **Debug**                | 26    | Set breakpoints, inspect variables, auto-debug, record/replay                                                                     | Navigate, go back/forward, reload, wait for navigation |
 | **Interaction**          | 10    | Click, type, select, hover, scroll, upload file, drag-drop                                                                        |
 | **DOM**                  | 9     | Screenshot, DOM snapshot (token-efficient summary), accessibility tree, find elements                                             |
 | **DevTools Console**     | 5     | Console logs, JS errors, watch console (level-based summaries)                                                                    |
@@ -115,6 +117,7 @@ This is what makes Fennec more than an observer. Your AI agent can **run, superv
 | **Planner**              | 5     | Execute multi-step goals, plan preview, plan management                                                                           |
 | **Mobile**               | 11    | List devices, tap, type, swipe, logcat, screenshot, install APK, launch/stop apps via ADB                                         |
 | **AI-Native API** 🆕     | 7     | `observe()`, `ai_diagnose()`, `correlate()`, `summarize()`, `explain()`, `investigate()`, `predict()`                             |
+| **Debug** 🆕             | 26    | Breakpoint debugging, logpoints, auto-debug, cassette record/replay, multi-language DAP adapters                                  |
 
 > 💡 **Token-Efficient**: Tools are categorized into 17 groups (including Mobile + AI-Native API). MCP clients can request only specific categories to reduce context window usage. Use the `_categories` field in ListTools response to discover available categories.
 
@@ -206,6 +209,15 @@ Total tool calls: 1,234 | Avg duration: 45ms | Error rate: 2.3% | Memory: 128MB
 
 ### Installation
 
+<p align="center">
+  <a href="https://www.npmjs.com/package/@plumpslabs/fennec-cli">
+    <img src="https://img.shields.io/npm/v/@plumpslabs/fennec-cli?label=npm&logo=npm&color=cb3837" alt="npm" />
+  </a>
+  <a href="https://www.npmjs.com/package/@plumpslabs/fennec-cli">
+    <img src="https://img.shields.io/npm/dm/@plumpslabs/fennec-cli?label=downloads&logo=npm&color=cb3837" alt="npm downloads" />
+  </a>
+</p>
+
 ```bash
 # Install globally
 npm install -g @plumpslabs/fennec-cli
@@ -274,7 +286,21 @@ For **SSE transport** (HTTP-based remote MCP) instead of stdio:
 }
 ```
 
-Supported clients: Claude Desktop, Claude Code, Cline, Cursor, Windsurf, Continue.dev, OpenCode.
+### MCP Client Compatibility
+
+Different MCP clients detect and connect to Fennec differently. Some require **SSE transport** (`--sse`) instead of default stdio:
+
+| Client             | stdio | SSE | Notes                                                                     |
+| ------------------ | :---: | :-: | ------------------------------------------------------------------------- |
+| **Claude Desktop** |  ✅   | ✅  | stdio default, SSE for remote                                             |
+| **Claude Code**    |  ✅   | ✅  | stdio default                                                             |
+| **Cline**          |  ✅   | ✅  | stdio default                                                             |
+| **Cursor**         |  ✅   | ✅  | stdio default                                                             |
+| **Windsurf**       |  ✅   | ✅  | stdio default                                                             |
+| **Continue.dev**   |  ⚠️   | ✅  | **Recommended: SSE** — some versions have stdio detection issues          |
+| **OpenCode**       |  ✅   | ✅  | stdio default (local build wrapper recommended), SSE optionally supported |
+
+> **💡 SSE mode:** Run `fennec start --sse` to start the server over HTTP+SSE (default `http://127.0.0.1:3333/sse`). Configure clients with `{ "type": "remote", "url": "http://localhost:3333/sse" }`. For OpenCode, you can add it as a local stdio server or add `type: remote, url: http://localhost:3333/sse` to `~/.config/opencode/opencode.json` for SSE.
 
 ### Your First Diagnosis
 

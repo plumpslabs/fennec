@@ -1,6 +1,28 @@
 import { z } from 'zod';
 import { createTool } from '../_registry.js';
-import type { NetworkEvent } from '../../session/types.js';
+import type { NetworkEvent, FennecSession } from '../../session/types.js';
+import type { Route } from '../../browser/types.js';
+
+// ─── Runtime metadata ───────────────────────────────────────────
+// Extends FennecSession.metadata with fields used at runtime.
+// Cast once through a narrow interface instead of scattering `as any`.
+
+interface InterceptorRef {
+  urlPattern: string;
+  isMock?: boolean;
+}
+
+interface SessionRuntimeMeta {
+  interceptorRefs: Record<string, InterceptorRef>;
+}
+
+function getRuntimeMeta(session: FennecSession): SessionRuntimeMeta {
+  // Initialise the refs map on first access so callers can write without
+  // null-checking. This is safe because JavaScript object identity is preserved.
+  const m = session.metadata as SessionRuntimeMeta;
+  if (!m.interceptorRefs) m.interceptorRefs = {};
+  return m;
+}
 
 export const networkGetLogs = createTool({
   name: 'network_get_logs',
@@ -372,17 +394,11 @@ export const networkIntercept = createTool({
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
       const interceptorId = `int_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const handler = async (route: any) => {
+      const handler = async (route: Route) => {
         await route.continue();
       };
       await session.browser.route(input.urlPattern, handler);
-      // Store handler reference for unrouting later via a WeakRef or keep in memory
-      // For now, store on session metadata
-      const meta = session.metadata as Record<string, any>;
-      if (!meta.interceptorRefs) {
-        meta.interceptorRefs = {};
-      }
-      meta.interceptorRefs[interceptorId] = {
+      getRuntimeMeta(session).interceptorRefs[interceptorId] = {
         urlPattern: input.urlPattern,
       };
       return responseBuilder.success(
@@ -410,7 +426,7 @@ export const networkRemoveIntercept = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const refs = (session.metadata as Record<string, any>).interceptorRefs ?? {};
+      const refs = getRuntimeMeta(session).interceptorRefs;
       const intercept = refs[input.interceptorId];
       if (!intercept) {
         return responseBuilder.success(
@@ -454,11 +470,8 @@ export const networkMockResponse = createTool({
           headers: input.headers,
         });
       });
-      const meta = session.metadata as Record<string, any>;
-      if (!meta.interceptorRefs) {
-        meta.interceptorRefs = {};
-      }
-      meta.interceptorRefs[mockId] = {
+      const refs = getRuntimeMeta(session).interceptorRefs;
+      refs[mockId] = {
         urlPattern: input.urlPattern,
         isMock: true,
       };
@@ -493,19 +506,19 @@ export const networkApiCall = createTool({
     const timeoutId = setTimeout(() => controller.abort(), input.timeout ?? 10000);
     try {
       const response = await fetch(input.url, {
-        method: input.method,
+        method: input.method ?? 'GET',
         headers: input.headers,
-        body: ['GET', 'HEAD'].includes(input.method) ? undefined : input.body,
+        body: ['GET', 'HEAD'].includes(input.method!) ? undefined : input.body,
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
 
       const contentType = response.headers.get('content-type') || '';
       const text = await response.text();
-      let body: any = text;
+      let body: string | Record<string, unknown> = text;
       if (contentType.includes('application/json')) {
         try {
-          body = JSON.parse(text);
+          body = JSON.parse(text) as Record<string, unknown>;
         } catch {
           // Keep as string if parsing fails
         }
@@ -528,4 +541,3 @@ export const networkApiCall = createTool({
     }
   },
 });
-

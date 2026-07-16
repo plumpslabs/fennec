@@ -26,6 +26,26 @@ const TARGETS = [
     type: 'banner',
     re: /(export const VERSION = ['"])[^'"]+(['"];)/,
   },
+  {
+    // Matches `vX.Y.Z` in HTML for version badge + hero badge.
+    file: 'docs/index.html',
+    type: 'banner',
+    re: /(v)\d+\.\d+\.\d+/g,
+  },
+  {
+    // Matches `[X.Y.Z]` in CHANGELOG.md header for the top-most entry.
+    // Replaces `[1.14.12] - ...` with `[1.15.0] - ...` at the top entry only.
+    // Safe: only matches the first occurrence via single-match regex (no /g).
+    file: 'CHANGELOG.md',
+    type: 'banner',
+    re: /(\[)\d+\.\d+\.\d+(\])/,
+  },
+  {
+    // Matches `version: 'X.Y.Z'` in the MCP Server constructor (packages/core/src/server.ts)
+    file: 'packages/core/src/server.ts',
+    type: 'banner',
+    re: /(version: ['"])\d+\.\d+\.\d+(['"])/,
+  },
 ];
 
 function readVersion() {

@@ -4,10 +4,13 @@
  * a persistent process registry accessible from both CLI (`fennec ps`)
  * and MCP tools (`process_get_tracked`).
  */
-import { existsSync, writeFileSync, readFileSync, mkdirSync } from 'node:fs';
+import { existsSync, writeFileSync, readFileSync, mkdirSync, renameSync } from 'node:fs';
 import { resolve, dirname, basename } from 'node:path';
 import { homedir } from 'node:os';
 import { isProcessRunning, getProcessEnviron, getProcessCmdline } from '../utils/system-process.js';
+import { getLogger } from '../utils/logger.js';
+
+export type DebugMode = 'off' | 'log' | 'breakpoint' | 'auto';
 
 export interface TrackedEntry {
   name: string;
@@ -33,6 +36,14 @@ export interface TrackedEntry {
   group?: string;
   /** Log capture mode (mirrors CLI). */
   logMode?: 'text' | 'json';
+  /**
+   * Debug/observation mode for this process.
+   * - 'off' (default): normal operation, no debug features
+   * - 'log': Level 1 — smart log debugging (passive)
+   * - 'breakpoint': Level 2 — breakpoint debug (active)
+   * - 'auto': Level 3 — auto-debug (proactive)
+   */
+  debugMode?: DebugMode;
   /**
    * True when the user/agent explicitly stopped this process.
    * Prevents resurrectTracked() from re-spawning it on server restart.
@@ -68,15 +79,22 @@ export function readTracked(): TrackedEntry[] {
   }
 }
 
+/**
+ * Save tracked processes atomically: write to a temp file, then rename.
+ * Prevents concurrent reader-writer races (read-modify-write from
+ * another agent session).
+ */
 export function saveTracked(processes: TrackedEntry[]): void {
   try {
     const path = getTrackedPath();
+    const tmp = `${path}.${process.pid}.tmp`;
     mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, JSON.stringify(processes, null, 2), 'utf-8');
+    writeFileSync(tmp, JSON.stringify(processes, null, 2), 'utf-8');
+    renameSync(tmp, path);
   } catch (err) {
-    console.error(
-      '[fennec] Failed to save tracked processes:',
-      err instanceof Error ? err.message : String(err),
+    getLogger().error(
+      { error: err instanceof Error ? err.message : String(err) },
+      'Failed to save tracked processes',
     );
   }
 }

@@ -44,6 +44,21 @@ function resolveLogName(processId: string): string | undefined {
   return undefined;
 }
 
+/** Build a suggestion list of available process names from tracked.json. */
+function suggestionsWithAvailable(extra?: string): string[] {
+  const tracked = readTracked();
+  const names =
+    tracked.length > 0
+      ? tracked.map(
+          (t) =>
+            `  - ${t.name}${t.group ? ` (group: ${t.group})` : ''}${isTrackedRunning(t) ? ' (running)' : ' (stopped)'}`,
+        )
+      : ['  (no tracked processes)'];
+  const result: string[] = ['Available processes:', ...names];
+  if (extra) result.push(extra);
+  return result;
+}
+
 export const processSpawn = createTool({
   name: 'process_spawn',
   category: 'process',
@@ -109,9 +124,7 @@ export const processSpawn = createTool({
       }
       // Idempotent by name: if the same tracked name is already running, reuse it.
       if (input.name) {
-        const existing = readTracked().find(
-          (t) => t.name === input.name && isTrackedRunning(t),
-        );
+        const existing = readTracked().find((t) => t.name === input.name && isTrackedRunning(t));
         if (existing) {
           return responseBuilder.success(
             {
@@ -133,6 +146,7 @@ export const processSpawn = createTool({
         input.cwd,
         input.env,
         input.name,
+        input.port,
       );
 
       // Sync to tracked.json so CLI's `fennec ps` sees agent-spawned processes
@@ -204,6 +218,7 @@ export const processRunAndWait = createTool({
         input.env,
         input.name,
       );
+
       const start = Date.now();
       let timedOut = false;
       let exitCode = -1;
@@ -344,7 +359,7 @@ export const processGetLogs = createTool({
     } catch (error) {
       return responseBuilder.error(error, {
         code: 'PROCESS_NOT_FOUND',
-        suggestions: ['Use process_list to see available processes'],
+        suggestions: suggestionsWithAvailable(),
       });
     }
   },
@@ -368,7 +383,10 @@ export const processGetStatus = createTool({
         cpuPercent: null as number | null,
       });
     } catch (error) {
-      return responseBuilder.error(error, { code: 'PROCESS_NOT_FOUND' });
+      return responseBuilder.error(error, {
+        code: 'PROCESS_NOT_FOUND',
+        suggestions: suggestionsWithAvailable(),
+      });
     }
   },
 });
@@ -388,7 +406,10 @@ export const processSendInput = createTool({
         sent: processManager.sendInput(input.processId, input.input),
       });
     } catch (error) {
-      return responseBuilder.error(error, { code: 'PROCESS_NOT_FOUND' });
+      return responseBuilder.error(error, {
+        code: 'PROCESS_NOT_FOUND',
+        suggestions: suggestionsWithAvailable(),
+      });
     }
   },
 });
@@ -464,7 +485,10 @@ export const processKill = createTool({
 
       return responseBuilder.success({ killed, notFound, count: killed.length });
     } catch (error) {
-      return responseBuilder.error(error, { code: 'PROCESS_NOT_FOUND' });
+      return responseBuilder.error(error, {
+        code: 'PROCESS_NOT_FOUND',
+        suggestions: suggestionsWithAvailable(),
+      });
     }
   },
 });
@@ -714,6 +738,7 @@ export const processRenameTracked = createTool({
     if (!match) {
       return responseBuilder.error(new Error(`No tracked process named "${input.oldName}"`), {
         code: 'PROCESS_NOT_FOUND',
+        suggestions: suggestionsWithAvailable(),
       });
     }
 
@@ -859,21 +884,21 @@ export const processRestart = createTool({
             stdio: ['ignore', 'pipe', 'pipe'],
             detached: true,
           });
-        const newPid = child.pid ?? 0;
-        // PID 0 means the spawn failed — skip this entry.
-        if (newPid === 0) {
-          skipped.push(name);
-          return;
-        }
-        mkdirSync(dirname(logFilePath), { recursive: true });
-        const logStream = createWriteStream(logFilePath, { flags: 'a' });
-        if (child.stdout) child.stdout.pipe(logStream);
-        if (child.stderr) child.stderr.pipe(logStream);
-        child.unref();
-        removeTrackedByPid(m.pid);
-        addTracked({
-          name: m.name,
-          pid: newPid,
+          const newPid = child.pid ?? 0;
+          // PID 0 means the spawn failed — skip this entry.
+          if (newPid === 0) {
+            skipped.push(name);
+            return;
+          }
+          mkdirSync(dirname(logFilePath), { recursive: true });
+          const logStream = createWriteStream(logFilePath, { flags: 'a' });
+          if (child.stdout) child.stdout.pipe(logStream);
+          if (child.stderr) child.stderr.pipe(logStream);
+          child.unref();
+          removeTrackedByPid(m.pid);
+          addTracked({
+            name: m.name,
+            pid: newPid,
             command: m.command,
             args: m.args,
             port: m.port,
@@ -920,7 +945,7 @@ export const processRestart = createTool({
     } catch (error) {
       return responseBuilder.error(error, {
         code: 'PROCESS_NOT_FOUND',
-        suggestions: ['Use process_list to see available processes'],
+        suggestions: suggestionsWithAvailable(),
       });
     }
   },
@@ -980,7 +1005,10 @@ export const processWaitForReady = createTool({
         check();
       });
     } catch (error) {
-      return responseBuilder.error(error, { code: 'PROCESS_NOT_FOUND' });
+      return responseBuilder.error(error, {
+        code: 'PROCESS_NOT_FOUND',
+        suggestions: suggestionsWithAvailable(),
+      });
     }
   },
 });

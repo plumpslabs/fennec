@@ -251,7 +251,7 @@ export async function runCommand(args: string[]): Promise<void> {
     );
     const ready = await waitForReady(pid, port);
     spinner.stop();
-    process.stdout.write('\r\x1b[K');
+    process.stderr.write('\r\x1b[K');
 
     if (!ready.running) {
       // Crashed almost immediately (bad command, missing target, etc.)
@@ -370,7 +370,7 @@ export async function resurrectTracked(): Promise<void> {
   }
 
   spinner.stop();
-  process.stdout.write('\r\x1b[K');
+  process.stderr.write('\r\x1b[K');
 
   if (resurrected > 0) {
     console.error(`  ${pc.green('●')} ${pc.bold(`Resurrected ${resurrected} process(es)`)}`);

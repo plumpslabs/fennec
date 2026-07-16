@@ -12,7 +12,7 @@
  *   "Page: error | 5 console errors | 2 failed requests"
  */
 
-import type { MiddlewareFn } from './Pipeline.js';
+import type { MiddlewareFn, ToolResult } from './Pipeline.js';
 import { getLogger } from '../utils/logger.js';
 import type { BrowserSession } from '../browser/types.js';
 
@@ -126,11 +126,11 @@ export function createPulseContext(): MiddlewareFn {
         const pulse = await buildPulse(ctx.session);
 
         // Always attach pulse to meta
-        const resultObj = result as Record<string, unknown>;
+        const resultObj = result as ToolResult;
         if (!resultObj.meta) {
           resultObj.meta = {};
         }
-        (resultObj.meta as Record<string, unknown>).pulse = pulse;
+        resultObj.meta.pulse = pulse;
       } catch (error) {
         // Pulse is best-effort
         logger.warn({ error }, 'PulseContext: failed to build pulse');

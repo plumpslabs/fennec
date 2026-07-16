@@ -15,6 +15,7 @@ import type { WorkflowScheduler } from '../scheduler/WorkflowScheduler.js';
 import type { EventBus } from '../correlation/EventBus.js';
 import type { LazyContext } from '../middleware/LazyContext.js';
 import type { IncidentEngine } from '../incident/IncidentEngine.js';
+import type { PerformanceMetrics } from '../utils/PerformanceMetrics.js';
 import type { FennecLogger } from '../utils/logger.js';
 
 export interface ToolContext {
@@ -36,6 +37,7 @@ export interface ToolContext {
   eventBus: EventBus;
   lazyContext: LazyContext;
   incidentEngine: IncidentEngine;
+  performanceMetrics: PerformanceMetrics;
   toolRegistry?: ToolRegistry;
   tokenBudget?: { maxResponseTokens: number };
   /** Progress reporter for long-running tools — sends notifications to MCP client */

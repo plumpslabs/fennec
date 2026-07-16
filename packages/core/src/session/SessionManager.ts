@@ -13,6 +13,7 @@ export class SessionManager {
   private store: SessionStore;
   private engine: BrowserEngine | null = null;
   private browserInstance: BrowserInstance | null = null;
+  private launchPromise: Promise<void> | null = null;
 
   private eventBus: EventBus | null = null;
   private pruneTimer: ReturnType<typeof setInterval> | null = null;
@@ -46,9 +47,6 @@ export class SessionManager {
     }
   }
 
-  /**
-   * Set the EventBus to publish browser events to.
-   */
   setEventBus(eventBus: EventBus): void {
     this.eventBus = eventBus;
   }
@@ -63,7 +61,7 @@ export class SessionManager {
 
   async initialize(): Promise<void> {
     const logger = getLogger();
-    logger.info('Initializing Fennec session manager');
+    logger.info('Initializing Fennec session manager (lazy mode)');
 
     // Create engine if not already set (backward compat: default to Playwright)
     if (!this.engine) {
@@ -71,19 +69,31 @@ export class SessionManager {
       const factory = new PlaywrightEngineFactory();
       this.engine = factory.create(this.config.browser.type);
     }
+  }
 
-    this.browserInstance = await this.engine.launch({
-      headless: this.config.browser.headless,
-      slowMo: this.config.browser.slowMo,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      ignoreHTTPSErrors: this.config.browser.ignoreHTTPSErrors,
-      viewport: this.config.browser.viewport,
-      locale: this.config.browser.locale,
-      userAgent: this.config.browser.userAgent ?? undefined,
-    });
+  async ensureBrowserLaunched(): Promise<void> {
+    if (this.browserInstance) return;
+    if (this.launchPromise) return this.launchPromise;
 
-    // Create default session
-    await this.createDefaultSession();
+    this.launchPromise = (async () => {
+      const logger = getLogger();
+      logger.info('Launching browser lazily on first access...');
+
+      this.browserInstance = await this.engine!.launch({
+        headless: this.config.browser.headless,
+        slowMo: this.config.browser.slowMo,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        ignoreHTTPSErrors: this.config.browser.ignoreHTTPSErrors,
+        viewport: this.config.browser.viewport,
+        locale: this.config.browser.locale,
+        userAgent: this.config.browser.userAgent ?? undefined,
+      });
+
+      // Create default session
+      await this.createDefaultSession();
+    })();
+
+    return this.launchPromise;
   }
 
   private async createDefaultSession(): Promise<FennecSession> {
@@ -465,6 +475,8 @@ export class SessionManager {
    * tool call works instead of every call failing with "Unable to connect".
    */
   async ensureAlive(id?: string): Promise<void> {
+    await this.ensureBrowserLaunched();
+
     let sessionId = id ?? this.defaultSessionId;
     if (!sessionId || !this.sessions.has(sessionId)) {
       const session = await this.createDefaultSession();

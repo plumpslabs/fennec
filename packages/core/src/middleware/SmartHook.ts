@@ -1,4 +1,4 @@
-import type { MiddlewareFn, MiddlewareContext } from './Pipeline.js';
+import type { MiddlewareFn, MiddlewareContext, ToolResult } from './Pipeline.js';
 import type { BrowserSession } from '../browser/types.js';
 import { getLogger } from '../utils/logger.js';
 import { sanitize } from '../response/ResponseBuilder.js';
@@ -71,12 +71,25 @@ function generateFallbackSelectors(input: string): FallbackSelector[] {
  * Try to perform the original tool action using a fallback selector.
  * Returns the data payload if recovery succeeds, or null if it fails.
  */
+/** Recover action input — tool-specific fields used during auto-recovery. */
+interface RecoverActionInput {
+  button?: 'left' | 'right' | 'middle';
+  clickCount?: number;
+  text?: string;
+  clear?: boolean;
+  delay?: number;
+  value?: string;
+  state?: string;
+  timeout?: number;
+  [key: string]: unknown;
+}
+
 async function tryRecoverAction(
   ctx: MiddlewareContext,
   browser: BrowserSession,
   fallback: string,
 ): Promise<Record<string, unknown> | null> {
-  const input = ctx.input as Record<string, string | number | boolean | string[] | undefined>;
+  const input = ctx.input as RecoverActionInput;
   const loc = browser.locator(fallback);
 
   try {
@@ -273,21 +286,21 @@ export function createSmartHook(): MiddlewareFn {
   return async (ctx, next) => {
     const result = await next();
 
-    const resultObj = result as Record<string, unknown>;
-    const isError = resultObj && 'success' in resultObj && resultObj.success === false;
+    const resultObj = result as ToolResult;
 
-    if (!isError) {
+    if (resultObj.success !== false) {
       return result;
     }
 
-    const errorObj = resultObj.error as Record<string, unknown> | undefined;
-    const errorCode = (errorObj?.code as string) ?? 'UNKNOWN';
+    const errorObj = resultObj.error;
+    const errorCode = errorObj?.code ?? 'UNKNOWN';
 
     logger.info({ tool: ctx.toolName, errorCode }, 'SmartHook: error detected, collecting context');
 
     // === StateManager Context ===
     // Inject current session context info so AI knows which session/context it's in
     let contextSwitchInfo: Record<string, unknown> | null = null;
+
     if (ctx.stateManager) {
       const activeInfo = ctx.stateManager.getActiveSessionInfo();
       if (activeInfo) {
@@ -355,6 +368,149 @@ export function createSmartHook(): MiddlewareFn {
         }
       }
 
+      // ─── Auto‑recovery: ELEMENT_NOT_INTERACTABLE ────────────
+      // When click fails on an <option> element, suggest/use browser_select instead.
+      // <option> elements are not clickable directly — they need selectOption().
+      if (
+        errorCode === 'ELEMENT_NOT_INTERACTABLE' &&
+        ctx.toolName === 'browser_click' &&
+        browser &&
+        ctx.input?.selector
+      ) {
+        const originalSelector = String(ctx.input.selector);
+
+        try {
+          // Use locator().evaluate() to check the element type and extract option info.
+          // ElementHandle does NOT have evaluate(), but Locator does.
+          const loc = browser.locator(originalSelector);
+          const elementInfo = await loc
+            .evaluate((node: Element) => {
+              const tag = node.tagName.toLowerCase();
+              if (tag === 'option') {
+                const opt = node as HTMLOptionElement;
+                const parent = opt.closest('select');
+                return {
+                  tagName: tag,
+                  optionValue: opt.value,
+                  optionText: opt.text,
+                  selectName: parent?.getAttribute('name') ?? '',
+                  selectId: parent?.id ?? '',
+                  allOptions: parent
+                    ? Array.from(parent.options).map((o) => ({
+                        value: o.value,
+                        text: o.text,
+                      }))
+                    : [],
+                };
+              }
+              return {
+                tagName: tag,
+                optionValue: null,
+                optionText: null,
+                selectName: null,
+                selectId: null,
+                allOptions: [],
+              };
+            })
+            .catch(() => null);
+
+          if (elementInfo && elementInfo.tagName === 'option' && elementInfo.optionValue) {
+            // Build a selector for the parent <select>
+            const selectSelector = elementInfo.selectId
+              ? `#${elementInfo.selectId}`
+              : elementInfo.selectName
+                ? `select[name="${elementInfo.selectName}"]`
+                : undefined;
+
+            // Try auto-recovery: use browser_select on the parent <select>
+            if (selectSelector) {
+              const selectLoc = browser.locator(selectSelector);
+              const selectExists = await selectLoc.count().catch(() => 0);
+
+              if (selectExists > 0) {
+                try {
+                  await selectLoc.selectOption(elementInfo.optionValue);
+
+                  logger.info(
+                    {
+                      tool: ctx.toolName,
+                      originalSelector,
+                      selectSelector,
+                      optionValue: elementInfo.optionValue,
+                    },
+                    'SmartHook: auto-recovered ELEMENT_NOT_INTERACTABLE via browser_select',
+                  );
+
+                  return {
+                    success: true,
+                    data: {
+                      recovered: true,
+                      originalSelector,
+                      actionSuggested: 'browser_select',
+                      selectSelector,
+                      selectedValue: elementInfo.optionValue,
+                      allOptions: elementInfo.allOptions,
+                      recoveryStrategy: 'auto_select',
+                      message: `Element was an <option> inside a <select>. Auto-recovered using browser_select with value="${elementInfo.optionValue}".`,
+                    },
+                    meta: resultObj.meta ?? {},
+                  };
+                } catch {
+                  // Auto-recovery failed, fall through to enriched context
+                }
+              }
+            }
+
+            // If auto-recovery failed or no parent selector, inject enriched context
+            enrichedContext.recovery = {
+              attempted: true,
+              status: 'option_detected',
+              originalSelector,
+              elementType: 'option',
+              optionValue: elementInfo.optionValue,
+              optionText: elementInfo.optionText,
+              allOptions: elementInfo.allOptions.slice(0, 20),
+              selectSelector,
+              actionSuggested: 'browser_select',
+              message:
+                `Element "${originalSelector}" resolved to an <option value="${elementInfo.optionValue}"> element. ` +
+                `<option> elements cannot be clicked directly. ` +
+                (selectSelector
+                  ? `Use browser_select with selector="${selectSelector}" and value="${elementInfo.optionValue}" instead.`
+                  : `Use browser_select on the parent <select> element with value="${elementInfo.optionValue}" instead.`),
+            };
+          } else if (elementInfo && elementInfo.tagName === 'select') {
+            // Element is a <select> itself — suggest using browser_select
+            enrichedContext.recovery = {
+              attempted: true,
+              status: 'select_detected',
+              originalSelector,
+              elementType: 'select',
+              actionSuggested: 'browser_select',
+              message:
+                `Element "${originalSelector}" is a <select> element. ` +
+                `Use browser_select instead of browser_click to select an option. ` +
+                `First use browser_get_dom_snapshot to see available options.`,
+            };
+          } else {
+            // Other non-interactable element — just note it
+            const elTag = elementInfo?.tagName || 'unknown';
+            enrichedContext.recovery = {
+              attempted: true,
+              status: 'not_interactable',
+              originalSelector,
+              elementType: elTag,
+              message:
+                `Element "${originalSelector}" (${elTag}) is not interactable. ` +
+                `It may be hidden, disabled, or behind another element. ` +
+                `Try browser_get_element_info to check its state.`,
+            };
+          }
+        } catch {
+          // Recovery detection is best-effort
+        }
+      }
+
       // ─── Auto‑recovery: ELEMENT_NOT_FOUND ────────────────────
       // Try fallback selectors when the original selector failed.
       // If a fallback finds the element AND the action succeeds,
@@ -411,7 +567,7 @@ export function createSmartHook(): MiddlewareFn {
                 recoveredSelector: recoveryAttempt.selector,
                 recoveryStrategy: recoveryAttempt.strategy,
               },
-              meta: (resultObj.meta as Record<string, unknown>) ?? {},
+              meta: resultObj.meta ?? {},
             };
           } else {
             // Element found but action failed — inject recovery info into error context
@@ -494,8 +650,8 @@ export function createSmartHook(): MiddlewareFn {
 
     // For ELEMENT_NOT_FOUND: inject URL as top-level field for AI visibility
     if (errorCode === 'ELEMENT_NOT_FOUND' && enrichedContext.url) {
-      (resultObj as Record<string, unknown>).currentUrl = enrichedContext.url;
-      (resultObj as Record<string, unknown>).pageTitle = enrichedContext.title;
+      resultObj.currentUrl = enrichedContext.url;
+      resultObj.pageTitle = enrichedContext.title;
     }
 
     // Inject context switch / session info into enriched context
@@ -503,13 +659,13 @@ export function createSmartHook(): MiddlewareFn {
       enrichedContext.sessionContext = contextSwitchInfo;
 
       // Also inject as top-level field so AI immediately sees it
-      (resultObj as Record<string, unknown>).sessionContext = contextSwitchInfo;
+      resultObj.sessionContext = contextSwitchInfo;
     }
 
     // Attach enriched context to error response
     if (errorObj && Object.keys(enrichedContext).length > 0) {
       errorObj.context = {
-        ...((errorObj.context as Record<string, unknown>) ?? {}),
+        ...(errorObj.context ?? {}),
         ...sanitize(enrichedContext),
       };
     }

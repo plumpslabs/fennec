@@ -1786,9 +1786,17 @@ export const smartWaitForSpa = createTool({
       const timeout2 = Math.max(1000, timeout - elapsed2);
       for (const selector of loadingSelectors) {
         try {
-          const visible = await page.locator(selector).first().isVisible().catch(() => false);
+          const visible = await page
+            .locator(selector)
+            .first()
+            .isVisible()
+            .catch(() => false);
           if (visible) {
-            await page.locator(selector).first().waitFor({ state: 'hidden', timeout: Math.min(3000, timeout2) }).catch(() => {});
+            await page
+              .locator(selector)
+              .first()
+              .waitFor({ state: 'hidden', timeout: Math.min(3000, timeout2) })
+              .catch(() => {});
           }
         } catch {
           // ignore selector/detachment errors

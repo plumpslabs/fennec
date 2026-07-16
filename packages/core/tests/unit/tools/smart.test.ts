@@ -11,7 +11,12 @@ vi.mock('../../../src/utils/selector.js', () => ({
 }));
 
 // Now import the functions under test
-import { findSubmitButton, fillField, type DetectedField, smartWaitForSpa } from '../../../src/tools/smart/index.js';
+import {
+  findSubmitButton,
+  fillField,
+  type DetectedField,
+  smartWaitForSpa,
+} from '../../../src/tools/smart/index.js';
 
 // ─── Helpers ───────────────────────────────────────────────────
 
@@ -388,4 +393,3 @@ describe('smart_wait_for_spa tool', () => {
     }
   });
 });
-

@@ -312,7 +312,9 @@ export async function runSupervisor(): Promise<void> {
       if (existsSync(pidPath)) {
         const activePid = parseInt(readFileSync(pidPath, 'utf-8').trim(), 10);
         if (!isNaN(activePid) && activePid !== process.pid) {
-          log(`another supervisor is active (PID ${activePid}); current PID ${process.pid} exiting gracefully`);
+          log(
+            `another supervisor is active (PID ${activePid}); current PID ${process.pid} exiting gracefully`,
+          );
           cleanup();
           return;
         }

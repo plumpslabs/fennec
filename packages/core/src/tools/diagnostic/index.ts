@@ -265,6 +265,44 @@ export const diagnoseFullstack = createTool({
   },
 });
 
+export const diagnoseFennecHealth = createTool({
+  name: 'diagnose_fennec_health',
+  category: 'diagnostic',
+  description:
+    '`<use_case>Diagnostic</use_case> 🩺 Self-diagnose Fennec server health. Returns trend analysis (improving/stable/degrading), recent metrics, memory usage, and uptime. Use when the agent suspects Fennec is running slowly or has degraded performance. Token-efficient: ~50 tokens. Does NOT depend on any browser session.',
+  inputSchema: z.object({}),
+  handler: async (_input, { performanceMetrics, sessionManager, responseBuilder }) => {
+    const metrics = performanceMetrics.getMetrics();
+    const trend = performanceMetrics.analyzeTrend();
+    const mem = process.memoryUsage();
+
+    return responseBuilder.success(
+      {
+        trend: {
+          direction: trend.direction,
+          summary: trend.summary,
+          durationMsTrend: trend.durationMsTrend,
+          memoryTrend: trend.memoryTrend,
+          errorRateTrend: trend.errorRateTrend,
+        },
+        metrics: {
+          totalToolCalls: metrics.totalToolCalls,
+          avgDurationMs: metrics.avgDurationMs,
+          errorRate: metrics.errorRate,
+          slowestTools: metrics.slowestTools.slice(0, 3),
+        },
+        memory: {
+          heapMB: Math.round(mem.heapUsed / 1024 / 1024),
+          rssMB: Math.round(mem.rss / 1024 / 1024),
+          heapTotalMB: Math.round(mem.heapTotal / 1024 / 1024),
+        },
+        uptimeMin: Math.round((Date.now() - performanceMetrics.startTime) / 60000),
+      },
+      sessionManager.buildMeta(sessionManager.getOrDefault()),
+    );
+  },
+});
+
 export const diagnosePerformance = createTool({
   name: 'diagnose_performance',
   category: 'diagnostic',

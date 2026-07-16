@@ -89,6 +89,22 @@ export interface FennecConfig {
     level2MaxTokens: number;
     /** Max tokens for LazyContext Level 3 raw data */
     level3MaxTokens: number;
+    /** Max tokens for debug tool responses (default: 2000). Truncated if exceeded. */
+    debugMaxTokens?: number;
+    /** Max variables per scope snapshot (default: 20) */
+    debugMaxVariables?: number;
+    /** Max stack frames per trace (default: 10) */
+    debugMaxStackFrames?: number;
+  };
+  debug?: {
+    /** Allow debug features globally. Default: false */
+    allowDebug: boolean;
+    /** Allow expression evaluation in breakpoint context (high risk). Default: false */
+    allowDebugEval: boolean;
+    /** Restrict breakpoints to only these directories. Empty = no restriction */
+    allowedDirs?: string[];
+    /** Allow breakpoints in dependency directories (node_modules, .venv, etc). Default: false */
+    allowDependencies: boolean;
   };
   security: {
     sandbox: boolean;
@@ -171,6 +187,15 @@ export const defaultConfig: FennecConfig = {
     level1MaxTokens: 100,
     level2MaxTokens: 500,
     level3MaxTokens: 2000,
+    debugMaxTokens: 2000,
+    debugMaxVariables: 20,
+    debugMaxStackFrames: 10,
+  },
+  debug: {
+    allowDebug: false,
+    allowDebugEval: false,
+    allowedDirs: [],
+    allowDependencies: false,
   },
   security: {
     sandbox: true,

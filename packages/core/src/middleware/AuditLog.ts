@@ -1,4 +1,4 @@
-import type { MiddlewareFn } from './Pipeline.js';
+import type { MiddlewareFn, ToolResult } from './Pipeline.js';
 import { getLogger } from '../utils/logger.js';
 
 export interface AuditEntry {
@@ -46,11 +46,9 @@ export function createAuditLog(options?: {
     try {
       const result = await next();
       const durationMs = Date.now() - startTime;
-      const resultObj = result as Record<string, unknown>;
-      const isError = resultObj?.success === false;
-      const errorCode = isError
-        ? (((resultObj.error as Record<string, unknown> | undefined)?.code as string) ?? 'UNKNOWN')
-        : undefined;
+      const resultObj = result as ToolResult;
+      const isError = resultObj.success === false;
+      const errorCode = isError ? (resultObj.error?.code ?? 'UNKNOWN') : undefined;
 
       const entry: AuditEntry = {
         id,
