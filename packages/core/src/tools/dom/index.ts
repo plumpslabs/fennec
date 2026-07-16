@@ -367,11 +367,43 @@ export const browserGetAccessibilityTree = createTool({
   },
 });
 
+/**
+ * Vanilla DOM fallback for Playwright selectors that the unified engine misses.
+ * Handles :has-text(), text=, role=, and plain CSS selectors.
+ */
+function vanillaDomFallback(sel: string): string {
+  // xpath= is not supported via querySelectorAll — return as-is so Playwright handles it
+  if (sel.startsWith('xpath=')) return sel;
+
+  // role= → attribute selector
+  if (sel.startsWith('role=')) {
+    const role = JSON.parse(sel.slice(5));
+    return `[role="${role}"]`;
+  }
+
+  // text="..." and text=... → match any element containing that text
+  if (sel.startsWith('text=')) {
+    const raw = sel.slice(5);
+    const text = raw.startsWith('"') || raw.startsWith("'")
+      ? JSON.parse(raw)
+      : raw;
+    return `//text()=${text}`; // marker — handled in evaluate
+  }
+
+  // :has-text("...") → extract CSS prefix, filter by text in evaluate
+  if (sel.includes(':has-text(')) {
+    return sel; // handled in evaluate by stripping :has-text and filtering
+  }
+
+  // Plain CSS — pass through
+  return sel;
+}
+
 export const browserFindElements = createTool({
   name: 'browser_find_elements',
   category: 'dom',
   description:
-    '`<use_case>DOM inspection</use_case> 🔎 Find ALL elements matching a selector, using the SAME unified selector engine as browser_click / browser_type / browser_hover. Supports CSS, `text="Login"`, `:has-text("Login")`, `role=button`, and `xpath=//...`. Returns specified attributes for each element (default: id, class, textContent, tagName). Falls back to Shadow DOM piercing (CSS only) when the unified engine finds nothing. Use when you know the selector and need specific elements. For exploring the whole page structure, use browser_get_dom_snapshot first.`',
+    '`<use_case>DOM inspection</use_case> 🔎 Find ALL elements matching a selector, using the SAME unified selector engine as browser_click / browser_type / browser_hover. Supports CSS, `text="Login"`, `:has-text("Login")`, `role=button`, and `xpath=//...`. Returns specified attributes for each element (default: id, class, textContent, tagName). Falls back to vanilla DOM APIs when the unified engine finds nothing. Use when you know the selector and need specific elements. For exploring the whole page structure, use browser_get_dom_snapshot first.`',
   inputSchema: z.object({
     selector: z.string().describe('Selector — CSS, text=, :has-text(), role=, or xpath='),
     returnAttributes: z
@@ -384,38 +416,49 @@ export const browserFindElements = createTool({
       .optional()
       .default(true)
       .describe('Include Shadow DOM elements in search (CSS fallback)'),
+    forceDomFallback: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe('Skip the unified engine and use vanilla DOM APIs directly'),
     sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
       const attributes = input.returnAttributes!;
-      // Use the unified Playwright locator engine (text=, :has-text(), role=,
-      // CSS, xpath=) — consistent with click/type/hover (issue #8).
-      const elements = await session.browser
-        .locator(input.selector)
-        .evaluateAll(
-          (els: Element[], attrs: string[]) =>
-            els.map((el) => {
-              const a: Record<string, string | null> = {};
-              for (const attr of attrs) {
-                if (attr === 'textContent') a[attr] = el.textContent?.trim() ?? null;
-                else if (attr === 'tagName') a[attr] = el.tagName?.toLowerCase() ?? null;
-                else a[attr] = el.getAttribute(attr) ?? null;
-              }
-              return a;
-            }),
-          attributes,
-        )
-        .catch(() => null as Record<string, string | null>[] | null);
+      let result: Record<string, string | null>[] = [];
 
-      let result = elements ?? [];
+      if (!input.forceDomFallback) {
+        // Use the unified Playwright locator engine (text=, :has-text(), role=,
+        // CSS, xpath=) — consistent with click/type/hover (issue #8).
+        const elements = await session.browser
+          .locator(input.selector)
+          .evaluateAll(
+            (els: Element[], attrs: string[]) =>
+              els.map((el) => {
+                const a: Record<string, string | null> = {};
+                for (const attr of attrs) {
+                  if (attr === 'textContent') a[attr] = el.textContent?.trim() ?? null;
+                  else if (attr === 'tagName') a[attr] = el.tagName?.toLowerCase() ?? null;
+                  else a[attr] = el.getAttribute(attr) ?? null;
+                }
+                return a;
+              }),
+            attributes,
+          )
+          .catch(() => null as Record<string, string | null>[] | null);
 
-      // Shadow DOM piercing fallback (CSS only) when the unified engine found nothing.
-      if (result.length === 0 && (input.includeShadowDom ?? true)) {
-        const shadow = await session.browser
+        result = elements ?? [];
+      }
+
+      // Vanilla DOM fallback when unified engine returned 0 results or forceDomFallback is set
+      if (result.length === 0) {
+        const domFallbackSelector = vanillaDomFallback(input.selector);
+
+        const domResult = await session.browser
           .evaluate(
-            ({ sel, attrs }) => {
+            ({ sel, attrs, origSel }) => {
               function queryAllDeep(root: Document | ShadowRoot, s: string): Element[] {
                 const out: Element[] = [];
                 try {
@@ -430,8 +473,43 @@ export const browserFindElements = createTool({
                 }
                 return out;
               }
-              const els = queryAllDeep(document, sel);
-              return els.map((el) => {
+
+              // Helper: check if element text matches the :has-text("...") value
+              function matchesHasText(el: Element, pattern: string): boolean {
+                const text = (el.textContent ?? '').trim().toLowerCase();
+                const q = pattern.toLowerCase();
+                return text.includes(q);
+              }
+
+              let elements: Element[] = [];
+
+              // Handle :has-text("...") — extract CSS prefix and filter by text
+              const hasTextMatch = origSel.match(/^(.+?):has-text\(["']([^"']+)["']\)$/);
+              if (hasTextMatch) {
+                const [, cssPrefix, searchText] = hasTextMatch;
+                try {
+                  const candidates = queryAllDeep(document, cssPrefix || '*');
+                  elements = candidates.filter((el) => matchesHasText(el, searchText));
+                } catch {
+                  elements = [];
+                }
+              } else if (sel.startsWith('//text()=')) {
+                // text=... selector — find any element containing the text
+                const searchText = sel.slice(9);
+                const all = queryAllDeep(document, '*');
+                elements = all.filter((el) => {
+                  const text = (el.textContent ?? '').trim().toLowerCase();
+                  return text.includes(searchText.toLowerCase());
+                });
+              } else if (sel === origSel) {
+                // Plain CSS — querySelectorAll directly
+                elements = queryAllDeep(document, sel);
+              } else {
+                // Converted selector (e.g. role= → [role="..."])
+                elements = queryAllDeep(document, sel);
+              }
+
+              return elements.map((el) => {
                 const a: Record<string, string | null> = {};
                 for (const attr of attrs) {
                   if (attr === 'textContent') a[attr] = el.textContent?.trim() ?? null;
@@ -441,10 +519,17 @@ export const browserFindElements = createTool({
                 return a;
               });
             },
-            { sel: input.selector, attrs: attributes },
+            {
+              sel: domFallbackSelector,
+              attrs: attributes,
+              origSel: input.selector,
+            },
           )
           .catch(() => [] as Record<string, string | null>[]);
-        result = shadow;
+
+        if (domResult.length > 0) {
+          result = domResult;
+        }
       }
 
       return responseBuilder.success(
@@ -460,6 +545,7 @@ export const browserFindElements = createTool({
         suggestions: [
           'Use a supported selector: CSS, text="Login", :has-text("Login"), role=button, or xpath=//...',
           'For text matching prefer text="Login" or :has-text("Login")',
+          'Set forceDomFallback: true to skip the unified engine',
         ],
       });
     }
