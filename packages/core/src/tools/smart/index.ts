@@ -734,6 +734,13 @@ export const browserScreenshotAnnotated = createTool({
       .optional()
       .default(false)
       .describe('Capture full page (including scrollable content)'),
+    output: z
+      .enum(['base64', 'compact'])
+      .optional()
+      .default('base64')
+      .describe(
+        "'base64' = full annotated screenshot with image (default), 'compact' = element metadata only, no screenshot (~80% token savings)",
+      ),
     sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
@@ -744,11 +751,30 @@ export const browserScreenshotAnnotated = createTool({
       // Phase 1: Inject numbered annotations on interactive elements
       const annotatedElements = await injectAnnotations(page);
 
-      // Phase 2: Take screenshot with annotations visible
+      const output = input.output ?? 'base64';
       const format = input.format ?? 'png';
       const fullPage = input.fullPage ?? false;
-      const buffer = await page.screenshot({ fullPage, type: format });
 
+      // Phase 2: In compact mode, return elements only (no screenshot)
+      if (output === 'compact') {
+        await removeAnnotations(page);
+        return responseBuilder.success(
+          {
+            annotatedCount: annotatedElements.length,
+            elements: annotatedElements.map((el) => ({
+              index: el.index,
+              tag: el.tag,
+              text: el.text.slice(0, 80),
+              selector: el.selector,
+              boundingBox: el.boundingBox,
+            })),
+          },
+          sessionManager.buildMeta(session),
+        );
+      }
+
+      // Phase 2 (base64 mode): Take screenshot with annotations visible
+      const buffer = await page.screenshot({ fullPage, type: format });
       const base64 = buffer.toString('base64');
 
       // Phase 3: Clean up annotations
