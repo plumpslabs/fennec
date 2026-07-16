@@ -3,6 +3,11 @@ import { createTool } from '../_registry.js';
 import type { ToolContext } from '../_registry.js';
 import { resolveSelector, resolveIndexedSelector } from '../../utils/selector.js';
 
+function isStrictModeViolation(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg.includes('strict mode violation') || (msg.includes('resolved to') && msg.includes('elements'));
+}
+
 export const browserClick = createTool({
   name: 'browser_click',
   category: 'interaction',
@@ -20,8 +25,10 @@ export const browserClick = createTool({
     try {
       const resolved = await resolveIndexedSelector(session.browser, input.selector, input.index);
       if (!resolved.found) {
+        const currentUrl = session.browser.url();
         return responseBuilder.error(new Error(`Element not found: ${input.selector}`), {
           code: 'ELEMENT_NOT_FOUND',
+          context: { url: currentUrl },
           suggestions: [
             'Check if the page has finished loading',
             'Try using a different selector strategy',
@@ -46,14 +53,15 @@ export const browserClick = createTool({
         sessionManager.buildMeta(session),
       );
     } catch (error) {
-      return responseBuilder.error(error, {
-        code: 'ELEMENT_NOT_INTERACTABLE',
-        suggestions: [
-          'Check if the element is visible and enabled',
-          'Try scrolling to the element first',
-          'Use browser_get_element_info to check element state',
-        ],
-      });
+      const suggestions = [
+        'Check if the element is visible and enabled',
+        'Try scrolling to the element first',
+        'Use browser_get_element_info to check element state',
+      ];
+      if (isStrictModeViolation(error)) {
+        suggestions.push('Use the index parameter to target a specific element when multiple match');
+      }
+      return responseBuilder.error(error, { code: 'ELEMENT_NOT_INTERACTABLE', suggestions });
     }
   },
 });
@@ -76,8 +84,10 @@ export const browserType = createTool({
     try {
       const resolved = await resolveIndexedSelector(session.browser, input.selector, input.index);
       if (!resolved.found) {
+        const currentUrl = session.browser.url();
         return responseBuilder.error(new Error(`Element not found: ${input.selector}`), {
           code: 'ELEMENT_NOT_FOUND',
+          context: { url: currentUrl },
         });
       }
 
@@ -102,13 +112,14 @@ export const browserType = createTool({
         sessionManager.buildMeta(session),
       );
     } catch (error) {
-      return responseBuilder.error(error, {
-        code: 'ELEMENT_NOT_INTERACTABLE',
-        suggestions: [
-          'Check if the element is a valid input field',
-          'Try clicking the field first',
-        ],
-      });
+      const suggestions = [
+        'Check if the element is a valid input field',
+        'Try clicking the field first',
+      ];
+      if (isStrictModeViolation(error)) {
+        suggestions.push('Use the index parameter to target a specific element when multiple match');
+      }
+      return responseBuilder.error(error, { code: 'ELEMENT_NOT_INTERACTABLE', suggestions });
     }
   },
 });
@@ -185,9 +196,11 @@ export const browserHover = createTool({
         sessionManager.buildMeta(session),
       );
     } catch (error) {
-      return responseBuilder.error(error, {
-        code: 'ELEMENT_NOT_INTERACTABLE',
-      });
+      const suggestions: string[] = [];
+      if (isStrictModeViolation(error)) {
+        suggestions.push('Use the index parameter to target a specific element when multiple match');
+      }
+      return responseBuilder.error(error, { code: 'ELEMENT_NOT_INTERACTABLE', suggestions });
     }
   },
 });
@@ -311,7 +324,11 @@ export const browserFocus = createTool({
       await session.browser.locator(resolved.selector).focus();
       return responseBuilder.success({}, sessionManager.buildMeta(session));
     } catch (error) {
-      return responseBuilder.error(error);
+      const suggestions: string[] = [];
+      if (isStrictModeViolation(error)) {
+        suggestions.push('Use the index parameter to target a specific element when multiple match');
+      }
+      return responseBuilder.error(error, { code: 'ELEMENT_NOT_INTERACTABLE', suggestions });
     }
   },
 });
