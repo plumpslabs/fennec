@@ -326,6 +326,10 @@ export const authLoadSession = createTool({
       .string()
       .optional()
       .describe('Explicit path to the saved session .json file (overrides name)'),
+    url: z
+      .string()
+      .optional()
+      .describe('Optional URL to navigate to after restoring the session (overrides the saved origin)'),
     sessionId: z.string().optional().describe('Browser session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder, sessionStore }) => {
@@ -364,7 +368,8 @@ export const authLoadSession = createTool({
         })),
       );
 
-      await session.browser.navigate(saved.origin).catch(() => {});
+      const targetUrl = input.url || saved.origin;
+      await session.browser.navigate(targetUrl).catch(() => {});
       for (const [key, value] of Object.entries(saved.localStorage)) {
         await session.browser
           .evaluate(({ k, v }) => localStorage.setItem(k, v), { k: key, v: value })
