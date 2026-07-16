@@ -120,6 +120,18 @@ export async function psCommand(args: string[]): Promise<void> {
     { key: 'name', label: 'App', format: (v) => pc.bold(String(v)) },
     { key: 'pid', label: 'PID', align: 'right' },
     {
+      key: 'debug',
+      label: 'D',
+      align: 'center',
+      format: (v) => {
+        const d = v as string;
+        return d === 'log' ? pc.green('L') :
+               d === 'breakpoint' ? pc.yellow('B') :
+               d === 'auto' ? pc.magenta('A') :
+               pc.dim('-');
+      },
+    },
+    {
       key: 'status',
       label: 'Status',
       format: (v) => {
@@ -172,6 +184,7 @@ export async function psCommand(args: string[]): Promise<void> {
     return {
       name: t.name,
       pid: running ? String(t.pid) : pc.dim(String(t.pid)),
+      debug: t.debugMode ?? '-',
       status: running ? 'running' : 'stopped',
       group: t.group ?? '-',
       port: t.port ?? null,

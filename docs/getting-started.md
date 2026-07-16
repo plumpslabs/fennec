@@ -300,11 +300,11 @@ browser_screenshot_export({ format: "png" })
 
 // Compare page changes — diff against previous state
 browser_screenshot_diff({ baseline: { elements, screenshot } })
+```
 
 ### Plan & Execute Multi-Step Goals
 
 ```
-
 // Plan + execute in one call
 planner_execute_goal({ goal: "log in to my app" })
 
@@ -315,12 +315,11 @@ planner_create_plan({ goal: "debug login issue" })
 planner_list_plans()
 planner_get_plan({ planId: "..." })
 planner_cancel_plan({ planId: "..." })
-
 ```
 
 ## Next Steps
 
-- Explore the full [Tool Reference](tools/README.md) — 123 MCP tools across 16 categories (including Mobile)
+- Explore the full [Tool Reference](tools/README.md) — 165+ MCP tools across 18 categories (including Mobile + AI + Debug)
 - Learn about [Auth Flows](guides/auth-flows.md)
 - Try [Full-Stack Debugging](guides/fullstack-debugging.md)
 - Configure Fennec with `fennec init`

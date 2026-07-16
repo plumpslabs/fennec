@@ -135,6 +135,7 @@ export async function runCommand(args: string[]): Promise<void> {
   const restartFlag = args.includes('--restart');
   const jsonlFlag = args.includes('--jsonl');
   const group = extractFlagValue(args, '--group', '-g');
+  const debugMode = extractFlagValue(args, '--debug');
 
   const stopFlags = [nameIndex, portIndex, cwdIndex].filter((i) => i !== -1) as number[];
   const cmdEnd = Math.min(...stopFlags, Infinity);
@@ -194,6 +195,7 @@ export async function runCommand(args: string[]): Promise<void> {
   if (cwd) console.error(`  ${renderKV('Directory', cwd)}`);
   if (restartFlag) console.error(`  ${renderKV('Auto-restart', pc.green('enabled'))}`);
   if (group) console.error(`  ${renderKV('Group', group)}`);
+  if (debugMode) console.error(`  ${renderKV('Debug', pc.green(debugMode))}`);
   console.error(`  ${divider()}`);
 
   try {
@@ -241,6 +243,9 @@ export async function runCommand(args: string[]): Promise<void> {
       autoRestart: restartFlag,
       logMode: jsonlFlag ? 'jsonl' : 'text',
       group,
+      debugMode: debugMode === 'log' || debugMode === 'breakpoint' || debugMode === 'auto'
+        ? debugMode
+        : undefined,
     });
 
     console.error(`  ${pc.green('✓')} ${pc.bold(appName)} ${pc.dim(`started (PID: ${pid})`)}`);

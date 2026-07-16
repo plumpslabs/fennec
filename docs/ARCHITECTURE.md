@@ -39,7 +39,7 @@ graph TB
     subgraph Server["🦊 Fennec MCP Server"]
         direction TB
 
-        ToolReg["📦 Tool Registry\n112 tools · 15 categories"]
+        ToolReg["📦 Tool Registry\n165+ tools · 18 categories"]
         Validate["✅ Input Validation\nZod Schemas"]
 
         %% Middleware Pipeline
@@ -106,7 +106,7 @@ graph TB
     end
 
     %% ─── Tool Categories ───
-    subgraph Tools["🔧 Tool Categories (112 tools)"]
+    subgraph Tools["🔧 Tool Categories (165+ tools)"]
         direction LR
         Nav["Navigation\n6 tools"]
         Int["Interaction\n10 tools"]
@@ -117,12 +117,15 @@ graph TB
         Stor["Storage\n12 tools"]
         AuthCat["Auth\n6 tools"]
         TabCat["Tabs\n7 tools"]
-        ProcCat["Process\n10 tools"]
+        ProcCat["Process\n25 tools"]
         TermCat["Terminal\n7 tools"]
         DiagCat["Diagnostic\n6 tools"]
         SchedCat["Scheduler\n7 tools"]
         SmartCat["Smart\n7 tools"]
         PlanCat["Planner\n5 tools"]
+        MobileCat["Mobile\n11 tools"]
+        AICat["AI-Native API\n7 tools"]
+        DebugCat["Debug\n26 tools"]
     end
 
     %% ─── Data Flow Connections ───
@@ -216,6 +219,9 @@ graph TB
     ToolReg -.-> SchedCat
     ToolReg -.-> SmartCat
     ToolReg -.-> PlanCat
+    ToolReg -.-> MobileCat
+    ToolReg -.-> AICat
+    ToolReg -.-> DebugCat
 
     %% ─── Styles ───
     classDef client fill:#1a1a2e,stroke:#ff6432,stroke-width:2px,color:#e0e0e0;
@@ -238,7 +244,7 @@ graph TB
     class BrowserEngines,CDP,ConsoleCol,NetworkCol,PerfCol,CdpStorage,DOM,Interaction browser;
     class ChildProc,LogWatcher,PipeWatcher,PortDetect process;
     class SessStore,WfStorage,FileSystem storage;
-    class Nav,int,DOMCat,DevCon,DevNet,DevPerf,Stor,AuthCat,TabCat,ProcCat,TermCat,DiagCat,SchedCat,SmartCat,PlanCat tools;
+    class Nav,int,DOMCat,DevCon,DevNet,DevPerf,Stor,AuthCat,TabCat,ProcCat,TermCat,DiagCat,SchedCat,SmartCat,PlanCat,MobileCat,AICat,DebugCat tools;
 ```
 
 ---
@@ -249,10 +255,11 @@ graph TB
 | ------------------ | ----------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | **🧠 AI Clients**  | Claude, Cursor, Cline, etc.         | Standard MCP clients that communicate via JSON-RPC                                                         |
 | **🔌 Transport**   | stdio, SSE                          | Two transport modes — stdio (default, for local CLI) and SSE (experimental, for HTTP)                      |
-| **🦊 MCP Server**  | Tool Registry, Validation, Pipeline | Core server that registers 112 tools, validates input via Zod, and executes through middleware             |
-| **⚙️ Services**    | 11 core services                    | Session, process, planner, workflow, scheduler, event bus, resource, recorder, state, capability, metrics  |
+| **🦊 MCP Server**  | Tool Registry, Validation, Pipeline | Core server that registers 165+ tools, validates input via Zod, and executes through middleware             |
+| **⚙️ Services**    | 12 core services                    | Session, process, planner, workflow, scheduler, event bus, resource, recorder, state, capability, metrics, audit |
 | **📱 Mobile**      | ADB via child_process               | Android device management: device discovery, tap, type, swipe, logcat, screenshot, app install/launch/stop |
 | **🔗 Correlation** | Timeline, Root Cause Inferrer       | Cross-layer event correlation with confidence scoring and suggested fixes                                  |
+| **🐛 Debug**       | Debug Engine                        | Multi-language debugger: logpoints, breakpoints (V8/DAP/JDWP/DBGp), auto-debug, cassette record/replay    |
 | **🌐 Browser**     | Playwright + CDP                    | Full browser automation: Chromium/Firefox/WebKit, console, network, performance, DOM, storage              |
 | **🖥️ Process**     | child_process, watchers             | Process management: spawn, kill, attach by PID/port, log watching, pipe monitoring                         |
 | **💾 Storage**     | Sessions, Workflows, Files          | Persistent storage for auth sessions, workflow definitions, screenshots, and exports                       |
@@ -269,7 +276,7 @@ AI Agent → MCP Transport → Tool Registry → Zod Validation
 
 1. **AI Agent** sends a JSON-RPC `tools/call` request via MCP protocol
 2. **Transport** (stdio or SSE) receives the request
-3. **Tool Registry** looks up the tool by name (112 tools, 15 categories)
+3. **Tool Registry** looks up the tool by name (165+ tools, 18 categories)
 4. **Zod Validation** parses and validates the input parameters
 5. **Middleware Pipeline** executes in order:
    - `Telemetry` — records call duration, updates performance metrics
@@ -286,7 +293,7 @@ AI Agent → MCP Transport → Tool Registry → Zod Validation
 
 ### Optional Browser Dependency
 
-Playwright is an **optional peer dependency**. The Process, Terminal, Scheduler, Planner, and basic Storage/Auth/Diagnostic tools (53 tools) work without browser engines installed.
+Playwright is an **optional peer dependency**. The Process, Terminal, Scheduler, Planner, Debug, and basic Storage/Auth/Diagnostic tools (80+ tools) work without browser engines installed.
 
 ### Middleware Pipeline Pattern
 
@@ -345,4 +352,4 @@ This allows swapping the browser engine (Playwright → Puppeteer → CDP Direct
 
 ### Modular Categories
 
-Tools are grouped into 16 categories that MCP clients can request individually to reduce context window usage. Each tool belongs to exactly one category.
+Tools are grouped into 18 categories that MCP clients can request individually to reduce context window usage. Each tool belongs to exactly one category.

@@ -100,7 +100,7 @@ This is what makes Fennec more than an observer. Your AI agent can **run, superv
 
 | Category                 | Tools | What You Can Do                                                                                                                   |
 | ------------------------ | ----- | --------------------------------------------------------------------------------------------------------------------------------- |
-| **Debug**                | 26    | Set breakpoints, inspect variables, auto-debug, record/replay                                                                     | Navigate, go back/forward, reload, wait for navigation |
+| **Debug**                | 26    | Set breakpoints, inspect variables, auto-debug, record/replay                                                                     |
 | **Interaction**          | 10    | Click, type, select, hover, scroll, upload file, drag-drop                                                                        |
 | **DOM**                  | 9     | Screenshot, DOM snapshot (token-efficient summary), accessibility tree, find elements                                             |
 | **DevTools Console**     | 5     | Console logs, JS errors, watch console (level-based summaries)                                                                    |
@@ -119,7 +119,7 @@ This is what makes Fennec more than an observer. Your AI agent can **run, superv
 | **AI-Native API** 🆕     | 7     | `observe()`, `ai_diagnose()`, `correlate()`, `summarize()`, `explain()`, `investigate()`, `predict()`                             |
 | **Debug** 🆕             | 26    | Breakpoint debugging, logpoints, auto-debug, cassette record/replay, multi-language DAP adapters                                  |
 
-> 💡 **Token-Efficient**: Tools are categorized into 17 groups (including Mobile + AI-Native API). MCP clients can request only specific categories to reduce context window usage. Use the `_categories` field in ListTools response to discover available categories.
+> 💡 **Token-Efficient**: Tools are categorized into 18 groups (including Mobile + AI-Native API + Debug). MCP clients can request only specific categories to reduce context window usage. Use the `_categories` field in ListTools response to discover available categories.
 
 ### 🧠 AI-Native API (Pillar 7)
 
@@ -358,7 +358,7 @@ fennec dev status
 ## Documentation
 
 - [Getting Started Guide](docs/getting-started.md) — includes mobile development (wireless ADB)
-- [Full Tool Reference](docs/tools/README.md) — all 136 tools documented
+- [Full Tool Reference](docs/tools/README.md) — all 165+ tools documented
 - [Configuration Reference](docs/configuration.md) — all options + env vars
 - [Security Model](docs/security-model.md) — sandbox, allowlists, best practices
 - [Auth Flows Guide](docs/guides/auth-flows.md) — login forms, session persistence

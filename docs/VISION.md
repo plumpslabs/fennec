@@ -48,7 +48,7 @@ The second is a sensory nervous system.
 
 ## 2. The 7 Pillars
 
-### 🦊 Pilar 1 — Observation First
+### 🦊 Pillar 1 — Observation First
 
 > **Never send raw data to AI if it can be observed first.**
 
@@ -70,7 +70,7 @@ Each sensor produces **Events**, not Tool Responses.
 
 ---
 
-### 🦊 Pilar 2 — Event Driven Architecture
+### 🦊 Pillar 2 — Event Driven Architecture
 
 Everything that happens becomes an event:
 
@@ -92,7 +92,7 @@ No collector speaks directly to AI. Everything flows through the Event Bus.
 
 ---
 
-### 🦊 Pilar 3 — Correlation Engine
+### 🦊 Pillar 3 — Correlation Engine
 
 The heart of Fennec. It connects dots automatically:
 
@@ -112,7 +112,7 @@ AI doesn't connect dots — **Fennec does**.
 
 ---
 
-### 🦊 Pilar 4 — Incident Based Reasoning
+### 🦊 Pillar 4 — Incident Based Reasoning
 
 AI never reads raw logs. AI reads **Incidents**:
 
@@ -139,7 +139,7 @@ Context stays small. Always.
 
 ---
 
-### 🦊 Pilar 5 — Lazy Context (Killer Feature)
+### 🦊 Pillar 5 — Lazy Context (Killer Feature)
 
 AI never receives everything at once. Information is delivered in levels:
 
@@ -155,7 +155,7 @@ Level 3 (Raw):        "Raw SQL: SELECT * FROM users WHERE..."
 
 ---
 
-### 🦊 Pilar 6 — Adapter Architecture
+### 🦊 Pillar 6 — Adapter Architecture
 
 Fennec never depends on a single technology:
 
@@ -189,7 +189,7 @@ All adapters implement the same interface. Core Fennec never changes.
 
 ---
 
-### 🦊 Pilar 7 — AI Native API
+### 🦊 Pillar 7 — AI Native API
 
 Playwright has: `click()`, `type()`, `fill()`, `locator()`.  
 Fennec has:

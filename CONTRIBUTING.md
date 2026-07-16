@@ -67,7 +67,7 @@ fennec/
 ├── packages/
 │   ├── core/              # MCP server — the heart of Fennec
 │   │   ├── src/
-│   │   │   ├── tools/          # 112 tools across 15 categories
+│   │   │   ├── tools/          # 165+ tools across 18 categories
 │   │   │   ├── modules/        # FennecModule system
 │   │   │   │   ├── browser/    # Browser module (existing tools)
 │   │   │   │   ├── process/    # Process module (existing tools)
@@ -296,7 +296,7 @@ chore(deps): update playwright to 1.40.0
 
 ## Questions?
 
-Open a [Discussion](https://github.com/yourusername/fennec/discussions) or join our community channels.
+Open a [Discussion](https://github.com/plumpslabs/fennec/discussions) or join our community channels.
 
 ---
 

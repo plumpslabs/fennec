@@ -108,6 +108,7 @@ const comp = await toolRegistry.call('browser_get_element_component', { selector
 // Returns: { found, framework, component, element, sourceFile?, displayName? }
 ```
 
+```
 // Smart fill form
 const form = await toolRegistry.call("smart_fill_form", {
 fields: {

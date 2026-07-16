@@ -17,7 +17,7 @@ import { z } from 'zod';
 import { createTool } from '../_registry.js';
 import { getSourceMapResolver } from './source-map.js';
 import { getErrorDedup } from './error-dedup.js';
-import { readTracked, logPathFor } from '../../process/tracking.js';
+import { readTracked, logPathFor, getDebugMode, setDebugMode, isTrackedRunning } from '../../process/tracking.js';
 import { getLogger } from '../../utils/logger.js';
 
 // ─── Lazy debug state (zero overhead when not used) ──────────────
@@ -450,6 +450,9 @@ export const debugConfigure = createTool({
 
     const state = getDebugState();
 
+    // Persist to tracked.json so CLI (`fennec debug attach`) sees the same state
+    setDebugMode(input.name, input.mode === 'off' ? 'off' : input.mode);
+
     if (input.mode === 'off') {
       state.processModes.delete(input.name);
     } else {
@@ -467,6 +470,36 @@ export const debugConfigure = createTool({
           input.mode === 'off'
             ? 'Debug mode disabled for this process'
             : `Debug mode set to "${input.mode}". Use debug_get_errors to view errors.`,
+      },
+      { elapsed: 0, sessionId: 'debug', timestamp: new Date().toISOString() },
+    );
+  },
+});
+
+// ─── Tool: debug_get_mode ──────────────────────────────────────
+
+export const debugGetMode = createTool({
+  name: 'debug_get_mode',
+  category: 'debug',
+  description:
+    '`<use_case>Smart debugging</use_case> 🔍 Get the per-process debug mode from persistent storage. Returns the current debug mode (off/log/breakpoint/auto) for a tracked process. Reads from tracked.json so the MCP tools and CLI (`fennec debug status`) see the same state. Requires security.allowDebug: true.`',
+  inputSchema: z.object({
+    name: z.string().describe('Process name (from fennec ps / process_get_tracked)'),
+  }),
+  handler: async (input, { config, responseBuilder }) => {
+    if (!isDebugAllowed(config)) {
+      return responseBuilder.error(new Error('Debug mode is disabled'), { code: 'DEBUG_DISABLED' });
+    }
+
+    const mode = getDebugMode(input.name);
+    const tracked = readTracked().find((t) => t.name === input.name);
+
+    return responseBuilder.success(
+      {
+        process: input.name,
+        mode,
+        exists: !!tracked,
+        running: tracked ? isTrackedRunning(tracked) : false,
       },
       { elapsed: 0, sessionId: 'debug', timestamp: new Date().toISOString() },
     );

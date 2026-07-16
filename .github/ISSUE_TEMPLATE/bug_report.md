@@ -26,7 +26,7 @@ What actually happened.
 
 ## Environment
 
-- **Fennec Version**: [e.g., 0.1.0]
+- **Fennec Version**: [e.g., 1.15.1]
 - **Node.js Version**: [e.g., 20.11.0]
 - **OS**: [e.g., macOS 14.3, Ubuntu 22.04, Windows 11]
 - **Browser**: [e.g., Chromium 122]
@@ -49,7 +49,7 @@ Does this issue involve:
 - [ ] Credential leakage
 - [ ] Process escape
 
-If any of the above, please report via [SECURITY.md](SECURITY.md) instead.
+If any of the above, please report via [SECURITY.md](../../SECURITY.md) instead.
 
 ## Additional Context
 

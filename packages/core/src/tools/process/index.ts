@@ -497,7 +497,7 @@ export const processGetTracked = createTool({
   name: 'process_get_tracked',
   category: 'process',
   description:
-    '`<use_case>VIEWING all tracked apps</use_case> Get ALL tracked processes from tracked.json (same as fennec ps). This is the COMPLETE view — unlike process_list which only shows MCP-spawned processes, this includes everything started via CLI (fennec start) AND MCP (process_spawn). Supports an optional `group` filter (only that group) and returns a cross-platform `memMB` (resident RSS) per process. Best entry point for checking what apps are running. Returns: name, pid, status (running/stopped), group, port, command, cwd, memMB, uptime, runningCount, summary.`',
+    '`<use_case>VIEWING all tracked apps</use_case> Get ALL tracked processes from tracked.json (same as fennec ps). This is the COMPLETE view — unlike process_list which only shows MCP-spawned processes, this includes everything started via CLI (fennec start) AND MCP (process_spawn). Supports an optional `group` filter (only that group) and returns a cross-platform `memMB` (resident RSS) per process and `debugMode` per process. Best entry point for checking what apps are running. Returns: name, pid, status (running/stopped), group, port, command, cwd, debugMode, memMB, uptime, runningCount, summary.`',
   inputSchema: z.object({
     group: z.string().optional().describe('Only return tracked processes in this group'),
   }),
@@ -516,6 +516,7 @@ export const processGetTracked = createTool({
         port: t.port ?? null,
         command: t.command,
         cwd: t.cwd ?? null,
+        debugMode: t.debugMode ?? 'off',
         memMB: running
           ? (() => {
               const kb = getProcessMemRss(t.pid);

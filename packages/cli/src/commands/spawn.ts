@@ -34,18 +34,20 @@ import type { TrackedProcess } from './tracker.js';
 import { ensureSupervisorRunning } from './supervisor.js';
 import { ensurePersistEnabled } from './persist.js';
 import { psCommand } from './ps.js';
+import { extractFlagValue } from './tracker.js';
 
 export async function spawnCommand(args: string[]): Promise<void> {
   const target = resolveTargets(args);
 
+  // --debug flag parsed from args for spawnOne calls
   if (target.kind === 'single') {
-    await spawnOne(target.value!, false);
+    await spawnOne(target.value!, false, args);
     return;
   }
 
   if (target.kind === 'names') {
     for (const name of target.values!) {
-      await spawnOne(name, true);
+      await spawnOne(name, true, args);
     }
     return;
   }
@@ -81,7 +83,7 @@ export async function spawnCommand(args: string[]): Promise<void> {
  * multi-name spawns). In `multi` mode, resolution failures print an
  * error and return (instead of exiting) so the rest of the batch proceeds.
  */
-async function spawnOne(name: string, multi: boolean): Promise<void> {
+async function spawnOne(name: string, multi: boolean, args?: string[]): Promise<void> {
   const tracked = readTracked();
   const match = tracked.find((t) => t.name === name);
 
@@ -117,7 +119,7 @@ async function spawnOne(name: string, multi: boolean): Promise<void> {
     process.exit(1);
   }
 
-  await respawnProcess(match);
+  await respawnProcess(match, args);
 }
 
 /**
@@ -175,6 +177,7 @@ async function spawnAllStopped(procs: TrackedProcess[]): Promise<void> {
         startedAt: new Date().toISOString(),
         autoRestart: proc.autoRestart,
         logMode: proc.logMode,
+      debugMode: proc.debugMode ?? undefined,
         // Preserve the logical group across stop -> spawn (addTracked REPLACES
         // the entry by name, so group must be carried over explicitly).
         group: proc.group,
@@ -258,14 +261,15 @@ async function spawnList(): Promise<void> {
 
   const match = stopped.find((t) => t.name === selected);
   if (match) {
-    await respawnProcess(match);
+    await respawnProcess(match, []);
   }
 }
 
 /**
  * Re-spawn a stopped tracked process from its saved command/cwd.
  */
-async function respawnProcess(proc: TrackedProcess): Promise<void> {
+async function respawnProcess(proc: TrackedProcess, args?: string[]): Promise<void> {
+  const debugMode = args ? extractFlagValue(args, '--debug') : undefined;
   const cmdParts = resolveArgs(proc);
   const logDir = resolve(homedir(), '.fennec', 'logs');
   mkdirSync(logDir, { recursive: true });
@@ -277,6 +281,7 @@ async function respawnProcess(proc: TrackedProcess): Promise<void> {
   console.error(`  ${renderKV('Command', proc.command)}`);
   if (proc.cwd) console.error(`  ${renderKV('Directory', proc.cwd)}`);
   if (proc.port) console.error(`  ${renderKV('Port', String(proc.port))}`);
+  if (debugMode) console.error(`  ${renderKV('Debug', pc.green(debugMode))}`);
 
   try {
     const child = spawnDaemon({
@@ -308,6 +313,9 @@ async function respawnProcess(proc: TrackedProcess): Promise<void> {
       autoRestart: proc.autoRestart,
       logMode: proc.logMode,
       group: proc.group,
+      debugMode: debugMode === 'log' || debugMode === 'breakpoint' || debugMode === 'auto'
+        ? debugMode
+        : (proc.debugMode ?? undefined),
     });
 
     if (proc.autoRestart) {
