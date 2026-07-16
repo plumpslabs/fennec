@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { createTool } from '../_registry.js';
-import { resolveSelector } from '../../utils/selector.js';
+import { resolveSelector, resolveIndexedSelector } from '../../utils/selector.js';
 import { takeScreenshot } from '../../utils/screenshot.js';
 
 export const browserScreenshot = createTool({
@@ -574,12 +574,13 @@ export const browserGetElementInfo = createTool({
     '`<use_case>DOM inspection</use_case> 🔍 Get detailed info about a specific element: exists, visible (isVisible), enabled (isEnabled), text (textContent), attributes (all), boundingBox (x, y, width, height). Use BEFORE clicking or typing to verify the element is in the right state. For quicker existence checks without details, use diagnose_element. For finding elements by attributes, use browser_find_elements.`',
   inputSchema: z.object({
     selector: z.string().describe('Element selector'),
+    index: z.number().int().min(0).optional().describe('When the selector matches multiple elements, pick the one at this index (0-based)'),
     sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const resolved = await resolveSelector(session.browser, input.selector);
+      const resolved = await resolveIndexedSelector(session.browser, input.selector, input.index);
       if (!resolved.found) {
         return responseBuilder.success(
           {

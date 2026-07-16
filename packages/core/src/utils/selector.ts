@@ -137,6 +137,24 @@ function cacheResult(sessionId: string, input: string, result: SelectorResult): 
   return result;
 }
 
+/**
+ * Like resolveSelector but supports an optional index parameter.
+ * When index >= 0, appends .nth(index) to the resolved selector so
+ * the locator targets exactly one element out of N matches.
+ */
+export async function resolveIndexedSelector(
+  session: BrowserSession,
+  selector: string,
+  index?: number,
+): Promise<SelectorResult> {
+  const resolved = await resolveSelector(session, selector);
+  if (!resolved.found) return resolved;
+  if (index !== undefined && index >= 0) {
+    resolved.selector = `${resolved.selector}.nth(${index})`;
+  }
+  return resolved;
+}
+
 export async function resolveSelector(
   session: BrowserSession,
   selector: string,
