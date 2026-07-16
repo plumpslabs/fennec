@@ -148,7 +148,7 @@ export const browserGetDomSnapshot = createTool({
   name: 'browser_get_dom_snapshot',
   category: 'dom',
   description:
-    "`<use_case>DOM inspection</use_case> 🌳 Get a summarized DOM tree — interactable elements, forms, buttons, links, headings, inputs with their attributes. Much lighter than dumping full HTML. Returns elementCount, interactableCount, depth, structure[] (tree), tagBreakdown. Use as your FIRST step on any new page to understand what's there. For full raw HTML, use devtools_evaluate with document.documentElement.outerHTML. For finding specific elements by CSS, use browser_find_elements.`",
+    "`<use_case>DOM inspection</use_case> 🌳 Get a summarized DOM tree — interactable elements, forms, buttons, links, headings, inputs with their attributes. Much lighter than dumping full HTML (~1-5KB / ~50-200 tokens typical). Returns elementCount, interactableCount, depth, structure[] (tree), tagBreakdown, truncated flag when depth limit is hit. Use as your FIRST step on any new page to understand what's there. For full raw HTML, use devtools_evaluate with document.documentElement.outerHTML. For finding specific elements by CSS, use browser_find_elements.`",
   inputSchema: z.object({
     selector: z.string().optional().describe('Optional selector to scope the summary'),
     includeAllElements: z
@@ -341,39 +341,80 @@ export const browserGetAccessibilityTree = createTool({
   name: 'browser_get_accessibility_tree',
   category: 'dom',
   description:
-    '`<use_case>DOM inspection</use_case> ♿ Get the accessibility tree with ARIA roles, labels, and nested structure. Optionally scope to a CSS selector. Returns a tree of accessible nodes with role and name. Use for accessibility auditing, finding elements by their ARIA role, or understanding how screen readers will interpret the page. Also works well for finding elements that browser_get_dom_snapshot might miss.`',
+    '`<use_case>DOM inspection</use_case> ♿ Get the accessibility tree with ARIA roles, labels, and nested structure. Optionally scope to a CSS selector. Returns a tree of accessible nodes with role and name (~2-10KB / ~100-500 tokens typical, can be 69KB+ for large pages — use compact:true for smaller responses). Use for accessibility auditing, finding elements by their ARIA role, or understanding how screen readers will interpret the page. Also works well for finding elements that browser_get_dom_snapshot might miss.`',
   inputSchema: z.object({
     selector: z.string().optional().describe('Optional selector to scope the tree'),
+    compact: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe('Compact mode: return only top-level nodes with child counts instead of full tree (much smaller response)'),
     sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const tree = await session.browser.evaluate((sel?: string) => {
-        // Build accessibility tree from the DOM
-        const root = sel ? document.querySelector(sel) : document.documentElement;
-        if (!root) return null;
+      const result = await session.browser.evaluate(
+        ({ sel, compact }: { sel?: string; compact?: boolean }) => {
+          const root = sel ? document.querySelector(sel) : document.documentElement;
+          if (!root) return null;
 
-        function getAccessibleNode(el: Element): Record<string, unknown> | null {
-          const role = el.getAttribute('role') || el.tagName.toLowerCase();
-          const name = el.getAttribute('aria-label') || el.textContent?.trim() || '';
-          const children = Array.from(el.children)
-            .map((child) => getAccessibleNode(child))
-            .filter(Boolean) as Record<string, unknown>[];
-          return {
-            role,
-            name: name.slice(0, 100),
-            children: children.length > 0 ? children : undefined,
-          };
-        }
+          function getAccessibleNode(el: Element): Record<string, unknown> | null {
+            const role = el.getAttribute('role') || el.tagName.toLowerCase();
+            const name = el.getAttribute('aria-label') || el.textContent?.trim() || '';
+            const children = Array.from(el.children)
+              .map((child) => getAccessibleNode(child))
+              .filter(Boolean) as Record<string, unknown>[];
 
-        return getAccessibleNode(root);
-      }, input.selector);
+            if (compact) {
+              return {
+                role,
+                name: name.slice(0, 100),
+                childCount: children.length,
+              };
+            }
+
+            return {
+              role,
+              name: name.slice(0, 100),
+              children: children.length > 0 ? children : undefined,
+            };
+          }
+
+          const tree = getAccessibleNode(root);
+          if (!tree) return null;
+
+          if (compact) {
+            const nodes: Record<string, unknown>[] = [];
+            const walk = (nodeEl: Element, depth: number) => {
+              const role = nodeEl.getAttribute('role') || nodeEl.tagName.toLowerCase();
+              const name =
+                nodeEl.getAttribute('aria-label') || nodeEl.textContent?.trim() || '';
+              nodes.push({
+                role,
+                name: name.slice(0, 100),
+                depth,
+                childCount: Array.from(nodeEl.children).filter(
+                  (c) => c.getAttribute('role') || c.children.length > 0,
+                ).length,
+              });
+              for (const child of Array.from(nodeEl.children)) {
+                if (child.getAttribute('role') || (depth < 2 && child.children.length > 0)) {
+                  walk(child, depth + 1);
+                }
+              }
+            };
+            walk(root, 0);
+            return { tree, nodes, mode: 'compact' };
+          }
+
+          return { tree, mode: 'full' };
+        },
+        { sel: input.selector, compact: input.compact },
+      );
 
       return responseBuilder.success(
-        {
-          tree: tree ?? null,
-        },
+        result ?? { tree: null },
         sessionManager.buildMeta(session),
       );
     } catch (error) {
