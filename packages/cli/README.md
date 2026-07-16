@@ -129,7 +129,7 @@ Connect remote MCP clients with `{ "type": "remote", "url": "http://127.0.0.1:33
 
 ### Client-Specific Config Examples
 
-**For stdio clients** (Claude Desktop, Claude Code, Cline, Cursor, Windsurf, OpenCode):
+All stdio-based MCP clients (Claude Desktop, Claude Code, Cline, Cursor, Windsurf, OpenCode) use the same format:
 
 ```json
 {
@@ -139,21 +139,6 @@ Connect remote MCP clients with `{ "type": "remote", "url": "http://127.0.0.1:33
       "args": ["start"]
     }
   }
-}
-```
-
-**For OpenCode (Optional SSE Connection)**:
-
-```json
-// ~/.config/opencode/opencode.json
-{
-  "mcpServers": [
-    {
-      "name": "fennec",
-      "type": "remote",
-      "url": "http://localhost:3333/sse"
-    }
-  ]
 }
 ```
 
