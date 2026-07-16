@@ -178,15 +178,15 @@ Every tool call is recorded with timestamp, session ID, input, result, and durat
 Fennec works with all major MCP clients. Some clients require **SSE transport**
 (`fennec start --sse`) instead of the default stdio:
 
-| Client         | stdio | SSE | Notes                                                               |
-| -------------- | :---: | :-: | ------------------------------------------------------------------- |
-| Claude Desktop |  ✅   | ✅  | stdio default                                                       |
-| Claude Code    |  ✅   | ✅  | stdio default                                                       |
-| Cline          |  ✅   | ✅  | stdio default                                                       |
-| Cursor         |  ✅   | ✅  | stdio default                                                       |
-| Windsurf       |  ✅   | ✅  | stdio default                                                       |
-| Continue.dev   |  ⚠️   | ✅  | SSE recommended                                                     |
-| OpenCode       |  ✅   | ✅  | stdio default (local build wrapper recommended), SSE optional       |
+| Client         | stdio | SSE | Notes                                                         |
+| -------------- | :---: | :-: | ------------------------------------------------------------- |
+| Claude Desktop |  ✅   | ✅  | stdio default                                                 |
+| Claude Code    |  ✅   | ✅  | stdio default                                                 |
+| Cline          |  ✅   | ✅  | stdio default                                                 |
+| Cursor         |  ✅   | ✅  | stdio default                                                 |
+| Windsurf       |  ✅   | ✅  | stdio default                                                 |
+| Continue.dev   |  ⚠️   | ✅  | SSE recommended                                               |
+| OpenCode       |  ✅   | ✅  | stdio default (local build wrapper recommended), SSE optional |
 
 > **SSE mode:** `fennec start --sse` starts an HTTP+SSE endpoint on `http://127.0.0.1:3333/sse`.
 

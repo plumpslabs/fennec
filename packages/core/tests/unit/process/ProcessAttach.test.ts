@@ -193,14 +193,11 @@ describe('PROCESS_NOT_FOUND suggestions', () => {
       })),
     };
 
-    const result = await processGetLogs.handler(
-      { processId: 'unknown-app', lines: 10 },
-      {
-        responseBuilder: mockResponseBuilder as any,
-        processManager: mockProcessManager as any,
-        tokenBudget: mockTokenBudget as any,
-      } as any,
-    );
+    const result = await processGetLogs.handler({ processId: 'unknown-app', lines: 10 }, {
+      responseBuilder: mockResponseBuilder as any,
+      processManager: mockProcessManager as any,
+      tokenBudget: mockTokenBudget as any,
+    } as any);
 
     expect(result.success).toBe(false);
     expect((result as any).error.code).toBe('PROCESS_NOT_FOUND');
@@ -226,13 +223,10 @@ describe('PROCESS_NOT_FOUND suggestions', () => {
       })),
     };
 
-    const result = await processGetStatus.handler(
-      { processId: 'missing' },
-      {
-        responseBuilder: mockResponseBuilder as any,
-        processManager: mockProcessManager as any,
-      } as any,
-    );
+    const result = await processGetStatus.handler({ processId: 'missing' }, {
+      responseBuilder: mockResponseBuilder as any,
+      processManager: mockProcessManager as any,
+    } as any);
 
     expect(result.success).toBe(false);
     expect((result as any).error.code).toBe('PROCESS_NOT_FOUND');
@@ -256,14 +250,11 @@ describe('PROCESS_NOT_FOUND suggestions', () => {
       })),
     };
 
-    const result = await processGetLogs.handler(
-      { processId: 'nobody', lines: 10 },
-      {
-        responseBuilder: mockResponseBuilder as any,
-        processManager: mockProcessManager as any,
-        tokenBudget: mockTokenBudget as any,
-      } as any,
-    );
+    const result = await processGetLogs.handler({ processId: 'nobody', lines: 10 }, {
+      responseBuilder: mockResponseBuilder as any,
+      processManager: mockProcessManager as any,
+      tokenBudget: mockTokenBudget as any,
+    } as any);
 
     expect(result.success).toBe(false);
     expect((result as any).error.suggestions).toBeDefined();
@@ -284,14 +275,11 @@ describe('PROCESS_NOT_FOUND suggestions', () => {
       })),
     };
 
-    const result = await processGetLogs.handler(
-      { processId: 'ghost', lines: 10 },
-      {
-        responseBuilder: mockResponseBuilder as any,
-        processManager: mockProcessManager as any,
-        tokenBudget: mockTokenBudget as any,
-      } as any,
-    );
+    const result = await processGetLogs.handler({ processId: 'ghost', lines: 10 }, {
+      responseBuilder: mockResponseBuilder as any,
+      processManager: mockProcessManager as any,
+      tokenBudget: mockTokenBudget as any,
+    } as any);
 
     expect(result.success).toBe(false);
     const suggestionsStr = (result as any).error.suggestions.join(' ');

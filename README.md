@@ -290,15 +290,15 @@ For **SSE transport** (HTTP-based remote MCP) instead of stdio:
 
 Different MCP clients detect and connect to Fennec differently. Some require **SSE transport** (`--sse`) instead of default stdio:
 
-| Client             | stdio | SSE | Notes                                                                                         |
-| ------------------ | :---: | :-: | --------------------------------------------------------------------------------------------- |
-| **Claude Desktop** |  ✅   | ✅  | stdio default, SSE for remote                                                                 |
-| **Claude Code**    |  ✅   | ✅  | stdio default                                                                                 |
-| **Cline**          |  ✅   | ✅  | stdio default                                                                                 |
-| **Cursor**         |  ✅   | ✅  | stdio default                                                                                 |
-| **Windsurf**       |  ✅   | ✅  | stdio default                                                                                 |
-| **Continue.dev**   |  ⚠️   | ✅  | **Recommended: SSE** — some versions have stdio detection issues                              |
-| **OpenCode**       |  ✅   | ✅  | stdio default (local build wrapper recommended), SSE optionally supported                     |
+| Client             | stdio | SSE | Notes                                                                     |
+| ------------------ | :---: | :-: | ------------------------------------------------------------------------- |
+| **Claude Desktop** |  ✅   | ✅  | stdio default, SSE for remote                                             |
+| **Claude Code**    |  ✅   | ✅  | stdio default                                                             |
+| **Cline**          |  ✅   | ✅  | stdio default                                                             |
+| **Cursor**         |  ✅   | ✅  | stdio default                                                             |
+| **Windsurf**       |  ✅   | ✅  | stdio default                                                             |
+| **Continue.dev**   |  ⚠️   | ✅  | **Recommended: SSE** — some versions have stdio detection issues          |
+| **OpenCode**       |  ✅   | ✅  | stdio default (local build wrapper recommended), SSE optionally supported |
 
 > **💡 SSE mode:** Run `fennec start --sse` to start the server over HTTP+SSE (default `http://127.0.0.1:3333/sse`). Configure clients with `{ "type": "remote", "url": "http://localhost:3333/sse" }`. For OpenCode, you can add it as a local stdio server or add `type: remote, url: http://localhost:3333/sse` to `~/.config/opencode/opencode.json` for SSE.
 

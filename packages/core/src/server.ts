@@ -1,7 +1,12 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
-import { CallToolRequestSchema, ListToolsRequestSchema, ListPromptsRequestSchema, ListResourcesRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+  ListPromptsRequestSchema,
+  ListResourcesRequestSchema,
+} from '@modelcontextprotocol/sdk/types.js';
 import { createServer, type Server as HttpServer } from 'node:http';
 import { ZodError } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
@@ -633,7 +638,6 @@ export class FennecServer {
       ];
       const selectedCategories = categories?.length ? categories : defaultCategories;
       const tools = this.toolRegistry.getByCategories(selectedCategories);
-
 
       return {
         tools: tools.map((t) => {

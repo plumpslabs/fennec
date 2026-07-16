@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createSmartHook } from '../../../src/middleware/SmartHook.js';
-import type { MiddlewareFn, MiddlewareContext, ToolResult } from '../../../src/middleware/Pipeline.js';
+import type {
+  MiddlewareFn,
+  MiddlewareContext,
+  ToolResult,
+} from '../../../src/middleware/Pipeline.js';
 
 // ─── Helpers ───────────────────────────────────────────────────
 
@@ -94,10 +98,7 @@ describe('SmartHook ELEMENT_NOT_INTERACTABLE recovery', () => {
     const ctx = {
       toolName: 'browser_click',
       input: { selector: 'text=Submit' },
-      session: { browser,
-        consoleBuffer: [],
-        networkBuffer: [],
-      },
+      session: { browser, consoleBuffer: [], networkBuffer: [] },
     } as unknown as MiddlewareContext;
 
     const next = vi.fn().mockResolvedValue(createFailureResult('ELEMENT_NOT_FOUND'));
@@ -125,10 +126,7 @@ describe('SmartHook ELEMENT_NOT_INTERACTABLE recovery', () => {
     const ctx = {
       toolName: 'browser_type',
       input: { selector: 'text=Input' },
-      session: { browser,
-        consoleBuffer: [],
-        networkBuffer: [],
-      },
+      session: { browser, consoleBuffer: [], networkBuffer: [] },
     } as unknown as MiddlewareContext;
 
     const next = vi.fn().mockResolvedValue(createFailureResult('ELEMENT_NOT_INTERACTABLE'));
@@ -170,9 +168,11 @@ describe('SmartHook ELEMENT_NOT_INTERACTABLE recovery', () => {
       session: { browser },
     } as unknown as MiddlewareContext;
 
-    const next = vi.fn().mockResolvedValue(
-      createFailureResult('ELEMENT_NOT_INTERACTABLE', 'locator.click: Timeout 30000ms exceeded.'),
-    );
+    const next = vi
+      .fn()
+      .mockResolvedValue(
+        createFailureResult('ELEMENT_NOT_INTERACTABLE', 'locator.click: Timeout 30000ms exceeded.'),
+      );
 
     const result = await smartHook(ctx, next);
 

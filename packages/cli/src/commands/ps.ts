@@ -268,7 +268,9 @@ export async function statusCommand(_args: string[]): Promise<void> {
 
   // Docs & resources footer
   console.error(`  ${pc.dim('📖')} ${pc.cyan('https://plumpslabs.github.io/fennec/')}`);
-  console.error(`  ${pc.dim('💬')} ${pc.dim('Report issues:')} ${pc.cyan('https://github.com/plumpslabs/fennec/issues')}`);
+  console.error(
+    `  ${pc.dim('💬')} ${pc.dim('Report issues:')} ${pc.cyan('https://github.com/plumpslabs/fennec/issues')}`,
+  );
 
   if (watchFlag) await watchSystemProcesses('cpu', 15);
   console.error();
@@ -285,10 +287,9 @@ async function checkVersion(): Promise<void> {
   lastUpdateCheck = now;
 
   try {
-    const response = await fetch(
-      'https://registry.npmjs.org/@plumpslabs/fennec/latest',
-      { signal: AbortSignal.timeout(5000) },
-    );
+    const response = await fetch('https://registry.npmjs.org/@plumpslabs/fennec/latest', {
+      signal: AbortSignal.timeout(5000),
+    });
     if (!response.ok) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data = (await response.json()) as any;
