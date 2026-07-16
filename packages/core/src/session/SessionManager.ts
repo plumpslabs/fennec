@@ -303,6 +303,14 @@ export class SessionManager {
     return count;
   }
 
+  clearNetworkBuffer(sessionId: string): number {
+    const session = this.sessions.get(sessionId);
+    if (!session) return 0;
+    const count = session.networkBuffer.length;
+    session.networkBuffer = [];
+    return count;
+  }
+
   private async cleanupIdleSessions(): Promise<void> {
     const now = Date.now();
     const idleTimeout = this.config.session.idleTimeoutSecs * 1000;
