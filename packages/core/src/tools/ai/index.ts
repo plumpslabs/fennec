@@ -143,6 +143,12 @@ function getNetworkSummary(
 
 // ─── Tool: observe ───────────────────────────────────────────────
 
+/**
+ * Track last-known URLs per session so we can detect navigation and
+ * flush stale console/network data from the previous page.
+ */
+const lastObservedUrl = new Map<string, string>();
+
 export const observe = createTool({
   name: 'observe',
   category: 'ai',
@@ -172,6 +178,15 @@ export const observe = createTool({
         const url = typeof session.browser.url === 'function' ? session.browser.url() : 'unknown';
         const title = await session.browser.title().catch(() => 'unknown');
         result.page = { url, title };
+
+        // Detect navigation: flush stale console/network data when URL changes
+        const prevUrl = lastObservedUrl.get(session.id);
+        if (prevUrl !== undefined && prevUrl !== url) {
+          sessionManager.clearConsoleBuffer(session.id);
+          sessionManager.clearNetworkBuffer(session.id);
+          result.fresh = true;
+        }
+        lastObservedUrl.set(session.id, url);
 
         if (input.detail === 'full' || input.detail === 'summary') {
           result.domSummary = await getDomSummary(session.browser);
