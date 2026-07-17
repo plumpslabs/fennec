@@ -2,6 +2,20 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.15.3] - 2026-07-17
+
+### Added
+- **Bulk session rm.** `store session rm <name...>` and `sessions rm <name...>` accept multiple names for mass deletion with single confirmation prompt.
+- **Nested `--help` for subcommands.** `store session --help`, `sessions rm --help`, `sessions info --help` now show specific docs instead of parent command help.
+- **`adopt` and `doctor` command docs.** Both commands were missing from the help system entirely — now visible in `fennec --help` with full descriptions, options, and examples.
+- **`workflow` visible in help.** Was defined but not referenced in any group — now appears under Apps & Processes.
+- **`process_spawn` group preservation.** Re-spawn/adoption path now preserves the existing entry's group via `effectiveGroup`.
+
+### Changed
+- **Comprehensive help docs overhaul.** All 40 COMMANDS entries now have `description`, `options`, and `examples`:
+  - 13 skeleton entries (info, rename, attach-pid, attach-port, import, cleanup, init, setup, install-browsers, sessions, health, help, version) gained full descriptions
+  - 7 entries missing description (status, restart, run, attach, pipe, watch, export) gained detailed explanations
+
 ## [1.15.2] - 2026-07-16
 
 ### Added

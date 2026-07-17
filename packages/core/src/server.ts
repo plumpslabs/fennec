@@ -370,7 +370,7 @@ export class FennecServer {
     this.performanceMetrics.startMemoryMonitoring();
 
     this.server = new Server(
-      { name: 'fennec', version: '1.15.2' },
+      { name: 'fennec', version: '1.15.3' },
       { capabilities: { tools: {}, prompts: {}, resources: {} } },
     );
 
