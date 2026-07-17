@@ -371,10 +371,28 @@ export const COMMANDS: Record<string, CommandDoc> = {
     summary: 'Install Playwright browser engines',
     examples: ['install-browsers'],
   },
+  store: {
+    name: 'store',
+    usage: 'store [--local] [session] <ls|info|rm>',
+    summary: 'Manage persisted data — sessions, configs, and store overview',
+    description:
+      "Unified view + management of everything Fennec saves to disk (global ~/.fennec or local ./.fennec). Sub-commands:\n  session ls        List saved auth sessions\n  session info <n>  Show session details (--show-secrets to reveal)\n  session rm <n>    Delete a session (with confirmation)",
+    options: [
+      ['--local', 'Target the local ./.fennec instead of the global store'],
+      ['--show-secrets', 'Reveal secret values in session info'],
+    ],
+    examples: [
+      'store',
+      'store --local',
+      'store session',
+      'store session rm crm-testing',
+    ],
+  },
   sessions: {
     name: 'sessions',
     usage: 'sessions',
     summary: 'List saved browser auth sessions',
+    aliases: ['store session'],
     examples: ['sessions'],
   },
   health: {
@@ -440,8 +458,8 @@ const GROUPS: { title: string; keys: string[] }[] = [
     ],
   },
   { title: 'Observation', keys: ['attach', 'attach-pid', 'attach-port', 'pipe', 'watch'] },
-  { title: 'Data', keys: ['export', 'import', 'cleanup'] },
-  { title: 'Configuration', keys: ['init', 'setup', 'install-browsers', 'sessions'] },
+  { title: 'Data', keys: ['store', 'export', 'import', 'cleanup', 'sessions'] },
+  { title: 'Configuration', keys: ['init', 'setup', 'install-browsers'] },
   { title: 'Other', keys: ['health', 'help', 'version'] },
 ];
 

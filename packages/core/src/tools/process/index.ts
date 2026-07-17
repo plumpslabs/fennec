@@ -92,6 +92,12 @@ export const processSpawn = createTool({
     try {
       const cmdLine = `${input.command} ${(input.args ?? []).join(' ')}`;
 
+      // Preserve existing group if not explicitly provided (prevents group loss on re-spawn)
+      const existingEntry = input.name
+        ? readTracked().find((t) => t.name === input.name)
+        : undefined;
+      const effectiveGroup = input.group ?? existingEntry?.group;
+
       // ── Idempotency: adopt an already-running process instead of
       //    spawning a duplicate. This is the fix for AI agents that fire
       //    `node server.js` via raw bash without checking tracked state.
@@ -106,7 +112,7 @@ export const processSpawn = createTool({
             port: input.port,
             cwd: input.cwd,
             env: input.env,
-            group: input.group,
+            group: effectiveGroup,
             startedAt: new Date().toISOString(),
             autoRestart: true,
           });
@@ -158,7 +164,7 @@ export const processSpawn = createTool({
         port: input.port,
         cwd: input.cwd,
         env: input.env,
-        group: input.group,
+        group: effectiveGroup,
         startedAt: proc.startedAt.toISOString(),
         autoRestart: true,
       });
