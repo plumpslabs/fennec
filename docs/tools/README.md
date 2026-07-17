@@ -1,6 +1,6 @@
 # Fennec Tool Reference
 
-Fennec provides **165+ MCP tools** organized into **18 categories**. Each tool is designed to be consumed by AI agents, with structured input/output and actionable error messages.
+Fennec provides **174+ MCP tools** organized into **19 categories**. Each tool is designed to be consumed by AI agents, with structured input/output and actionable error messages.
 
 > 💡 **Token-Efficient**: MCP clients can request specific categories to reduce context window usage. Every tool response also carries a `_tokenTier` (low/medium/high) in `tools/list` so agents prefer cheap tools first. Screenshots default to compressed JPEG and `smart_navigate` returns structured JSON (no image) unless you ask for one.
 
@@ -214,6 +214,23 @@ Watch log files, pipe streams, and monitor terminal output. Works **without brow
 | `terminal_watch_pipe`    | Watch a named pipe   |
 | `terminal_clear_buffer`  | Clear log buffer     |
 
+### [Database](db.md) (9 tools)
+
+Connect to and query local databases (PostgreSQL, MySQL, SQLite) via the dbTui sidecar binary.
+Read-only by default. Credentials stored in OS keychain.
+
+| Tool | Description |
+|------|-------------|
+| `db_connect` | Connect to a database |
+| `db_disconnect` | Disconnect from a database |
+| `db_list` | List active connections |
+| `db_query` | Execute a SQL query (read-only by default) |
+| `db_schema` | Inspect database schema (cached 30s) |
+| `db_tables` | List tables in a database |
+| `db_ping` | Ping a database connection |
+| `db_explain` | Get query execution plan |
+| `db_stats` | Get database statistics |
+
 ### [Diagnostic](diagnostic.md) (6 tools) ⭐
 
 Page, element, network, auth, performance, and full-stack correlation diagnostics.
@@ -310,6 +327,7 @@ Token-efficient assertions for AI-driven verification (no screenshot needed).
 | Tabs & Contexts      | 9        |          ✅           |
 | Process              | 19       |          ❌           |
 | Terminal             | 7        |          ❌           |
+| Database             | 9        |          ❌           |
 | Diagnostic           | 6        |      ⚠️ Partial       |
 | Scheduler            | 7        |          ❌           |
 | Smart                | 12       |          ✅           |
@@ -317,9 +335,9 @@ Token-efficient assertions for AI-driven verification (no screenshot needed).
 | Recorder             | 5        |          ✅           |
 | Assert               | 1        |          ✅           |
 | Debug                | 26       |          ❌           |
-| **Total**            | **165+** | **0 without browser** |
+| **Total**            | **174+** | **0 without browser** |
 
-> **0 tools work without Playwright/browser engines** — process, terminal, storage (basic), scheduler, planner, and partial auth + diagnostic.
+> **9 tools work without Playwright/browser engines** — process, terminal, database, storage (basic), scheduler, planner, and partial auth + diagnostic.
 
 ---
 

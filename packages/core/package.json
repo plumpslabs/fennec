@@ -1,6 +1,6 @@
 {
   "name": "@plumpslabs/fennec-core",
-  "version": "1.15.3",
+  "version": "1.16.0",
   "description": "Fennec MCP server — AI-native browser, terminal, and process observability",
   "keywords": [
     "mcp",
@@ -57,6 +57,9 @@
   },
   "peerDependencies": {
     "playwright": "^1.42.0"
+  },
+  "optionalDependencies": {
+    "@aspect-build/aspect-keytar": "^1.0.0"
   },
   "peerDependenciesMeta": {
     "playwright": {

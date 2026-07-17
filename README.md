@@ -96,7 +96,11 @@ This is what makes Fennec more than an observer. Your AI agent can **run, superv
 
 > 🤖 **Why this matters for agents:** when an agent runs `npm run dev` through raw bash, the process is invisible to Fennec and easy to orphan. With Fennec the agent uses `process_spawn` (idempotent — it adopts an existing process on the same port) or `process_adopt`, and gets structured status, logs, and health back. One tool call instead of five, with no double-starts.
 
-### 🔧 165+ MCP Tools Across 18 Categories
+### 🗄️ Database Observation
+
+Connect to local databases (PostgreSQL, MySQL, SQLite), run read-only queries, inspect schema, check health, and get stats. Also supports `rm` (remove saved connection) and `ps` (list saved connections) CLI commands. An auto-start agent runs on connect to keep the sidecar alive. Reconnect without a URL uses the saved credential from OS keychain. Strict mode blocks non-localhost connections by default.
+
+### 🔧 174+ MCP Tools Across 19 Categories
 
 | Category                 | Tools | What You Can Do                                                                                                                   |
 | ------------------------ | ----- | --------------------------------------------------------------------------------------------------------------------------------- |
@@ -111,6 +115,7 @@ This is what makes Fennec more than an observer. Your AI agent can **run, superv
 | **Tabs**                 | 7     | Multi-tab, multi-context, tab switching                                                                                           |
 | **Process**              | 25    | Spawn (idempotent/adopt), monitor, attach by PID/port, kill, restart, adopt, supervise, persist, inspect, rename, dev-orchestrate |
 | **Terminal**             | 7     | Watch files/pipes, filter logs by level/keyword                                                                                   |
+| **Database** 🆕          | 9     | Connect, query, schema, tables, ping, stats, explain, list, disconnect — PostgreSQL, MySQL, SQLite via dbTui sidecar              |
 | **Diagnostic**           | 6     | diagnose_page, diagnose_fullstack, diagnose_auth, etc.                                                                            |
 | **Scheduler**            | 7     | Auto-trigger workflows, manage rules, view history                                                                                |
 | **Smart**                | 7     | Smart wait, smart fill form, annotated screenshots, diff                                                                          |
@@ -119,7 +124,7 @@ This is what makes Fennec more than an observer. Your AI agent can **run, superv
 | **AI-Native API** 🆕     | 7     | `observe()`, `ai_diagnose()`, `correlate()`, `summarize()`, `explain()`, `investigate()`, `predict()`                             |
 | **Debug** 🆕             | 26    | Breakpoint debugging, logpoints, auto-debug, cassette record/replay, multi-language DAP adapters                                  |
 
-> 💡 **Token-Efficient**: Tools are categorized into 18 groups (including Mobile + AI-Native API + Debug). MCP clients can request only specific categories to reduce context window usage. Use the `_categories` field in ListTools response to discover available categories.
+> 💡 **Token-Efficient**: Tools are categorized into 19 groups (including Mobile + AI-Native API + Debug). MCP clients can request only specific categories to reduce context window usage. Use the `_categories` field in ListTools response to discover available categories.
 
 ### 🧠 AI-Native API (Pillar 7)
 
@@ -397,6 +402,7 @@ fennec dev status
 | `FENNEC_DEFAULT_TIMEOUT`                           | Browser default timeout (ms).                              |
 | `FENNEC_VIEWPORT_WIDTH` / `FENNEC_VIEWPORT_HEIGHT` | Viewport size.                                             |
 | `FENNEC_LOG_LEVEL`                                 | `debug` \| `info` \| `warn` \| `error`.                    |
+| `DATABASE_URL`                                     | Database URL fallback for `fennec db connect`               | — |
 
 See the [CLI README](packages/cli/README.md) for the full command reference.
 

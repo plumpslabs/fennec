@@ -32,6 +32,7 @@ import { exportCommand, importCommand } from './commands/export-import.js';
 import { groupCommand } from './commands/group.js';
 import { debugCommand } from './commands/debug.js';
 import { workflowCommand } from './commands/workflow.js';
+import { dbCommand } from './commands/db.js';
 
 const [, , command, ...args] = process.argv;
 
@@ -110,6 +111,9 @@ async function main(): Promise<void> {
     await groupCommand(args);
   } else if (command === 'debug') {
     await debugCommand(args);
+  } else if (command === 'db') {
+    printBanner();
+    await dbCommand(args);
   } else if (command === 'workflow' || command === 'wf') {
     printBanner();
     await workflowCommand(args);

@@ -181,6 +181,9 @@ Mobile Adapter Layer
 ├── ADB (Android) — done
 └── iOS (future)
 
+Database Adapter Layer
+└── 🗄️ Database (dbTui) — PostgreSQL, MySQL, SQLite observation
+
 Git Adapter Layer (future)
 VSCode Adapter Layer (future)
 ```
@@ -554,6 +557,7 @@ After (v2.x+):
 | `explain()`, `investigate()`, `predict()` tools | `tools/ai/index.ts`                                               | ✅ 7/7 Pillar 7 tools implemented                                                                                           |
 | CDP auto-switch (detection)                     | `browser/AdapterSelector.ts` + `config/defaults.ts`               | ✅ Auto-detect Chrome/Playwright, logged at startup                                                                         |
 | CDP ↔ Playwright engine switch                  | `browser/EngineSelector.ts` **NEW** + `session/SessionManager.ts` | ✅ `createEngine()` factory pilih CDP/Playwright, `setEngine()` inject ke SessionManager, fallback ke Playwright jika gagal |
+| **🗄️ Database Observation (Phase 1)**           | `sidecar/dbTui/` (Go binary)                                      | ✅ 9 MCP tools (`db_connect`, `db_query`, `db_schema`, etc.), 11 CLI commands, OS keychain credential mgmt, strict read-only mode, auto-download + SHA256 verification |
 
 ### 🟡 Future Scope
 

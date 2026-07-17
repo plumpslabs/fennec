@@ -129,6 +129,14 @@ export interface FennecConfig {
     format: 'pretty' | 'json';
     file: string | null;
   };
+  db: {
+    strict: boolean;
+    allowedHosts: string[];
+    maxRows: number;
+    queryTimeout: number;
+    allowWrite: boolean;
+    binaryPath: string;
+  };
 }
 
 export const defaultConfig: FennecConfig = {
@@ -219,5 +227,13 @@ export const defaultConfig: FennecConfig = {
     level: 'info',
     format: 'pretty',
     file: null,
+  },
+  db: {
+    strict: true,
+    allowedHosts: ['localhost', '127.0.0.1', '::1'],
+    maxRows: 1000,
+    queryTimeout: 30000,
+    allowWrite: false,
+    binaryPath: '',
   },
 };

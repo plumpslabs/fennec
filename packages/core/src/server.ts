@@ -249,6 +249,17 @@ import {
 import { toolsHelp } from './tools/help/index.js';
 import { budgetCheckPage, budgetGetSummary } from './tools/budget/index.js';
 import {
+  dbConnect,
+  dbDisconnect,
+  dbList,
+  dbQuery,
+  dbSchema,
+  dbTables,
+  dbPing,
+  dbExplain,
+  dbStats,
+} from './tools/db/index.js';
+import {
   recorderStart,
   recorderStop,
   recorderExport,
@@ -370,7 +381,7 @@ export class FennecServer {
     this.performanceMetrics.startMemoryMonitoring();
 
     this.server = new Server(
-      { name: 'fennec', version: '1.15.3' },
+      { name: 'fennec', version: '1.16.0' },
       { capabilities: { tools: {}, prompts: {}, resources: {} } },
     );
 
@@ -590,6 +601,16 @@ export class FennecServer {
       debugAutoHistory,
       debugAutoConfigure,
       debugAutoStats,
+      // Database (dbTui agent)
+      dbConnect,
+      dbDisconnect,
+      dbList,
+      dbQuery,
+      dbSchema,
+      dbTables,
+      dbPing,
+      dbExplain,
+      dbStats,
     ];
 
     for (const tool of tools) {

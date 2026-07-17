@@ -334,6 +334,27 @@ Fennec persists everything — auth sessions, tracked processes, exports, plugin
 | `fennec store session rm <name>`   | Delete a session (confirm prompt).                                                                           |
 | `fennec doctor`                    | Health + secret-surface checks: store permissions, synced-home leakage, embedded secrets in launch commands. |
 
+### Database
+
+| Command | Description |
+|---------|-------------|
+| `db connect <name> [--url <url>]` | Connect/reconnect (auto-starts agent; uses saved credential if --url omitted) |
+| `db ps` | Agent status + all saved connections |
+| `db list` | Alias for ps |
+| `db disconnect <name>` | Disconnect from agent (keeps credential) |
+| `db rm <name>` | Remove credential entirely |
+| `db query <name> <sql>` | Execute a SQL query |
+| `db schema <name>` | Inspect full database schema |
+| `db tables <name>` | List tables and row counts |
+| `db ping <name>` | Health check with latency |
+| `db stats <name>` | Database statistics (size, connections) |
+| `db explain <name> <sql>` | Get query execution plan |
+| `db start` | Start persistent agent (auto-started by connect) |
+| `db stop` | Stop persistent agent |
+| `db restart` | Restart persistent agent |
+| `db update` | Download/update dbTui binary |
+| `db doctor` | Check dbTui installation status |
+
 ### Configuration & Misc
 
 | Command                   | Description                                                                |
@@ -467,6 +488,17 @@ security:
   allowProcessSpawn: true
   allowProcessKill: false # off by default — opt in explicitly
   allowJSEvaluation: true
+
+  db:
+    strict: true              # Block non-localhost connections
+    allowedHosts:              # Allowed hosts (strict mode)
+      - localhost
+      - 127.0.0.1
+      - ::1
+    maxRows: 1000             # Default row limit
+    queryTimeout: 30000        # Query timeout in ms
+    allowWrite: false          # Allow write queries (needs --no-strict)
+    binaryPath: ''             # Custom dbTui binary path
 
 lazyContext:
   level1: true # Auto-attach summary on errors

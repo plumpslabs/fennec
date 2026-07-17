@@ -263,6 +263,7 @@ graph TB
 | **🌐 Browser**     | Playwright + CDP                    | Full browser automation: Chromium/Firefox/WebKit, console, network, performance, DOM, storage              |
 | **🖥️ Process**     | child_process, watchers             | Process management: spawn, kill, attach by PID/port, log watching, pipe monitoring                         |
 | **💾 Storage**     | Sessions, Workflows, Files          | Persistent storage for auth sessions, workflow definitions, screenshots, and exports                       |
+| **🗄️ Database**   | dbTui sidecar (Go binary)           | Database observation: PostgreSQL, MySQL, SQLite — schema inspection, read-only queries, health checks, credential management via OS keychain |
 
 ## Request Flow
 
