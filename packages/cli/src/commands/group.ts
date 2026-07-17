@@ -20,6 +20,13 @@ export async function groupCommand(args: string[]): Promise<void> {
   const positional = args.filter((a) => !a.startsWith('-') && !a.includes('='));
   const unset = args.includes('--unset');
 
+  // --unset with no name → error
+  if (unset && positional.length === 0) {
+    console.error(renderError('Missing name', 'Usage: fennec group <name> --unset'));
+    process.exit(1);
+    return;
+  }
+
   // No args → list every entry with its group
   if (positional.length === 0) {
     const tracked = readTracked();
