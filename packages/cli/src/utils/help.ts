@@ -68,6 +68,8 @@ export const COMMANDS: Record<string, CommandDoc> = {
     usage: 'run <command> --name <name> [options]',
     short: 'run <command>',
     summary: 'Alias of `start <command>` — run an app under Fennec',
+    description:
+      'Identical to `fennec start <command>`. Launches a command as a background daemon, writing its output to ~/.fennec/logs/<name>.log. Provided as a more intuitive verb for "run this command under Fennec."',
     aliases: ['start'],
     options: [
       ['--name <name>', 'App name used for tracking (recommended)'],
@@ -99,8 +101,10 @@ export const COMMANDS: Record<string, CommandDoc> = {
     name: 'status',
     usage: 'status [name] [options]',
     summary: 'Show system overview & top processes',
+    description:
+      'Displays a live dashboard: OS info, CPU/memory load, and top Fennec-tracked apps (or system processes). With a name, shows a focused view of one tracked app. --watch refreshes every 3 seconds.',
     options: [['-w, --watch', 'Watch mode — refresh every 3s']],
-    examples: ['status', 'status -w'],
+    examples: ['status', 'status web', 'status -w'],
   },
   log: {
     name: 'log',
@@ -147,10 +151,15 @@ export const COMMANDS: Record<string, CommandDoc> = {
   },
   restart: {
     name: 'restart',
-    usage: 'restart <name|pid> [name...] [--group <g>]',
+    usage: 'restart <name|pid> [name...] [--all] [--group <g>]',
     summary: 'Stop and re-spawn a tracked app from its saved config',
-    options: [['--group <g>, -g <g>', 'Restart all apps in group <g>']],
-    examples: ['restart web', 'restart api-service web-app -y', 'restart --group backend'],
+    description:
+      'Kills the app, then re-spawns it with its saved command/config (same as `stop name && spawn name`). Accepts multiple names or --group for bulk restart. Already-stopped apps are skipped.',
+    options: [
+      ['--all, -a', 'Restart ALL tracked apps'],
+      ['--group <g>, -g <g>', 'Restart all apps in group <g>'],
+    ],
+    examples: ['restart web', 'restart api-service web-app -y', 'restart --all', 'restart --group backend'],
   },
   kill: {
     name: 'kill',
@@ -234,13 +243,17 @@ export const COMMANDS: Record<string, CommandDoc> = {
     name: 'info',
     usage: 'info <name>',
     summary: 'Show detailed info for a tracked app',
-    examples: ['info web'],
+    description:
+      'Displays every detail Fennec has about one app: PID, command, cwd, port, group, debug mode, auto-restart status, uptime, memory, and the last 10 log lines. Useful for deep-diving into a single app\'s health without the table view of `ps`.',
+    examples: ['info web', 'info api-service'],
   },
   rename: {
     name: 'rename',
     usage: 'rename <old-name> <new-name>',
-    summary: 'Rename a tracked app',
-    examples: ['rename web frontend'],
+    summary: 'Rename a tracked app and its log file',
+    description:
+      'Changes the name of a tracked app everywhere — the tracked.json entry, the log file on disk (~/.fennec/logs/<old-name>.log is moved to <new-name>.log), and any references. Renames take effect immediately; the app keeps running.',
+    examples: ['rename web frontend', 'rename api-service v2-api'],
   },
   group: {
     name: 'group',
@@ -260,25 +273,33 @@ export const COMMANDS: Record<string, CommandDoc> = {
     usage: 'attach <port> --name <name>',
     short: 'attach <port>',
     summary: 'Observe a running process by the port it listens on',
-    options: [['--name <name>', 'Name to track the observed process under']],
-    examples: ['attach 3000 --name web'],
+    description:
+      'Finds the process listening on <port> and adds it to the Fennec tracked list without restarting it. Once attached, you can inspect it, tail its logs, and manage it like any tracked app. Shortcut for `attach-port <port> --name <name>`.',
+    options: [['--name <name>', 'Name to track the observed process under (required)']],
+    examples: ['attach 3000 --name web', 'attach 8080 --name api'],
   },
   'attach-pid': {
     name: 'attach-pid',
     usage: 'attach-pid <pid>',
     summary: 'Attach to and observe a process by its PID',
+    description:
+      'Registers an existing system process (by PID) into the Fennec tracked list so you can inspect, log-watch, and manage it alongside other Fennec apps. The process must already be running.',
     examples: ['attach-pid 12345'],
   },
   'attach-port': {
     name: 'attach-port',
     usage: 'attach-port <port>',
     summary: 'Attach to and observe a process by its port',
-    examples: ['attach-port 8080'],
+    description:
+      'Finds which process is listening on the given port, then registers it into the Fennec tracked list. Same as attach-pid but by port — no need to look up the PID first.',
+    examples: ['attach-port 8080', 'attach-port 3000'],
   },
   pipe: {
     name: 'pipe',
     usage: 'pipe --name <name>',
     summary: 'Pipe stdin into a Fennec log watcher',
+    description:
+      'Pipes a command\'s stdout/stderr into Fennec\'s log system so you can inspect it with `fennec log <name>` and `fennec inspect <name>`. Usage: pipe a running command into this. Works like `fennec pipe --name web` after a `|` from your shell.',
     options: [['--name <name>', 'Watcher name (required)']],
     examples: ['npm run dev | fennec pipe --name web'],
   },
@@ -287,41 +308,53 @@ export const COMMANDS: Record<string, CommandDoc> = {
     usage: 'watch --file <path> [--name <name>]',
     short: 'watch --file <path>',
     summary: 'Watch an existing log file',
+    description:
+      'Tails an existing log file (e.g. from a server not managed by Fennec) into the Fennec log watcher. Once watched, you can inspect it with `fennec log` and `fennec inspect` just like tracked apps.',
     options: [
       ['--file <path>', 'Path to the log file (required)'],
       ['--name <name>', 'Watcher name'],
     ],
-    examples: ['watch --file ./app.log --name web'],
+    examples: ['watch --file ./app.log --name web', 'watch --file /var/log/nginx/access.log --name nginx'],
   },
   export: {
     name: 'export',
     usage: 'export --file <path>',
-    summary: 'Export tracked apps to a file',
+    summary: 'Export tracked apps to a JSON file',
+    description:
+      'Serialises all tracked app configs (command, cwd, port, group, restart) to a JSON file. Combined with `fennec import`, this lets you transfer your entire app fleet between machines or share it with teammates.',
     options: [['--file <path>', 'Destination file path (required)']],
     examples: ['export --file ./fennec-apps.json'],
   },
   import: {
     name: 'import',
     usage: 'import <file>',
-    summary: 'Import tracked apps from a file',
+    summary: 'Import tracked apps from a JSON file',
+    description:
+      'Merges app configs from a JSON file (previously exported with `fennec export`) into the tracked registry. Existing apps with the same name are overwritten. Handy for restoring a backup or cloning a setup.',
     examples: ['import ./fennec-apps.json'],
   },
   cleanup: {
     name: 'cleanup',
     usage: 'cleanup',
     summary: 'Remove dead/stale entries from the tracked registry',
+    description:
+      'Scans the tracked registry and removes entries that have no saved command and cannot be re-spawned — these are orphaned records from old sessions. Entries with a saved command are kept even if stopped (they can be revived with `fennec spawn`).',
     examples: ['cleanup'],
   },
   init: {
     name: 'init',
     usage: 'init',
     summary: 'Generate a fennec.config.yaml in the current directory',
+    description:
+      'Creates a starter fennec.config.yaml with commented-out defaults. Edit this file to define your dev stack (apps, ports, groups, dependencies) and then boot everything at once with `fennec dev up`.',
     examples: ['init'],
   },
   setup: {
     name: 'setup',
     usage: 'setup',
     summary: 'Interactively configure your MCP client for Fennec',
+    description:
+      'Walks you through adding Fennec to your MCP client config (Claude Desktop, VS Code Cline, etc.). Detects your editor and auto-generates the correct settings so AI assistants can use Fennec tools.',
     examples: ['setup'],
   },
   debug: {
@@ -368,15 +401,39 @@ export const COMMANDS: Record<string, CommandDoc> = {
   'install-browsers': {
     name: 'install-browsers',
     usage: 'install-browsers',
-    summary: 'Install Playwright browser engines',
+    summary: 'Install Playwright browser engines for Fennec browser tools',
+    description:
+      'Downloads and installs the Chromium browser engine that powers Fennec\'s browser tools (navigate, click, type, screenshot, etc.). Run once after installing Fennec if you plan to use browser automation features.',
     examples: ['install-browsers'],
+  },
+  adopt: {
+    name: 'adopt',
+    usage: 'adopt <pid> --name <name> [--port <port>] [--group <g>]',
+    summary: 'Register a running system process as a tracked app',
+    description:
+      'Adopts an already-running process (identified by PID) into Fennec\'s tracked registry without restarting it. Useful for picking up a server you started manually or a background service. Once adopted, you can inspect it, watch its logs, and manage it like any other Fennec app.',
+    options: [
+      ['--name <name>', 'Name for the tracked app (required)'],
+      ['--port <port>', 'Port the process listens on (for health checks)'],
+      ['--group <g>', 'Group to assign (for bulk ops)'],
+    ],
+    examples: ['adopt 12345 --name web', 'adopt 9876 --name api --port 8080 --group backend'],
+  },
+  doctor: {
+    name: 'doctor',
+    usage: 'doctor [--fix]',
+    summary: 'Diagnose and fix issues in the Fennec environment',
+    description:
+      'Scans the Fennec store for common problems: duplicate server processes, orphaned supervisor daemons, leaked Chrome/Chromium browser instances, and stale lock files. With --fix, automatically cleans up what it finds.',
+    options: [['--fix', 'Automatically fix detected issues (kills duplicate processes)']],
+    examples: ['doctor', 'doctor --fix'],
   },
   store: {
     name: 'store',
     usage: 'store [--local] [session] <ls|info|rm>',
     summary: 'Manage persisted data — sessions, configs, and store overview',
     description:
-      "Unified view + management of everything Fennec saves to disk (global ~/.fennec or local ./.fennec). Sub-commands:\n  session ls        List saved auth sessions\n  session info <n>  Show session details (--show-secrets to reveal)\n  session rm <n>    Delete a session (with confirmation)",
+      "Unified view + management of everything Fennec saves to disk (global ~/.fennec or local ./.fennec). Sub-commands:\n  session ls         List saved auth sessions\n  session info <n>   Show session details (--show-secrets to reveal)\n  session rm <n...>  Delete one or more sessions (with confirmation)",
     options: [
       ['--local', 'Target the local ./.fennec instead of the global store'],
       ['--show-secrets', 'Reveal secret values in session info'],
@@ -386,32 +443,41 @@ export const COMMANDS: Record<string, CommandDoc> = {
       'store --local',
       'store session',
       'store session rm crm-testing',
+      'store session rm session-a session-b session-c -y',
     ],
   },
   sessions: {
     name: 'sessions',
-    usage: 'sessions',
-    summary: 'List saved browser auth sessions',
+    usage: 'sessions [ls|info <name>|rm <name...>]',
+    summary: 'Manage saved browser auth sessions (alias for `store session`)',
+    description:
+      "Shortcut for `fennec store session`. Lists, inspects, or deletes saved browser auth sessions. Sessions store cookies + localStorage so AI agents can restore logged-in state.\n\n  sessions               List saved sessions\n  sessions info <name>   Show session details\n  sessions rm <name...>  Delete one or more sessions",
     aliases: ['store session'],
-    examples: ['sessions'],
+    examples: ['sessions', 'sessions info crm-testing --show-secrets', 'sessions rm crm-testing'],
   },
   health: {
     name: 'health',
     usage: 'health',
     summary: 'Run a health check of the Fennec environment',
+    description:
+      'Checks Fennec server uptime, memory usage, recent error rates, and overall trend (improving/stable/degrading). Quick way to verify everything is working before starting a task.',
     examples: ['health'],
   },
   help: {
     name: 'help',
     usage: 'help [command]',
     summary: 'Show this help, or detailed help for a command',
-    examples: ['help', 'help start', 'start --help'],
+    description:
+      'With no arguments, lists all commands grouped by category. Pass a command name for detailed help including options and examples. Also works as `fennec <command> --help`.',
+    examples: ['help', 'help start', 'start --help', '--help'],
   },
   version: {
     name: 'version',
     usage: 'version',
     summary: 'Show the installed Fennec version',
-    examples: ['version'],
+    description:
+      'Prints the Fennec version number and build info. Run this to check which version you have or to include in bug reports.',
+    examples: ['version', '--version', '-v'],
   },
 };
 
@@ -455,12 +521,14 @@ const GROUPS: { title: string; keys: string[] }[] = [
       'inspect',
       'info',
       'rename',
+      'adopt',
+      'workflow',
     ],
   },
   { title: 'Observation', keys: ['attach', 'attach-pid', 'attach-port', 'pipe', 'watch'] },
   { title: 'Data', keys: ['store', 'export', 'import', 'cleanup', 'sessions'] },
   { title: 'Configuration', keys: ['init', 'setup', 'install-browsers'] },
-  { title: 'Other', keys: ['health', 'help', 'version'] },
+  { title: 'Other', keys: ['health', 'doctor', 'help', 'version'] },
 ];
 
 function pad(s: string, width: number): string {

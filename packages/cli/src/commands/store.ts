@@ -163,28 +163,46 @@ export async function storeCommand(args: string[]): Promise<void> {
   }
 
   if (action === 'rm' || action === 'remove' || action === 'delete') {
-    if (!name) {
-      console.error(renderError('Missing name', 'Usage: fennec store session rm <name>'));
+    const names = positional.slice(2).filter(Boolean);
+    if (names.length === 0) {
+      console.error(renderError('Missing name(s)', 'Usage: fennec store session rm <name...>'));
       process.exit(1);
     }
-    if (!store.load(name)) {
-      console.error(renderError('Session not found', `No session named "${name}".`));
-      process.exit(1);
+
+    const notFound: string[] = [];
+    const found: string[] = [];
+    for (const n of names) {
+      if (store.load(n)) found.push(n);
+      else notFound.push(n);
     }
-    const confirmed = yes || (await confirmPrompt(`Delete session ${pc.bold(name)}?`, false));
+
+    if (notFound.length > 0) {
+      for (const n of notFound) {
+        console.error(renderError('Session not found', `No session named "${n}".`));
+      }
+      if (found.length === 0) process.exit(1);
+    }
+
+    const confirmed =
+      yes || (await confirmPrompt(`Delete ${found.length} session(s): ${found.map((n) => pc.bold(n)).join(', ')}?`, false));
     if (!confirmed) {
       console.error(`  ${pc.dim('Cancelled')}`);
       return;
     }
-    const ok = store.delete(name);
-    console.error(
-      ok
-        ? `  ${pc.green('✓')} ${pc.bold(name)} deleted\n`
-        : `  ${pc.red('✗')} failed to delete ${pc.bold(name)}\n`,
-    );
+
+    let deleted = 0;
+    for (const n of found) {
+      if (store.delete(n)) {
+        console.error(`  ${pc.green('✓')} ${pc.bold(n)} deleted`);
+        deleted++;
+      } else {
+        console.error(`  ${pc.red('✗')} failed to delete ${pc.bold(n)}`);
+      }
+    }
+    console.error();
     return;
   }
 
-  console.error(renderError('Unknown action', 'Actions: ls | info <name> | rm <name>'));
+  console.error(renderError('Unknown action', `Actions: ls | info <name> | rm <name...>`));
   process.exit(1);
 }

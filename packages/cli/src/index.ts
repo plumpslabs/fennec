@@ -125,7 +125,7 @@ async function main(): Promise<void> {
     printBanner();
     await doctorCommand(args);
   } else if (command === 'sessions') {
-    await storeCommand(['session']);
+    await storeCommand(['session', ...args]);
   } else if (command === 'setup') {
     await setupCommand();
   } else if (command === 'install-browsers') {
