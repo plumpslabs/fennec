@@ -18,7 +18,7 @@ export async function watchCommand(args: string[]): Promise<void> {
   }
   const watcher = new LogWatcher();
   const watcherId = watcher.watchFile(resolvedPath, name);
-  console.log(`Watching file: ${resolvedPath}`);
-  console.log(`Watcher ID: ${watcherId}`);
+  console.error(`Watching file: ${resolvedPath}`);
+  console.error(`Watcher ID: ${watcherId}`);
   process.stdin.resume();
 }

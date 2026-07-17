@@ -1155,6 +1155,10 @@ export const processAdopt = createTool({
       const cwd = input.cwd ?? getProcessCwd(input.pid) ?? undefined;
       const port = input.port ?? byPid?.port;
 
+      // Preserve existing group if re-adopting (addTracked REPLACES by name)
+      const existingEntry = readTracked().find((t) => t.name === name);
+      const effectiveGroup = existingEntry?.group;
+
       addTracked({
         name,
         pid: input.pid,
@@ -1162,6 +1166,7 @@ export const processAdopt = createTool({
         port,
         cwd,
         env: input.env,
+        group: effectiveGroup,
         startedAt: new Date().toISOString(),
         autoRestart: input.autoRestart,
       });

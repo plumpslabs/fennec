@@ -4,12 +4,11 @@
  */
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { execSync } from 'node:child_process';
-import { resolve } from 'node:path';
-import { homedir } from 'node:os';
+import { join } from 'node:path';
 import pc from 'picocolors';
 import { printBanner } from '../utils/banner.js';
 import { symbols, renderKV, renderError } from '../utils/format.js';
-import { readTracked } from './tracker.js';
+import { readTracked, logFilePathFor } from './tracker.js';
 import { isProcessRunning } from '../utils/system-process.js';
 
 export async function healthCommand(): Promise<void> {
@@ -35,14 +34,14 @@ export async function healthCommand(): Promise<void> {
   const runningCount = tracked.filter((t) => isProcessRunning(t.pid)).length;
 
   // 3. Disk usage for logs
-  const logDir = resolve(homedir(), '.fennec', 'logs');
+  const logDir = join(logFilePathFor(''), '..');
   let logSize = '0 B';
   try {
     if (existsSync(logDir)) {
       const files = readdirSync(logDir);
       let totalBytes = 0;
       for (const f of files) {
-        const fStat = statSync(resolve(logDir, f));
+        const fStat = statSync(join(logDir, f));
         totalBytes += fStat.size;
       }
       logSize =

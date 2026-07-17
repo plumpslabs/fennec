@@ -6,7 +6,12 @@ import pc from 'picocolors';
 import { renderError, renderKV, renderAppName, createSpinner } from '../utils/format.js';
 
 export async function attachCommand(args: string[]): Promise<void> {
-  const port = parseInt(args[0]!, 10);
+  const raw = args[0];
+  if (!raw) {
+    console.error(renderError('Missing port', 'Usage: fennec attach <port> --name <name>'));
+    process.exit(1);
+  }
+  const port = parseInt(raw, 10);
   if (isNaN(port)) {
     console.error(renderError('Invalid port', 'Usage: fennec attach <port> --name <name>'));
     process.exit(1);

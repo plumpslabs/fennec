@@ -42,7 +42,7 @@ export async function storeCommand(args: string[]): Promise<void> {
 
   const positional: string[] = [];
   for (const a of args) {
-    if (a.startsWith('--') || a === '-y') continue;
+    if (a.startsWith('--') || a === '-y' || a === '--yes') continue;
     positional.push(a);
   }
   const kind = positional[0] as Kind | undefined;
@@ -98,6 +98,10 @@ export async function storeCommand(args: string[]): Promise<void> {
 
   // ---- session ----
   const store: SessionStore = mgr.sessionStore();
+
+  if (showSecrets && action && action !== 'info') {
+    console.error(`  ${pc.yellow('⚠')} ${pc.dim('--show-secrets only applies to the info action')}\n`);
+  }
 
   if (!action || action === 'ls' || action === 'list') {
     const sessions = store.list();

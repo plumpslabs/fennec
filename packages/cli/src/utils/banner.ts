@@ -90,15 +90,5 @@ export function printBanner(): void {
   }
 }
 
-/**
- * Print a mini/compact banner (fox icon + version only).
- * Suitable for quick commands like ps, status, kill.
- */
-export function printMiniBanner(): void {
-  console.error(generateCompactBanner());
-}
-
 // ─── Exports for reuse ──────────────────────────────────────────
 
-export const FOX = generateBanner();
-export const FOX_COMPACT = generateCompactBanner();

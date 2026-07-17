@@ -7,10 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      zod:
-        specifier: ^3.22.0
-        version: 3.25.76
     devDependencies:
       prettier:
         specifier: ^3.2.0
@@ -24,6 +20,9 @@ importers:
       '@plumpslabs/fennec-core':
         specifier: workspace:*
         version: link:../core
+      cli-table3:
+        specifier: ^0.6.5
+        version: 0.6.5
       js-yaml:
         specifier: ^4.1.0
         version: 4.3.0
@@ -40,9 +39,6 @@ importers:
       '@types/node':
         specifier: ^20.11.0
         version: 20.19.43
-      cli-table3:
-        specifier: ^0.6.5
-        version: 0.6.5
       tsup:
         specifier: ^8.0.0
         version: 8.5.1(postcss@8.5.15)(typescript@5.9.3)

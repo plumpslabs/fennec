@@ -525,6 +525,7 @@ const LOOKUP: Record<string, string> = {
   '--version': 'version',
   '-h': 'help',
   '--help': 'help',
+  '--health': 'health',
 };
 
 /** Resolve a user-typed command to a CommandDoc (handles aliases). */

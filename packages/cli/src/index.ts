@@ -84,7 +84,7 @@ async function main(): Promise<void> {
   } else if (command === 'restart') {
     await restartCommand(args);
   } else if (command === 'adopt') {
-    adoptCommand(args);
+    await adoptCommand(args);
   } else if (command === 'supervisor') {
     printBanner();
     await supervisorCommand(args);
@@ -146,7 +146,12 @@ async function main(): Promise<void> {
     printBanner();
     await initCommand();
   } else if (command === 'version' || command === '--version' || command === '-v') {
-    printBanner();
+    if (args.includes('--full')) {
+      printBanner();
+    } else {
+      const { VERSION } = await import('./utils/banner.js');
+      console.error(`Fennec v${VERSION}`);
+    }
   } else if (command === 'help' || command === '--help' || command === '-h') {
     printBanner();
     if (args[0] && !args[0].startsWith('-')) {

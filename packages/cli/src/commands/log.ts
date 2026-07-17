@@ -27,14 +27,6 @@ import {
 /** Hard cap on lines emitted (token budget) so AI/json inspection stays bounded. */
 const MAX_LOG_LINES = 500;
 
-/** Known log-level prefixes to color/highlight */
-const LEVEL_PATTERNS: { level: string; pattern: RegExp }[] = [
-  { level: 'error', pattern: /\b(ERROR?|FATAL?|CRITICAL?|EXCEPTION)\b/i },
-  { level: 'warn', pattern: /\b(WARN(ING)?)\b/i },
-  { level: 'info', pattern: /\b(INFO)\b/i },
-  { level: 'debug', pattern: /\b(DEBUG)\b/i },
-];
-
 export async function logCommand(args: string[]): Promise<void> {
   const target = args[0];
   if (!target || target.startsWith('--')) {

@@ -2,10 +2,8 @@
  * Command: info — Show detailed info about a tracked process.
  */
 import pc from 'picocolors';
-import { resolve } from 'node:path';
-import { homedir } from 'node:os';
 import { renderError, renderKVColor, symbols } from '../utils/format.js';
-import { readTracked, formatUptime } from './tracker.js';
+import { readTracked, formatUptime, logFilePathFor } from './tracker.js';
 import { isProcessRunning } from '../utils/system-process.js';
 
 export async function infoCommand(args: string[]): Promise<void> {
@@ -29,7 +27,7 @@ export async function infoCommand(args: string[]): Promise<void> {
   const uptime = running
     ? formatUptime(Math.floor((Date.now() - new Date(match.startedAt).getTime()) / 1000))
     : '-';
-  const logPath = resolve(homedir(), '.fennec', 'logs', `${match.name}.log`);
+  const logPath = logFilePathFor(match.name);
 
   console.error(`\n  ${symbols.fox} ${pc.bold(match.name)} ${pc.dim('— Process Info')}\n`);
   console.error(`  ${renderKVColor('Name', match.name, pc.bold)}`);

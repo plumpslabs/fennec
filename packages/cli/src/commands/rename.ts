@@ -3,8 +3,6 @@
  */
 import pc from 'picocolors';
 import { existsSync, renameSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { homedir } from 'node:os';
 import {
   renderError,
   renderKVColor,
@@ -12,7 +10,7 @@ import {
   confirmPrompt,
   symbols,
 } from '../utils/format.js';
-import { readTracked, saveTracked } from './tracker.js';
+import { readTracked, saveTracked, logFilePathFor } from './tracker.js';
 import { isProcessRunning } from '../utils/system-process.js';
 
 export async function renameCommand(args: string[]): Promise<void> {
@@ -63,9 +61,8 @@ export async function renameCommand(args: string[]): Promise<void> {
   const spinner = createSpinner(`Renaming ${oldName} → ${newName}...`);
 
   // Rename log file if it exists
-  const logDir = resolve(homedir(), '.fennec', 'logs');
-  const oldLog = resolve(logDir, `${oldName}.log`);
-  const newLog = resolve(logDir, `${newName}.log`);
+  const oldLog = logFilePathFor(oldName);
+  const newLog = logFilePathFor(newName);
 
   if (existsSync(oldLog) && !existsSync(newLog)) {
     try {

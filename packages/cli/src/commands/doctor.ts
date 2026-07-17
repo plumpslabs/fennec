@@ -75,11 +75,12 @@ export async function doctorCommand(args: string[] = []): Promise<void> {
     try {
       execSync('git check-ignore -q .fennec', { cwd: process.cwd(), stdio: 'ignore' });
       ignored = true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       // If exit status is 1, it means the path is NOT ignored.
       // If exit status is 128, it means we are not in a git repository.
       // If git is not installed, it throws ENOENT.
-      if (err.status === 1) {
+      const e = err as { status?: number; code?: string };
+      if (e.status === 1) {
         ignored = false;
       } else {
         ignored = true;
@@ -208,7 +209,8 @@ export async function doctorCommand(args: string[] = []): Promise<void> {
       }
     }
   } catch (err) {
-    // ignore process inspection failures
+    const e = err as { message?: string };
+    console.error(`  ${pc.dim(`(process inspection skipped: ${e.message ?? 'unknown'})`)}`);
   }
 
   console.error(`\n  ${pc.bold('Fennec Doctor')}\n`);

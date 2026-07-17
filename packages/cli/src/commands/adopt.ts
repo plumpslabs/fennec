@@ -12,7 +12,7 @@ import pc from 'picocolors';
 import { renderError, symbols } from '../utils/format.js';
 import { adoptProcess, logFilePathFor } from './tracker.js';
 
-export function adoptCommand(args: string[]): void {
+export async function adoptCommand(args: string[]): Promise<void> {
   const pidArg = args.find((a) => /^\d+$/.test(a));
   if (!pidArg) {
     console.error(

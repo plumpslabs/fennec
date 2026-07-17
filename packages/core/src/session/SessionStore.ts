@@ -145,13 +145,14 @@ export class SessionStore {
   }
 
   delete(name: string): boolean {
+    let deleted = false;
     for (const f of walkJson(this.persistPath)) {
       const s = this.loadFromPath(f);
       if (s && s.name === name) {
         rmSync(f);
-        return true;
+        deleted = true;
       }
     }
-    return false;
+    return deleted;
   }
 }
