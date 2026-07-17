@@ -2,7 +2,7 @@
 
 import { renderError } from './utils/format.js';
 import { printBanner } from './utils/banner.js';
-import { showHelp, showCommandHelp } from './utils/help.js';
+import { showHelp, showCommandHelp, findCommandDoc } from './utils/help.js';
 import { pipeCommand } from './commands/pipe.js';
 import { attachPidCommand } from './commands/attach-pid.js';
 import { attachPortCommand } from './commands/attach-port.js';
@@ -38,6 +38,7 @@ const [, , command, ...args] = process.argv;
 async function main(): Promise<void> {
   // Per-command help: `fennec <command> --help` / `-h` (but not bare `start`,
   // which is the server, and not the help command itself).
+  // Also handles subcommand paths: `fennec store session --help`, `fennec sessions rm --help`
   if (
     command &&
     command !== 'help' &&
@@ -46,7 +47,15 @@ async function main(): Promise<void> {
     (args.includes('--help') || args.includes('-h'))
   ) {
     printBanner();
-    showCommandHelp(command);
+    // Build the subcommand path: `store session`, `sessions rm`, etc.
+    const helpArgs = args.filter((a) => a !== '--help' && a !== '-h' && !a.startsWith('-'));
+    const helpKey = helpArgs.length > 0 ? `${command}-${helpArgs[0]}` : command;
+    const doc = findCommandDoc(helpKey);
+    if (doc) {
+      showCommandHelp(helpKey);
+    } else {
+      showCommandHelp(command);
+    }
     return;
   }
 

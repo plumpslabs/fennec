@@ -446,6 +446,43 @@ export const COMMANDS: Record<string, CommandDoc> = {
       'store session rm session-a session-b session-c -y',
     ],
   },
+  'store-session': {
+    name: 'store session',
+    usage: 'store session [ls|info <name>|rm <name...>]',
+    summary: 'Manage saved browser auth sessions',
+    description:
+      "Lists, inspects, or deletes saved browser auth sessions (cookies + localStorage). Use --show-secrets to reveal masked values in info view, -y/--yes to skip confirmation on rm.",
+    options: [
+      ['ls (default)', 'List all saved sessions'],
+      ['info <name>', 'Show full session details (values masked by default)'],
+      ['rm <name...>', 'Delete one or more sessions (prompts for confirmation)'],
+      ['--show-secrets', 'Reveal secret values in session info'],
+      ['-y, --yes', 'Skip the confirmation prompt on rm'],
+    ],
+    examples: [
+      'store session',
+      'store session rm old-session -y',
+      'store session info crm-testing --show-secrets',
+      'store session rm session-a session-b',
+    ],
+  },
+  'sessions-rm': {
+    name: 'sessions rm',
+    usage: 'sessions rm <name...>',
+    summary: 'Delete saved browser auth sessions',
+    description:
+      'Deletes one or more saved auth sessions by name. Prompts for confirmation unless -y/--yes is passed. Accepts multiple names for bulk deletion.',
+    examples: ['sessions rm crm-testing', 'sessions rm session-a session-b -y'],
+  },
+  'sessions-info': {
+    name: 'sessions info',
+    usage: 'sessions info <name> [--show-secrets]',
+    summary: 'Show details for a saved auth session',
+    description:
+      'Displays full session metadata: origin, save date, cookie domains, localStorage count. Values are masked by default — use --show-secrets to reveal.',
+    options: [['--show-secrets', 'Reveal secret values (cookies, tokens)']],
+    examples: ['sessions info crm-testing', 'sessions info crm-testing --show-secrets'],
+  },
   sessions: {
     name: 'sessions',
     usage: 'sessions [ls|info <name>|rm <name...>]',
