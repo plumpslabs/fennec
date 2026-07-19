@@ -7,27 +7,10 @@ import type { ConnectionMetadata } from './types.js';
 const CONNECTIONS_FILE = 'connections.json';
 const SECRETS_FILE = '.credentials.json';
 
-let _keytar: any = null;
-try {
-  _keytar = require('@aspect-build/aspect-keytar');
-} catch {}
-
 export interface CredentialStore {
   save(name: string, url: string): Promise<void>;
   get(name: string): Promise<string | null>;
   delete(name: string): Promise<void>;
-}
-
-class KeytarStore implements CredentialStore {
-  async save(name: string, url: string): Promise<void> {
-    await _keytar.setPassword('fennec-db', name, url);
-  }
-  async get(name: string): Promise<string | null> {
-    return _keytar.getPassword('fennec-db', name) ?? null;
-  }
-  async delete(name: string): Promise<void> {
-    await _keytar.deletePassword('fennec-db', name);
-  }
 }
 
 class FileStore implements CredentialStore {
@@ -68,7 +51,6 @@ class FileStore implements CredentialStore {
 }
 
 function createStore(): CredentialStore {
-  if (_keytar) return new KeytarStore();
   try {
     const plat = process.platform;
     if (plat === 'darwin') {

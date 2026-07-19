@@ -58,9 +58,6 @@
   "peerDependencies": {
     "playwright": "^1.42.0"
   },
-  "optionalDependencies": {
-    "@aspect-build/aspect-keytar": "^1.0.0"
-  },
   "peerDependenciesMeta": {
     "playwright": {
       "optional": true
