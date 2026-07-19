@@ -150,12 +150,7 @@ async function main(): Promise<void> {
     printBanner();
     await initCommand();
   } else if (command === 'version' || command === '--version' || command === '-v') {
-    if (args.includes('--full')) {
-      printBanner();
-    } else {
-      const { VERSION } = await import('./utils/banner.js');
-      console.error(`Fennec v${VERSION}`);
-    }
+    printBanner();
   } else if (command === 'help' || command === '--help' || command === '-h') {
     printBanner();
     if (args[0] && !args[0].startsWith('-')) {
