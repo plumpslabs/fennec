@@ -118,6 +118,17 @@ logging:
   level: info
   format: pretty # pretty | json
   file: null # null = stdout only
+
+db:
+  strict: true              # Block non-localhost connections
+  allowedHosts:              # Allowed hostnames (strict mode blocks non-matching)
+    - localhost
+    - 127.0.0.1
+    - ::1
+  maxRows: 1000             # Maximum rows returned per query
+  queryTimeout: 30000        # Query timeout in milliseconds
+  allowWrite: false          # Allow write queries (INSERT/UPDATE/DELETE)
+  binaryPath: ''             # Custom path to dbTui binary (auto-download by default)
 ```
 
 ## Environment Variables
@@ -149,3 +160,4 @@ All configuration values can be overridden via environment variables:
 | `FENNEC_TOKEN_BUDGET_LEVEL2` | Token budget for Lazy Context L2         |
 | `FENNEC_TOKEN_BUDGET_LEVEL3` | Token budget for Lazy Context L3         |
 | `FENNEC_CONFIG`          | Path to config file                        |
+| `DATABASE_URL`           | Default database connection URL            |

@@ -317,6 +317,33 @@ planner_get_plan({ planId: "..." })
 planner_cancel_plan({ planId: "..." })
 ```
 
+## Database Observation
+
+Fennec can connect to local databases via the dbTui sidecar. The binary is auto-downloaded on first use. `connect` auto-starts a persistent agent — no separate `start` needed.
+
+```bash
+# Connect to a PostgreSQL database (auto-starts agent)
+fennec db connect mypg --url "postgres://user:pass@localhost/mydb"
+
+# Reconnect later without URL (uses saved credential)
+fennec db connect mypg
+
+# Run queries
+fennec db query mypg "SELECT * FROM users"
+
+# Inspect schema
+fennec db schema mypg
+
+# Check agent status
+fennec db ps
+
+# Disconnect (keeps credential for later reconnect)
+fennec db disconnect mypg
+
+# Remove credential entirely
+fennec db rm mypg
+```
+
 ## Next Steps
 
 - Explore the full [Tool Reference](tools/README.md) — 165+ MCP tools across 18 categories (including Mobile + AI + Debug)

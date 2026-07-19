@@ -88,3 +88,20 @@ export type {
 // Mobile Module
 export { AdbClient } from './modules/mobile/adb-client.js';
 export type { AdbDevice, AdbScreenshotResult, LogcatEntry } from './modules/mobile/adb-client.js';
+
+// Database Observation
+export { DbTuiManager, getDbManager, resetDbManager } from './db/dbTuiManager.js';
+export { getFennecDir } from './config/paths.js';
+export {
+  credentialStore,
+  readConnections,
+  saveConnections,
+  addConnection,
+  removeConnection,
+  getConnection,
+} from './db/credentials.js';
+export type {
+  DBConfig, ConnectionMetadata, ConnectionInfo,
+  DbQueryResult, DbSchemaResult, DbTableInfo,
+  DbExplainResult, DbStatsResult, DbConnectInfo,
+} from './db/types.js';

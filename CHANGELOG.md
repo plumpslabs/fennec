@@ -2,6 +2,33 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.16.0] - 2026-07-17
+
+### Added
+- **Database Observation (Phase 1)** — New module for observing local databases via the dbTui sidecar binary
+  - 9 MCP tools: `db_connect`, `db_disconnect`, `db_list`, `db_query`, `db_schema`, `db_tables`, `db_ping`, `db_explain`, `db_stats`
+  - 14 CLI commands: `fennec db connect`, `disconnect`, `rm`, `ps`, `start`, `stop`, `restart`, `query`, `schema`, `tables`, `ping`, `stats`, `explain`, `update`, `doctor`
+  - Dedicated `db ps` for agent status + all connections (separate from `fennec ps`)
+  - Agent lifecycle: `db start`, `db stop`, `db restart`
+  - Credential management: OS keychain (`@aspect-build/aspect-keytar`), CLI fallback (`security`/`secret-tool`/`wincred`), encrypted file fallback
+  - Strict mode: read-only queries by default, non-localhost connections blocked
+  - Auto-download + SHA256 checksum verification for dbTui binary
+  - Schema cache (30s TTL), query cancellation (SIGINT), idle timeout (5 min)
+  - Persistent agent mode (`--persist` flag, PID file tracking, `detached: true`)
+  - `connect` auto-starts persistent agent (no separate `start` needed)
+  - `connect` supports reconnect from saved credential without `--url`
+  - `rm` command to remove credential entirely
+  - `--name` flag for `connect`
+
+### Fixed
+- dbTui agent no longer appears in `fennec ps`; uses dedicated `fennec db ps` instead
+- `--url` flag parsing in `fennec db connect` (was incorrectly looking in positional args)
+- `secret-tool` credential save on Linux (stdio mode prevented stdin piping)
+- Auto-reconnect in CLI commands via credential store lookup
+- dbTui agent now built from local source with `--agent` support (release binary was missing it)
+- Persistent agent no longer dies on parent exit (removed `stdout.destroy()` causing child SIGPIPE)
+- `disconnect` no longer removes credential from store (use `rm` instead)
+
 ## [1.15.3] - 2026-07-17
 
 ### Added

@@ -39,7 +39,7 @@
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `session/`                  | Browser session manager — CDP or Playwright engine, tabs, multi-session, CDP monitoring                                                                                                                                              |
 | `store/`                    | **StoreManager** — single source of truth for persisted state: global `~/.fennec` (or `FENNEC_HOME`/`FENNEC_DATA_DIR`) vs per-project `--local`, perms lockdown, scan, `redactSession`                                               |
-| `tools/`                    | 165+ MCP tool definitions across 18 categories (navigation, interaction, dom, devtools console/network/performance, storage, auth, tabs, process, terminal, diagnostic, scheduler, smart, planner, recorder, assert, mobile, **ai**) |
+| `tools/`                    | 174+ MCP tool definitions across 19 categories (navigation, interaction, dom, devtools console/network/performance, storage, auth, tabs, process, terminal, diagnostic, scheduler, smart, planner, recorder, assert, mobile, **ai**) |
 | `tools/ai/`                 | **AI-Native API** — `observe()`, `ai_diagnose()`, `correlate()`, `summarize()`, `explain()`, `investigate()`, `predict()`                                                                                                            |
 | `tools/debug/`              | **Debug Engine** — 26 tools across 3 levels: log debug, breakpoint (V8/DAP/JDWP/DBGp), auto-debug (EventBus-driven), cassette record/replay                                                                                          |
 | `incident/`                 | **Incident Engine** — formal incident type, lifecycle management, confidence scoring, auto-detection via EventBus                                                                                                                    |
@@ -48,6 +48,7 @@
 | `browser/`                  | Browser engine abstraction — `BrowserSession` interface + 2 implementations: **Playwright** (full automation) + **CDP Observer** (zero-deps). Auto-switch via `EngineSelector` + `AdapterSelector`                                   |
 | `cdp/`                      | Chrome DevTools Protocol collectors (console, network, performance)                                                                                                                                                                  |
 | `correlation/`              | Event bus, timeline builder, root cause inference engine, **Event Normalizer**                                                                                                                                                       |
+| `db/`                       | DBConnectionManager — dbTui sidecar lifecycle, credential store (keychain + CLI + file fallback), JSON-RPC agent protocol, query cancellation, schema cache                                                                          |
 | `middleware/`               | Pipeline with telemetry, permission guard, retry handler, smart hook, audit log, **PulseContext** (Lazy Context L0), **LazyLevels L1-L3**, **EventBusMiddleware**                                                                    |
 | `middleware/LazyContext.ts` | **Lazy Context** — Levels 1 (Summary), 2 (Detail), 3 (Raw). Config-driven conditional middleware                                                                                                                                     |
 | `response/`                 | Response builder and error enricher with context (no auto-screenshots)                                                                                                                                                               |
@@ -163,7 +164,7 @@ All tool executions publish `tool:executed` events to the EventBus. The Incident
 
 ### 📊 Token-Efficient Tool Registry
 
-Tools are grouped into 18 categories. MCP clients can request specific categories to reduce context window usage.
+Tools are grouped into 19 categories. MCP clients can request specific categories to reduce context window usage.
 
 ### Self-Observability
 
