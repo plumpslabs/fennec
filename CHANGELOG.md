@@ -2,6 +2,12 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **`fennec -v` now shows banner again** — previous behavior was to show only `Fennec vX.Y.Z`
+- **Removed `@aspect-build/aspect-keytar` dependency** — package doesn't exist on npm (404); credential store now uses OS CLI tools only (`security`/`secret-tool`/`wincred`) with encrypted file fallback
+
 ## [1.16.0] - 2026-07-17
 
 ### Added
