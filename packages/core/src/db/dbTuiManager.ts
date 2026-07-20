@@ -8,7 +8,7 @@ import type { FennecLogger } from '../utils/logger.js';
 import { getFennecDir } from '../config/paths.js';
 import type { DbQueryResult, DbSchemaResult, DbTableInfo, DbExplainResult, DbStatsResult, DbConnectInfo, ConnectionInfo } from './types.js';
 
-const AGENT_VERSION = '1.2.0';
+const AGENT_VERSION = '1.2.2';
 const BINARY_NAME = process.platform === 'win32' ? 'dbTui.exe' : 'dbTui';
 const GITHUB_REPO = 'farhank15/dbTui';
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
@@ -263,7 +263,7 @@ export class DbTuiManager {
     await mkdir(binDir, { recursive: true });
 
     const os = process.platform === 'linux' ? 'Linux' : process.platform === 'darwin' ? 'Darwin' : 'Windows';
-    const arch = process.arch === 'x64' ? 'x86_64' : 'arm64';
+    const arch = process.arch === 'x64' ? 'amd64' : 'arm64';
     const ext = process.platform === 'win32' ? '.zip' : '.tar.gz';
     const archiveName = `dbTui_${os}_${arch}${ext}`;
 
@@ -325,7 +325,7 @@ export class DbTuiManager {
   }
 
   private async downloadFile(url: string): Promise<Buffer> {
-    const resp = await fetch(url);
+    const resp = await fetch(url, { redirect: 'follow' });
     if (!resp.ok) throw new Error(`Download failed: ${resp.status} ${resp.statusText}`);
     return Buffer.from(await resp.arrayBuffer());
   }
