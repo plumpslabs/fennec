@@ -17,7 +17,13 @@ import { z } from 'zod';
 import { createTool } from '../_registry.js';
 import { getSourceMapResolver } from './source-map.js';
 import { getErrorDedup } from './error-dedup.js';
-import { readTracked, logPathFor, getDebugMode, setDebugMode, isTrackedRunning } from '../../process/tracking.js';
+import {
+  readTracked,
+  logPathFor,
+  getDebugMode,
+  setDebugMode,
+  isTrackedRunning,
+} from '../../process/tracking.js';
 import { getLogger } from '../../utils/logger.js';
 
 // ─── Lazy debug state (zero overhead when not used) ──────────────
@@ -544,16 +550,19 @@ export const debugSetBreakpoint = createTool({
   description:
     '`<use_case>Breakpoint debugging</use_case> ⏸️ Set a breakpoint at file:line. Auto-detects runtime: CDP (browser/Node.js), DAP (Python/Go/.NET/Ruby/Rust/Dart), DBGp (PHP), JDWP (Java). Provide name (tracked process) OR sessionId (browser session). Returns breakpoint ID. Requires debug.mode set to breakpoint and debug.allowDebug:true. Token cost: ~30 tokens.`',
   inputSchema: z.object({
-    name: z.string().optional().describe('Tracked process name (from fennec ps). Use this for non-browser runtimes (Python, Go, etc.).'),
-    file: z
-      .string()
-      .describe('Source file URL or path (e.g., app.js, /src/index.ts, main.py)'),
-    line: z.number().describe('Line number (0-based)'),
-    condition: z
+    name: z
       .string()
       .optional()
-      .describe('Optional breakpoint condition (runtime expression)'),
-    sessionId: z.string().optional().describe('Browser session ID (use for browser/Node.js debugging)'),
+      .describe(
+        'Tracked process name (from fennec ps). Use this for non-browser runtimes (Python, Go, etc.).',
+      ),
+    file: z.string().describe('Source file URL or path (e.g., app.js, /src/index.ts, main.py)'),
+    line: z.number().describe('Line number (0-based)'),
+    condition: z.string().optional().describe('Optional breakpoint condition (runtime expression)'),
+    sessionId: z
+      .string()
+      .optional()
+      .describe('Browser session ID (use for browser/Node.js debugging)'),
   }),
   handler: async (input, { config, responseBuilder, sessionManager }) => {
     if (!isDebugAllowed(config)) {
@@ -572,7 +581,9 @@ export const debugSetBreakpoint = createTool({
       const cdp = session.browser.cdp();
       if (!cdp) {
         return responseBuilder.error(
-          new Error('No CDP session available. Provide a "name" for non-browser debugging, or open a browser tab first.'),
+          new Error(
+            'No CDP session available. Provide a "name" for non-browser debugging, or open a browser tab first.',
+          ),
           { code: 'CDP_NOT_AVAILABLE' },
         );
       }
@@ -614,7 +625,11 @@ export const debugRemoveBreakpoint = createTool({
     const removed = await bpManager.removeBreakpoint(sid, input.breakpointId);
 
     return responseBuilder.success(
-      { removed, breakpointId: input.breakpointId, note: removed ? 'Breakpoint removed' : 'Breakpoint not found' },
+      {
+        removed,
+        breakpointId: input.breakpointId,
+        note: removed ? 'Breakpoint removed' : 'Breakpoint not found',
+      },
       { elapsed: 0, sessionId: sid, timestamp: new Date().toISOString() },
     );
   },
@@ -771,7 +786,11 @@ export const debugGetVariables = createTool({
 
     if (!pauseState) {
       return responseBuilder.success(
-        { paused: false, scopes: [], summary: 'Debugger is not paused. Set a breakpoint and execute code to trigger it.' },
+        {
+          paused: false,
+          scopes: [],
+          summary: 'Debugger is not paused. Set a breakpoint and execute code to trigger it.',
+        },
         { elapsed: 0, sessionId: sid, timestamp: new Date().toISOString() },
       );
     }
@@ -894,7 +913,10 @@ export const debugInvestigateRuntime = createTool({
   description:
     '`<use_case>Breakpoint debugging</use_case> 🔬 Guided runtime investigation — sets a breakpoint and returns structured variable state. Orchestrates multiple debug steps in ONE call. Accepts name (tracked process, auto-detects runtime) or sessionId (browser/CDP). Returns: summary, callStack, variables, suggestedFix. Token cost: ~200-500 tokens. Requires debug.allowDebug: true.`',
   inputSchema: z.object({
-    name: z.string().optional().describe('Tracked process name — auto-detects runtime (DAP for Python/Go, CDP for browser)'),
+    name: z
+      .string()
+      .optional()
+      .describe('Tracked process name — auto-detects runtime (DAP for Python/Go, CDP for browser)'),
     question: z.string().describe('The question to answer (e.g., "Why is login failing?")'),
     hintFile: z.string().optional().describe('Hint: source file to set breakpoint at'),
     hintLine: z.number().optional().describe('Hint: line number for breakpoint (0-based)'),
@@ -916,7 +938,9 @@ export const debugInvestigateRuntime = createTool({
       const cdp = session.browser.cdp();
       if (!cdp) {
         return responseBuilder.error(
-          new Error('No CDP session available. Provide a "name" for non-browser debugging, or open a browser tab first.'),
+          new Error(
+            'No CDP session available. Provide a "name" for non-browser debugging, or open a browser tab first.',
+          ),
           { code: 'CDP_NOT_AVAILABLE' },
         );
       }
@@ -997,7 +1021,10 @@ export const debugSetLogpoint = createTool({
   description:
     '`<use_case>Breakpoint debugging</use_case> 📝 Set a logpoint — a non-blocking breakpoint that logs an expression and continues. Accepts name (tracked process, DAP runtimes: Python/Go/.NET/Ruby/Rust/Dart) or sessionId (browser). Unlike set_breakpoint, execution does NOT pause. Token cost: ~20 tokens.`',
   inputSchema: z.object({
-    name: z.string().optional().describe('Tracked process name (DAP runtimes: Python/Go/.NET/Ruby/Rust/Dart)'),
+    name: z
+      .string()
+      .optional()
+      .describe('Tracked process name (DAP runtimes: Python/Go/.NET/Ruby/Rust/Dart)'),
     file: z.string().describe('Source file URL or path'),
     line: z.number().describe('Line number (0-based)'),
     expression: z
@@ -1041,7 +1068,12 @@ export const debugSetLogpoint = createTool({
       if (isDAP) {
         return responseBuilder.success(
           {
-            logpoint: { id: bp.id, file: input.file, line: input.line, expression: input.expression },
+            logpoint: {
+              id: bp.id,
+              file: input.file,
+              line: input.line,
+              expression: input.expression,
+            },
             active: true,
             runtime: adapter.runtime,
             note: `Logpoint active on ${adapter.runtime}. Expression "${input.expression}" will be logged without pausing.`,
@@ -1051,7 +1083,12 @@ export const debugSetLogpoint = createTool({
       } else {
         return responseBuilder.success(
           {
-            logpoint: { id: bp.id, file: input.file, line: input.line, expression: input.expression },
+            logpoint: {
+              id: bp.id,
+              file: input.file,
+              line: input.line,
+              expression: input.expression,
+            },
             active: false,
             runtime: 'v8',
             note: `Logpoints not supported on V8/CDP. Breakpoint set without logMessage. Breakpoint ID: ${bp.id}`,

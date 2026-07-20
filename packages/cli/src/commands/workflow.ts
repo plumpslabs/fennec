@@ -10,9 +10,17 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import pc from 'picocolors';
-import { renderError, renderKV, symbols, renderTable, type Column, type Row } from '../utils/format.js';
+import {
+  renderError,
+  renderKV,
+  symbols,
+  renderTable,
+  type Column,
+  type Row,
+} from '../utils/format.js';
 
-const STORE: string = process.env.FENNEC_HOME ?? process.env.FENNEC_DATA_DIR ?? resolve(homedir(), '.fennec');
+const STORE: string =
+  process.env.FENNEC_HOME ?? process.env.FENNEC_DATA_DIR ?? resolve(homedir(), '.fennec');
 const WORKFLOW_DIR = join(STORE, 'workflows');
 
 interface WorkflowMeta {
@@ -50,7 +58,9 @@ function listWorkflows(): WorkflowMeta[] {
     }
   }
 
-  return workflows.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  return workflows.sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+  );
 }
 
 function findWorkflow(nameOrId: string): WorkflowMeta | undefined {
@@ -64,7 +74,9 @@ export async function workflowCommand(args: string[]): Promise<void> {
     const workflows = listWorkflows();
 
     if (workflows.length === 0) {
-      console.error(`\n  ${pc.dim('No workflows found.')} ${pc.cyan('Workflows are created by the planner or scheduler when the MCP server is running.')}`);
+      console.error(
+        `\n  ${pc.dim('No workflows found.')} ${pc.cyan('Workflows are created by the planner or scheduler when the MCP server is running.')}`,
+      );
       console.error(`  ${pc.dim(`Directory: ${WORKFLOW_DIR}`)}\n`);
       return;
     }
@@ -73,10 +85,14 @@ export async function workflowCommand(args: string[]): Promise<void> {
       { key: 'name', label: 'Name', format: (v) => pc.bold(String(v)) },
       { key: 'version', label: 'Ver' },
       { key: 'steps', label: 'Steps', align: 'right' },
-      { key: 'tags', label: 'Tags', format: (v) => {
-        const tags = v as string[];
-        return tags.length ? tags.map((t) => pc.cyan(t)).join(', ') : pc.dim('-');
-      }},
+      {
+        key: 'tags',
+        label: 'Tags',
+        format: (v) => {
+          const tags = v as string[];
+          return tags.length ? tags.map((t) => pc.cyan(t)).join(', ') : pc.dim('-');
+        },
+      },
       { key: 'updated', label: 'Updated', format: (v) => pc.dim(String(v)) },
     ];
 
@@ -88,7 +104,9 @@ export async function workflowCommand(args: string[]): Promise<void> {
       updated: new Date(w.updatedAt).toLocaleDateString(),
     }));
 
-    console.error(`\n  ${symbols.fox} ${pc.bold('Workflows')} ${pc.dim(`(${workflows.length})`)}\n`);
+    console.error(
+      `\n  ${symbols.fox} ${pc.bold('Workflows')} ${pc.dim(`(${workflows.length})`)}\n`,
+    );
     console.error(renderTable(columns, rows));
     console.error(`  ${pc.dim(WORKFLOW_DIR)}\n`);
     return;
@@ -121,7 +139,9 @@ export async function workflowCommand(args: string[]): Promise<void> {
     console.error(`  ${pc.dim('ID:')}          ${wf.id}`);
     console.error(`  ${pc.dim('Version:')}     ${wf.version}`);
     console.error(`  ${pc.dim('Description:')} ${wf.description || pc.dim('-')}`);
-    console.error(`  ${pc.dim('Tags:')}        ${wf.tags.length ? wf.tags.join(', ') : pc.dim('-')}`);
+    console.error(
+      `  ${pc.dim('Tags:')}        ${wf.tags.length ? wf.tags.join(', ') : pc.dim('-')}`,
+    );
     console.error(`  ${pc.dim('Created:')}     ${new Date(wf.createdAt).toLocaleString()}`);
     console.error(`  ${pc.dim('Updated:')}     ${new Date(wf.updatedAt).toLocaleString()}`);
     console.error(`  ${pc.dim('Steps:')}       ${wf.stepCount}\n`);
@@ -138,12 +158,16 @@ export async function workflowCommand(args: string[]): Promise<void> {
   }
 
   if (sub === 'run') {
-    console.error(`\n  ${pc.yellow('⚠')} ${pc.bold('Run via MCP')} ${pc.dim('Use the planner or scheduler tools from your AI agent to execute workflows.')}`);
+    console.error(
+      `\n  ${pc.yellow('⚠')} ${pc.bold('Run via MCP')} ${pc.dim('Use the planner or scheduler tools from your AI agent to execute workflows.')}`,
+    );
     console.error(`  ${pc.dim('  planner_execute_goal — describe a goal in natural language')}`);
     console.error(`  ${pc.dim('  scheduler_trigger_rule — trigger a scheduled rule')}\n`);
     return;
   }
 
-  console.error(renderError('Unknown subcommand', 'Usage: fennec workflow [list|show <name>|run <name>]'));
+  console.error(
+    renderError('Unknown subcommand', 'Usage: fennec workflow [list|show <name>|run <name>]'),
+  );
   process.exit(1);
 }

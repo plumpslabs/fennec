@@ -8,3 +8,7 @@ pnpm-lock.yaml
 CHANGELOG.md
 
 .kuma
+
+# Generated docs (not hand-maintained, intentionally untracked)
+docs/db-observation-prd.md
+

@@ -13,7 +13,11 @@ const mockFs = {
 
 vi.mock('node:fs', () => mockFs);
 
-vi.mock('node:child_process', () => ({ execSync: vi.fn(() => { throw new Error('not available'); }) }));
+vi.mock('node:child_process', () => ({
+  execSync: vi.fn(() => {
+    throw new Error('not available');
+  }),
+}));
 
 describe('credentials module', () => {
   beforeEach(() => {
@@ -91,7 +95,18 @@ describe('credentials module', () => {
 
       const { addConnection, readConnections } = await import('../../../src/db/credentials.js');
 
-      addConnection({ name: 'testdb', type: 'postgresql', host: 'localhost', port: 5432, database: 'mydb', user: 'admin', ssl: 'disable', keychainRef: 'test', createdAt: '', lastUsed: '' });
+      addConnection({
+        name: 'testdb',
+        type: 'postgresql',
+        host: 'localhost',
+        port: 5432,
+        database: 'mydb',
+        user: 'admin',
+        ssl: 'disable',
+        keychainRef: 'test',
+        createdAt: '',
+        lastUsed: '',
+      });
 
       const call = mockFs.writeFileSync.mock.calls[0];
       const written = JSON.parse(call[1]);
@@ -102,7 +117,9 @@ describe('credentials module', () => {
 
     it('removeConnection should filter out the named connection', async () => {
       mockFs.existsSync.mockReturnValue(true);
-      mockFs.readFileSync.mockReturnValue(JSON.stringify({ connections: [{ name: 'keep' }, { name: 'remove' }] }));
+      mockFs.readFileSync.mockReturnValue(
+        JSON.stringify({ connections: [{ name: 'keep' }, { name: 'remove' }] }),
+      );
 
       const { removeConnection } = await import('../../../src/db/credentials.js');
       removeConnection('remove');
@@ -115,7 +132,9 @@ describe('credentials module', () => {
 
     it('getConnection should find by name', async () => {
       mockFs.existsSync.mockReturnValue(true);
-      mockFs.readFileSync.mockReturnValue(JSON.stringify({ connections: [{ name: 'testdb', host: 'localhost' }] }));
+      mockFs.readFileSync.mockReturnValue(
+        JSON.stringify({ connections: [{ name: 'testdb', host: 'localhost' }] }),
+      );
 
       const { getConnection } = await import('../../../src/db/credentials.js');
       expect(getConnection('testdb')).toEqual({ name: 'testdb', host: 'localhost' });

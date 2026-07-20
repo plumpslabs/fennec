@@ -120,7 +120,10 @@ export class PluginSystem {
     };
 
     this.plugins.set(instanceId, plugin);
-    getLogger().info({ plugin: instance.manifest.name, version: instance.manifest.version }, 'Plugin registered');
+    getLogger().info(
+      { plugin: instance.manifest.name, version: instance.manifest.version },
+      'Plugin registered',
+    );
     return plugin;
   }
 
@@ -142,7 +145,10 @@ export class PluginSystem {
     };
 
     this.plugins.set(instanceId, instance);
-    getLogger().info({ plugin: manifest.name, version: manifest.version }, 'Plugin registered via factory');
+    getLogger().info(
+      { plugin: manifest.name, version: manifest.version },
+      'Plugin registered via factory',
+    );
     return instance;
   }
 
@@ -159,7 +165,9 @@ export class PluginSystem {
       if (pluginModule.manifest) {
         return this.registerPlugin(pluginModule);
       }
-      throw new Error(`Plugin at ${pluginPath} must export a default factory function or a PluginInstance`);
+      throw new Error(
+        `Plugin at ${pluginPath} must export a default factory function or a PluginInstance`,
+      );
     } catch (error) {
       getLogger().error({ pluginPath, error: String(error) }, 'Failed to load plugin');
       return null;
@@ -310,7 +318,11 @@ export class PluginSystem {
         const handlers = system.eventBus.get(eventType);
         if (handlers) {
           for (const handler of handlers) {
-            try { handler(data); } catch { /* ignore */ }
+            try {
+              handler(data);
+            } catch {
+              /* ignore */
+            }
           }
         }
       },

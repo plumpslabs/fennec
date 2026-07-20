@@ -243,9 +243,10 @@ export async function runCommand(args: string[]): Promise<void> {
       autoRestart: restartFlag,
       logMode: jsonlFlag ? 'jsonl' : 'text',
       group,
-      debugMode: debugMode === 'log' || debugMode === 'breakpoint' || debugMode === 'auto'
-        ? debugMode
-        : undefined,
+      debugMode:
+        debugMode === 'log' || debugMode === 'breakpoint' || debugMode === 'auto'
+          ? debugMode
+          : undefined,
     });
 
     console.error(`  ${pc.green('✓')} ${pc.bold(appName)} ${pc.dim(`started (PID: ${pid})`)}`);

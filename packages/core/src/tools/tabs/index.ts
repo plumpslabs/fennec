@@ -47,7 +47,7 @@ export const tabNew = createTool({
               }
               return out;
             })
-            .catch(() => ({} as Record<string, string>));
+            .catch(() => ({}) as Record<string, string>);
           if (Object.keys(ls).length > 0) {
             await newPage.evaluate((data: Record<string, string>) => {
               try {

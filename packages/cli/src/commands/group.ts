@@ -94,7 +94,12 @@ export async function groupCommand(args: string[]): Promise<void> {
   const p0 = positional[0];
   const p1 = positional[1];
   if (!p0) {
-    console.error(renderError('Missing arguments', 'Usage: fennec group <name> <group> or fennec group <group> <name...>'));
+    console.error(
+      renderError(
+        'Missing arguments',
+        'Usage: fennec group <name> <group> or fennec group <group> <name...>',
+      ),
+    );
     process.exit(1);
   }
   let group: string;
@@ -115,7 +120,12 @@ export async function groupCommand(args: string[]): Promise<void> {
       group = a!;
       names = [b!];
     } else {
-      console.error(renderError('Missing group', 'Usage: fennec group <name> <group> or fennec group <group> <name...>'));
+      console.error(
+        renderError(
+          'Missing group',
+          'Usage: fennec group <name> <group> or fennec group <group> <name...>',
+        ),
+      );
       process.exit(1);
     }
   }

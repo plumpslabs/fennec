@@ -5,8 +5,8 @@ vi.mock('../../../src/config/paths.js', () => ({
   getFennecDir: () => '/tmp/fennec-test-dir',
 }));
 
-class MockStdout extends EventEmitter { }
-class MockStderr extends EventEmitter { }
+class MockStdout extends EventEmitter {}
+class MockStderr extends EventEmitter {}
 
 function createMockProc() {
   const proc = new EventEmitter() as any;
@@ -15,7 +15,10 @@ function createMockProc() {
   proc.stderr = new MockStderr();
   proc.stdin = { write: vi.fn(), end: vi.fn() };
   proc.exitCode = null;
-  proc.kill = vi.fn(() => { proc.exitCode = 0; proc.emit('exit', 0); });
+  proc.kill = vi.fn(() => {
+    proc.exitCode = 0;
+    proc.emit('exit', 0);
+  });
   return proc;
 }
 
@@ -41,7 +44,15 @@ vi.mock('node:readline', () => ({
   }),
 }));
 
-const mockFs = { existsSync: vi.fn(), readFileSync: vi.fn(), chmodSync: vi.fn(), mkdirSync: vi.fn(), writeFileSync: vi.fn(), renameSync: vi.fn(), statSync: vi.fn() };
+const mockFs = {
+  existsSync: vi.fn(),
+  readFileSync: vi.fn(),
+  chmodSync: vi.fn(),
+  mkdirSync: vi.fn(),
+  writeFileSync: vi.fn(),
+  renameSync: vi.fn(),
+  statSync: vi.fn(),
+};
 vi.mock('node:fs', () => mockFs);
 
 const mockPromises = { mkdir: vi.fn(), writeFile: vi.fn(), readFile: vi.fn() };
@@ -105,11 +116,20 @@ describe('DbTuiManager', () => {
 
       const mgr = new DbTuiManager();
       const promise = mgr.ensureRunning();
-      proc.stdout.emit('data', Buffer.from(JSON.stringify({ jsonrpc: '2.0', id: 999, result: { version: '1.0.0' } }) + '\n'));
+      proc.stdout.emit(
+        'data',
+        Buffer.from(
+          JSON.stringify({ jsonrpc: '2.0', id: 999, result: { version: '1.0.0' } }) + '\n',
+        ),
+      );
 
       await expect(promise).resolves.toBeUndefined();
       expect(mgr.isRunning).toBe(true);
-      expect(mockSpawn).toHaveBeenCalledWith(expect.stringContaining('dbTui'), ['--agent'], expect.any(Object));
+      expect(mockSpawn).toHaveBeenCalledWith(
+        expect.stringContaining('dbTui'),
+        ['--agent'],
+        expect.any(Object),
+      );
     });
 
     it('should return immediately if already running', async () => {
@@ -139,7 +159,7 @@ describe('DbTuiManager', () => {
       const p = mgr.request('ping');
 
       // Wait for async microtask to complete (request's await this.ensureRunning())
-      await new Promise(r => process.nextTick(r));
+      await new Promise((r) => process.nextTick(r));
 
       const writeSpy = proc.stdin.write;
       expect(writeSpy).toHaveBeenCalled();
@@ -159,12 +179,19 @@ describe('DbTuiManager', () => {
       rl.setMaxListeners(20);
 
       const promise = mgr.request('connect', { name: 'x', url: 'bad://' });
-      await new Promise(r => process.nextTick(r));
+      await new Promise((r) => process.nextTick(r));
 
       expect(proc.stdin.write).toHaveBeenCalled();
       const sent = JSON.parse(proc.stdin.write.mock.calls[0][0]);
 
-      rl.emit('line', JSON.stringify({ jsonrpc: '2.0', id: sent.id, error: { code: -32000, message: 'Connection refused' } }));
+      rl.emit(
+        'line',
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: sent.id,
+          error: { code: -32000, message: 'Connection refused' },
+        }),
+      );
       await expect(promise).rejects.toThrow('Connection refused');
     });
   });
@@ -172,10 +199,15 @@ describe('DbTuiManager', () => {
   describe('convenience methods', () => {
     it('connect should call request and track name', async () => {
       const mgr = new DbTuiManager();
-      const req = vi.spyOn(mgr, 'request').mockResolvedValue({ type: 'postgresql', database: 'mydb' });
+      const req = vi
+        .spyOn(mgr, 'request')
+        .mockResolvedValue({ type: 'postgresql', database: 'mydb' });
 
       const result = await mgr.connect('testdb', 'postgres://localhost/mydb');
-      expect(req).toHaveBeenCalledWith('connect', { name: 'testdb', url: 'postgres://localhost/mydb' });
+      expect(req).toHaveBeenCalledWith('connect', {
+        name: 'testdb',
+        url: 'postgres://localhost/mydb',
+      });
       expect(result.type).toBe('postgresql');
     });
 
@@ -194,7 +226,12 @@ describe('DbTuiManager', () => {
       const req = vi.spyOn(mgr, 'request').mockResolvedValue({});
 
       await mgr.query('testdb', 'SELECT 1', { maxRows: 50, strict: false });
-      expect(req).toHaveBeenCalledWith('query', { name: 'testdb', sql: 'SELECT 1', maxRows: 50, strict: false });
+      expect(req).toHaveBeenCalledWith('query', {
+        name: 'testdb',
+        sql: 'SELECT 1',
+        maxRows: 50,
+        strict: false,
+      });
     });
 
     it('schema should include optional database', async () => {
@@ -223,7 +260,12 @@ describe('DbTuiManager', () => {
 
     it('stats should return database stats', async () => {
       const mgr = new DbTuiManager();
-      vi.spyOn(mgr, 'request').mockResolvedValue({ database: 'mydb', sizeMB: 5.2, tableCount: 10, activeConnections: 2 });
+      vi.spyOn(mgr, 'request').mockResolvedValue({
+        database: 'mydb',
+        sizeMB: 5.2,
+        tableCount: 10,
+        activeConnections: 2,
+      });
 
       const result = await mgr.stats('testdb');
       expect(result.sizeMB).toBe(5.2);
@@ -231,7 +273,9 @@ describe('DbTuiManager', () => {
 
     it('listConnections should extract from response', async () => {
       const mgr = new DbTuiManager();
-      vi.spyOn(mgr, 'request').mockResolvedValue({ connections: [{ name: 'testdb', connected: true }] });
+      vi.spyOn(mgr, 'request').mockResolvedValue({
+        connections: [{ name: 'testdb', connected: true }],
+      });
 
       const result = await mgr.listConnections();
       expect(result).toEqual([{ name: 'testdb', connected: true }]);
@@ -285,7 +329,10 @@ describe('DbTuiManager', () => {
 
     it('should fetch release archive', async () => {
       mockFs.existsSync.mockReturnValue(false);
-      (globalThis.fetch as any).mockResolvedValue({ ok: true, arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)) });
+      (globalThis.fetch as any).mockResolvedValue({
+        ok: true,
+        arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)),
+      });
 
       const mgr = new DbTuiManager();
       await expect(mgr.download(true)).rejects.toThrow();
@@ -295,7 +342,11 @@ describe('DbTuiManager', () => {
 
     it('should throw on HTTP error', async () => {
       mockFs.existsSync.mockReturnValue(false);
-      (globalThis.fetch as any).mockResolvedValue({ ok: false, status: 404, statusText: 'Not Found' });
+      (globalThis.fetch as any).mockResolvedValue({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+      });
 
       const mgr = new DbTuiManager();
       await expect(mgr.download(true)).rejects.toThrow('Download failed: 404 Not Found');

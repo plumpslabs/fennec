@@ -145,10 +145,13 @@ url: "https://example.com/login"
 
 The screenshot diff engine matches elements between baseline and current state using proximity matching (position within 30px). Elements are classified as:
 
-| Status | Color | Description |
-|--------|-------|-------------|
-| **Added** | 🟢 Green | Element exists in current page but not in baseline |
-| **Removed** | 🔴 Red | Element existed in baseline but not in current page |
-| **Changed** | 🟠 Orange | Element exists in both but position/size/text changed |
-| **Unchanged** | ⚪ Dimmed | Element is the same in both states |
+| Status        | Color     | Description                                           |
+| ------------- | --------- | ----------------------------------------------------- |
+| **Added**     | 🟢 Green  | Element exists in current page but not in baseline    |
+| **Removed**   | 🔴 Red    | Element existed in baseline but not in current page   |
+| **Changed**   | 🟠 Orange | Element exists in both but position/size/text changed |
+| **Unchanged** | ⚪ Dimmed | Element is the same in both states                    |
+
+```
+
 ```
