@@ -95,6 +95,7 @@ import {
   devtoolsGetConsoleLogs,
   devtoolsClearConsole,
   devtoolsEvaluate,
+  devtoolsApiFetch,
   devtoolsGetJsErrors,
   devtoolsWatchConsole,
 } from './tools/devtools/console.js';
@@ -188,7 +189,7 @@ import {
   diagnosePerformance,
   diagnoseFennecHealth,
 } from './tools/diagnostic/index.js';
-import { sessionList } from './tools/session/index.js';
+import { sessionList, sessionGetActive } from './tools/session/index.js';
 // ─── Mobile Tools ────────────────────────────────────────────
 import {
   mobileListDevices,
@@ -433,6 +434,7 @@ export class FennecServer {
       devtoolsGetConsoleLogs,
       devtoolsClearConsole,
       devtoolsEvaluate,
+      devtoolsApiFetch,
       devtoolsGetJsErrors,
       devtoolsWatchConsole,
       networkGetLogs,
@@ -544,6 +546,7 @@ export class FennecServer {
       toolsHelp,
       // Session
       sessionList,
+      sessionGetActive,
       // Performance Budget
       budgetCheckPage,
       budgetGetSummary,

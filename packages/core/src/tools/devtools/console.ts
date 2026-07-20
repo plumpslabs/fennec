@@ -139,6 +139,9 @@ export const devtoolsEvaluate = createTool({
       );
     } catch (error) {
       const err = error as Error & { name?: string; stack?: string };
+      const isFetchLike = /fetch|\.json\(\)|\.map\(|TypeError|undefined \(reading/.test(
+        err?.message ?? '',
+      );
       return responseBuilder.success(
         {
           ok: false,
@@ -147,9 +150,132 @@ export const devtoolsEvaluate = createTool({
           name: err?.name ?? 'Error',
           stack: err?.stack ?? undefined,
           expression: input.expression,
+          suggestions: isFetchLike
+            ? [
+                'For API calls, prefer devtools_api_fetch — it runs fetch() in the page context, inherits auth/cookies, and returns the raw response text even on HTTP errors (so you see the real API error instead of a chained .map() crash).',
+              ]
+            : undefined,
         },
         sessionManager.buildMeta(session),
       );
+    }
+  },
+});
+
+/**
+ * In-browser fetch with full auth context.
+ *
+ * Unlike `network_api_call` (which runs from Node and therefore has no access
+ * to the page's cookies, tokens, or CORS origin), this executes `fetch()`
+ * INSIDE the page so it inherits the browser's authenticated session. On a
+ * non-2xx response it does NOT throw — it returns the response with `ok:false`
+ * and the RAW response body text, so the agent can see the actual API error
+ * (e.g. `{"status":401,"message":"token expired"}`) instead of a cryptic
+ * `.map is not a function` crash from a chained `.json().then(...)`.
+ *
+ * Addresses issues #84 (surfacing raw API errors) and #86 (browser-context
+ * authenticated requests).
+ */
+export const devtoolsApiFetch = createTool({
+  name: 'devtools_api_fetch',
+  category: 'devtools',
+  description:
+    "`<use_case>API Client (in-browser)</use_case> 🌐 Make an HTTP request from INSIDE the browser page context — inherits the page's cookies, auth tokens, and CORS origin (unlike network_api_call which runs from the server with no session). Returns status, headers, ok, and the parsed body OR raw text on error. On non-2xx it returns ok:false with the raw response text instead of throwing, so you can read the real API error (e.g. token expired). Use for authenticated API calls that network_api_call can't make due to CORS/auth. Prefer this over devtools_evaluate + fetch() chains.`",
+  inputSchema: z.object({
+    url: z.string().describe('The URL to fetch (same-origin or CORS-enabled cross-origin)'),
+    method: z
+      .enum(['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'])
+      .optional()
+      .default('GET')
+      .describe('HTTP method'),
+    headers: z.record(z.string(), z.string()).optional().describe('Extra request headers'),
+    body: z.string().optional().describe('Request body (stringified JSON or text)'),
+    timeout: z
+      .number()
+      .optional()
+      .default(15000)
+      .describe('Timeout in milliseconds (AbortController in the page)'),
+    sessionId: z.string().optional().describe('Session ID'),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    try {
+      const result = await session.browser.evaluate(
+        async (opts: {
+          url: string;
+          method: string;
+          headers?: Record<string, string>;
+          body?: string;
+          timeout: number;
+        }) => {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), opts.timeout);
+          try {
+            const init: RequestInit = {
+              method: opts.method,
+              headers: opts.headers,
+              signal: controller.signal,
+            };
+            if (opts.body && !['GET', 'HEAD'].includes(opts.method)) {
+              init.body = opts.body;
+            }
+            const res = await fetch(opts.url, init);
+            const text = await res.text();
+            let parsed: unknown = undefined;
+            const ct = res.headers.get('content-type') || '';
+            if (ct.includes('application/json')) {
+              try {
+                parsed = JSON.parse(text);
+              } catch {
+                parsed = text;
+              }
+            } else {
+              parsed = text;
+            }
+            const headers: Record<string, string> = {};
+            res.headers.forEach((v, k) => {
+              headers[k] = v;
+            });
+            return {
+              ok: res.ok,
+              status: res.status,
+              statusText: res.statusText,
+              headers,
+              body: parsed,
+              bodyRaw: text,
+              size: text.length,
+            };
+          } finally {
+            clearTimeout(timer);
+          }
+        },
+        {
+          url: input.url,
+          method: input.method ?? 'GET',
+          headers: input.headers,
+          body: input.body,
+          timeout: input.timeout ?? 15000,
+        },
+      );
+
+      return responseBuilder.success(
+        {
+          ...result,
+          hint: result.ok
+            ? undefined
+            : 'Non-2xx response returned with raw body above — read body/bodyRaw for the API error message.',
+        },
+        sessionManager.buildMeta(session),
+      );
+    } catch (error) {
+      return responseBuilder.error(error, {
+        code: 'API_FETCH_FAILED',
+        suggestions: [
+          'Check the URL is reachable from the browser context (same-origin or CORS-enabled)',
+          'Inspect cookies/auth via auth_check_logged_in',
+          'For server-side (no-auth) requests, use network_api_call instead',
+        ],
+      });
     }
   },
 });

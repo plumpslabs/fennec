@@ -329,7 +329,16 @@ export const authLoadSession = createTool({
     url: z
       .string()
       .optional()
-      .describe('Optional URL to navigate to after restoring the session (overrides the saved origin)'),
+      .describe(
+        'Optional URL to navigate to after restoring the session (overrides the saved origin)',
+      ),
+    createIfMissing: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(
+        'When true and no saved session is found, surface the domain login URL so the agent can navigate there and run auth_fill_login_form instead of failing outright.',
+      ),
     sessionId: z.string().optional().describe('Browser session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder, sessionStore }) => {
@@ -346,12 +355,29 @@ export const authLoadSession = createTool({
         }
       }
       if (!saved) {
+        // Build an actionable hint: the current page origin's login URL so the
+        // agent can navigate there directly instead of guessing.
+        let loginUrl: string | undefined;
+        try {
+          const origin = new URL(session.browser.url()).origin;
+          loginUrl = `${origin}/login`;
+        } catch {
+          /* ignore — url may be invalid/empty */
+        }
+        const suggestions = [
+          'Use auth_list_sessions to see available sessions',
+          'Pass filePath to load a specific .json',
+        ];
+        if (loginUrl) {
+          suggestions.push(`No session found — try navigating to the login page: ${loginUrl}`);
+          suggestions.push(
+            'Then log in with auth_fill_login_form (saveAfterLogin defaults ON) and retry with this name.',
+          );
+        }
         return responseBuilder.error(new Error(`Session not found: ${input.name}`), {
           code: 'SESSION_NOT_FOUND',
-          suggestions: [
-            'Use auth_list_sessions to see available sessions',
-            'Pass filePath to load a specific .json',
-          ],
+          context: loginUrl ? { loginUrl } : undefined,
+          suggestions,
         });
       }
 
