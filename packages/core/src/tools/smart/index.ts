@@ -607,6 +607,10 @@ interface AnnotatedElement {
   tag: string;
   text: string;
   selector: string;
+  /** Copy-paste `role=` selector (role + accessible name) that the unified
+   *  `role=` engine resolves — fixes #82 where the truncated `selector`
+   *  field could not target an element via `role=button[name="..."]`. */
+  roleSelector?: string;
   boundingBox: { x: number; y: number; width: number; height: number };
 }
 
@@ -642,8 +646,24 @@ async function injectAnnotations(page: {
         tag: string;
         text: string;
         selector: string;
+        roleSelector?: string;
         boundingBox: { x: number; y: number; width: number; height: number };
       }> = [];
+
+      // Resolve the ARIA role Playwright's `role=` engine will use.
+      const roleOf = (el: HTMLElement): string => {
+        const explicit = el.getAttribute('role');
+        if (explicit) return explicit;
+        const tag = el.tagName.toLowerCase();
+        const roleByTag: Record<string, string> = {
+          a: 'link',
+          button: 'button',
+          input: 'textbox',
+          select: 'combobox',
+          textarea: 'textbox',
+        };
+        return roleByTag[tag] ?? tag;
+      };
 
       let index = 0;
       for (const el of els) {
@@ -656,6 +676,10 @@ async function injectAnnotations(page: {
 
         const text = (el.textContent ?? '').trim().slice(0, 40);
         const id = el.id ? `#${CSS.escape(el.id)}` : '';
+        const accessibleName = (el.getAttribute('aria-label') || text || '').trim();
+        const role = roleOf(el);
+        const roleSelector =
+          accessibleName.length > 0 ? `role=${role}[name="${accessibleName}"]` : `role=${role}`;
 
         results.push({
           index,
@@ -667,6 +691,7 @@ async function injectAnnotations(page: {
             el.getAttribute('name') ||
             el.getAttribute('aria-label') ||
             text.slice(0, 20),
+          roleSelector,
           boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
         });
 
@@ -732,7 +757,7 @@ export const browserScreenshotAnnotated = createTool({
   name: 'browser_screenshot_annotated',
   category: 'smart',
   description:
-    '`<use_case>Smart</use_case> 📸 Take a screenshot with auto-numbered badges on ALL interactive elements (buttons, links, inputs, selects, etc.). Each element gets a data-ai-index attribute and visual numbered overlay. Returns base64 screenshot + elements[] with index, tag, text, selector, boundingBox. Use when you need the AI to SEE the page layout visually — great for unfamiliar pages. Set persistIndices:true to keep data-ai-index attributes in the DOM, then click by index: browser_click(selector="[data-ai-index=\'3\']"). Use maxElements to cap output on dense pages. For plain screenshots without annotations, use browser_screenshot.`',
+    '`<use_case>Smart</use_case> 📸 Take a screenshot with auto-numbered badges on ALL interactive elements (buttons, links, inputs, selects, etc.). Each element gets a data-ai-index attribute and visual numbered overlay. Returns base64 screenshot + elements[] with index, tag, text, selector, roleSelector, boundingBox. Use when you need the AI to SEE the page layout visually — great for unfamiliar pages. Use roleSelector (e.g. role=button[name="..."]) to target an element with browser_click, or set persistIndices:true to keep data-ai-index attributes in the DOM and click by index: browser_click(selector="[data-ai-index=\'3\']"). Use maxElements to cap output on dense pages. For plain screenshots without annotations, use browser_screenshot.`',
   inputSchema: z.object({
     format: z.enum(['png', 'jpeg']).optional().default('png').describe('Image format'),
     fullPage: z
@@ -796,6 +821,7 @@ export const browserScreenshotAnnotated = createTool({
               tag: el.tag,
               text: el.text.slice(0, 80),
               selector: el.selector,
+              roleSelector: el.roleSelector,
               boundingBox: el.boundingBox,
             })),
           },
@@ -825,6 +851,7 @@ export const browserScreenshotAnnotated = createTool({
             tag: el.tag,
             text: el.text.slice(0, 80),
             selector: el.selector,
+            roleSelector: el.roleSelector,
             boundingBox: el.boundingBox,
           })),
         },

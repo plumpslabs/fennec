@@ -39,3 +39,44 @@ export const sessionList = createTool({
     });
   },
 });
+
+export const sessionGetActive = createTool({
+  name: 'session_get_active',
+  category: 'session',
+  description:
+    '`<use_case>Session management</use_case> 🎯 Get the CURRENT active session — the one used when a tool is called without an explicit sessionId. Returns id, name, url, title, isDefault, and how many sessions are open total. Use this to discover the active session ID before calling session-aware tools, or to confirm which tab is "current" after opening new tabs. Pair with session_list to see all sessions.',
+  inputSchema: z.object({}),
+  handler: async (_input, { sessionManager, responseBuilder }) => {
+    const defaultId = sessionManager.getDefaultSessionId();
+    if (!defaultId) {
+      return responseBuilder.error(new Error('No active session — none has been created yet'), {
+        code: 'NO_ACTIVE_SESSION',
+        suggestions: [
+          'Navigate to a page first (browser_navigate) to create the default session',
+          'Use session_list to see any open sessions',
+        ],
+      });
+    }
+
+    const session = sessionManager.getSession(defaultId);
+    let url = 'unknown';
+    let title = 'unknown';
+    try {
+      url = session.browser?.url ? session.browser.url() : 'unknown';
+      title = await session.browser.title().catch(() => 'unknown');
+    } catch {
+      /* best-effort */
+    }
+
+    return responseBuilder.success({
+      id: session.id,
+      name: session.name ?? null,
+      url,
+      title,
+      isDefault: true,
+      totalSessions: sessionManager.listSessions().length,
+      createdAt: session.createdAt.toISOString(),
+      lastUsedAt: session.lastUsedAt.toISOString(),
+    });
+  },
+});
