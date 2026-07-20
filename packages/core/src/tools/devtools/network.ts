@@ -82,6 +82,9 @@ export const networkGetLogs = createTool({
 
     return responseBuilder.success(
       {
+        // requestId is already part of each event; callers can pass it
+        // straight to network_get_request_detail (avoids substring-URL
+        // drift / the "Request not found in buffer" race).
         requests,
         count: requests.length,
         failedCount,
@@ -346,15 +349,21 @@ export const networkGetRequestDetail = createTool({
     if (input.requestId) {
       request = session.networkBuffer.find((r) => r.requestId === input.requestId);
     } else if (input.url) {
-      request = session.networkBuffer.find((r) => r.url.includes(input.url!));
+      // Try an exact match first, then fall back to substring so a copied
+      // (possibly truncated) URL from network_get_logs still resolves.
+      request =
+        session.networkBuffer.find((r) => r.url === input.url) ??
+        session.networkBuffer.find((r) => r.url.includes(input.url!)) ??
+        session.networkBuffer.find((r) => input.url!.includes(r.url));
     }
 
     if (!request) {
       return responseBuilder.error(new Error('Request not found in buffer'), {
         code: 'ELEMENT_NOT_FOUND',
         suggestions: [
-          'Use network_get_logs to see available requests',
+          'Use network_get_logs to see available requests and copy their requestId',
           'Verify the URL or requestId',
+          'The buffer may have been cleared or the request evicted (max 1000 events) — call network_get_logs again',
         ],
       });
     }

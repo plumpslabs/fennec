@@ -67,16 +67,26 @@ export const browserNavigate = createTool({
 
       if (msg.includes('timeout') || msg.includes('timed out'))
         return { code: 'TIMEOUT', reason: 'Navigation exceeded the timeout.', suggestions };
-      if (
+
+      const dnsLike =
         msg.includes('dns') ||
         msg.includes('enotfound') ||
-        msg.includes('name or service not known')
-      )
+        msg.includes('name or service not known') ||
+        msg.includes('err_name_not_resolved') ||
+        msg.includes('name_not_resolved') ||
+        msg.includes('err_name');
+      if (dnsLike) {
+        suggestions.push(
+          "Domain not found in DNS — try using localhost or 127.0.0.1 directly if it's a local server.",
+        );
+        suggestions.push('Check if the domain is accessible from this network (VPN/DNS config).');
+        suggestions.push('List tracked processes with process_get_tracked to find available local ports.');
         return {
           code: 'URL_UNREACHABLE',
           reason: 'DNS resolution failed — the host cannot be resolved.',
           suggestions,
         };
+      }
       if (msg.includes('econnrefused') || msg.includes('connection refused'))
         return {
           code: 'CONNECTION_REFUSED',

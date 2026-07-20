@@ -150,7 +150,11 @@ export async function resolveIndexedSelector(
   const resolved = await resolveSelector(session, selector);
   if (!resolved.found) return resolved;
   if (index !== undefined && index >= 0) {
-    resolved.selector = `${resolved.selector}.nth(${index})`;
+    // Append Playwright's `>> nth=N` compound selector (valid inside
+    // page.$/locator) instead of the locator-only `.nth(N)` method — the
+    // latter is not a valid selector string and raised strict-mode errors
+    // even when an explicit index was supplied.
+    resolved.selector = `${resolved.selector} >> nth=${index}`;
   }
   return resolved;
 }
