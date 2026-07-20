@@ -2,6 +2,23 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.16.3] - 2026-07-20
+
+### Fixed
+- **Browser/network/process improvements** (issues #77, #78, #79, #81, #83, #85)
+  - Navigation DNS errors now detect `ERR_NAME_NOT_RESOLVED` and suggest localhost/127.0.0.1 + `process_get_tracked`
+  - Selector `index` now resolves strict-mode ambiguity via Playwright `>> nth=N` compound selector
+  - Process port auto-detection: `/proc/<pid>/net/tcp*` fallback (works without `lsof`); `process_get_tracked` auto-fills `port`
+  - `network_get_request_detail` matches by `requestId` / exact URL / substring
+  - `browser_screenshot_annotated` gains `persistIndices` (keeps `data-ai-index` for later clicks) and `maxElements`
+- **Auth/session improvements** (issues #80, #82, #84, #86, #87)
+  - New `devtools_api_fetch` tool: in-browser fetch that inherits cookies/auth/CORS and returns raw body on non-2xx
+  - `devtools_evaluate` suggests `devtools_api_fetch` for fetch-like errors
+  - `auth_load_session` `SESSION_NOT_FOUND` includes the domain login URL + `createIfMissing` flag
+  - New `session_get_active` tool returns the current active session
+  - `browser_screenshot_annotated` emits a `roleSelector` per element for reliable `role=` targeting
+- **Chore**: applied Prettier formatting repo-wide to fix the CI lint gate
+
 ## [1.16.2] - 2026-07-20
 
 ### Fixed
