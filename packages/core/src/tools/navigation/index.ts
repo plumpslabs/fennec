@@ -80,7 +80,9 @@ export const browserNavigate = createTool({
           "Domain not found in DNS — try using localhost or 127.0.0.1 directly if it's a local server.",
         );
         suggestions.push('Check if the domain is accessible from this network (VPN/DNS config).');
-        suggestions.push('List tracked processes with process_get_tracked to find available local ports.');
+        suggestions.push(
+          'List tracked processes with process_get_tracked to find available local ports.',
+        );
         return {
           code: 'URL_UNREACHABLE',
           reason: 'DNS resolution failed — the host cannot be resolved.',

@@ -518,7 +518,7 @@ export const processGetTracked = createTool({
       // Auto-detect the listening port when it wasn't captured at spawn time
       // (e.g. a server that picks its port after startup, or a process
       // started via the CLI). Only overrides a still-null value.
-      const resolvedPort = t.port ?? (running ? detector.detectByPid(t.pid)?.port ?? null : null);
+      const resolvedPort = t.port ?? (running ? (detector.detectByPid(t.pid)?.port ?? null) : null);
       return {
         name: t.name,
         pid: t.pid,
@@ -1224,7 +1224,9 @@ export const processImportTracked = createTool({
   inputSchema: z.object({
     processes: z
       .array(z.record(z.unknown()))
-      .describe('Array of process objects to import. Each must have at least "name" and "command".'),
+      .describe(
+        'Array of process objects to import. Each must have at least "name" and "command".',
+      ),
     dryRun: z
       .boolean()
       .optional()

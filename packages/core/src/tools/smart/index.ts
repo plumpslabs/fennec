@@ -323,7 +323,8 @@ export function matchField(fields: DetectedField[], query: string): DetectedFiel
 
   // Partial / includes match — prefer type-exact matches first
   const typeMatch = fields.find(
-    (f) => f.type === q || (q === 'email' && f.type === 'email') || (q === 'phone' && f.type === 'tel'),
+    (f) =>
+      f.type === q || (q === 'email' && f.type === 'email') || (q === 'phone' && f.type === 'tel'),
   );
   if (typeMatch) return typeMatch;
 
@@ -730,8 +731,8 @@ async function removeAnnotations(page: {
 export const browserScreenshotAnnotated = createTool({
   name: 'browser_screenshot_annotated',
   category: 'smart',
-    description:
-      '`<use_case>Smart</use_case> 📸 Take a screenshot with auto-numbered badges on ALL interactive elements (buttons, links, inputs, selects, etc.). Each element gets a data-ai-index attribute and visual numbered overlay. Returns base64 screenshot + elements[] with index, tag, text, selector, boundingBox. Use when you need the AI to SEE the page layout visually — great for unfamiliar pages. Set persistIndices:true to keep data-ai-index attributes in the DOM, then click by index: browser_click(selector="[data-ai-index=\'3\']"). Use maxElements to cap output on dense pages. For plain screenshots without annotations, use browser_screenshot.`',
+  description:
+    '`<use_case>Smart</use_case> 📸 Take a screenshot with auto-numbered badges on ALL interactive elements (buttons, links, inputs, selects, etc.). Each element gets a data-ai-index attribute and visual numbered overlay. Returns base64 screenshot + elements[] with index, tag, text, selector, boundingBox. Use when you need the AI to SEE the page layout visually — great for unfamiliar pages. Set persistIndices:true to keep data-ai-index attributes in the DOM, then click by index: browser_click(selector="[data-ai-index=\'3\']"). Use maxElements to cap output on dense pages. For plain screenshots without annotations, use browser_screenshot.`',
   inputSchema: z.object({
     format: z.enum(['png', 'jpeg']).optional().default('png').describe('Image format'),
     fullPage: z
@@ -751,13 +752,15 @@ export const browserScreenshotAnnotated = createTool({
       .int()
       .min(1)
       .optional()
-      .describe('Cap the number of annotated elements returned (useful on dense pages to keep output small)'),
+      .describe(
+        'Cap the number of annotated elements returned (useful on dense pages to keep output small)',
+      ),
     persistIndices: z
       .boolean()
       .optional()
       .default(false)
       .describe(
-        "When true, the data-ai-index attributes are left in the DOM after the screenshot so the AI can click via browser_click(selector=\"[data-ai-index='N']\"). When false (default) they are cleaned up.",
+        'When true, the data-ai-index attributes are left in the DOM after the screenshot so the AI can click via browser_click(selector="[data-ai-index=\'N\']"). When false (default) they are cleaned up.',
       ),
     sessionId: z.string().optional().describe('Session ID'),
   }),
@@ -2489,18 +2492,29 @@ export const fennecFlow = createTool({
   inputSchema: z.object({
     action: z
       .enum(['debug-element', 'page-health', 'form-fill'])
-      .describe("The composite flow to execute. 'debug-element': inspect element info + screenshot + diagnose interactability. 'page-health': console errors + failed network requests + DOM state summary. 'form-fill': detect + fill + validate + submit a form."),
-    selector: z.string().optional().describe('Target element selector (required for debug-element, optional for form-fill to scope to a container)'),
+      .describe(
+        "The composite flow to execute. 'debug-element': inspect element info + screenshot + diagnose interactability. 'page-health': console errors + failed network requests + DOM state summary. 'form-fill': detect + fill + validate + submit a form.",
+      ),
+    selector: z
+      .string()
+      .optional()
+      .describe(
+        'Target element selector (required for debug-element, optional for form-fill to scope to a container)',
+      ),
     fields: z
       .record(z.string(), z.string())
       .optional()
-      .describe('Field values for form-fill action (e.g. {"email": "a@b.com", "password": "secret"})'),
+      .describe(
+        'Field values for form-fill action (e.g. {"email": "a@b.com", "password": "secret"})',
+      ),
     index: z
       .number()
       .int()
       .min(0)
       .optional()
-      .describe('When the selector matches multiple elements, pick the one at this index (0-based)'),
+      .describe(
+        'When the selector matches multiple elements, pick the one at this index (0-based)',
+      ),
     sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
@@ -2511,11 +2525,7 @@ export const fennecFlow = createTool({
         return responseBuilder.error(new Error('selector is required for debug-element action'));
       }
       try {
-        const resolved = await resolveIndexedSelector(
-          session.browser,
-          input.selector,
-          input.index,
-        );
+        const resolved = await resolveIndexedSelector(session.browser, input.selector, input.index);
         const elementInfo = resolved.found
           ? await (async () => {
               const locator = session.browser.locator(resolved.selector);
@@ -2617,12 +2627,10 @@ export const fennecFlow = createTool({
           session.networkBuffer
             ? {
                 total: session.networkBuffer.length,
-                failed: session.networkBuffer.filter(
-                  (r: { status: number }) => r.status >= 400,
-                ).length,
-                slow: session.networkBuffer.filter(
-                  (r: { duration: number }) => r.duration > 1000,
-                ).length,
+                failed: session.networkBuffer.filter((r: { status: number }) => r.status >= 400)
+                  .length,
+                slow: session.networkBuffer.filter((r: { duration: number }) => r.duration > 1000)
+                  .length,
                 lastFailure: [...session.networkBuffer]
                   .reverse()
                   .find((r: { status: number }) => r.status >= 400)?.url,

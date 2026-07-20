@@ -33,7 +33,10 @@ export const networkGetLogs = createTool({
     status: z.number().optional().describe('Filter by HTTP status code'),
     method: z.string().optional().describe('Filter by HTTP method (GET, POST, etc.)'),
     urlPattern: z.string().optional().describe('Filter by URL pattern'),
-    since: z.string().optional().describe('ISO timestamp filter — only return requests after this time'),
+    since: z
+      .string()
+      .optional()
+      .describe('ISO timestamp filter — only return requests after this time'),
     limit: z.number().optional().default(50).describe('Maximum number of requests to return'),
     includeResponseBodies: z
       .boolean()
