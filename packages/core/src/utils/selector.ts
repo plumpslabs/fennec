@@ -10,10 +10,7 @@ const selectorCache = new Map<string, Map<string, SelectorResult>>();
 const STRATEGY_TIMEOUT = 2_000; // 2s per strategy, up to ~12s total worst case
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
-  return Promise.race([
-    promise,
-    new Promise<null>((resolve) => setTimeout(resolve, ms)),
-  ]);
+  return Promise.race([promise, new Promise<null>((resolve) => setTimeout(resolve, ms))]);
 }
 
 export interface SelectorResult {
@@ -42,7 +39,11 @@ export async function findElement(session: BrowserSession, input: string): Promi
     const ariaSelector = `[role="${input}"]`;
     const el = await withTimeout(session.$(ariaSelector), STRATEGY_TIMEOUT);
     if (el) {
-      return cacheResult(session.id, input, { selector: ariaSelector, strategy: 'aria', found: true });
+      return cacheResult(session.id, input, {
+        selector: ariaSelector,
+        strategy: 'aria',
+        found: true,
+      });
     }
   } catch {
     // fall through
@@ -60,7 +61,11 @@ export async function findElement(session: BrowserSession, input: string): Promi
       STRATEGY_TIMEOUT,
     );
     if (el) {
-      return cacheResult(session.id, input, { selector: roleSelector, strategy: 'aria', found: true });
+      return cacheResult(session.id, input, {
+        selector: roleSelector,
+        strategy: 'aria',
+        found: true,
+      });
     }
   } catch {
     // fall through
@@ -95,7 +100,11 @@ export async function findElement(session: BrowserSession, input: string): Promi
       STRATEGY_TIMEOUT,
     );
     if (el) {
-      return cacheResult(session.id, input, { selector: textSelector, strategy: 'text', found: true });
+      return cacheResult(session.id, input, {
+        selector: textSelector,
+        strategy: 'text',
+        found: true,
+      });
     }
   } catch {
     // fall through
@@ -116,7 +125,11 @@ export async function findElement(session: BrowserSession, input: string): Promi
     const xpathSelector = `xpath=${input}`;
     const el = await withTimeout(session.$(xpathSelector), STRATEGY_TIMEOUT);
     if (el) {
-      return cacheResult(session.id, input, { selector: xpathSelector, strategy: 'xpath', found: true });
+      return cacheResult(session.id, input, {
+        selector: xpathSelector,
+        strategy: 'xpath',
+        found: true,
+      });
     }
   } catch {
     // fall through
@@ -150,7 +163,11 @@ export async function resolveIndexedSelector(
   const resolved = await resolveSelector(session, selector);
   if (!resolved.found) return resolved;
   if (index !== undefined && index >= 0) {
-    resolved.selector = `${resolved.selector}.nth(${index})`;
+    // Append Playwright's `>> nth=N` compound selector (valid inside
+    // page.$/locator) instead of the locator-only `.nth(N)` method — the
+    // latter is not a valid selector string and raised strict-mode errors
+    // even when an explicit index was supplied.
+    resolved.selector = `${resolved.selector} >> nth=${index}`;
   }
   return resolved;
 }
@@ -166,7 +183,10 @@ export async function resolveSelector(
     selector.startsWith('xpath=') ||
     selector.startsWith('css=')
   ) {
-    const el = await withTimeout(session.$(selector).catch(() => null), STRATEGY_TIMEOUT);
+    const el = await withTimeout(
+      session.$(selector).catch(() => null),
+      STRATEGY_TIMEOUT,
+    );
     const result: SelectorResult = {
       selector,
       strategy: selector.startsWith('role=')

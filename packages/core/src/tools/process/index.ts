@@ -509,17 +509,22 @@ export const processGetTracked = createTool({
   }),
   handler: async (input, { responseBuilder }) => {
     const tracked = readTracked().filter((t) => !input.group || t.group === input.group);
+    const detector = new PortDetector();
     const processes = tracked.map((t) => {
       const running = isTrackedRunning(t);
       const uptime = running
         ? Math.floor((Date.now() - new Date(t.startedAt).getTime()) / 1000)
         : null;
+      // Auto-detect the listening port when it wasn't captured at spawn time
+      // (e.g. a server that picks its port after startup, or a process
+      // started via the CLI). Only overrides a still-null value.
+      const resolvedPort = t.port ?? (running ? (detector.detectByPid(t.pid)?.port ?? null) : null);
       return {
         name: t.name,
         pid: t.pid,
         status: running ? 'running' : 'stopped',
         group: t.group ?? null,
-        port: t.port ?? null,
+        port: resolvedPort,
         command: t.command,
         cwd: t.cwd ?? null,
         debugMode: t.debugMode ?? 'off',
@@ -1219,7 +1224,9 @@ export const processImportTracked = createTool({
   inputSchema: z.object({
     processes: z
       .array(z.record(z.unknown()))
-      .describe('Array of process objects to import. Each must have at least "name" and "command".'),
+      .describe(
+        'Array of process objects to import. Each must have at least "name" and "command".',
+      ),
     dryRun: z
       .boolean()
       .optional()

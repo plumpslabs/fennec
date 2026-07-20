@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { mkdtempSync, writeFileSync, existsSync, rmSync, readFileSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
+import { VERSION } from '../../src/utils/banner.js';
 
 const DATA_DIR = mkdtempSync(join(tmpdir(), 'fennec-unit-store-'));
 const CLI = resolve(__dirname, '../../dist/index.js');
@@ -227,7 +228,9 @@ describe('group command', () => {
   });
 
   it('assigns a group to a tracked app', () => {
-    writeTracked([{ name: 'web', pid: 12345, command: 'node server.js', startedAt: new Date().toISOString() }]);
+    writeTracked([
+      { name: 'web', pid: 12345, command: 'node server.js', startedAt: new Date().toISOString() },
+    ]);
     const r = run(['group', 'web', 'backend']);
     expect(r.code).toBe(0);
     expect(r.stderr).toContain('assigned to group');
@@ -237,7 +240,15 @@ describe('group command', () => {
   });
 
   it('clears group with --unset', () => {
-    writeTracked([{ name: 'web', pid: 12345, command: 'node server.js', group: 'backend', startedAt: new Date().toISOString() }]);
+    writeTracked([
+      {
+        name: 'web',
+        pid: 12345,
+        command: 'node server.js',
+        group: 'backend',
+        startedAt: new Date().toISOString(),
+      },
+    ]);
     const r = run(['group', 'web', '--unset']);
     expect(r.code).toBe(0);
     expect(r.stderr).toContain('removed from its group');
@@ -276,18 +287,14 @@ describe('doctor command', () => {
   });
 
   it('detects zombie PID 0 entries', () => {
-    writeTracked([
-      { name: 'zombie', pid: 0, command: '', startedAt: new Date().toISOString() },
-    ]);
+    writeTracked([{ name: 'zombie', pid: 0, command: '', startedAt: new Date().toISOString() }]);
     const r = run(['doctor']);
     expect(r.code).toBe(0);
     expect(r.stderr).toContain('PID 0');
   });
 
   it('fixes zombie entries with --fix', () => {
-    writeTracked([
-      { name: 'zombie', pid: 0, command: '', startedAt: new Date().toISOString() },
-    ]);
+    writeTracked([{ name: 'zombie', pid: 0, command: '', startedAt: new Date().toISOString() }]);
     const r = run(['doctor', '--fix']);
     expect(r.code).toBe(0);
     expect(r.stderr).toContain('Cleaning');
@@ -301,7 +308,14 @@ describe('export-import commands', () => {
 
   it('exports tracked apps', () => {
     writeTracked([
-      { name: 'web', pid: 1, command: 'node web.js', cwd: '/app', port: 3000, startedAt: new Date().toISOString() },
+      {
+        name: 'web',
+        pid: 1,
+        command: 'node web.js',
+        cwd: '/app',
+        port: 3000,
+        startedAt: new Date().toISOString(),
+      },
     ]);
     const r = run(['export', '--file', exportPath]);
     expect(r.code).toBe(0);
@@ -315,7 +329,14 @@ describe('export-import commands', () => {
     writeFileSync(
       exportPath,
       JSON.stringify([
-        { name: 'imported', pid: -1, command: 'node app.js', port: 8080, cwd: '/app', startedAt: new Date().toISOString() },
+        {
+          name: 'imported',
+          pid: -1,
+          command: 'node app.js',
+          port: 8080,
+          cwd: '/app',
+          startedAt: new Date().toISOString(),
+        },
       ]),
     );
     // Pass empty stdin for the confirm prompt (defaults to yes)
@@ -372,7 +393,7 @@ describe('help system', () => {
   it('shows version compact output', () => {
     const r = run(['version']);
     expect(r.code).toBe(0);
-    expect(r.stderr).toContain('Fennec v1.15.3');
+    expect(r.stderr).toContain(`Fennec v${VERSION}`);
     expect(r.stderr).not.toContain('███████');
   });
 
