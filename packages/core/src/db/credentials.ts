@@ -78,30 +78,53 @@ class CliStore implements CredentialStore {
 
   async save(name: string, url: string): Promise<void> {
     if (this.plat === 'macos') {
-      execSync(`security add-generic-password -s "fennec-db" -a "${name}" -w "${url.replace(/"/g, '\\"')}"`, { stdio: 'ignore' });
+      execSync(
+        `security add-generic-password -s "fennec-db" -a "${name}" -w "${url.replace(/"/g, '\\"')}"`,
+        { stdio: 'ignore' },
+      );
     } else if (this.plat === 'linux') {
-      execSync(`secret-tool store --label="Fennec DB" service "fennec-db" account "${name}"`, { input: url, stdio: ['pipe', 'ignore', 'ignore'] });
+      execSync(`secret-tool store --label="Fennec DB" service "fennec-db" account "${name}"`, {
+        input: url,
+        stdio: ['pipe', 'ignore', 'ignore'],
+      });
     } else {
-      execSync(`powershell -Command " CredWrite 'fennec-db-${name}' '${url.replace(/'/g, "''")}' "`, { stdio: 'ignore' });
+      execSync(
+        `powershell -Command " CredWrite 'fennec-db-${name}' '${url.replace(/'/g, "''")}' "`,
+        { stdio: 'ignore' },
+      );
     }
   }
 
   async get(name: string): Promise<string | null> {
     try {
       if (this.plat === 'macos') {
-        return execSync(`security find-generic-password -s "fennec-db" -a "${name}" -w`, { stdio: 'pipe' }).toString().trim();
+        return execSync(`security find-generic-password -s "fennec-db" -a "${name}" -w`, {
+          stdio: 'pipe',
+        })
+          .toString()
+          .trim();
       } else if (this.plat === 'linux') {
-        return execSync(`secret-tool lookup service "fennec-db" account "${name}"`, { stdio: 'pipe' }).toString().trim();
+        return execSync(`secret-tool lookup service "fennec-db" account "${name}"`, {
+          stdio: 'pipe',
+        })
+          .toString()
+          .trim();
       } else {
-        return execSync(`powershell -Command " CredRead 'fennec-db-${name}' "`, { stdio: 'pipe' }).toString().trim();
+        return execSync(`powershell -Command " CredRead 'fennec-db-${name}' "`, { stdio: 'pipe' })
+          .toString()
+          .trim();
       }
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   }
 
   async delete(name: string): Promise<void> {
     try {
       if (this.plat === 'macos') {
-        execSync(`security delete-generic-password -s "fennec-db" -a "${name}"`, { stdio: 'ignore' });
+        execSync(`security delete-generic-password -s "fennec-db" -a "${name}"`, {
+          stdio: 'ignore',
+        });
       } else if (this.plat === 'linux') {
         execSync(`secret-tool clear service "fennec-db" account "${name}"`, { stdio: 'ignore' });
       } else {
@@ -123,25 +146,30 @@ export function readConnections(): ConnectionMetadata[] {
   try {
     const raw = JSON.parse(readFileSync(path, 'utf-8'));
     return raw.connections || [];
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 }
 
 export function saveConnections(connections: ConnectionMetadata[]): void {
   const dir = getFennecDir();
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(getConnectionsPath(), JSON.stringify({ connections }, null, 2), { mode: 0o700, encoding: 'utf-8' });
+  writeFileSync(getConnectionsPath(), JSON.stringify({ connections }, null, 2), {
+    mode: 0o700,
+    encoding: 'utf-8',
+  });
 }
 
 export function addConnection(meta: ConnectionMetadata): void {
-  const list = readConnections().filter(c => c.name !== meta.name);
+  const list = readConnections().filter((c) => c.name !== meta.name);
   list.push({ ...meta, lastUsed: new Date().toISOString() });
   saveConnections(list);
 }
 
 export function removeConnection(name: string): void {
-  saveConnections(readConnections().filter(c => c.name !== name));
+  saveConnections(readConnections().filter((c) => c.name !== name));
 }
 
 export function getConnection(name: string): ConnectionMetadata | undefined {
-  return readConnections().find(c => c.name === name);
+  return readConnections().find((c) => c.name === name);
 }

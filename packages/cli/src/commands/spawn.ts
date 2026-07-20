@@ -177,7 +177,7 @@ async function spawnAllStopped(procs: TrackedProcess[]): Promise<void> {
         startedAt: new Date().toISOString(),
         autoRestart: proc.autoRestart,
         logMode: proc.logMode,
-      debugMode: proc.debugMode ?? undefined,
+        debugMode: proc.debugMode ?? undefined,
         // Preserve the logical group across stop -> spawn (addTracked REPLACES
         // the entry by name, so group must be carried over explicitly).
         group: proc.group,
@@ -313,9 +313,10 @@ async function respawnProcess(proc: TrackedProcess, args?: string[]): Promise<vo
       autoRestart: proc.autoRestart,
       logMode: proc.logMode,
       group: proc.group,
-      debugMode: debugMode === 'log' || debugMode === 'breakpoint' || debugMode === 'auto'
-        ? debugMode
-        : (proc.debugMode ?? undefined),
+      debugMode:
+        debugMode === 'log' || debugMode === 'breakpoint' || debugMode === 'auto'
+          ? debugMode
+          : (proc.debugMode ?? undefined),
     });
 
     if (proc.autoRestart) {

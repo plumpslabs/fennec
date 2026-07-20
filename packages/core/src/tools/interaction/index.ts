@@ -5,7 +5,10 @@ import { resolveSelector, resolveIndexedSelector } from '../../utils/selector.js
 
 function isStrictModeViolation(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
-  return msg.includes('strict mode violation') || (msg.includes('resolved to') && msg.includes('elements'));
+  return (
+    msg.includes('strict mode violation') ||
+    (msg.includes('resolved to') && msg.includes('elements'))
+  );
 }
 
 export const browserClick = createTool({
@@ -15,7 +18,14 @@ export const browserClick = createTool({
     '`<use_case>Interaction</use_case> 🖱️ Click on a page element. Supports left/right/middle buttons and clickCount (single/double click). Returns elementFound and click coordinates. Uses smart selector resolution (ARIA label, data-testid, text content, CSS, XPath). Use for clicking buttons, links, checkboxes — the primary way AI agents interact with pages. For keyboard input, use browser_type. For hovering, use browser_hover.`',
   inputSchema: z.object({
     selector: z.string().describe('Element selector (ARIA, testid, text, CSS, or XPath)'),
-    index: z.number().int().min(0).optional().describe('When the selector matches multiple elements, pick the one at this index (0-based)'),
+    index: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe(
+        'When the selector matches multiple elements, pick the one at this index (0-based)',
+      ),
     button: z.enum(['left', 'right', 'middle']).optional().default('left').describe('Mouse button'),
     clickCount: z.number().optional().default(1).describe('Number of clicks (1=single, 2=double)'),
     sessionId: z.string().optional().describe('Session ID'),
@@ -59,7 +69,9 @@ export const browserClick = createTool({
         'Use browser_get_element_info to check element state',
       ];
       if (isStrictModeViolation(error)) {
-        suggestions.push('Use the index parameter to target a specific element when multiple match');
+        suggestions.push(
+          'Use the index parameter to target a specific element when multiple match',
+        );
       }
       return responseBuilder.error(error, { code: 'ELEMENT_NOT_INTERACTABLE', suggestions });
     }
@@ -73,7 +85,14 @@ export const browserType = createTool({
     "`<use_case>Interaction</use_case> ⌨️ Type text into an input field (or any focusable element). Optionally clear the field first. Returns valueAfter (the field's value after typing). Use for filling out forms, search boxes, text areas. For dropdown/select elements, use browser_select instead. For just clearing without typing, use browser_clear. For key combinations (Ctrl+C, Enter), use browser_press_key.`",
   inputSchema: z.object({
     selector: z.string().describe('Element selector'),
-    index: z.number().int().min(0).optional().describe('When the selector matches multiple elements, pick the one at this index (0-based)'),
+    index: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe(
+        'When the selector matches multiple elements, pick the one at this index (0-based)',
+      ),
     text: z.string().describe('Text to type'),
     delay: z.number().optional().default(0).describe('Delay between keystrokes in ms'),
     clear: z.boolean().optional().default(false).describe('Clear the field before typing'),
@@ -117,7 +136,9 @@ export const browserType = createTool({
         'Try clicking the field first',
       ];
       if (isStrictModeViolation(error)) {
-        suggestions.push('Use the index parameter to target a specific element when multiple match');
+        suggestions.push(
+          'Use the index parameter to target a specific element when multiple match',
+        );
       }
       return responseBuilder.error(error, { code: 'ELEMENT_NOT_INTERACTABLE', suggestions });
     }
@@ -173,7 +194,14 @@ export const browserHover = createTool({
     '`<use_case>Interaction</use_case> 👆 Hover over an element to trigger CSS :hover states, tooltips, or dropdown menus that appear on hover. Returns element coordinates. Use for triggering hover-dependent UI elements before clicking them, inspecting tooltip content, or activating nested menus. Follow up with browser_get_element_info to check what appeared.`',
   inputSchema: z.object({
     selector: z.string().describe('Element selector'),
-    index: z.number().int().min(0).optional().describe('When the selector matches multiple elements, pick the one at this index (0-based)'),
+    index: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe(
+        'When the selector matches multiple elements, pick the one at this index (0-based)',
+      ),
     sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
@@ -198,7 +226,9 @@ export const browserHover = createTool({
     } catch (error) {
       const suggestions: string[] = [];
       if (isStrictModeViolation(error)) {
-        suggestions.push('Use the index parameter to target a specific element when multiple match');
+        suggestions.push(
+          'Use the index parameter to target a specific element when multiple match',
+        );
       }
       return responseBuilder.error(error, { code: 'ELEMENT_NOT_INTERACTABLE', suggestions });
     }
@@ -308,7 +338,14 @@ export const browserFocus = createTool({
     '`<use_case>Interaction</use_case> 🎯 Set focus on an element by selector. Use before typing into a field that requires explicit focus, or triggering focus-dependent UI changes (like showing a cursor, activating input styles). Less common than browser_click which naturally focuses elements — use only when clicking would cause unwanted side effects.`',
   inputSchema: z.object({
     selector: z.string().describe('Element selector'),
-    index: z.number().int().min(0).optional().describe('When the selector matches multiple elements, pick the one at this index (0-based)'),
+    index: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe(
+        'When the selector matches multiple elements, pick the one at this index (0-based)',
+      ),
     sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
@@ -326,7 +363,9 @@ export const browserFocus = createTool({
     } catch (error) {
       const suggestions: string[] = [];
       if (isStrictModeViolation(error)) {
-        suggestions.push('Use the index parameter to target a specific element when multiple match');
+        suggestions.push(
+          'Use the index parameter to target a specific element when multiple match',
+        );
       }
       return responseBuilder.error(error, { code: 'ELEMENT_NOT_INTERACTABLE', suggestions });
     }

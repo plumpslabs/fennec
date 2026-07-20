@@ -160,7 +160,9 @@ export const browserGetDomSnapshot = createTool({
       .number()
       .optional()
       .default(10)
-      .describe('Maximum tree depth (default 10, max 50). Prevents overflow on deeply nested pages.'),
+      .describe(
+        'Maximum tree depth (default 10, max 50). Prevents overflow on deeply nested pages.',
+      ),
     sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
@@ -348,7 +350,9 @@ export const browserGetAccessibilityTree = createTool({
       .boolean()
       .optional()
       .default(false)
-      .describe('Compact mode: return only top-level nodes with child counts instead of full tree (much smaller response)'),
+      .describe(
+        'Compact mode: return only top-level nodes with child counts instead of full tree (much smaller response)',
+      ),
     sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
@@ -388,8 +392,7 @@ export const browserGetAccessibilityTree = createTool({
             const nodes: Record<string, unknown>[] = [];
             const walk = (nodeEl: Element, depth: number) => {
               const role = nodeEl.getAttribute('role') || nodeEl.tagName.toLowerCase();
-              const name =
-                nodeEl.getAttribute('aria-label') || nodeEl.textContent?.trim() || '';
+              const name = nodeEl.getAttribute('aria-label') || nodeEl.textContent?.trim() || '';
               nodes.push({
                 role,
                 name: name.slice(0, 100),
@@ -413,10 +416,7 @@ export const browserGetAccessibilityTree = createTool({
         { sel: input.selector, compact: input.compact },
       );
 
-      return responseBuilder.success(
-        result ?? { tree: null },
-        sessionManager.buildMeta(session),
-      );
+      return responseBuilder.success(result ?? { tree: null }, sessionManager.buildMeta(session));
     } catch (error) {
       return responseBuilder.error(error);
     }
@@ -440,9 +440,7 @@ function vanillaDomFallback(sel: string): string {
   // text="..." and text=... → match any element containing that text
   if (sel.startsWith('text=')) {
     const raw = sel.slice(5);
-    const text = raw.startsWith('"') || raw.startsWith("'")
-      ? JSON.parse(raw)
-      : raw;
+    const text = raw.startsWith('"') || raw.startsWith("'") ? JSON.parse(raw) : raw;
     return `//text()=${text}`; // marker — handled in evaluate
   }
 
@@ -615,7 +613,14 @@ export const browserGetElementInfo = createTool({
     '`<use_case>DOM inspection</use_case> 🔍 Get detailed info about a specific element: exists, visible (isVisible), enabled (isEnabled), text (textContent), attributes (all), boundingBox (x, y, width, height). Use BEFORE clicking or typing to verify the element is in the right state. For quicker existence checks without details, use diagnose_element. For finding elements by attributes, use browser_find_elements.`',
   inputSchema: z.object({
     selector: z.string().describe('Element selector'),
-    index: z.number().int().min(0).optional().describe('When the selector matches multiple elements, pick the one at this index (0-based)'),
+    index: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe(
+        'When the selector matches multiple elements, pick the one at this index (0-based)',
+      ),
     sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
@@ -667,8 +672,13 @@ export const browserGetElementInfo = createTool({
     } catch (error) {
       const suggestions: string[] = [];
       const msg = error instanceof Error ? error.message : String(error);
-      if (msg.includes('strict mode violation') || (msg.includes('resolved to') && msg.includes('elements'))) {
-        suggestions.push('Use the index parameter to target a specific element when multiple match');
+      if (
+        msg.includes('strict mode violation') ||
+        (msg.includes('resolved to') && msg.includes('elements'))
+      ) {
+        suggestions.push(
+          'Use the index parameter to target a specific element when multiple match',
+        );
       }
       return responseBuilder.error(error, { code: 'ELEMENT_CHECK_FAILED', suggestions });
     }

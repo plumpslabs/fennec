@@ -86,10 +86,12 @@ async function debugAttach(args: string[]): Promise<void> {
   const target = resolveTargets(args);
 
   if (target.kind === 'none') {
-    console.error(renderError(
-      'Missing target',
-      'Usage: fennec debug attach <name|--group <g>> [--mode log|breakpoint]',
-    ));
+    console.error(
+      renderError(
+        'Missing target',
+        'Usage: fennec debug attach <name|--group <g>> [--mode log|breakpoint]',
+      ),
+    );
     process.exit(1);
   }
 
@@ -147,10 +149,7 @@ async function debugDetach(args: string[]): Promise<void> {
   const target = resolveTargets(args);
 
   if (target.kind === 'none') {
-    console.error(renderError(
-      'Missing target',
-      'Usage: fennec debug detach <name|--group <g>>',
-    ));
+    console.error(renderError('Missing target', 'Usage: fennec debug detach <name|--group <g>>'));
     process.exit(1);
   }
 
@@ -213,10 +212,14 @@ async function debugStatus(args: string[]): Promise<void> {
   if (filtered.length === 0) {
     if (nameFilter) {
       console.error(`\n  ${pc.dim(`No debug status for "${nameFilter}".`)}`);
-      console.error(`  ${pc.dim('Use')} ${pc.cyan(`fennec debug attach ${nameFilter} --mode log`)} ${pc.dim('to enable debug.')}`);
+      console.error(
+        `  ${pc.dim('Use')} ${pc.cyan(`fennec debug attach ${nameFilter} --mode log`)} ${pc.dim('to enable debug.')}`,
+      );
     } else {
       console.error(`\n  ${pc.dim('No apps have debug mode attached.')}`);
-      console.error(`  ${pc.dim('Use')} ${pc.cyan('fennec debug attach <name> [--mode log|breakpoint]')}`);
+      console.error(
+        `  ${pc.dim('Use')} ${pc.cyan('fennec debug attach <name> [--mode log|breakpoint]')}`,
+      );
     }
     console.error();
     return;
@@ -229,19 +232,29 @@ async function debugStatus(args: string[]): Promise<void> {
       label: 'Mode',
       format: (v) => {
         const m = v as string;
-        return m === 'log' ? pc.green('log') :
-               m === 'breakpoint' ? pc.yellow('breakpoint') :
-               pc.dim('-');
+        return m === 'log'
+          ? pc.green('log')
+          : m === 'breakpoint'
+            ? pc.yellow('breakpoint')
+            : pc.dim('-');
       },
     },
-    { key: 'status', label: 'Status', format: (v) => {
-      const s = v as string;
-      return s === 'running' ? pc.green('● running') : pc.red('○ stopped');
-    }},
-    { key: 'group', label: 'Group', format: (v) => {
-      const g = String(v);
-      return g === '-' ? pc.dim('-') : pc.cyan(g);
-    }},
+    {
+      key: 'status',
+      label: 'Status',
+      format: (v) => {
+        const s = v as string;
+        return s === 'running' ? pc.green('● running') : pc.red('○ stopped');
+      },
+    },
+    {
+      key: 'group',
+      label: 'Group',
+      format: (v) => {
+        const g = String(v);
+        return g === '-' ? pc.dim('-') : pc.cyan(g);
+      },
+    },
     { key: 'pid', label: 'PID', align: 'right', format: (v) => pc.dim(String(v).padStart(6)) },
   ];
 
@@ -253,7 +266,9 @@ async function debugStatus(args: string[]): Promise<void> {
     pid: t.pid,
   }));
 
-  console.error(`\n  ${symbols.fox} ${pc.bold('Debug Status')} ${pc.dim(`(${filtered.length} app(s) with debug)`)}\n`);
+  console.error(
+    `\n  ${symbols.fox} ${pc.bold('Debug Status')} ${pc.dim(`(${filtered.length} app(s) with debug)`)}\n`,
+  );
   console.error(renderTable(columns, rows));
   console.error();
 }

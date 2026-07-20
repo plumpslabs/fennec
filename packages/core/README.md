@@ -176,14 +176,14 @@ Every tool call is recorded with timestamp, session ID, input, result, and durat
 
 ### MCP Client Compatibility
 
-| Client         | stdio | SSE | Notes                                                                     |
-| -------------- | :---: | :-: | ------------------------------------------------------------------------- |
-| Claude Desktop |  ✅   | ✅  | stdio default, standard `mcpServers` format                               |
-| Claude Code    |  ✅   | ✅  | stdio default                                                             |
-| Cline          |  ✅   | ✅  | stdio default, standard `mcpServers` format                               |
-| Cursor         |  ✅   | ✅  | stdio default, standard `mcpServers` format                               |
-| Windsurf       |  ✅   | ✅  | stdio default, standard `mcpServers` format                               |
-| Continue.dev   |  ⚠️   | ✅  | **SSE recommended** — uses `experimental.mcpServers` array format         |
+| Client         | stdio | SSE | Notes                                                                       |
+| -------------- | :---: | :-: | --------------------------------------------------------------------------- |
+| Claude Desktop |  ✅   | ✅  | stdio default, standard `mcpServers` format                                 |
+| Claude Code    |  ✅   | ✅  | stdio default                                                               |
+| Cline          |  ✅   | ✅  | stdio default, standard `mcpServers` format                                 |
+| Cursor         |  ✅   | ✅  | stdio default, standard `mcpServers` format                                 |
+| Windsurf       |  ✅   | ✅  | stdio default, standard `mcpServers` format                                 |
+| Continue.dev   |  ⚠️   | ✅  | **SSE recommended** — uses `experimental.mcpServers` array format           |
 | OpenCode       |  ✅   | ✅  | stdio (`type: local`, `command: ["fennec", "start"]`), SSE (`type: remote`) |
 
 > **SSE mode:** `fennec start --sse` starts an HTTP+SSE endpoint on `http://127.0.0.1:3333/sse`.

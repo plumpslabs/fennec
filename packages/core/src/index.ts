@@ -101,7 +101,13 @@ export {
   getConnection,
 } from './db/credentials.js';
 export type {
-  DBConfig, ConnectionMetadata, ConnectionInfo,
-  DbQueryResult, DbSchemaResult, DbTableInfo,
-  DbExplainResult, DbStatsResult, DbConnectInfo,
+  DBConfig,
+  ConnectionMetadata,
+  ConnectionInfo,
+  DbQueryResult,
+  DbSchemaResult,
+  DbTableInfo,
+  DbExplainResult,
+  DbStatsResult,
+  DbConnectInfo,
 } from './db/types.js';

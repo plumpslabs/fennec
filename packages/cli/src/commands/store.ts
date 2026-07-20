@@ -100,7 +100,9 @@ export async function storeCommand(args: string[]): Promise<void> {
   const store: SessionStore = mgr.sessionStore();
 
   if (showSecrets && action && action !== 'info') {
-    console.error(`  ${pc.yellow('⚠')} ${pc.dim('--show-secrets only applies to the info action')}\n`);
+    console.error(
+      `  ${pc.yellow('⚠')} ${pc.dim('--show-secrets only applies to the info action')}\n`,
+    );
   }
 
   if (!action || action === 'ls' || action === 'list') {
@@ -188,7 +190,11 @@ export async function storeCommand(args: string[]): Promise<void> {
     }
 
     const confirmed =
-      yes || (await confirmPrompt(`Delete ${found.length} session(s): ${found.map((n) => pc.bold(n)).join(', ')}?`, false));
+      yes ||
+      (await confirmPrompt(
+        `Delete ${found.length} session(s): ${found.map((n) => pc.bold(n)).join(', ')}?`,
+        false,
+      ));
     if (!confirmed) {
       console.error(`  ${pc.dim('Cancelled')}`);
       return;

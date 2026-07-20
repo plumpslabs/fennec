@@ -40,7 +40,12 @@ const mockResponseBuilder = {
   success: vi.fn((data: any) => ({ success: true as const, data, meta: mockMeta })),
   error: vi.fn((err: any, opts?: any) => ({
     success: false as const,
-    error: { code: opts?.code || 'UNKNOWN', message: err.message, suggestions: opts?.suggestions || [], context: {} },
+    error: {
+      code: opts?.code || 'UNKNOWN',
+      message: err.message,
+      suggestions: opts?.suggestions || [],
+      context: {},
+    },
     meta: mockMeta,
   })),
 };
@@ -84,7 +89,9 @@ function mockContext(overrides?: Partial<ToolContext>): ToolContext {
 }
 
 describe('db tools', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   async function loadTools() {
     return import('../../../src/tools/db/index.js');
@@ -119,10 +126,7 @@ describe('db tools', () => {
     it('should disconnect', async () => {
       mockDisconnect.mockResolvedValue(undefined);
       const { dbDisconnect } = await loadTools();
-      const result = await dbDisconnect.handler(
-        { name: 'testdb' },
-        mockContext(),
-      );
+      const result = await dbDisconnect.handler({ name: 'testdb' }, mockContext());
       expect(mockDisconnect).toHaveBeenCalledWith('testdb');
       expect(result.success).toBe(true);
     });
@@ -132,10 +136,7 @@ describe('db tools', () => {
     it('should list connections', async () => {
       mockListConnections.mockResolvedValue([{ name: 'testdb', connected: true }]);
       const { dbList } = await loadTools();
-      const result: any = await dbList.handler(
-        {},
-        mockContext(),
-      );
+      const result: any = await dbList.handler({}, mockContext());
       expect((result as any).data.connections).toEqual([{ name: 'testdb', connected: true }]);
     });
   });
@@ -168,10 +169,7 @@ describe('db tools', () => {
     it('should fetch schema', async () => {
       mockSchema.mockResolvedValue({ databases: [] });
       const { dbSchema } = await loadTools();
-      const result = await dbSchema.handler(
-        { name: 'testdb' },
-        mockContext(),
-      );
+      const result = await dbSchema.handler({ name: 'testdb' }, mockContext());
       expect(mockSchema).toHaveBeenCalledWith('testdb', undefined);
       expect(result.success).toBe(true);
     });
@@ -194,10 +192,7 @@ describe('db tools', () => {
     it('should ping and return latency', async () => {
       mockQuery.mockResolvedValue({ duration: '3ms' });
       const { dbPing } = await loadTools();
-      const result: any = await dbPing.handler(
-        { name: 'testdb' },
-        mockContext(),
-      );
+      const result: any = await dbPing.handler({ name: 'testdb' }, mockContext());
       expect(mockQuery).toHaveBeenCalledWith('testdb', 'SELECT 1');
       expect((result as any).data.latency).toBe('3ms');
     });
@@ -218,12 +213,14 @@ describe('db tools', () => {
 
   describe('db_stats', () => {
     it('should get database stats', async () => {
-      mockStats.mockResolvedValue({ database: 'mydb', sizeMB: 10.5, tableCount: 15, activeConnections: 3 });
+      mockStats.mockResolvedValue({
+        database: 'mydb',
+        sizeMB: 10.5,
+        tableCount: 15,
+        activeConnections: 3,
+      });
       const { dbStats } = await loadTools();
-      const result: any = await dbStats.handler(
-        { name: 'testdb' },
-        mockContext(),
-      );
+      const result: any = await dbStats.handler({ name: 'testdb' }, mockContext());
       expect(mockStats).toHaveBeenCalledWith('testdb');
       expect((result as any).data.sizeMB).toBe(10.5);
     });

@@ -168,7 +168,11 @@ export function redactSession(session: SavedSession): SavedSession {
       ...c,
       value: '***',
     })),
-    localStorage: Object.fromEntries(Object.keys(session.localStorage ?? {}).map((k) => [k, '***'])),
-    sessionStorage: Object.fromEntries(Object.keys(session.sessionStorage ?? {}).map((k) => [k, '***'])),
+    localStorage: Object.fromEntries(
+      Object.keys(session.localStorage ?? {}).map((k) => [k, '***']),
+    ),
+    sessionStorage: Object.fromEntries(
+      Object.keys(session.sessionStorage ?? {}).map((k) => [k, '***']),
+    ),
   };
 }

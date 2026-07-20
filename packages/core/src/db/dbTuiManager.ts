@@ -6,7 +6,15 @@ import { join, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 import type { FennecLogger } from '../utils/logger.js';
 import { getFennecDir } from '../config/paths.js';
-import type { DbQueryResult, DbSchemaResult, DbTableInfo, DbExplainResult, DbStatsResult, DbConnectInfo, ConnectionInfo } from './types.js';
+import type {
+  DbQueryResult,
+  DbSchemaResult,
+  DbTableInfo,
+  DbExplainResult,
+  DbStatsResult,
+  DbConnectInfo,
+  ConnectionInfo,
+} from './types.js';
 
 const AGENT_VERSION = '1.2.2';
 const BINARY_NAME = process.platform === 'win32' ? 'dbTui.exe' : 'dbTui';
@@ -46,11 +54,17 @@ export class DbTuiManager {
   private _schemaCache: { key: string; data: DbSchemaResult; timestamp: number } | null = null;
   private _schemaCacheTTL = 30000;
 
-  setLogger(logger: FennecLogger): void { this.logger = logger; }
+  setLogger(logger: FennecLogger): void {
+    this.logger = logger;
+  }
 
-  setQueryTimeout(ms: number): void { this._queryTimeout = ms; }
+  setQueryTimeout(ms: number): void {
+    this._queryTimeout = ms;
+  }
 
-  get connectedNames(): string[] { return [...this._connectedNames]; }
+  get connectedNames(): string[] {
+    return [...this._connectedNames];
+  }
 
   get uptime(): string {
     if (!this.startTime) return '0s';
@@ -59,9 +73,13 @@ export class DbTuiManager {
     return `${Math.floor(sec / 60)}m${sec % 60}s`;
   }
 
-  get isRunning(): boolean { return this.proc !== null && this.proc.exitCode === null; }
+  get isRunning(): boolean {
+    return this.proc !== null && this.proc.exitCode === null;
+  }
 
-  get pid(): number | null { return this.proc?.pid ?? null; }
+  get pid(): number | null {
+    return this.proc?.pid ?? null;
+  }
 
   getBinaryPath(): string {
     return join(getFennecDir(), 'bin', BINARY_NAME);
@@ -79,13 +97,17 @@ export class DbTuiManager {
       await this.download();
     } else if (this.shouldUpdate()) {
       this.log('Binary update available, downloading...');
-      try { await this.download(true); } catch (err: any) {
+      try {
+        await this.download(true);
+      } catch (err: any) {
         this.log(`Update check failed: ${err.message}`, 'warn');
       }
     }
 
     if (process.platform !== 'win32' && !(chmodSync as any)._isMock) {
-      try { chmodSync(binPath, 0o755); } catch {}
+      try {
+        chmodSync(binPath, 0o755);
+      } catch {}
     }
 
     return new Promise((resolve, reject) => {
@@ -98,27 +120,38 @@ export class DbTuiManager {
         this.log(`dbTui agent started (pid=${this.proc.pid})`);
 
         const stdout = this.proc.stdout;
-        if (!stdout) { reject(new Error('Agent process has no stdout')); return; }
+        if (!stdout) {
+          reject(new Error('Agent process has no stdout'));
+          return;
+        }
         this.rl = createInterface(stdout);
         this.rl.on('line', (line: string) => this.handleLine(line));
 
         this.proc.on('exit', (code) => {
           this.log(`dbTui agent exited (code=${code})`, 'warn');
           this._connectedNames.clear();
-          for (const [, p] of this.pending) { clearTimeout(p.timer); p.reject(new Error('Agent process exited')); }
+          for (const [, p] of this.pending) {
+            clearTimeout(p.timer);
+            p.reject(new Error('Agent process exited'));
+          }
           this.pending.clear();
           this.proc = null;
           this.rl = null;
         });
 
-        this.proc.on('error', (err) => { this.log(`Agent error: ${err.message}`, 'error'); reject(err); });
+        this.proc.on('error', (err) => {
+          this.log(`Agent error: ${err.message}`, 'error');
+          reject(err);
+        });
 
         this.proc.stderr?.on('data', (data: Buffer) => {
           this.log(`[dbTui] ${data.toString().trim()}`, 'debug');
         });
 
         resolve();
-      } catch (err) { reject(err); }
+      } catch (err) {
+        reject(err);
+      }
     });
   }
 
@@ -179,7 +212,11 @@ export class DbTuiManager {
     this._connectedNames.delete(name);
   }
 
-  async query(name: string, sql: string, options?: { maxRows?: number; strict?: boolean }): Promise<DbQueryResult> {
+  async query(
+    name: string,
+    sql: string,
+    options?: { maxRows?: number; strict?: boolean },
+  ): Promise<DbQueryResult> {
     const currentId = this.nextId;
     const sigintHandler = () => {
       if (this.proc && this.proc.exitCode === null) {
@@ -201,7 +238,11 @@ export class DbTuiManager {
 
   async schema(name: string, database?: string): Promise<DbSchemaResult> {
     const key = `${name}:${database ?? ''}`;
-    if (this._schemaCache && this._schemaCache.key === key && (Date.now() - this._schemaCache.timestamp) < this._schemaCacheTTL) {
+    if (
+      this._schemaCache &&
+      this._schemaCache.key === key &&
+      Date.now() - this._schemaCache.timestamp < this._schemaCacheTTL
+    ) {
       return this._schemaCache.data;
     }
     const result = await this.request<DbSchemaResult>('schema', { name, database });
@@ -227,7 +268,10 @@ export class DbTuiManager {
   }
 
   kill(): void {
-    if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = null; }
+    if (this.idleTimer) {
+      clearTimeout(this.idleTimer);
+      this.idleTimer = null;
+    }
     if (this.proc && this.proc.exitCode === null) {
       this.log('Shutting down dbTui agent');
       this.proc.kill('SIGTERM');
@@ -262,27 +306,34 @@ export class DbTuiManager {
     if (!force && existsSync(binPath)) return binPath;
     await mkdir(binDir, { recursive: true });
 
-    const os = process.platform === 'linux' ? 'Linux' : process.platform === 'darwin' ? 'Darwin' : 'Windows';
+    const os =
+      process.platform === 'linux' ? 'Linux' : process.platform === 'darwin' ? 'Darwin' : 'Windows';
     const arch = process.arch === 'x64' ? 'amd64' : 'arm64';
     const ext = process.platform === 'win32' ? '.zip' : '.tar.gz';
     const archiveName = `dbTui_${os}_${arch}${ext}`;
 
     this.log(`Downloading dbTui v${AGENT_VERSION}`);
 
-    const archiveBuf = await this.downloadFile(`https://github.com/${GITHUB_REPO}/releases/download/v${AGENT_VERSION}/${archiveName}`);
+    const archiveBuf = await this.downloadFile(
+      `https://github.com/${GITHUB_REPO}/releases/download/v${AGENT_VERSION}/${archiveName}`,
+    );
 
     let expectedSha256: string | undefined;
     try {
-      const checksumsBuf = await this.downloadFile(`https://github.com/${GITHUB_REPO}/releases/download/v${AGENT_VERSION}/checksums.txt`);
+      const checksumsBuf = await this.downloadFile(
+        `https://github.com/${GITHUB_REPO}/releases/download/v${AGENT_VERSION}/checksums.txt`,
+      );
       const checksums = checksumsBuf.toString('utf-8');
       expectedSha256 = checksums
         .split('\n')
-        .find(l => l.includes(BINARY_NAME))
+        .find((l) => l.includes(BINARY_NAME))
         ?.split(/\s+/)[0];
       if (expectedSha256) {
         const actualSha256 = createHash('sha256').update(archiveBuf).digest('hex');
         if (actualSha256 !== expectedSha256) {
-          throw new Error(`Checksum mismatch for ${archiveName}: expected ${expectedSha256}, got ${actualSha256}`);
+          throw new Error(
+            `Checksum mismatch for ${archiveName}: expected ${expectedSha256}, got ${actualSha256}`,
+          );
         }
       }
     } catch (err: any) {
@@ -297,7 +348,8 @@ export class DbTuiManager {
     try {
       if (process.platform === 'win32') {
         execFileSync('powershell', [
-          '-Command', `Expand-Archive -Path "${archivePath}" -DestinationPath "${tmpDir}" -Force`,
+          '-Command',
+          `Expand-Archive -Path "${archivePath}" -DestinationPath "${tmpDir}" -Force`,
         ]);
       } else {
         execFileSync('tar', ['-xzf', archivePath, '-C', tmpDir]);
@@ -309,7 +361,9 @@ export class DbTuiManager {
       }
 
       const binaryBuf = await readFile(extracted);
-      this.log(`Binary verified (SHA256: ${createHash('sha256').update(binaryBuf).digest('hex').slice(0, 16)}...)`);
+      this.log(
+        `Binary verified (SHA256: ${createHash('sha256').update(binaryBuf).digest('hex').slice(0, 16)}...)`,
+      );
 
       await writeFile(binPath, binaryBuf);
       if (process.platform !== 'win32') chmodSync(binPath, 0o755);
@@ -336,14 +390,18 @@ export class DbTuiManager {
       if (!existsSync(vPath)) return true;
       const mtime = statSync(vPath).mtimeMs;
       return Date.now() - mtime > 7 * 24 * 60 * 60 * 1000;
-    } catch { return false; }
+    } catch {
+      return false;
+    }
   }
 
   verifyChecksum(binaryPath: string, expectedSha256: string): boolean {
     try {
       const data = readFileSync(binaryPath);
       return createHash('sha256').update(data).digest('hex') === expectedSha256;
-    } catch { return false; }
+    } catch {
+      return false;
+    }
   }
 
   private log(msg: string, level: 'info' | 'warn' | 'error' | 'debug' = 'info'): void {

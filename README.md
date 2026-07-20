@@ -320,15 +320,15 @@ OpenCode SSE config:
 
 ### MCP Client Compatibility
 
-| Client             | stdio | SSE | Notes                                                                     |
-| ------------------ | :---: | :-: | ------------------------------------------------------------------------- |
-| **Claude Desktop** |  ✅   | ✅  | stdio default, SSE for remote                                             |
-| **Claude Code**    |  ✅   | ✅  | stdio default                                                             |
-| **Cline**          |  ✅   | ✅  | stdio default                                                             |
-| **Cursor**         |  ✅   | ✅  | stdio default                                                             |
-| **Windsurf**       |  ✅   | ✅  | stdio default                                                             |
-| **Continue.dev**   |  ⚠️   | ✅  | **Recommended: SSE** — uses `experimental.mcpServers` array format        |
-| **OpenCode**       |  ✅   | ✅  | stdio (`type: local`), SSE (`type: remote`)                               |
+| Client             | stdio | SSE | Notes                                                              |
+| ------------------ | :---: | :-: | ------------------------------------------------------------------ |
+| **Claude Desktop** |  ✅   | ✅  | stdio default, SSE for remote                                      |
+| **Claude Code**    |  ✅   | ✅  | stdio default                                                      |
+| **Cline**          |  ✅   | ✅  | stdio default                                                      |
+| **Cursor**         |  ✅   | ✅  | stdio default                                                      |
+| **Windsurf**       |  ✅   | ✅  | stdio default                                                      |
+| **Continue.dev**   |  ⚠️   | ✅  | **Recommended: SSE** — uses `experimental.mcpServers` array format |
+| **OpenCode**       |  ✅   | ✅  | stdio (`type: local`), SSE (`type: remote`)                        |
 
 ### Your First Diagnosis
 
@@ -402,7 +402,7 @@ fennec dev status
 | `FENNEC_DEFAULT_TIMEOUT`                           | Browser default timeout (ms).                              |
 | `FENNEC_VIEWPORT_WIDTH` / `FENNEC_VIEWPORT_HEIGHT` | Viewport size.                                             |
 | `FENNEC_LOG_LEVEL`                                 | `debug` \| `info` \| `warn` \| `error`.                    |
-| `DATABASE_URL`                                     | Database URL fallback for `fennec db connect`               | — |
+| `DATABASE_URL`                                     | Database URL fallback for `fennec db connect`              | —   |
 
 See the [CLI README](packages/cli/README.md) for the full command reference.
 

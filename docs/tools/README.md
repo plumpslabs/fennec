@@ -219,17 +219,17 @@ Watch log files, pipe streams, and monitor terminal output. Works **without brow
 Connect to and query local databases (PostgreSQL, MySQL, SQLite) via the dbTui sidecar binary.
 Read-only by default. Credentials stored in OS keychain.
 
-| Tool | Description |
-|------|-------------|
-| `db_connect` | Connect to a database |
-| `db_disconnect` | Disconnect from a database |
-| `db_list` | List active connections |
-| `db_query` | Execute a SQL query (read-only by default) |
-| `db_schema` | Inspect database schema (cached 30s) |
-| `db_tables` | List tables in a database |
-| `db_ping` | Ping a database connection |
-| `db_explain` | Get query execution plan |
-| `db_stats` | Get database statistics |
+| Tool            | Description                                |
+| --------------- | ------------------------------------------ |
+| `db_connect`    | Connect to a database                      |
+| `db_disconnect` | Disconnect from a database                 |
+| `db_list`       | List active connections                    |
+| `db_query`      | Execute a SQL query (read-only by default) |
+| `db_schema`     | Inspect database schema (cached 30s)       |
+| `db_tables`     | List tables in a database                  |
+| `db_ping`       | Ping a database connection                 |
+| `db_explain`    | Get query execution plan                   |
+| `db_stats`      | Get database statistics                    |
 
 ### [Diagnostic](diagnostic.md) (6 tools) ⭐
 

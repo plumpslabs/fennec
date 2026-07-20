@@ -251,19 +251,19 @@ graph TB
 
 ## Layer Overview
 
-| Layer              | Components                          | Description                                                                                                |
-| ------------------ | ----------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| **🧠 AI Clients**  | Claude, Cursor, Cline, etc.         | Standard MCP clients that communicate via JSON-RPC                                                         |
-| **🔌 Transport**   | stdio, SSE                          | Two transport modes — stdio (default, for local CLI) and SSE (experimental, for HTTP)                      |
-| **🦊 MCP Server**  | Tool Registry, Validation, Pipeline | Core server that registers 165+ tools, validates input via Zod, and executes through middleware             |
-| **⚙️ Services**    | 12 core services                    | Session, process, planner, workflow, scheduler, event bus, resource, recorder, state, capability, metrics, audit |
-| **📱 Mobile**      | ADB via child_process               | Android device management: device discovery, tap, type, swipe, logcat, screenshot, app install/launch/stop |
-| **🔗 Correlation** | Timeline, Root Cause Inferrer       | Cross-layer event correlation with confidence scoring and suggested fixes                                  |
-| **🐛 Debug**       | Debug Engine                        | Multi-language debugger: logpoints, breakpoints (V8/DAP/JDWP/DBGp), auto-debug, cassette record/replay    |
-| **🌐 Browser**     | Playwright + CDP                    | Full browser automation: Chromium/Firefox/WebKit, console, network, performance, DOM, storage              |
-| **🖥️ Process**     | child_process, watchers             | Process management: spawn, kill, attach by PID/port, log watching, pipe monitoring                         |
-| **💾 Storage**     | Sessions, Workflows, Files          | Persistent storage for auth sessions, workflow definitions, screenshots, and exports                       |
-| **🗄️ Database**   | dbTui sidecar (Go binary)           | Database observation: PostgreSQL, MySQL, SQLite — schema inspection, read-only queries, health checks, credential management via OS keychain |
+| Layer              | Components                          | Description                                                                                                                                  |
+| ------------------ | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **🧠 AI Clients**  | Claude, Cursor, Cline, etc.         | Standard MCP clients that communicate via JSON-RPC                                                                                           |
+| **🔌 Transport**   | stdio, SSE                          | Two transport modes — stdio (default, for local CLI) and SSE (experimental, for HTTP)                                                        |
+| **🦊 MCP Server**  | Tool Registry, Validation, Pipeline | Core server that registers 165+ tools, validates input via Zod, and executes through middleware                                              |
+| **⚙️ Services**    | 12 core services                    | Session, process, planner, workflow, scheduler, event bus, resource, recorder, state, capability, metrics, audit                             |
+| **📱 Mobile**      | ADB via child_process               | Android device management: device discovery, tap, type, swipe, logcat, screenshot, app install/launch/stop                                   |
+| **🔗 Correlation** | Timeline, Root Cause Inferrer       | Cross-layer event correlation with confidence scoring and suggested fixes                                                                    |
+| **🐛 Debug**       | Debug Engine                        | Multi-language debugger: logpoints, breakpoints (V8/DAP/JDWP/DBGp), auto-debug, cassette record/replay                                       |
+| **🌐 Browser**     | Playwright + CDP                    | Full browser automation: Chromium/Firefox/WebKit, console, network, performance, DOM, storage                                                |
+| **🖥️ Process**     | child_process, watchers             | Process management: spawn, kill, attach by PID/port, log watching, pipe monitoring                                                           |
+| **💾 Storage**     | Sessions, Workflows, Files          | Persistent storage for auth sessions, workflow definitions, screenshots, and exports                                                         |
+| **🗄️ Database**    | dbTui sidecar (Go binary)           | Database observation: PostgreSQL, MySQL, SQLite — schema inspection, read-only queries, health checks, credential management via OS keychain |
 
 ## Request Flow
 

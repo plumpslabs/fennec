@@ -135,7 +135,14 @@ export const COMMANDS: Record<string, CommandDoc> = {
       ['--group <g>, -g <g>', 'Re-spawn only stopped apps in group <g>'],
       ['--debug <mode>', 'Re-spawn with debug mode: log | breakpoint'],
     ],
-    examples: ['spawn', 'spawn web', 'spawn api-service web-app', 'spawn --all', 'spawn --group backend', 'spawn api-service --debug breakpoint'],
+    examples: [
+      'spawn',
+      'spawn web',
+      'spawn api-service web-app',
+      'spawn --all',
+      'spawn --group backend',
+      'spawn api-service --debug breakpoint',
+    ],
   },
   stop: {
     name: 'stop',
@@ -159,7 +166,12 @@ export const COMMANDS: Record<string, CommandDoc> = {
       ['--all, -a', 'Restart ALL tracked apps'],
       ['--group <g>, -g <g>', 'Restart all apps in group <g>'],
     ],
-    examples: ['restart web', 'restart api-service web-app -y', 'restart --all', 'restart --group backend'],
+    examples: [
+      'restart web',
+      'restart api-service web-app -y',
+      'restart --all',
+      'restart --group backend',
+    ],
   },
   kill: {
     name: 'kill',
@@ -244,7 +256,7 @@ export const COMMANDS: Record<string, CommandDoc> = {
     usage: 'info <name>',
     summary: 'Show detailed info for a tracked app',
     description:
-      'Displays every detail Fennec has about one app: PID, command, cwd, port, group, debug mode, auto-restart status, uptime, memory, and the last 10 log lines. Useful for deep-diving into a single app\'s health without the table view of `ps`.',
+      "Displays every detail Fennec has about one app: PID, command, cwd, port, group, debug mode, auto-restart status, uptime, memory, and the last 10 log lines. Useful for deep-diving into a single app's health without the table view of `ps`.",
     examples: ['info web', 'info api-service'],
   },
   rename: {
@@ -299,7 +311,7 @@ export const COMMANDS: Record<string, CommandDoc> = {
     usage: 'pipe --name <name>',
     summary: 'Pipe stdin into a Fennec log watcher',
     description:
-      'Pipes a command\'s stdout/stderr into Fennec\'s log system so you can inspect it with `fennec log <name>` and `fennec inspect <name>`. Usage: pipe a running command into this. Works like `fennec pipe --name web` after a `|` from your shell.',
+      "Pipes a command's stdout/stderr into Fennec's log system so you can inspect it with `fennec log <name>` and `fennec inspect <name>`. Usage: pipe a running command into this. Works like `fennec pipe --name web` after a `|` from your shell.",
     options: [['--name <name>', 'Watcher name (required)']],
     examples: ['npm run dev | fennec pipe --name web'],
   },
@@ -314,7 +326,10 @@ export const COMMANDS: Record<string, CommandDoc> = {
       ['--file <path>', 'Path to the log file (required)'],
       ['--name <name>', 'Watcher name'],
     ],
-    examples: ['watch --file ./app.log --name web', 'watch --file /var/log/nginx/access.log --name nginx'],
+    examples: [
+      'watch --file ./app.log --name web',
+      'watch --file /var/log/nginx/access.log --name nginx',
+    ],
   },
   export: {
     name: 'export',
@@ -403,7 +418,7 @@ export const COMMANDS: Record<string, CommandDoc> = {
     usage: 'install-browsers',
     summary: 'Install Playwright browser engines for Fennec browser tools',
     description:
-      'Downloads and installs the Chromium browser engine that powers Fennec\'s browser tools (navigate, click, type, screenshot, etc.). Run once after installing Fennec if you plan to use browser automation features.',
+      "Downloads and installs the Chromium browser engine that powers Fennec's browser tools (navigate, click, type, screenshot, etc.). Run once after installing Fennec if you plan to use browser automation features.",
     examples: ['install-browsers'],
   },
   adopt: {
@@ -411,7 +426,7 @@ export const COMMANDS: Record<string, CommandDoc> = {
     usage: 'adopt <pid> --name <name> [--port <port>] [--group <g>]',
     summary: 'Register a running system process as a tracked app',
     description:
-      'Adopts an already-running process (identified by PID) into Fennec\'s tracked registry without restarting it. Useful for picking up a server you started manually or a background service. Once adopted, you can inspect it, watch its logs, and manage it like any other Fennec app.',
+      "Adopts an already-running process (identified by PID) into Fennec's tracked registry without restarting it. Useful for picking up a server you started manually or a background service. Once adopted, you can inspect it, watch its logs, and manage it like any other Fennec app.",
     options: [
       ['--name <name>', 'Name for the tracked app (required)'],
       ['--port <port>', 'Port the process listens on (for health checks)'],
@@ -433,7 +448,7 @@ export const COMMANDS: Record<string, CommandDoc> = {
     usage: 'store [--local] [session] <ls|info|rm>',
     summary: 'Manage persisted data — sessions, configs, and store overview',
     description:
-      "Unified view + management of everything Fennec saves to disk (global ~/.fennec or local ./.fennec). Sub-commands:\n  session ls         List saved auth sessions\n  session info <n>   Show session details (--show-secrets to reveal)\n  session rm <n...>  Delete one or more sessions (with confirmation)",
+      'Unified view + management of everything Fennec saves to disk (global ~/.fennec or local ./.fennec). Sub-commands:\n  session ls         List saved auth sessions\n  session info <n>   Show session details (--show-secrets to reveal)\n  session rm <n...>  Delete one or more sessions (with confirmation)',
     options: [
       ['--local', 'Target the local ./.fennec instead of the global store'],
       ['--show-secrets', 'Reveal secret values in session info'],
@@ -451,7 +466,7 @@ export const COMMANDS: Record<string, CommandDoc> = {
     usage: 'store session [ls|info <name>|rm <name...>]',
     summary: 'Manage saved browser auth sessions',
     description:
-      "Lists, inspects, or deletes saved browser auth sessions (cookies + localStorage). Use --show-secrets to reveal masked values in info view, -y/--yes to skip confirmation on rm.",
+      'Lists, inspects, or deletes saved browser auth sessions (cookies + localStorage). Use --show-secrets to reveal masked values in info view, -y/--yes to skip confirmation on rm.',
     options: [
       ['ls (default)', 'List all saved sessions'],
       ['info <name>', 'Show full session details (values masked by default)'],
@@ -488,13 +503,14 @@ export const COMMANDS: Record<string, CommandDoc> = {
     usage: 'sessions [ls|info <name>|rm <name...>]',
     summary: 'Manage saved browser auth sessions (alias for `store session`)',
     description:
-      "Shortcut for `fennec store session`. Lists, inspects, or deletes saved browser auth sessions. Sessions store cookies + localStorage so AI agents can restore logged-in state.\n\n  sessions               List saved sessions\n  sessions info <name>   Show session details\n  sessions rm <name...>  Delete one or more sessions",
+      'Shortcut for `fennec store session`. Lists, inspects, or deletes saved browser auth sessions. Sessions store cookies + localStorage so AI agents can restore logged-in state.\n\n  sessions               List saved sessions\n  sessions info <name>   Show session details\n  sessions rm <name...>  Delete one or more sessions',
     aliases: ['store session'],
     examples: ['sessions', 'sessions info crm-testing --show-secrets', 'sessions rm crm-testing'],
   },
   db: {
     name: 'db',
-    usage: 'db <connect|query|schema|tables|ping|stats|explain|ps|rm|start|stop|restart|disconnect|update|doctor>',
+    usage:
+      'db <connect|query|schema|tables|ping|stats|explain|ps|rm|start|stop|restart|disconnect|update|doctor>',
     summary: 'Database observation via dbTui sidecar',
     description:
       'Connect to and query local databases (PostgreSQL, MySQL, SQLite) using the dbTui sidecar binary. Credentials are stored in the OS keychain or a local encrypted file. All queries are read-only by default — use --no-strict to allow writes.\n\n  Agent management:\n    db start                           Start agent (auto-started by connect)\n    db stop                            Stop agent\n    db restart                         Restart agent\n    db ps                              Agent status + all connections\n    db doctor                          Check agent health\n    db update                          Update dbTui binary\n\n  Connections:\n    db connect <name> [--url <url>]   Connect/reconnect (auto-starts agent)\n    db disconnect <name>              Disconnect (keeps credential)\n    db rm <name>                      Remove credential entirely\n\n  Query:\n    db query <name> <sql>             Run a SELECT query\n    db schema <name>                  Show database schema\n    db tables <name>                  List tables\n    db ping <name>                    Health check\n    db stats <name>                   Database statistics\n    db explain <name> <sql>           Query execution plan',
@@ -520,15 +536,21 @@ export const COMMANDS: Record<string, CommandDoc> = {
     name: 'db connect',
     usage: 'db connect <name> [--url <url>] [--no-save]',
     summary: 'Connect to a database (auto-starts agent)',
-    description: 'Establishes a connection to a database. Auto-starts the dbTui agent if not running. If --url is omitted, reconnects using saved credential. Credentials are saved to OS keychain by default. URL format: postgres://, mysql://, or sqlite://.',
-    options: [['--url <url>', 'Database URL (optional — reuses saved if omitted)'], ['--no-save', "Don't save credential"], ['--name', 'Connection name']],
+    description:
+      'Establishes a connection to a database. Auto-starts the dbTui agent if not running. If --url is omitted, reconnects using saved credential. Credentials are saved to OS keychain by default. URL format: postgres://, mysql://, or sqlite://.',
+    options: [
+      ['--url <url>', 'Database URL (optional — reuses saved if omitted)'],
+      ['--no-save', "Don't save credential"],
+      ['--name', 'Connection name'],
+    ],
     examples: ['db connect mypg --url "postgres://user:pass@localhost/mydb"', 'db connect mypg'],
   },
   'db-query': {
     name: 'db query',
     usage: 'db query <name> <sql> [--json] [--csv] [--max-rows N] [--no-strict]',
     summary: 'Execute a SQL query',
-    description: 'Executes a SQL query and displays results in a formatted table. Read-only by default.',
+    description:
+      'Executes a SQL query and displays results in a formatted table. Read-only by default.',
     options: [
       ['--json', 'JSON output'],
       ['--csv', 'CSV output'],
@@ -541,7 +563,8 @@ export const COMMANDS: Record<string, CommandDoc> = {
     name: 'db disconnect',
     usage: 'db disconnect <name>',
     summary: 'Disconnect from a database',
-    description: 'Disconnects from a database and releases the connection. Credential is kept in the store — use db rm <name> to remove it entirely. The dbTui agent stays alive for other connections.',
+    description:
+      'Disconnects from a database and releases the connection. Credential is kept in the store — use db rm <name> to remove it entirely. The dbTui agent stays alive for other connections.',
     examples: ['db disconnect mypg'],
   },
   'db-list': {
@@ -555,7 +578,8 @@ export const COMMANDS: Record<string, CommandDoc> = {
     name: 'db schema',
     usage: 'db schema <name> [--database <db>]',
     summary: 'Inspect database schema',
-    description: 'Shows the full database schema — tables, columns, indexes, foreign keys, and row counts. Results are cached for 30 seconds.',
+    description:
+      'Shows the full database schema — tables, columns, indexes, foreign keys, and row counts. Results are cached for 30 seconds.',
     options: [['--database <db>', 'Filter to a specific database']],
     examples: ['db schema mypg', 'db schema mypg --database mydb'],
   },
@@ -585,56 +609,64 @@ export const COMMANDS: Record<string, CommandDoc> = {
     name: 'db explain',
     usage: 'db explain <name> <sql>',
     summary: 'Get query execution plan',
-    description: 'Returns the query execution plan from the database. PostgreSQL uses EXPLAIN (FORMAT JSON), MySQL uses EXPLAIN FORMAT=JSON, SQLite uses EXPLAIN QUERY PLAN.',
+    description:
+      'Returns the query execution plan from the database. PostgreSQL uses EXPLAIN (FORMAT JSON), MySQL uses EXPLAIN FORMAT=JSON, SQLite uses EXPLAIN QUERY PLAN.',
     examples: ['db explain mypg "SELECT * FROM users WHERE id = 1"'],
   },
   'db-update': {
     name: 'db update',
     usage: 'db update',
     summary: 'Update dbTui binary',
-    description: 'Downloads and installs the latest dbTui sidecar binary from GitHub Releases. SHA256 checksum verification is performed before installation.',
+    description:
+      'Downloads and installs the latest dbTui sidecar binary from GitHub Releases. SHA256 checksum verification is performed before installation.',
     examples: ['db update'],
   },
   'db-doctor': {
     name: 'db doctor',
     usage: 'db doctor',
     summary: 'Check dbTui status',
-    description: 'Checks if the dbTui binary is installed, the version, and if the agent process is running. Shows PID, binary size, and agent version.',
+    description:
+      'Checks if the dbTui binary is installed, the version, and if the agent process is running. Shows PID, binary size, and agent version.',
     examples: ['db doctor'],
   },
   'db-ps': {
     name: 'db ps',
     usage: 'db ps',
     summary: 'Show agent status and connections',
-    description: 'Displays the dbTui agent status (PID, version, binary path, uptime) and all saved connections. Alias: db list.',
+    description:
+      'Displays the dbTui agent status (PID, version, binary path, uptime) and all saved connections. Alias: db list.',
     examples: ['db ps'],
   },
   'db-start': {
     name: 'db start',
     usage: 'db start',
     summary: 'Start the dbTui agent',
-    description: 'Starts the dbTui sidecar agent as a detached process. Agent is auto-started by db connect in most cases; this command is for manually starting the agent without connecting.',
+    description:
+      'Starts the dbTui sidecar agent as a detached process. Agent is auto-started by db connect in most cases; this command is for manually starting the agent without connecting.',
     examples: ['db start'],
   },
   'db-stop': {
     name: 'db stop',
     usage: 'db stop',
     summary: 'Stop the dbTui agent',
-    description: 'Gracefully stops the running dbTui agent process. All active connections are closed.',
+    description:
+      'Gracefully stops the running dbTui agent process. All active connections are closed.',
     examples: ['db stop'],
   },
   'db-restart': {
     name: 'db restart',
     usage: 'db restart',
     summary: 'Restart the dbTui agent',
-    description: 'Stops and re-starts the dbTui agent process. Active connections are closed and re-established.',
+    description:
+      'Stops and re-starts the dbTui agent process. Active connections are closed and re-established.',
     examples: ['db restart'],
   },
   'db-rm': {
     name: 'db rm',
     usage: 'db rm <name>',
     summary: 'Remove credential entirely',
-    description: 'Removes a saved credential and connection metadata from the store. The connection is forgotten — use db connect with --url to re-add it.',
+    description:
+      'Removes a saved credential and connection metadata from the store. The connection is forgotten — use db connect with --url to re-add it.',
     examples: ['db rm mypg'],
   },
   health: {

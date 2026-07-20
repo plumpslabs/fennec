@@ -1,11 +1,16 @@
 import { z } from 'zod';
 import { createTool } from '../_registry.js';
 import { getDbManager } from '../../db/dbTuiManager.js';
-import { getConnection, addConnection, removeConnection, credentialStore } from '../../db/credentials.js';
+import {
+  getConnection,
+  addConnection,
+  removeConnection,
+  credentialStore,
+} from '../../db/credentials.js';
 import type { ConnectionMetadata } from '../../db/types.js';
 
 function isHostAllowed(host: string, allowedHosts: string[]): boolean {
-  return allowedHosts.some(h => host === h || host === `[${h}]` || host.startsWith(`${h}:`));
+  return allowedHosts.some((h) => host === h || host === `[${h}]` || host.startsWith(`${h}:`));
 }
 
 function parseDbUrl(url: string): { host: string; port: number; database: string; user: string } {
@@ -25,7 +30,8 @@ function parseDbUrl(url: string): { host: string; port: number; database: string
 export const dbConnect = createTool({
   name: 'db_connect',
   category: 'db',
-  description: '`<use_case>Database</use_case> 🔌 Connect to a database. Credentials saved to OS keychain.',
+  description:
+    '`<use_case>Database</use_case> 🔌 Connect to a database. Credentials saved to OS keychain.',
   inputSchema: z.object({
     name: z.string().describe('Connection name for later reference'),
     url: z.string().describe('Database URL (postgres://, mysql://, sqlite://)'),
@@ -37,11 +43,17 @@ export const dbConnect = createTool({
       mgr.setLogger(logger);
 
       const parsed = parseDbUrl(input.url);
-      if (parsed.host && !isHostAllowed(parsed.host, config?.db?.allowedHosts ?? ['localhost', '127.0.0.1', '::1'])) {
-        return responseBuilder.error(new Error(`Host "${parsed.host}" not allowed. Allowed: localhost, 127.0.0.1, ::1`), {
-          code: 'DB_HOST_NOT_ALLOWED',
-          suggestions: ['Use a local database', 'Update allowedHosts in config'],
-        });
+      if (
+        parsed.host &&
+        !isHostAllowed(parsed.host, config?.db?.allowedHosts ?? ['localhost', '127.0.0.1', '::1'])
+      ) {
+        return responseBuilder.error(
+          new Error(`Host "${parsed.host}" not allowed. Allowed: localhost, 127.0.0.1, ::1`),
+          {
+            code: 'DB_HOST_NOT_ALLOWED',
+            suggestions: ['Use a local database', 'Update allowedHosts in config'],
+          },
+        );
       }
 
       const result = await mgr.connect(input.name, input.url);
@@ -65,7 +77,10 @@ export const dbConnect = createTool({
       mgr.afterRequest();
       return responseBuilder.success(result);
     } catch (err: any) {
-      return responseBuilder.error(err, { code: 'DB_CONNECT_ERROR', suggestions: ['Check the database URL', 'Ensure dbTui is installed (run fennec db update)'] });
+      return responseBuilder.error(err, {
+        code: 'DB_CONNECT_ERROR',
+        suggestions: ['Check the database URL', 'Ensure dbTui is installed (run fennec db update)'],
+      });
     }
   },
 });
@@ -122,11 +137,17 @@ export const dbQuery = createTool({
     try {
       const mgr = getDbManager();
       mgr.setLogger(logger);
-      const result = await mgr.query(input.name, input.sql, { maxRows: input.maxRows, strict: input.strict });
+      const result = await mgr.query(input.name, input.sql, {
+        maxRows: input.maxRows,
+        strict: input.strict,
+      });
       mgr.afterRequest();
       return responseBuilder.success(result);
     } catch (err: any) {
-      return responseBuilder.error(err, { code: 'DB_QUERY_ERROR', suggestions: ['Check the SQL syntax', 'Ensure the connection is active'] });
+      return responseBuilder.error(err, {
+        code: 'DB_QUERY_ERROR',
+        suggestions: ['Check the SQL syntax', 'Ensure the connection is active'],
+      });
     }
   },
 });
@@ -134,7 +155,8 @@ export const dbQuery = createTool({
 export const dbSchema = createTool({
   name: 'db_schema',
   category: 'db',
-  description: '`<use_case>Database</use_case> 📊 Inspect database schema — tables, columns, indexes, foreign keys.',
+  description:
+    '`<use_case>Database</use_case> 📊 Inspect database schema — tables, columns, indexes, foreign keys.',
   inputSchema: z.object({
     name: z.string().describe('Connection name'),
     database: z.string().optional().describe('Specific database to inspect'),
@@ -217,7 +239,8 @@ export const dbExplain = createTool({
 export const dbStats = createTool({
   name: 'db_stats',
   category: 'db',
-  description: '`<use_case>Database</use_case> 📊 Get database statistics (size, table count, connections).',
+  description:
+    '`<use_case>Database</use_case> 📊 Get database statistics (size, table count, connections).',
   inputSchema: z.object({
     name: z.string().describe('Connection name'),
   }),

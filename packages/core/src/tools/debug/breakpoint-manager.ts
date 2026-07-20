@@ -125,7 +125,10 @@ export class BreakpointSessionManager {
 
     if (runtime === 'node' || (runtime === 'unknown' && cdp)) {
       const { V8DebuggerAdapter } = await import('./v8-adapter.js');
-      if (!cdp) throw new Error(`Node.js debugging requires a browser session (CDP). Use a sessionId or run in a browser context.`);
+      if (!cdp)
+        throw new Error(
+          `Node.js debugging requires a browser session (CDP). Use a sessionId or run in a browser context.`,
+        );
       return new V8DebuggerAdapter(cdp);
     }
 
@@ -140,8 +143,8 @@ export class BreakpointSessionManager {
 
     throw new Error(
       `No debug adapter available for runtime "${runtime}". ` +
-      `Supported: Node.js (CDP), Python/Go/.NET/Ruby/Rust/Dart (DAP), PHP (DBGp), Java (JDWP). ` +
-      `Ensure the debug tool is installed (e.g. debugpy for Python, dlv for Go).`,
+        `Supported: Node.js (CDP), Python/Go/.NET/Ruby/Rust/Dart (DAP), PHP (DBGp), Java (JDWP). ` +
+        `Ensure the debug tool is installed (e.g. debugpy for Python, dlv for Go).`,
     );
   }
 

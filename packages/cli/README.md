@@ -132,6 +132,7 @@ permissions via environment variables in the MCP config:
 ```
 
 > For OpenCode, add `"env"` inside the server entry:
+>
 > ```json
 > {
 >   "mcpServers": {
@@ -220,86 +221,86 @@ Fennec is both an MCP server **and** a CLI you can use directly in your terminal
 
 ### Apps & Processes
 
-| Command                                              | Description                                                                                                                                                     |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `fennec start <command> --name <name> [options]`     | Launch an app as a supervised background daemon. Alias: `run`.                                                                                                  |
-| `fennec ps [options]`                                | List Fennec-tracked apps with live status.                                                                                                                      |
-| `fennec status [name]`                               | System overview + top processes (tracked and system).                                                                                                           |
-| `fennec log <name\|pid> [options]`                   | Show (and follow) logs for a tracked app.                                                                                                                       |
-| `fennec spawn [name] [name...] [--all]`              | Re-spawn a stopped tracked app from its saved config. Accepts MULTIPLE names at once.                                                                           |
-| `fennec stop <name\|--all> [name...]`                | Stop (pause) a tracked app but keep it in the registry. Accepts MULTIPLE names. Add `-y/--yes` to skip the confirmation prompt.                                 |
-| `fennec restart <name\|pid> [name...]`               | Stop and re-spawn a tracked app from its saved config. Accepts MULTIPLE names at once.                                                                          |
-| `fennec kill <pid\|name\|all> [name...]`             | Kill a process and remove it from the registry. Accepts MULTIPLE names at once. Add `-y/--yes` to skip the confirmation prompt.                                 |
-| `fennec group [name] [group]`                        | Assign a logical group to tracked apps (or list them). Bulk: `fennec group <group> <name...>`. `--unset` to clear. Group is preserved across `spawn`/`restart`. |
-| `fennec adopt <pid> [--name <name>] [--port <port>]` | Adopt an externally-started process into Fennec tracking.                                                                                                       |
-| `fennec supervisor <start\|stop\|restart\|status>`   | Manage the background supervisor that keeps `--restart` apps alive.                                                                                             |
-| `fennec persist <enable\|disable\|status>`           | Survive reboots — auto-start tracked apps after login (systemd/launchd/Windows).                                                                                |
-| `fennec dev <up\|down\|status\|restart <app>>`       | Orchestrate a whole dev stack from `fennec.config.yaml`.                                                                                                        |
-| `fennec inspect <name\|pid>`                         | Compact, AI-safe snapshot (status + recent logs + error scan).                                                                                                  |
-| `fennec info <name>`                                 | Detailed info for a tracked app.                                                                                                                                |
-| `fennec rename <old> <new>`                          | Rename a tracked app.                                                                           |
-| `fennec debug <attach\|detach\|status> <name\|--group>` | Attach/detach debug mode to tracked apps. Three levels: `log` (L), `breakpoint` (B), `auto` (A). Supports bulk via `--group`. |
+| Command                                                 | Description                                                                                                                                                     |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `fennec start <command> --name <name> [options]`        | Launch an app as a supervised background daemon. Alias: `run`.                                                                                                  |
+| `fennec ps [options]`                                   | List Fennec-tracked apps with live status.                                                                                                                      |
+| `fennec status [name]`                                  | System overview + top processes (tracked and system).                                                                                                           |
+| `fennec log <name\|pid> [options]`                      | Show (and follow) logs for a tracked app.                                                                                                                       |
+| `fennec spawn [name] [name...] [--all]`                 | Re-spawn a stopped tracked app from its saved config. Accepts MULTIPLE names at once.                                                                           |
+| `fennec stop <name\|--all> [name...]`                   | Stop (pause) a tracked app but keep it in the registry. Accepts MULTIPLE names. Add `-y/--yes` to skip the confirmation prompt.                                 |
+| `fennec restart <name\|pid> [name...]`                  | Stop and re-spawn a tracked app from its saved config. Accepts MULTIPLE names at once.                                                                          |
+| `fennec kill <pid\|name\|all> [name...]`                | Kill a process and remove it from the registry. Accepts MULTIPLE names at once. Add `-y/--yes` to skip the confirmation prompt.                                 |
+| `fennec group [name] [group]`                           | Assign a logical group to tracked apps (or list them). Bulk: `fennec group <group> <name...>`. `--unset` to clear. Group is preserved across `spawn`/`restart`. |
+| `fennec adopt <pid> [--name <name>] [--port <port>]`    | Adopt an externally-started process into Fennec tracking.                                                                                                       |
+| `fennec supervisor <start\|stop\|restart\|status>`      | Manage the background supervisor that keeps `--restart` apps alive.                                                                                             |
+| `fennec persist <enable\|disable\|status>`              | Survive reboots — auto-start tracked apps after login (systemd/launchd/Windows).                                                                                |
+| `fennec dev <up\|down\|status\|restart <app>>`          | Orchestrate a whole dev stack from `fennec.config.yaml`.                                                                                                        |
+| `fennec inspect <name\|pid>`                            | Compact, AI-safe snapshot (status + recent logs + error scan).                                                                                                  |
+| `fennec info <name>`                                    | Detailed info for a tracked app.                                                                                                                                |
+| `fennec rename <old> <new>`                             | Rename a tracked app.                                                                                                                                           |
+| `fennec debug <attach\|detach\|status> <name\|--group>` | Attach/detach debug mode to tracked apps. Three levels: `log` (L), `breakpoint` (B), `auto` (A). Supports bulk via `--group`.                                   |
 
 **`start` / `run` options:**
 
-| Option            | Description                                                              |
-| ----------------- | ------------------------------------------------------------------------ |
-| `--name <name>`   | Process name (recommended)                                               |
-| `--port <port>`   | Wait until port accepts connections                                      |
-| `--cwd <dir>`     | Working directory                                                        |
-| `--restart`       | Auto-restart on crash / port-down, survives terminal close               |
-| `--group <group>` | Tag for scoped bulk ops                                                  |
-| `--debug <mode>`  | Start with debug mode: `log`, `breakpoint`, or `auto`                    |
-| `--jsonl`         | Structured JSON-lines logs                                               |
+| Option            | Description                                                |
+| ----------------- | ---------------------------------------------------------- |
+| `--name <name>`   | Process name (recommended)                                 |
+| `--port <port>`   | Wait until port accepts connections                        |
+| `--cwd <dir>`     | Working directory                                          |
+| `--restart`       | Auto-restart on crash / port-down, survives terminal close |
+| `--group <group>` | Tag for scoped bulk ops                                    |
+| `--debug <mode>`  | Start with debug mode: `log`, `breakpoint`, or `auto`      |
+| `--jsonl`         | Structured JSON-lines logs                                 |
 
 **`ps` options:**
 
-| Option                     | Description                                          |
-| -------------------------- | ---------------------------------------------------- |
-| `-w` / `--watch`           | Live refresh                                         |
-| `--system` / `-a` / `--all`| Include non-Fennec system processes                  |
-| `--json`                   | JSON output                                         |
-| `--name <filter>`          | Filter by name                                       |
-| `--group <g>`              | Show only apps in group                              |
-| `--sort <cpu\|mem\|pid\|name>` | Sort column                                      |
+| Option                         | Description                         |
+| ------------------------------ | ----------------------------------- |
+| `-w` / `--watch`               | Live refresh                        |
+| `--system` / `-a` / `--all`    | Include non-Fennec system processes |
+| `--json`                       | JSON output                         |
+| `--name <filter>`              | Filter by name                      |
+| `--group <g>`                  | Show only apps in group             |
+| `--sort <cpu\|mem\|pid\|name>` | Sort column                         |
 
 The `MEM` column shows each running app's RSS cross-platform.
 
 **`log` options:**
 
-| Option                | Description                                          |
-| --------------------- | ---------------------------------------------------- |
-| `-f` / `--follow`     | Tail logs live                                       |
-| `--lines N`           | Number of recent lines                               |
-| `--since 10m\|1h\|2d` | Filter by time                                       |
-| `--level error\|warn\|info\|debug` | Filter by level                    |
-| `--json`              | Bounded, redacted, machine-readable                  |
-| `--no-redact`         | Skip secret redaction                                |
-| `--clear`             | Clear log file                                       |
+| Option                             | Description                         |
+| ---------------------------------- | ----------------------------------- |
+| `-f` / `--follow`                  | Tail logs live                      |
+| `--lines N`                        | Number of recent lines              |
+| `--since 10m\|1h\|2d`              | Filter by time                      |
+| `--level error\|warn\|info\|debug` | Filter by level                     |
+| `--json`                           | Bounded, redacted, machine-readable |
+| `--no-redact`                      | Skip secret redaction               |
+| `--clear`                          | Clear log file                      |
 
 **`inspect` options:**
 
-| Option        | Description                        |
-| ------------- | ---------------------------------- |
-| `--plain`     | Short human summary                |
-| `--tail N`    | Recent log lines                   |
-| `--since 10m` | Filter by time                     |
+| Option        | Description         |
+| ------------- | ------------------- |
+| `--plain`     | Short human summary |
+| `--tail N`    | Recent log lines    |
+| `--since 10m` | Filter by time      |
 
 **Logical groups & bulk operations:**
 
-| Action                          | Command                                                              |
-| ------------------------------- | -------------------------------------------------------------------- |
-| Tag when starting               | `fennec start <cmd> --name <n> --group <g>`                          |
-| Tag existing app                | `fennec group <name> <g>`                                            |
-| Clear group tag                 | `fennec group <name> --unset`                                        |
-| Bulk tag                        | `fennec group <g> <name1> <name2> ...`                               |
-| Scope ops to group              | `fennec kill --group <g>`, `stop --group <g>`, `ps --group <g>`      |
-| Bulk stop (multiple names)      | `fennec stop <name1> <name2>`                                        |
-| Bulk kill                       | `fennec kill <name1> <name2> -y`                                     |
-| Bulk restart                    | `fennec restart <name1> <name2> -y`                                  |
-| Bulk spawn                      | `fennec spawn <name1> <name2>`                                       |
-| Bulk debug attach               | `fennec debug attach --group <g> --mode <mode>`                      |
-| Bulk debug detach               | `fennec debug detach --group <g>`                                    |
+| Action                     | Command                                                         |
+| -------------------------- | --------------------------------------------------------------- |
+| Tag when starting          | `fennec start <cmd> --name <n> --group <g>`                     |
+| Tag existing app           | `fennec group <name> <g>`                                       |
+| Clear group tag            | `fennec group <name> --unset`                                   |
+| Bulk tag                   | `fennec group <g> <name1> <name2> ...`                          |
+| Scope ops to group         | `fennec kill --group <g>`, `stop --group <g>`, `ps --group <g>` |
+| Bulk stop (multiple names) | `fennec stop <name1> <name2>`                                   |
+| Bulk kill                  | `fennec kill <name1> <name2> -y`                                |
+| Bulk restart               | `fennec restart <name1> <name2> -y`                             |
+| Bulk spawn                 | `fennec spawn <name1> <name2>`                                  |
+| Bulk debug attach          | `fennec debug attach --group <g> --mode <mode>`                 |
+| Bulk debug detach          | `fennec debug detach --group <g>`                               |
 
 Groups are **preserved** across `spawn`/`restart`. Already-running entries are never double-spawned. `--all` targets every tracked app.
 
@@ -336,24 +337,24 @@ Fennec persists everything — auth sessions, tracked processes, exports, plugin
 
 ### Database
 
-| Command | Description |
-|---------|-------------|
+| Command                           | Description                                                                   |
+| --------------------------------- | ----------------------------------------------------------------------------- |
 | `db connect <name> [--url <url>]` | Connect/reconnect (auto-starts agent; uses saved credential if --url omitted) |
-| `db ps` | Agent status + all saved connections |
-| `db list` | Alias for ps |
-| `db disconnect <name>` | Disconnect from agent (keeps credential) |
-| `db rm <name>` | Remove credential entirely |
-| `db query <name> <sql>` | Execute a SQL query |
-| `db schema <name>` | Inspect full database schema |
-| `db tables <name>` | List tables and row counts |
-| `db ping <name>` | Health check with latency |
-| `db stats <name>` | Database statistics (size, connections) |
-| `db explain <name> <sql>` | Get query execution plan |
-| `db start` | Start persistent agent (auto-started by connect) |
-| `db stop` | Stop persistent agent |
-| `db restart` | Restart persistent agent |
-| `db update` | Download/update dbTui binary |
-| `db doctor` | Check dbTui installation status |
+| `db ps`                           | Agent status + all saved connections                                          |
+| `db list`                         | Alias for ps                                                                  |
+| `db disconnect <name>`            | Disconnect from agent (keeps credential)                                      |
+| `db rm <name>`                    | Remove credential entirely                                                    |
+| `db query <name> <sql>`           | Execute a SQL query                                                           |
+| `db schema <name>`                | Inspect full database schema                                                  |
+| `db tables <name>`                | List tables and row counts                                                    |
+| `db ping <name>`                  | Health check with latency                                                     |
+| `db stats <name>`                 | Database statistics (size, connections)                                       |
+| `db explain <name> <sql>`         | Get query execution plan                                                      |
+| `db start`                        | Start persistent agent (auto-started by connect)                              |
+| `db stop`                         | Stop persistent agent                                                         |
+| `db restart`                      | Restart persistent agent                                                      |
+| `db update`                       | Download/update dbTui binary                                                  |
+| `db doctor`                       | Check dbTui installation status                                               |
 
 ### Configuration & Misc
 
@@ -490,15 +491,15 @@ security:
   allowJSEvaluation: true
 
   db:
-    strict: true              # Block non-localhost connections
-    allowedHosts:              # Allowed hosts (strict mode)
+    strict: true # Block non-localhost connections
+    allowedHosts: # Allowed hosts (strict mode)
       - localhost
       - 127.0.0.1
       - ::1
-    maxRows: 1000             # Default row limit
-    queryTimeout: 30000        # Query timeout in ms
-    allowWrite: false          # Allow write queries (needs --no-strict)
-    binaryPath: ''             # Custom dbTui binary path
+    maxRows: 1000 # Default row limit
+    queryTimeout: 30000 # Query timeout in ms
+    allowWrite: false # Allow write queries (needs --no-strict)
+    binaryPath: '' # Custom dbTui binary path
 
 lazyContext:
   level1: true # Auto-attach summary on errors

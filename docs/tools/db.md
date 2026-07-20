@@ -10,17 +10,17 @@ Fennec provides 9 MCP tools for database observation via the **dbTui** sidecar b
 
 ## Tools
 
-| Tool | Description |
-|------|-------------|
-| `db_connect` | Connect to a database. Credentials saved to OS keychain by default. |
-| `db_disconnect` | Disconnect from a database. |
-| `db_list` | List active database connections. |
-| `db_query` | Execute a SQL query. Read-only by default (`strict: true` blocks writes). |
-| `db_schema` | Inspect database schema — tables, columns, indexes, foreign keys. Results cached for 30s. |
-| `db_tables` | List tables and row counts. |
-| `db_ping` | Ping a database and return latency. |
-| `db_explain` | Get query execution plan. |
-| `db_stats` | Get database statistics (size, table count, active connections, uptime). |
+| Tool            | Description                                                                               |
+| --------------- | ----------------------------------------------------------------------------------------- |
+| `db_connect`    | Connect to a database. Credentials saved to OS keychain by default.                       |
+| `db_disconnect` | Disconnect from a database.                                                               |
+| `db_list`       | List active database connections.                                                         |
+| `db_query`      | Execute a SQL query. Read-only by default (`strict: true` blocks writes).                 |
+| `db_schema`     | Inspect database schema — tables, columns, indexes, foreign keys. Results cached for 30s. |
+| `db_tables`     | List tables and row counts.                                                               |
+| `db_ping`       | Ping a database and return latency.                                                       |
+| `db_explain`    | Get query execution plan.                                                                 |
+| `db_stats`      | Get database statistics (size, table count, active connections, uptime).                  |
 
 ## Credential Management
 

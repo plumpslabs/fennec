@@ -125,10 +125,13 @@ export async function psCommand(args: string[]): Promise<void> {
       align: 'center',
       format: (v) => {
         const d = v as string;
-        return d === 'log' ? pc.green('L') :
-               d === 'breakpoint' ? pc.yellow('B') :
-               d === 'auto' ? pc.magenta('A') :
-               pc.dim('-');
+        return d === 'log'
+          ? pc.green('L')
+          : d === 'breakpoint'
+            ? pc.yellow('B')
+            : d === 'auto'
+              ? pc.magenta('A')
+              : pc.dim('-');
       },
     },
     {

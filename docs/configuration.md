@@ -120,44 +120,44 @@ logging:
   file: null # null = stdout only
 
 db:
-  strict: true              # Block non-localhost connections
-  allowedHosts:              # Allowed hostnames (strict mode blocks non-matching)
+  strict: true # Block non-localhost connections
+  allowedHosts: # Allowed hostnames (strict mode blocks non-matching)
     - localhost
     - 127.0.0.1
     - ::1
-  maxRows: 1000             # Maximum rows returned per query
-  queryTimeout: 30000        # Query timeout in milliseconds
-  allowWrite: false          # Allow write queries (INSERT/UPDATE/DELETE)
-  binaryPath: ''             # Custom path to dbTui binary (auto-download by default)
+  maxRows: 1000 # Maximum rows returned per query
+  queryTimeout: 30000 # Query timeout in milliseconds
+  allowWrite: false # Allow write queries (INSERT/UPDATE/DELETE)
+  binaryPath: '' # Custom path to dbTui binary (auto-download by default)
 ```
 
 ## Environment Variables
 
 All configuration values can be overridden via environment variables:
 
-| Variable                 | Description                                |
-| ------------------------ | ------------------------------------------ |
-| `FENNEC_BROWSER_TYPE`    | Browser engine (chromium, firefox, webkit) |
-| `FENNEC_HEADLESS`        | Run browser headless (true/false)          |
-| `FENNEC_DEFAULT_TIMEOUT` | Default timeout in ms                      |
-| `FENNEC_VIEWPORT_WIDTH`  | Viewport width                             |
-| `FENNEC_VIEWPORT_HEIGHT` | Viewport height                            |
-| `FENNEC_TRANSPORT_TYPE`  | Transport type (stdio/sse)                 |
-| `FENNEC_PORT`            | SSE port                                   |
-| `FENNEC_LOG_LEVEL`       | Log level (debug/info/warn/error)          |
-| `FENNEC_SANDBOX`         | Enable sandbox mode (true/false)           |
-| `FENNEC_SECURITY_ALLOW_PROCESS_SPAWN` | Allow AI to spawn processes    |
-| `FENNEC_SECURITY_ALLOW_PROCESS_KILL`  | Allow AI to kill processes      |
-| `FENNEC_SECURITY_ALLOW_JS_EVALUATION` | Allow in-page JS evaluation     |
-| `FENNEC_SECURITY_ALLOW_FILE_READ`     | Allow file read operations       |
-| `FENNEC_SECURITY_ALLOW_FILE_WRITE`    | Allow file write operations      |
-| `FENNEC_SECURITY_ALLOW_CDP_RAW_ACCESS`| Allow direct CDP raw access      |
-| `FENNEC_SECURITY_DEBUG_ALLOWED_DIRS`  | Restrict debug to these dirs     |
-| `FENNEC_DEBUG_ALLOW_DEPENDENCIES`     | Allow breakpoints in dependencies|
-| `FENNEC_BROWSER_ADAPTER`  | Browser adapter (auto/cdp/playwright)       |
-| `FENNEC_SESSION_ROTATION_INTERVAL_SECS` | Context rotation interval (secs) |
-| `FENNEC_TOKEN_BUDGET_LEVEL1` | Token budget for Lazy Context L1         |
-| `FENNEC_TOKEN_BUDGET_LEVEL2` | Token budget for Lazy Context L2         |
-| `FENNEC_TOKEN_BUDGET_LEVEL3` | Token budget for Lazy Context L3         |
-| `FENNEC_CONFIG`          | Path to config file                        |
-| `DATABASE_URL`           | Default database connection URL            |
+| Variable                                | Description                                |
+| --------------------------------------- | ------------------------------------------ |
+| `FENNEC_BROWSER_TYPE`                   | Browser engine (chromium, firefox, webkit) |
+| `FENNEC_HEADLESS`                       | Run browser headless (true/false)          |
+| `FENNEC_DEFAULT_TIMEOUT`                | Default timeout in ms                      |
+| `FENNEC_VIEWPORT_WIDTH`                 | Viewport width                             |
+| `FENNEC_VIEWPORT_HEIGHT`                | Viewport height                            |
+| `FENNEC_TRANSPORT_TYPE`                 | Transport type (stdio/sse)                 |
+| `FENNEC_PORT`                           | SSE port                                   |
+| `FENNEC_LOG_LEVEL`                      | Log level (debug/info/warn/error)          |
+| `FENNEC_SANDBOX`                        | Enable sandbox mode (true/false)           |
+| `FENNEC_SECURITY_ALLOW_PROCESS_SPAWN`   | Allow AI to spawn processes                |
+| `FENNEC_SECURITY_ALLOW_PROCESS_KILL`    | Allow AI to kill processes                 |
+| `FENNEC_SECURITY_ALLOW_JS_EVALUATION`   | Allow in-page JS evaluation                |
+| `FENNEC_SECURITY_ALLOW_FILE_READ`       | Allow file read operations                 |
+| `FENNEC_SECURITY_ALLOW_FILE_WRITE`      | Allow file write operations                |
+| `FENNEC_SECURITY_ALLOW_CDP_RAW_ACCESS`  | Allow direct CDP raw access                |
+| `FENNEC_SECURITY_DEBUG_ALLOWED_DIRS`    | Restrict debug to these dirs               |
+| `FENNEC_DEBUG_ALLOW_DEPENDENCIES`       | Allow breakpoints in dependencies          |
+| `FENNEC_BROWSER_ADAPTER`                | Browser adapter (auto/cdp/playwright)      |
+| `FENNEC_SESSION_ROTATION_INTERVAL_SECS` | Context rotation interval (secs)           |
+| `FENNEC_TOKEN_BUDGET_LEVEL1`            | Token budget for Lazy Context L1           |
+| `FENNEC_TOKEN_BUDGET_LEVEL2`            | Token budget for Lazy Context L2           |
+| `FENNEC_TOKEN_BUDGET_LEVEL3`            | Token budget for Lazy Context L3           |
+| `FENNEC_CONFIG`                         | Path to config file                        |
+| `DATABASE_URL`                          | Default database connection URL            |

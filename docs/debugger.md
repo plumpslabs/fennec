@@ -2,12 +2,12 @@
 
 > Fennec is a **development observation & debugging tool**. Never meant for production.
 
-| Principle | Why |
-|---|---|
-| Debug is **opt-in** per process | Zero overhead by default |
-| No production monitoring | Dev tool, not Datadog |
-| Lazy adapters | Nothing loaded until first `debug_*` call |
-| Structured output | JSON, not raw dumps — token-efficient for AI |
+| Principle                       | Why                                          |
+| ------------------------------- | -------------------------------------------- |
+| Debug is **opt-in** per process | Zero overhead by default                     |
+| No production monitoring        | Dev tool, not Datadog                        |
+| Lazy adapters                   | Nothing loaded until first `debug_*` call    |
+| Structured output               | JSON, not raw dumps — token-efficient for AI |
 
 ---
 
@@ -40,18 +40,18 @@ AI Agent (MCP Client)
 
 ### Runtime Protocol Matrix
 
-| Runtime | Protocol | Adapter | Status |
-|---|---|---|---|
-| Browser (JS) | CDP (V8 Inspector) | `v8-adapter.ts` | ✅ Working |
-| Node.js | CDP (V8 Inspector) | `v8-adapter.ts` | ✅ Working |
-| Python | DAP (debugpy) | `dap-adapter.ts` | ✅ Code ready |
-| Go | DAP (dlv dap) | `dap-adapter.ts` | ✅ Code ready |
-| .NET | DAP (netcoredbg) | `dap-adapter.ts` | ✅ Code ready |
-| Ruby | DAP (ruby/debug) | `dap-adapter.ts` | ✅ Code ready |
-| Rust/C/C++ | DAP (lldb-dap) | `dap-adapter.ts` | ✅ Code ready |
-| Dart/Flutter | DAP | `dap-adapter.ts` | ✅ Code ready |
-| PHP | DBGp (Xdebug) | `dbgp-adapter.ts` | ✅ Code ready |
-| Java/Kotlin | JDWP | `jdwp-adapter.ts` | ✅ Code ready |
+| Runtime      | Protocol           | Adapter           | Status        |
+| ------------ | ------------------ | ----------------- | ------------- |
+| Browser (JS) | CDP (V8 Inspector) | `v8-adapter.ts`   | ✅ Working    |
+| Node.js      | CDP (V8 Inspector) | `v8-adapter.ts`   | ✅ Working    |
+| Python       | DAP (debugpy)      | `dap-adapter.ts`  | ✅ Code ready |
+| Go           | DAP (dlv dap)      | `dap-adapter.ts`  | ✅ Code ready |
+| .NET         | DAP (netcoredbg)   | `dap-adapter.ts`  | ✅ Code ready |
+| Ruby         | DAP (ruby/debug)   | `dap-adapter.ts`  | ✅ Code ready |
+| Rust/C/C++   | DAP (lldb-dap)     | `dap-adapter.ts`  | ✅ Code ready |
+| Dart/Flutter | DAP                | `dap-adapter.ts`  | ✅ Code ready |
+| PHP          | DBGp (Xdebug)      | `dbgp-adapter.ts` | ✅ Code ready |
+| Java/Kotlin  | JDWP               | `jdwp-adapter.ts` | ✅ Code ready |
 
 ---
 
@@ -67,13 +67,13 @@ fennec debug attach api-service --mode log   # explicit
 
 ### MCP Tools
 
-| Tool | Description | Cost |
-|---|---|---|
-| `debug_get_errors(name)` | Errors grouped by stack hash | ~50t |
-| `debug_get_error_detail(name, hash)` | Full trace + source map | ~200t |
-| `debug_investigate(name)` | Root cause analysis | ~150t |
-| `debug_logs_since(name, ts)` | Logs after timestamp | Bounded |
-| `debug_summary(name)` | Health + latest error | ~30t |
+| Tool                                 | Description                  | Cost    |
+| ------------------------------------ | ---------------------------- | ------- |
+| `debug_get_errors(name)`             | Errors grouped by stack hash | ~50t    |
+| `debug_get_error_detail(name, hash)` | Full trace + source map      | ~200t   |
+| `debug_investigate(name)`            | Root cause analysis          | ~150t   |
+| `debug_logs_since(name, ts)`         | Logs after timestamp         | Bounded |
+| `debug_summary(name)`                | Health + latest error        | ~30t    |
 
 ### Crash Capture (Auto, built-in)
 
@@ -84,11 +84,11 @@ When log mode is active, Fennec auto-captures crash/error context:
 3. Dedup: same error within 30s increments counter
 4. TTL: snapshots expire after 10 min
 
-| Tool | Description | Cost |
-|---|---|---|
-| `debug_auto_report(name)` | Latest snapshot | ~100-300t |
-| `debug_auto_history(name)` | Recent snapshots | ~50t each |
-| `debug_auto_configure(rule, on/off)` | Toggle rules | ~10t |
+| Tool                                 | Description      | Cost      |
+| ------------------------------------ | ---------------- | --------- |
+| `debug_auto_report(name)`            | Latest snapshot  | ~100-300t |
+| `debug_auto_history(name)`           | Recent snapshots | ~50t each |
+| `debug_auto_configure(rule, on/off)` | Toggle rules     | ~10t      |
 
 ### Error Dedup
 
@@ -116,18 +116,18 @@ fennec debug attach api-service --mode breakpoint
 
 All breakpoint tools accept either `name` (tracked process — auto-detect runtime) or `sessionId` (browser — use CDP).
 
-| Tool | Description | Cost |
-|---|---|---|
-| `debug_set_breakpoint(name, file, line)` | Set breakpoint | ~20t |
-| `debug_continue(name)` | Resume execution | ~10t |
-| `debug_step_over(name)` | Step over | ~10t |
-| `debug_step_into(name)` | Step into | ~10t |
-| `debug_list_breakpoints(name)` | List active BPs | ~20t |
-| `debug_remove_breakpoint(name, id)` | Remove BP | ~10t |
-| `debug_get_variables(name)` | Scope variables | ~150t |
-| `debug_evaluate(name, expr)` | Eval expression | ~30t |
-| `debug_get_pause_state(name)` | Is paused? | ~50t |
-| `debug_set_logpoint(name, file, line)` | Non-blocking log | ~20t |
+| Tool                                        | Description          | Cost      |
+| ------------------------------------------- | -------------------- | --------- |
+| `debug_set_breakpoint(name, file, line)`    | Set breakpoint       | ~20t      |
+| `debug_continue(name)`                      | Resume execution     | ~10t      |
+| `debug_step_over(name)`                     | Step over            | ~10t      |
+| `debug_step_into(name)`                     | Step into            | ~10t      |
+| `debug_list_breakpoints(name)`              | List active BPs      | ~20t      |
+| `debug_remove_breakpoint(name, id)`         | Remove BP            | ~10t      |
+| `debug_get_variables(name)`                 | Scope variables      | ~150t     |
+| `debug_evaluate(name, expr)`                | Eval expression      | ~30t      |
+| `debug_get_pause_state(name)`               | Is paused?           | ~50t      |
+| `debug_set_logpoint(name, file, line)`      | Non-blocking log     | ~20t      |
 | `debug_investigate_runtime(name, question)` | Guided investigation | ~200-500t |
 
 ### Variable Safety
@@ -139,12 +139,12 @@ All breakpoint tools accept either `name` (tracked process — auto-detect runti
 
 ### Security
 
-| Concern | Mitigation |
-|---|---|
-| Arbitrary memory read | `debug.allowDebugEval: false` by default |
-| Variable modification | `debug_set_variable` intentionally not implemented |
-| Breakpoints in system libs | `debug.allowedDirs` restricts to project |
-| Remote debug attach | Localhost only |
+| Concern                    | Mitigation                                         |
+| -------------------------- | -------------------------------------------------- |
+| Arbitrary memory read      | `debug.allowDebugEval: false` by default           |
+| Variable modification      | `debug_set_variable` intentionally not implemented |
+| Breakpoints in system libs | `debug.allowedDirs` restricts to project           |
+| Remote debug attach        | Localhost only                                     |
 
 ```yaml
 debug:
@@ -159,13 +159,13 @@ debug:
 
 ## 4. Token Budget
 
-| Tool | Max | Default | Configurable |
-|---|---|---|---|
-| `debug_summary` | 50 | 30 | ✅ |
-| `debug_get_errors` | 200 | 100 | ✅ |
-| `debug_investigate` | 500 | 200 | ✅ |
-| `debug_get_variables` | 300 | 150 | ✅ |
-| `debug_auto_report` | 500 | 200 | ✅ |
+| Tool                  | Max | Default | Configurable |
+| --------------------- | --- | ------- | ------------ |
+| `debug_summary`       | 50  | 30      | ✅           |
+| `debug_get_errors`    | 200 | 100     | ✅           |
+| `debug_investigate`   | 500 | 200     | ✅           |
+| `debug_get_variables` | 300 | 150     | ✅           |
+| `debug_auto_report`   | 500 | 200     | ✅           |
 
 ```yaml
 tokenBudget:
@@ -193,11 +193,11 @@ fennec debug status [name]
 │ web-app      │ 456  │ B    │ make dev-fe  │
 ```
 
-| Mode | Meaning |
-|---|---|
-| `-` | No debug |
-| `L` | Log mode (Level 1) |
-| `B` | Breakpoint mode (Level 2) |
+| Mode | Meaning                   |
+| ---- | ------------------------- |
+| `-`  | No debug                  |
+| `L`  | Log mode (Level 1)        |
+| `B`  | Breakpoint mode (Level 2) |
 
 ---
 
@@ -251,12 +251,12 @@ debug_get_variables(name="my-api")
 
 ## 7. Cross-Platform
 
-| Feature | Linux | macOS | Windows |
-|---|---|---|---|
-| Log mode (error dedup) | ✅ | ✅ | ✅ |
-| CDP breakpoint (browser/Node) | ✅ | ✅ | ✅ |
-| DAP breakpoint (Python/Go/.NET/Ruby/Rust/Dart) | ✅ | ✅ | ✅ |
-| DBGp breakpoint (PHP) | ✅ | ✅ | ✅ |
-| JDWP breakpoint (Java) | ✅ | ✅ | ✅ |
-| Source map resolution | ✅ | ✅ | ✅ |
-| Crash capture (EventBus) | ✅ | ✅ | ✅ |
+| Feature                                        | Linux | macOS | Windows |
+| ---------------------------------------------- | ----- | ----- | ------- |
+| Log mode (error dedup)                         | ✅    | ✅    | ✅      |
+| CDP breakpoint (browser/Node)                  | ✅    | ✅    | ✅      |
+| DAP breakpoint (Python/Go/.NET/Ruby/Rust/Dart) | ✅    | ✅    | ✅      |
+| DBGp breakpoint (PHP)                          | ✅    | ✅    | ✅      |
+| JDWP breakpoint (Java)                         | ✅    | ✅    | ✅      |
+| Source map resolution                          | ✅    | ✅    | ✅      |
+| Crash capture (EventBus)                       | ✅    | ✅    | ✅      |
