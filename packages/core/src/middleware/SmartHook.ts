@@ -2,6 +2,7 @@ import type { MiddlewareFn, MiddlewareContext, ToolResult } from './Pipeline.js'
 import type { BrowserSession } from '../browser/types.js';
 import { getLogger } from '../utils/logger.js';
 import { sanitize } from '../response/ResponseBuilder.js';
+import { isExpectedNetworkFailure } from '../utils/network.js';
 
 /**
  * Generate alternative selectors for auto-recovery.
@@ -357,7 +358,7 @@ export function createSmartHook(): MiddlewareFn {
 
           // Summarize network failures (just count + endpoints)
           const networkFailures = ctx.session.networkBuffer
-            .filter((r) => r.status >= 400)
+            .filter((r) => r.status >= 400 && !isExpectedNetworkFailure(r.status, r.url))
             .slice(-3);
 
           if (networkFailures.length > 0) {

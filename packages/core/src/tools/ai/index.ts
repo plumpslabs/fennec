@@ -17,6 +17,7 @@ import { createTool } from '../_registry.js';
 import { getLogger } from '../../utils/logger.js';
 import { readTracked, isTrackedRunning } from '../../process/tracking.js';
 import { isProcessRunning } from '../../utils/system-process.js';
+import { isExpectedNetworkFailure } from '../../utils/network.js';
 import type { BrowserSession } from '../../browser/types.js';
 import type { BusEvent } from '../../correlation/EventBus.js';
 import type { Pulse } from '../../middleware/PulseContext.js';
@@ -127,7 +128,9 @@ function getNetworkSummary(
     duration: number;
   }>,
 ): string {
-  const failed = networkBuffer.filter((r) => r.status >= 400);
+  const failed = networkBuffer.filter(
+    (r) => r.status >= 400 && !isExpectedNetworkFailure(r.status, r.url),
+  );
   const slow = networkBuffer.filter((r) => r.duration > 1000);
 
   if (failed.length === 0 && slow.length === 0) return 'Network healthy';
@@ -216,7 +219,9 @@ export const observe = createTool({
       result.network = { summary };
 
       if (input.detail === 'full') {
-        const failed = session.networkBuffer.filter((r) => r.status >= 400).slice(-5);
+        const failed = session.networkBuffer
+          .filter((r) => r.status >= 400 && !isExpectedNetworkFailure(r.status, r.url))
+          .slice(-5);
         (result.network as Record<string, unknown>).failedRequests = failed.map((r) => ({
           url: r.url.slice(0, 100),
           method: r.method,
@@ -252,7 +257,9 @@ export const observe = createTool({
     // Count incidents
     try {
       const recentErrors = session.consoleBuffer.filter((l) => l.level === 'error').length;
-      const recentFailures = session.networkBuffer.filter((r) => r.status >= 400).length;
+      const recentFailures = session.networkBuffer.filter(
+        (r) => r.status >= 400 && !isExpectedNetworkFailure(r.status, r.url),
+      ).length;
 
       if (recentErrors > 0 || recentFailures > 0) {
         result.incidents = {
@@ -318,7 +325,9 @@ export const aiDiagnose = createTool({
         level: 'error',
         limit: 10,
       });
-      const networkFailures = session.networkBuffer.filter((r) => r.status >= 400).slice(-10);
+      const networkFailures = session.networkBuffer
+        .filter((r) => r.status >= 400 && !isExpectedNetworkFailure(r.status, r.url))
+        .slice(-10);
 
       // Server-side evidence (if processId provided)
       let serverErrors: string[] = [];
@@ -581,13 +590,17 @@ export const summarize = createTool({
       case 'network': {
         const buffer = session.networkBuffer;
         const total = buffer.length;
-        const failed = buffer.filter((r) => r.status >= 400).length;
+        const failed = buffer.filter(
+          (r) => r.status >= 400 && !isExpectedNetworkFailure(r.status, r.url),
+        ).length;
         const slow = buffer.filter((r) => r.duration > 1000).length;
 
         result.counts = { total, failed, slow };
         result.summary = getNetworkSummary(buffer);
 
-        const failures = buffer.filter((r) => r.status >= 400).slice(-limit);
+        const failures = buffer
+          .filter((r) => r.status >= 400 && !isExpectedNetworkFailure(r.status, r.url))
+          .slice(-limit);
         if (failures.length > 0) {
           result.failures = failures.map((r) => ({
             url: r.url.slice(0, 100),

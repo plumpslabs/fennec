@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { createTool } from '../_registry.js';
 import { PerformanceCollector } from '../../cdp/PerformanceCollector.js';
 import { resolveSelector } from '../../utils/selector.js';
+import { isExpectedNetworkFailure } from '../../utils/network.js';
 
 const perfCollector = new PerformanceCollector();
 
@@ -29,7 +30,9 @@ export const diagnosePage = createTool({
         Promise.resolve(sessionManager.getConsoleBuffer(session.id, { level: 'error', limit: 10 })),
         perfCollector.getMetrics(page).catch(() => null),
       ]);
-      const networkFailures = session.networkBuffer.filter((r) => r.status >= 400).slice(-5);
+      const networkFailures = session.networkBuffer
+        .filter((r) => r.status >= 400 && !isExpectedNetworkFailure(r.status, r.url))
+        .slice(-5);
       return responseBuilder.success(
         {
           page: { url, title, readyState },
@@ -118,7 +121,9 @@ export const diagnoseNetwork = createTool({
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     const requests = session.networkBuffer;
-    const failedRequests = requests.filter((r) => r.status >= 400);
+    const failedRequests = requests.filter(
+      (r) => r.status >= 400 && !isExpectedNetworkFailure(r.status, r.url),
+    );
     const slowRequests = requests.filter((r) => r.duration > 1000);
     const corsIssues = requests.filter(
       (r) =>
@@ -195,7 +200,9 @@ export const diagnoseFullstack = createTool({
         page.url(),
         page.title().catch(() => ''),
         Promise.resolve(sessionManager.getConsoleBuffer(session.id, { level: 'error', limit: 10 })),
-        Promise.resolve(session.networkBuffer.filter((r) => r.status >= 400).slice(-10)),
+        Promise.resolve(
+          session.networkBuffer.filter((r) => r.status >= 400 && !isExpectedNetworkFailure(r.status, r.url)).slice(-10),
+        ),
       ]);
 
       let serverErrors: string[] = [];

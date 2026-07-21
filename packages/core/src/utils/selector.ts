@@ -88,23 +88,50 @@ export async function findElement(session: BrowserSession, input: string): Promi
     // fall through
   }
 
-  // Strategy 3: Text content
+  // Strategy 3: Text content — prefer interactable elements (button, a, input,
+  // select, textarea, [role="button"], [role="link"]) over generic containers
+  // like div, span, p when multiple elements match the same text.
   try {
     const textSelector = `text=${JSON.stringify(input)}`;
-    const el = await withTimeout(
-      session
-        .locator(textSelector)
-        .first()
-        .elementHandle()
-        .catch(() => null),
-      STRATEGY_TIMEOUT,
-    );
-    if (el) {
-      return cacheResult(session.id, input, {
-        selector: textSelector,
-        strategy: 'text',
-        found: true,
-      });
+    const loc = session.locator(textSelector);
+    const count = await withTimeout(loc.count(), STRATEGY_TIMEOUT);
+    if (count && count > 0) {
+      let targetIndex = 0;
+      if (count > 1) {
+        const info = await withTimeout(
+          loc.evaluateAll((els: Element[]) =>
+            els.map((el) => ({
+              tag: el.tagName.toLowerCase(),
+              role: el.getAttribute('role'),
+              interactable:
+                el.tagName === 'BUTTON' ||
+                el.tagName === 'A' ||
+                el.tagName === 'INPUT' ||
+                el.tagName === 'SELECT' ||
+                el.tagName === 'TEXTAREA' ||
+                el.getAttribute('role') === 'button' ||
+                el.getAttribute('role') === 'link',
+            })),
+          ),
+          STRATEGY_TIMEOUT,
+        );
+        if (info) {
+          const firstInteractable = info.findIndex((i) => i.interactable);
+          if (firstInteractable >= 0) targetIndex = firstInteractable;
+        }
+      }
+      const el = await withTimeout(
+        loc.nth(targetIndex).elementHandle().catch(() => null),
+        STRATEGY_TIMEOUT,
+      );
+      if (el) {
+        const finalSelector = targetIndex > 0 ? `${textSelector} >> nth=${targetIndex}` : textSelector;
+        return cacheResult(session.id, input, {
+          selector: finalSelector,
+          strategy: 'text',
+          found: true,
+        });
+      }
     }
   } catch {
     // fall through

@@ -15,6 +15,7 @@
 import type { MiddlewareFn, ToolResult } from './Pipeline.js';
 import { getLogger } from '../utils/logger.js';
 import type { BrowserSession } from '../browser/types.js';
+import { isExpectedNetworkFailure } from '../utils/network.js';
 
 export interface Pulse {
   level: 0;
@@ -42,7 +43,7 @@ export interface Pulse {
 async function buildPulse(session: {
   browser?: BrowserSession;
   consoleBuffer: Array<{ level: string; message?: string }>;
-  networkBuffer: Array<{ status: number; duration: number }>;
+  networkBuffer: Array<{ status: number; duration: number; url?: string }>;
 }): Promise<Pulse> {
   const pulse: Pulse = {
     level: 0,
@@ -70,6 +71,9 @@ async function buildPulse(session: {
 
   // Count network issues (fast, in-memory)
   for (const req of session.networkBuffer) {
+    if (isExpectedNetworkFailure(req.status, 'url' in req ? (req as { url: string }).url : '')) {
+      continue;
+    }
     if (req.status >= 400) pulse.networkFailures++;
     if (req.duration > 5000) pulse.networkSlow++;
   }

@@ -12,6 +12,7 @@
 import { z } from 'zod';
 import { createTool } from '../_registry.js';
 import { PerformanceCollector } from '../../cdp/PerformanceCollector.js';
+import { isExpectedNetworkFailure } from '../../utils/network.js';
 
 const collector = new PerformanceCollector();
 
@@ -160,7 +161,9 @@ export const budgetGetSummary = createTool({
         .catch(() => null);
 
       const requestCount = session.networkBuffer.length;
-      const failedRequests = session.networkBuffer.filter((r) => r.status >= 400).length;
+      const failedRequests = session.networkBuffer.filter(
+        (r) => r.status >= 400 && !isExpectedNetworkFailure(r.status, r.url),
+      ).length;
 
       return responseBuilder.success(
         {

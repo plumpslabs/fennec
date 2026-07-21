@@ -76,6 +76,7 @@ function wrapLocator(pwLocator: ReturnType<Page['locator']>): Locator {
     evaluateAll: (fn: any, ...args: any[]) => pwLocator.evaluateAll(fn, args[0] as any),
     elementHandle: () => pwLocator.elementHandle().then((h) => (h ? wrapElementHandle(h) : null)),
     first: () => wrapLocator(pwLocator.first()),
+    nth: (index: number) => wrapLocator(pwLocator.nth(index)),
     all: () => pwLocator.all().then(() => [] as Locator[]),
     dragTo: (target) =>
       pwLocator.dragTo(

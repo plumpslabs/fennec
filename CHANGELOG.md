@@ -2,6 +2,23 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.16.4] - 2026-07-21
+
+### Fixed
+- **Robust form detection in `auth_fill_login_form`** (issue #91)
+  - Added `autocomplete` attribute to smart field detection — now matches `autocomplete="email"`, `autocomplete="username"`, `autocomplete="current-password"` etc.
+  - Broadened legacy fallback selectors with case-insensitive attribute matching, `aria-label`, `placeholder`, and `inputmode` patterns
+  - Added brief `waitForSelector` before detection for SPA/lazy-rendered forms
+  - Added common Indonesian (`Masuk`) and sign-up button text fallbacks
+- **`text=` selector now prefers interactable elements** (issue #92)
+  - When `text=` matches multiple elements, `findElement` now evaluates all matches and auto-selects buttons, links, inputs, selects, and textareas over non-interactable containers like `<div>`, `<span>`, `<p>`
+  - Falls back to the first match when no interactable element is found
+- **Filter expected 401 noise from pulse/observe** (issue #93)
+  - New `isExpectedNetworkFailure()` utility filters out 401/403 responses on known auth/token endpoints (`/token`, `/ably/`, `/auth/refresh`, `/connect/`, `/oauth`, etc.)
+  - Applied to `PulseContext` middleware, `observe()`, `ai_diagnose`, `diagnose_page`, `diagnose_network`, `diagnose_fullstack`, `budget_check_page`, `browser_smart`, and `summarize`
+  - Expected auth failures no longer flip health status to `"error"` in the pulse, observe summary, or diagnostic tools
+- **New utility module**: `packages/core/src/utils/network.ts` — shared `isExpectedNetworkFailure()` helper
+
 ## [1.16.3] - 2026-07-20
 
 ### Fixed

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { createTool } from '../_registry.js';
 import { takeScreenshot } from '../../utils/screenshot.js';
 import { resolveSelector, resolveIndexedSelector } from '../../utils/selector.js';
+import { isExpectedNetworkFailure } from '../../utils/network.js';
 import type { BrowserSession } from '../../browser/types.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -185,6 +186,7 @@ export interface DetectedField {
   label: string;
   ariaLabel: string;
   dataTestid: string;
+  autocomplete: string;
   required: boolean;
   currentValue: string;
   // HTML5 validation constraints (populated in same evaluate pass)
@@ -212,6 +214,7 @@ export async function detectFormFields(page: {
         label: string;
         ariaLabel: string;
         dataTestid: string;
+        autocomplete: string;
         required: boolean;
         currentValue: string;
         minLength: number | null;
@@ -284,6 +287,7 @@ export async function detectFormFields(page: {
           label,
           ariaLabel: el.getAttribute('aria-label') ?? '',
           dataTestid: el.getAttribute('data-testid') ?? '',
+          autocomplete: (el as HTMLInputElement).autocomplete ?? '',
           required: el.hasAttribute('required'),
           currentValue,
           // Validation constraints
@@ -315,13 +319,14 @@ export function matchField(fields: DetectedField[], query: string): DetectedFiel
       f.id.toLowerCase() === q ||
       f.placeholder.toLowerCase() === q ||
       f.ariaLabel.toLowerCase() === q ||
-      f.dataTestid.toLowerCase() === q
+      f.dataTestid.toLowerCase() === q ||
+      f.autocomplete.toLowerCase() === q
     ) {
       return f;
     }
   }
 
-  // Partial / includes match — prefer type-exact matches first
+  // Type match — prefer fields whose HTML type matches the query
   const typeMatch = fields.find(
     (f) =>
       f.type === q || (q === 'email' && f.type === 'email') || (q === 'phone' && f.type === 'tel'),
@@ -335,7 +340,8 @@ export function matchField(fields: DetectedField[], query: string): DetectedFiel
       f.id.toLowerCase().includes(q) ||
       f.placeholder.toLowerCase().includes(q) ||
       f.ariaLabel.toLowerCase().includes(q) ||
-      f.dataTestid.toLowerCase().includes(q)
+      f.dataTestid.toLowerCase().includes(q) ||
+      f.autocomplete.toLowerCase().includes(q)
     ) {
       return f;
     }
@@ -2101,7 +2107,9 @@ export const smartNavigate = createTool({
       // ── verify mode: pass/fail only ──
       if (input.mode === 'verify') {
         const errorCount = session.consoleBuffer.filter((l) => l.level === 'error').length;
-        const failedRequests = session.networkBuffer.filter((r) => r.status >= 400).length;
+        const failedRequests = session.networkBuffer.filter(
+          (r) => r.status >= 400 && !isExpectedNetworkFailure(r.status, r.url),
+        ).length;
         const passed = errorCount === 0 && failedRequests === 0;
         return responseBuilder.success(
           {
@@ -2129,7 +2137,9 @@ export const smartNavigate = createTool({
       // ── compact mode: minimal tokens ──
       if (input.compact) {
         const errorCount = session.consoleBuffer.filter((l) => l.level === 'error').length;
-        const failedRequests = session.networkBuffer.filter((r) => r.status >= 400).length;
+        const failedRequests = session.networkBuffer.filter(
+          (r) => r.status >= 400 && !isExpectedNetworkFailure(r.status, r.url),
+        ).length;
         return responseBuilder.success(
           {
             url: page.url(),
@@ -2654,13 +2664,18 @@ export const fennecFlow = createTool({
           session.networkBuffer
             ? {
                 total: session.networkBuffer.length,
-                failed: session.networkBuffer.filter((r: { status: number }) => r.status >= 400)
-                  .length,
+                failed: session.networkBuffer.filter(
+                  (r: { status: number; url: string }) =>
+                    r.status >= 400 && !isExpectedNetworkFailure(r.status, (r as { url: string }).url),
+                ).length,
                 slow: session.networkBuffer.filter((r: { duration: number }) => r.duration > 1000)
                   .length,
                 lastFailure: [...session.networkBuffer]
                   .reverse()
-                  .find((r: { status: number }) => r.status >= 400)?.url,
+                  .find(
+                    (r: { status: number; url: string }) =>
+                      r.status >= 400 && !isExpectedNetworkFailure(r.status, (r as { url: string }).url),
+                  )?.url,
               }
             : null,
         ]);

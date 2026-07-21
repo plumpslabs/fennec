@@ -191,6 +191,7 @@ export interface Locator {
   evaluateAll<T = unknown>(fn: (els: Element[], ...args: any[]) => T, ...args: any[]): Promise<T>;
   elementHandle(): Promise<ElementHandle | null>;
   first(): Locator;
+  nth(index: number): Locator;
   all(): Promise<Locator[]>;
   dragTo(target: Locator): Promise<void>;
   count(): Promise<number>;

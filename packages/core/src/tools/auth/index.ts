@@ -8,12 +8,20 @@ import { StoreManager } from '../../store/StoreManager.js';
 const LOGIN_SELECTORS = {
   usernameFields: [
     'input[type="email"]',
-    'input[type="text"][name*="user"]',
-    'input[type="text"][name*="email"]',
-    'input[type="text"][name*="login"]',
+    'input[type="text"][autocomplete="email"]',
+    'input[type="text"][autocomplete="username"]',
+    'input[type="text"][inputmode="email"]',
+    'input[type="text"][name*="email" i]',
+    'input[type="text"][name*="user" i]',
+    'input[type="text"][name*="login" i]',
+    'input[type="text"][aria-label*="email" i]',
+    'input[type="text"][aria-label*="user" i]',
+    'input[type="text"][placeholder*="email" i]',
+    'input[type="text"][placeholder*="user" i]',
     'input#email',
     'input#username',
     'input#login',
+    'input:not([type])',
   ],
   passwordFields: ['input[type="password"]'],
   submitButtons: [
@@ -23,6 +31,8 @@ const LOGIN_SELECTORS = {
     'button:has-text("Login")',
     'button:has-text("Log in")',
     'button:has-text("Continue")',
+    'button:has-text("Sign up")',
+    'button:has-text("Masuk")',
   ],
 };
 
@@ -51,6 +61,16 @@ export const authFillLoginForm = createTool({
     const page = session.browser;
 
     try {
+      // Phase 0: Brief wait for common login field patterns (SPA rendering delay)
+      await page
+        .waitForSelector(
+          'input[type="email"],input[type="password"],input[autocomplete="email"],input[autocomplete="current-password"]',
+          { timeout: 3000 },
+        )
+        .catch(() => {
+          /* page may use non-standard selectors — continue anyway */
+        });
+
       // Phase 1: Smart-detect all form fields
       const formFields = await detectFormFields(page);
 
