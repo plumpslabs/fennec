@@ -84,16 +84,62 @@ export class ResponseBuilder {
       suggestions?: string[];
       context?: Record<string, unknown>;
       meta?: Partial<SessionMeta>;
+      /**
+       * Auto-generate suggestions based on the error code and message (#99).
+       * When true, the method enriches (but does not replace) the explicit
+       * `suggestions` array with heuristic-driven next steps.
+       */
+      autoSuggest?: boolean;
     },
   ): ErrorResponse {
     const err = error instanceof Error ? error : new Error(String(error));
+    const code = options?.code ?? 'UNKNOWN';
+    const message = err.message;
+
+    // Auto-generated suggestions (#99) — heuristic-driven next steps
+    const autoSuggestions: string[] = [];
+    if (options?.autoSuggest !== false) {
+      if (code === 'ELEMENT_NOT_FOUND' || message.includes('not found') || message.includes('No element')) {
+        autoSuggestions.push('Use browser_get_dom_snapshot to see available elements on the page');
+      }
+      if (code === 'ELEMENT_NOT_INTERACTABLE' || message.includes('interactable') || message.includes('visible')) {
+        autoSuggestions.push('Try browser_scroll to bring the element into view first');
+        autoSuggestions.push('Use browser_get_element_info to check element state (visible, enabled)');
+      }
+      if (code === 'REQUEST_TIMEOUT' || code === 'RESPONSE_TIMEOUT' || message.includes('timeout')) {
+        autoSuggestions.push('Check if the page is loading correctly — use diagnose_page or observe()');
+        autoSuggestions.push('Increase the timeout parameter if the operation legitimately takes longer');
+      }
+      if (code === 'NETWORK_INTERCEPT_FAILED' || message.includes('network') || message.includes('fetch')) {
+        autoSuggestions.push('Use network_get_logs to check recent network activity');
+      }
+      if (code === 'CDP_ERROR' || message.includes('CDP') || message.includes('target')) {
+        autoSuggestions.push('The browser page may have crashed or been closed — try browser_navigate to a URL');
+      }
+      if (message.includes('strict mode violation') || message.includes('resolved to')) {
+        autoSuggestions.push('Use the index parameter to target a specific element when multiple match');
+      }
+      if (code === 'FORM_FILL_FAILED' || message.includes('form')) {
+        autoSuggestions.push('Use browser_get_dom_snapshot to inspect the form structure');
+      }
+    }
+
+    // Merge: explicit suggestions first, then auto-generated (deduplicated)
+    const explicit = options?.suggestions ?? [];
+    const merged = [...explicit];
+    for (const s of autoSuggestions) {
+      const lower = s.toLowerCase();
+      if (!merged.some((existing) => existing.toLowerCase() === lower)) {
+        merged.push(s);
+      }
+    }
 
     return {
       success: false,
       error: {
-        code: options?.code ?? 'UNKNOWN',
-        message: err.message,
-        suggestions: options?.suggestions ?? [],
+        code,
+        message,
+        suggestions: merged,
         context: sanitize(options?.context ?? {}),
       },
       meta: {

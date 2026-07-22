@@ -122,6 +122,9 @@ export const browserNavigate = createTool({
           timeout: input.timeout,
         });
 
+        // Re-attach CDP listeners so network events continue flowing (#94)
+        await sessionManager.reAttachCDPListeners(session.id).catch(() => {});
+
         return responseBuilder.success(
           {
             finalUrl: result.finalUrl,
@@ -230,6 +233,8 @@ export const browserReload = createTool({
 
     try {
       await session.browser.reload();
+      // Re-attach CDP listeners so network events continue flowing after reload (#94)
+      await sessionManager.reAttachCDPListeners(session.id).catch(() => {});
       return responseBuilder.success(
         { loadTime: Date.now() - startTime },
         sessionManager.buildMeta(session),

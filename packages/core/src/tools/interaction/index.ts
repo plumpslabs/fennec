@@ -149,10 +149,23 @@ export const browserSelect = createTool({
   name: 'browser_select',
   category: 'interaction',
   description:
-    '`<use_case>Interaction</use_case> 📋 Select an option from a <select> dropdown element by value. Returns selectedValue and all available options. Use specifically for native HTML <select> elements — not for custom dropdowns built with divs/buttons. For filling text inputs, use browser_type. For custom dropdowns, use browser_click on the option.`',
+    '`<use_case>Interaction</use_case> 📋 Select an option from a <select> dropdown element by value or visible label. Returns selectedValue and all available options. Use specifically for native HTML <select> elements — not for custom dropdowns built with divs/buttons. For filling text inputs, use browser_type. For custom dropdowns, use browser_click on the option.`',
   inputSchema: z.object({
     selector: z.string().describe('Select element selector'),
-    value: z.string().describe('Option value to select'),
+    value: z.string().describe('Option value to select (used when matchBy is "value" or omitted)'),
+    label: z
+      .string()
+      .optional()
+      .describe(
+        'Visible label text to match (used when matchBy is "label"). Example: "United States" instead of "us".',
+      ),
+    matchBy: z
+      .enum(['value', 'label'])
+      .optional()
+      .default('value')
+      .describe(
+        "Match strategy: 'value' (default) matches the option's value attribute, 'label' matches the visible text",
+      ),
     sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
@@ -165,15 +178,60 @@ export const browserSelect = createTool({
         });
       }
 
+      if (input.matchBy === 'label') {
+        const labelToSelect = input.label ?? input.value;
+        // Find the option by visible text content and select by value
+        // Use evaluate to avoid Playwright type constraints
+        const selectedValue = await session.browser
+          .locator(resolved.selector)
+          .evaluate((selectEl: Element, label: string) => {
+            const select = selectEl as HTMLSelectElement;
+            const options = Array.from(select.options);
+            const match = options.find(
+              (o) => o.label === label || o.textContent?.trim() === label,
+            );
+            if (match) {
+              select.value = match.value;
+              select.dispatchEvent(new Event('change', { bubbles: true }));
+              return match.value;
+            }
+            return null;
+          }, labelToSelect);
+
+        const allOptions = await session.browser
+          .locator(`${resolved.selector} option`)
+          .evaluateAll((options: Element[]) =>
+            Array.from(options).map((o: Element) => ({
+              value: (o as HTMLOptionElement).value,
+              label: (o as HTMLOptionElement).label || o.textContent?.trim() || '',
+            })),
+          );
+
+        return responseBuilder.success(
+          {
+            selectedValue: selectedValue ?? input.value,
+            matchBy: 'label',
+            allOptions,
+          },
+          sessionManager.buildMeta(session),
+        );
+      }
+
       await session.browser.locator(resolved.selector).selectOption(input.value);
 
       const allOptions = await session.browser
         .locator(`${resolved.selector} option`)
-        .allTextContents();
+        .evaluateAll((options: Element[]) =>
+          Array.from(options).map((o: Element) => ({
+            value: (o as HTMLOptionElement).value,
+            label: (o as HTMLOptionElement).label || o.textContent?.trim() || '',
+          })),
+        );
 
       return responseBuilder.success(
         {
           selectedValue: input.value,
+          matchBy: 'value',
           allOptions,
         },
         sessionManager.buildMeta(session),
@@ -181,7 +239,10 @@ export const browserSelect = createTool({
     } catch (error) {
       return responseBuilder.error(error, {
         code: 'ELEMENT_NOT_INTERACTABLE',
-        suggestions: ['Check if the element is a valid <select> element'],
+        suggestions: [
+          'Check if the element is a valid <select> element',
+          'Use matchBy:"label" if the option has visible text but no value',
+        ],
       });
     }
   },
@@ -405,6 +466,62 @@ export const browserClear = createTool({
       );
     } catch (error) {
       return responseBuilder.error(error);
+    }
+  },
+});
+
+// ─── browser_get_select_options (#97) ────────────────────────────
+
+export const browserGetSelectOptions = createTool({
+  name: 'browser_get_select_options',
+  category: 'interaction',
+  description:
+    '`<use_case>Interaction</use_case> 📋 Get all options from a <select> dropdown element. Returns structured JSON with value, label, index, and selected status for each option. Avoids expensive full-DOM snapshots or fragile devtools_evaluate calls. Use to inspect dropdown options before selecting one with browser_select. For custom dropdowns, use browser_get_dom_snapshot instead.`',
+  inputSchema: z.object({
+    selector: z.string().describe('Select element selector'),
+    sessionId: z.string().optional().describe('Session ID'),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    try {
+      const resolved = await resolveSelector(session.browser, input.selector);
+      if (!resolved.found) {
+        return responseBuilder.error(new Error(`Select element not found: ${input.selector}`), {
+          code: 'ELEMENT_NOT_FOUND',
+        });
+      }
+
+      const result = await session.browser
+        .locator(resolved.selector)
+        .evaluate((selectEl: Element) => {
+          const select = selectEl as HTMLSelectElement;
+          return {
+            id: select.id || undefined,
+            name: select.name || undefined,
+            multiple: select.multiple,
+            disabled: select.disabled,
+            selectedIndex: select.selectedIndex,
+            options: Array.from(select.options).map((opt, i) => ({
+              value: opt.value,
+              label: opt.label || opt.textContent?.trim() || '',
+              text: opt.textContent?.trim() || '',
+              index: i,
+              selected: opt.selected,
+              disabled: opt.disabled,
+            })),
+            optionCount: select.options.length,
+          };
+        });
+
+      return responseBuilder.success(
+        result as Record<string, unknown>,
+        sessionManager.buildMeta(session),
+      );
+    } catch (error) {
+      return responseBuilder.error(error, {
+        code: 'ELEMENT_NOT_FOUND',
+        suggestions: ['Check if the element is a valid <select> element'],
+      });
     }
   },
 });

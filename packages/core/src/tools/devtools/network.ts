@@ -504,6 +504,91 @@ export const networkMockResponse = createTool({
   },
 });
 
+// ─── browser_await_request (#95) ─────────────────────────────────
+// Promise-based wait for matching network request.
+// Unlike network_wait_for_request (Playwright-native), this tool
+// polls the network buffer so it works in both Playwright and CDP modes.
+
+export const browserAwaitRequest = createTool({
+  name: 'browser_await_request',
+  category: 'devtools',
+  description:
+    '`<use_case>Network inspector</use_case> ⏱️ Promise-based wait for a matching network request. Polls the network buffer until a request matching the given URL pattern appears. Unlike network_wait_for_request (Playwright-native), this works in CDP Observer mode too. Returns the matched request details. Use to efficiently verify that a specific request was made after a user action without wasteful setTimeout polling.`',
+  inputSchema: z.object({
+    urlPattern: z.string().describe('URL pattern to wait for (substring match)'),
+    method: z.string().optional().describe('HTTP method filter (GET, POST, etc.)'),
+    statusMin: z
+      .number()
+      .optional()
+      .default(0)
+      .describe('Minimum acceptable status code (default 0 = any)'),
+    timeout: z.number().optional().default(15000).describe('Timeout in milliseconds'),
+    sessionId: z.string().optional().describe('Session ID'),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    const start = Date.now();
+    const deadline = start + (input.timeout ?? 15000);
+    const method = input.method?.toUpperCase();
+
+    try {
+      let match: (typeof session.networkBuffer)[number] | undefined;
+      while (Date.now() < deadline) {
+        match = session.networkBuffer.find((r) => {
+          const urlOk = r.url.includes(input.urlPattern);
+          const methodOk = method ? r.method.toUpperCase() === method : true;
+          const statusOk = r.status >= (input.statusMin ?? 0);
+          return urlOk && methodOk && statusOk;
+        });
+        if (match) break;
+        await new Promise((res) => setTimeout(res, 50));
+      }
+
+      if (!match) {
+        return responseBuilder.error(
+          new Error(`No matching request for "${input.urlPattern}" within ${input.timeout}ms`),
+          {
+            code: 'REQUEST_TIMEOUT',
+            suggestions: [
+              'Try broadening the URL pattern',
+              'Check if the expected request was actually made',
+              'Use network_get_logs to see what requests happened',
+            ],
+          },
+        );
+      }
+
+      const responseBody = match.responseBody;
+      let parsedBody: unknown = undefined;
+      if (responseBody) {
+        try {
+          parsedBody = JSON.parse(responseBody);
+        } catch {
+          parsedBody = responseBody;
+        }
+      }
+
+      return responseBuilder.success(
+        {
+          requestId: match.requestId,
+          url: match.url,
+          method: match.method,
+          status: match.status,
+          statusText: match.statusText,
+          duration: match.duration,
+          responseBody: parsedBody,
+          responseBodyRaw: responseBody,
+          type: match.type,
+          elapsed: Date.now() - start,
+        },
+        sessionManager.buildMeta(session),
+      );
+    } catch (error) {
+      return responseBuilder.error(error, { code: 'AWAIT_REQUEST_ERROR' });
+    }
+  },
+});
+
 export const networkApiCall = createTool({
   name: 'network_api_call',
   category: 'devtools',

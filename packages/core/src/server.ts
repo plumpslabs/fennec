@@ -72,6 +72,7 @@ import {
   browserClick,
   browserType,
   browserSelect,
+  browserGetSelectOptions,
   browserHover,
   browserScroll,
   browserPressKey,
@@ -87,6 +88,7 @@ import {
   browserFindElements,
   browserGetElementInfo,
   browserWaitForElement,
+  browserWaitForStableDom,
   browserGetPageText,
   browserGetPageTitle,
   browserGetMeta,
@@ -97,6 +99,7 @@ import {
   devtoolsEvaluate,
   devtoolsApiFetch,
   devtoolsGetJsErrors,
+  devtoolsGetComponentState,
   devtoolsWatchConsole,
 } from './tools/devtools/console.js';
 import {
@@ -109,6 +112,7 @@ import {
   networkMockResponse,
   networkWaitForRequest,
   networkGetRequestDetail,
+  browserAwaitRequest,
   networkApiCall,
 } from './tools/devtools/network.js';
 import {
@@ -415,6 +419,7 @@ export class FennecServer {
       browserClick,
       browserType,
       browserSelect,
+      browserGetSelectOptions,
       browserHover,
       browserScroll,
       browserPressKey,
@@ -428,6 +433,7 @@ export class FennecServer {
       browserFindElements,
       browserGetElementInfo,
       browserWaitForElement,
+      browserWaitForStableDom,
       browserGetPageText,
       browserGetPageTitle,
       browserGetMeta,
@@ -436,6 +442,7 @@ export class FennecServer {
       devtoolsEvaluate,
       devtoolsApiFetch,
       devtoolsGetJsErrors,
+      devtoolsGetComponentState,
       devtoolsWatchConsole,
       networkGetLogs,
       networkGetFailedRequests,
@@ -446,6 +453,7 @@ export class FennecServer {
       networkMockResponse,
       networkWaitForRequest,
       networkGetRequestDetail,
+      browserAwaitRequest,
       networkApiCall,
       devtoolsGetPerformanceMetrics,
       devtoolsGetMemoryUsage,

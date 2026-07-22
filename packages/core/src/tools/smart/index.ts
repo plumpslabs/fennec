@@ -3,6 +3,7 @@ import { createTool } from '../_registry.js';
 import { takeScreenshot } from '../../utils/screenshot.js';
 import { resolveSelector, resolveIndexedSelector } from '../../utils/selector.js';
 import { isExpectedNetworkFailure } from '../../utils/network.js';
+import { readTracked, isTrackedRunning } from '../../process/tracking.js';
 import type { BrowserSession } from '../../browser/types.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -2014,15 +2015,18 @@ export const smartNavigate = createTool({
     const session = sessionManager.getOrDefault(input.sessionId);
     const page = session.browser;
 
-    let authNote: { needsAuth: boolean; prompt?: string } | null = null;
+    // ── ensureAuth: discover + load matching session ──
+    let authNote: { needsAuth: boolean; prompt?: string; sessionName?: string } | null = null;
+    const origin = new URL(input.url).origin;
+
     if (input.ensureAuth) {
-      const origin = new URL(input.url).origin;
       const cwdDir = path.join(process.cwd(), '.fennec', 'sessions');
       const all = [...sessionStore.list(), ...sessionStore.listFromDir(cwdDir)];
       const match = input.ensureAuthSession
         ? all.find((s) => s.name === input.ensureAuthSession)
         : all.find((s) => s.origin === origin);
       if (match) {
+        // Set cookies (context-level — survives navigation)
         await page.contextAddCookies(
           match.cookies.map((c) => {
             const cc = c as Record<string, unknown>;
@@ -2037,12 +2041,7 @@ export const smartNavigate = createTool({
             };
           }),
         );
-        await page.navigate(match.origin).catch(() => {});
-        for (const [key, value] of Object.entries(match.localStorage)) {
-          await page
-            .evaluate(({ k, v }) => localStorage.setItem(k, v), { k: key, v: value })
-            .catch(() => {});
-        }
+        authNote = { needsAuth: false, sessionName: match.name };
       } else {
         authNote = {
           needsAuth: true,
@@ -2052,10 +2051,27 @@ export const smartNavigate = createTool({
     }
 
     try {
+      // Navigate directly to target URL (single navigation — no double load)
       await page.navigate(input.url, {
         waitUntil: input.waitUntil,
         timeout: input.timeout,
       });
+
+      // Restore localStorage AFTER navigation (same origin now active)
+      if (authNote && !authNote.needsAuth) {
+        const cwdDir = path.join(process.cwd(), '.fennec', 'sessions');
+        const all = [...sessionStore.list(), ...sessionStore.listFromDir(cwdDir)];
+        const match = input.ensureAuthSession
+          ? all.find((s) => s.name === input.ensureAuthSession)
+          : all.find((s) => s.origin === origin);
+        if (match) {
+          for (const [key, value] of Object.entries(match.localStorage)) {
+            await page
+              .evaluate(({ k, v }) => localStorage.setItem(k, v), { k: key, v: value })
+              .catch(() => {});
+          }
+        }
+      }
 
       // After navigation, collect page context
       const [title, pageText, domSnapshot] = await Promise.all([
@@ -2120,11 +2136,16 @@ export const smartNavigate = createTool({
               : `${errorCount} console error(s), ${failedRequests} failed request(s) after navigating to ${page.url()}`,
             url: page.url(),
             title,
-            ...(authNote ? { needsAuth: true, authPrompt: authNote.prompt } : {}),
+            ...(authNote ? { needsAuth: authNote.needsAuth, authPrompt: authNote.prompt, sessionName: authNote.sessionName } : {}),
           },
           meta,
         );
       }
+
+      // Include tracked process info so the agent knows what's running
+      const tracked = readTracked();
+      const runningApps = tracked.filter((t) => isTrackedRunning(t));
+      const sessionNote = authNote && !authNote.needsAuth ? { sessionLoaded: authNote.sessionName } : {};
 
       const result: Record<string, unknown> = {
         url: page.url(),
@@ -2132,6 +2153,16 @@ export const smartNavigate = createTool({
         textPreview: pageText.slice(0, 3000),
         elementCount: domSnapshot.length,
         availableElements: domSnapshot.slice(0, 30),
+        tracked: {
+          running: runningApps.length,
+          total: tracked.length,
+          apps: runningApps.map((t) => ({
+            name: t.name,
+            group: t.group,
+            port: (t as unknown as Record<string, unknown>).port,
+          })),
+        },
+        ...sessionNote,
       };
 
       // ── compact mode: minimal tokens ──
@@ -2160,8 +2191,11 @@ export const smartNavigate = createTool({
       }
 
       if (authNote) {
-        (result as Record<string, unknown>).needsAuth = true;
+        (result as Record<string, unknown>).needsAuth = authNote.needsAuth;
         (result as Record<string, unknown>).authPrompt = authNote.prompt;
+        if (authNote.sessionName) {
+          (result as Record<string, unknown>).sessionName = authNote.sessionName;
+        }
       }
 
       return responseBuilder.success(result, meta);

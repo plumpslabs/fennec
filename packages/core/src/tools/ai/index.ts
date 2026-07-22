@@ -17,7 +17,7 @@ import { createTool } from '../_registry.js';
 import { getLogger } from '../../utils/logger.js';
 import { readTracked, isTrackedRunning } from '../../process/tracking.js';
 import { isProcessRunning } from '../../utils/system-process.js';
-import { isExpectedNetworkFailure } from '../../utils/network.js';
+import { isExpectedNetworkFailure, isStaticAsset } from '../../utils/network.js';
 import type { BrowserSession } from '../../browser/types.js';
 import type { BusEvent } from '../../correlation/EventBus.js';
 import type { Pulse } from '../../middleware/PulseContext.js';
@@ -131,7 +131,11 @@ function getNetworkSummary(
   const failed = networkBuffer.filter(
     (r) => r.status >= 400 && !isExpectedNetworkFailure(r.status, r.url),
   );
-  const slow = networkBuffer.filter((r) => r.duration > 1000);
+  // Exclude static assets (JS/CSS chunks, sourcemaps) from slow-request warnings
+  // to avoid false-positives during dev-server page reloads (#102)
+  const slow = networkBuffer.filter(
+    (r) => r.duration > 1000 && !isStaticAsset(r.url),
+  );
 
   if (failed.length === 0 && slow.length === 0) return 'Network healthy';
 
