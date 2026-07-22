@@ -2,6 +2,26 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.16.5] - 2026-07-22
+
+### Added
+- **`browser_get_select_options(selector)`** — Lightweight select option inspector that returns structured options array (#97)
+- **`browser_wait_for_stable_dom(settleMs?, timeout?, observeAttributes?)`** — Framework-aware re-render detection via MutationObserver; waits for DOM mutations to settle (#98)
+- **`browser_await_request(pattern, timeout?)`** — Promise-based wait for matching network request by URL pattern (#95)
+- **`devtools_get_component_state(selector)`** — Read React component fiber state (props, state, hooks, owner component, source file, framework detection for React/Vue) (#100)
+
+### Changed
+- **`browser_select` — `matchBy: "label"` support** — Select options by visible text/label instead of value (#96)
+- **`ResponseBuilder.error()` — `autoSuggest` enabled by default** — Error messages now include heuristic-driven actionable next steps based on error codes and messages (#99)
+- **`auth_load_session` — no longer navigates by default** — Added `navigate` param (default: false); cookies always restored, localStorage restored only on same origin; cross-origin warning returned instead of silently navigating (#104)
+- **`smart_navigate` — tracked process info in response** — Returns `tracked.running`, `tracked.total`, `tracked.apps` so agents know what's running
+- **`smart_navigate` — session loaded info** — Returns `sessionLoaded` name when auth session is applied without navigating
+
+### Fixed
+- **Network log persistence after page reload** — CDP listeners re-attached via `SessionManager.reAttachCDPListeners()` after `browser_navigate` and `browser_reload`; network events no longer go silent on SPA navigation (#94)
+- **`observe()` false-positive slow requests** — New `isStaticAsset()` utility filters JS/CSS chunks, sourcemaps, and HMR hot-update files from slow-request warnings during dev-server reloads (#102)
+- **`browser_wait_for_stable_dom` startTime bug** — Fixed type cast issue where `startTime` was incorrectly referenced inside evaluate callback (#98)
+
 ## [1.16.4] - 2026-07-21
 
 ### Fixed
