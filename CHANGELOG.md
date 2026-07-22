@@ -2,24 +2,43 @@
 
 All notable changes to Fennec will be documented in this file.
 
-## [1.16.4] - 2026-07-21
+## [1.16.5] - 2026-07-22
+
+### Added
+- **`browser_await_request(pattern)` — Promise-based network wait** (#95)
+  - Polls the network buffer until a matching request appears (works in both Playwright and CDP modes)
+  - Returns request details (url, method, status, duration, response body) once matched
+- **`browser_get_select_options(selector)` — Select option inspector** (#97)
+  - Returns structured JSON of all options (value, label, text, index, selected, disabled)
+  - Avoids expensive full-DOM snapshots for dropdown inspection
+- **`browser_wait_for_stable_dom` — Framework-aware re-render detection** (#98)
+  - Uses MutationObserver to wait for DOM mutations to settle (configurable settleMs)
+  - Detects React/Vue re-render completion — no more fixed setTimeout guesses
+- **`devtools_get_component_state(selector)` — Read React fiber state** (#100)
+  - Walks the React fiber tree to extract component name, props, state, and hooks
+  - Supports both function components (hooks) and class components
+
+### Changed
+- **`browser_select` now supports `matchBy:"label"`** (#96)
+  - Select options by visible text (e.g. "United States") instead of value (e.g. "us")
+  - Default matchBy stays "value" for backward compatibility
+- **`auth_load_session` no longer navigates by default** (#104)
+  - Restores cookies + localStorage in-place without unexpected cross-origin jumps
+  - New `navigate` param (default false) to explicitly trigger navigation
+  - Cross-origin warning when localStorage cannot be restored cross-origin
+- **`ResponseBuilder.error()` now includes auto-suggestions** (#99)
+  - Heuristic-driven actionable next steps based on error codes
+  - Explicit suggestions still take priority; auto-suggestions fill gaps
 
 ### Fixed
-- **Robust form detection in `auth_fill_login_form`** (issue #91)
-  - Added `autocomplete` attribute to smart field detection — now matches `autocomplete="email"`, `autocomplete="username"`, `autocomplete="current-password"` etc.
-  - Broadened legacy fallback selectors with case-insensitive attribute matching, `aria-label`, `placeholder`, and `inputmode` patterns
-  - Added brief `waitForSelector` before detection for SPA/lazy-rendered forms
-  - Added common Indonesian (`Masuk`) and sign-up button text fallbacks
-- **`text=` selector now prefers interactable elements** (issue #92)
-  - When `text=` matches multiple elements, `findElement` now evaluates all matches and auto-selects buttons, links, inputs, selects, and textareas over non-interactable containers like `<div>`, `<span>`, `<p>`
-  - Falls back to the first match when no interactable element is found
-- **Filter expected 401 noise from pulse/observe** (issue #93)
-  - New `isExpectedNetworkFailure()` utility filters out 401/403 responses on known auth/token endpoints (`/token`, `/ably/`, `/auth/refresh`, `/connect/`, `/oauth`, etc.)
-  - Applied to `PulseContext` middleware, `observe()`, `ai_diagnose`, `diagnose_page`, `diagnose_network`, `diagnose_fullstack`, `budget_check_page`, `browser_smart`, and `summarize`
-  - Expected auth failures no longer flip health status to `"error"` in the pulse, observe summary, or diagnostic tools
-- **New utility module**: `packages/core/src/utils/network.ts` — shared `isExpectedNetworkFailure()` helper
+- **Network log persistence after page reload** (#94)
+  - Added `reAttachCDPListeners()` to SessionManager
+  - Wired into `browser_navigate` and `browser_reload` so CDP network events continue flowing
+- **`observe()` false-positive slow requests on dev-server reload** (#102)
+  - Added `isStaticAsset()` utility to filter out JS/CSS chunks, sourcemaps, hot-update files
+  - Dev-server asset requests no longer incorrectly flagged as slow
 
-## [1.16.3] - 2026-07-20
+## [1.16.4] - 2026-07-21
 
 ### Fixed
 - **Browser/network/process improvements** (issues #77, #78, #79, #81, #83, #85)
