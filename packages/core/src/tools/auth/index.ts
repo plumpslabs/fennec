@@ -335,7 +335,7 @@ export const authLoadSession = createTool({
   name: 'auth_load_session',
   category: 'auth',
   description:
-    '`<use_case>Auth</use_case> 🔓 Load a previously saved auth session (from auth_save_session) into the browser. Restores cookies + localStorage + navigates to origin. Returns cookiesLoaded and storageLoaded counts. Use to quickly restore authenticated state without re-logging in. Pass filePath to load from a specific .json, or name to load from the global store ~/.fennec/sessions/<origin>/<name>.json (auto-discovered, including cwd ./.fennec/sessions). Get available session names from auth_list_sessions. For one-off cookie setting, use storage_set_cookie instead.`',
+    '`<use_case>Auth</use_case> 🔓 Load a previously saved auth session (from auth_save_session) into the browser. Restores cookies + localStorage WITHOUT navigating by default (fixes unexpected cross-origin jumps, #104). Pass navigate:true or url to navigate after restoring. Returns cookiesLoaded, storageLoaded, originMatched, and a warning if the current origin differs. Use to quickly restore authenticated state without re-logging in. Pass filePath to load from a specific .json, or name to load from the global store ~/.fennec/sessions/<origin>/<name>.json (auto-discovered). Get available session names from auth_list_sessions.`',
   inputSchema: z.object({
     name: z
       .string()
@@ -346,11 +346,18 @@ export const authLoadSession = createTool({
       .string()
       .optional()
       .describe('Explicit path to the saved session .json file (overrides name)'),
+    navigate: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(
+        'When true, navigate to the saved origin (or the url override) after restoring cookies. Default false — restores cookies in-place without navigating.',
+      ),
     url: z
       .string()
       .optional()
       .describe(
-        'Optional URL to navigate to after restoring the session (overrides the saved origin)',
+        'Optional URL to navigate to after restoring the session (overrides the saved origin; implies navigate=true)',
       ),
     createIfMissing: z
       .boolean()
@@ -401,6 +408,18 @@ export const authLoadSession = createTool({
         });
       }
 
+      // ── Check current origin vs session origin ──────────────
+      const currentOrigin = (() => {
+        try {
+          return new URL(session.browser.url()).origin;
+        } catch {
+          return null;
+        }
+      })();
+      const sessionOrigin = saved.origin;
+      const originMatched = currentOrigin === sessionOrigin;
+
+      // ── Step 1: Restore cookies (domain-scoped, works cross-origin) ──
       await session.browser.contextAddCookies(
         saved.cookies.map((c) => ({
           name: (c as Record<string, unknown>).name as string,
@@ -414,18 +433,54 @@ export const authLoadSession = createTool({
         })),
       );
 
-      const targetUrl = input.url || saved.origin;
-      await session.browser.navigate(targetUrl).catch(() => {});
-      for (const [key, value] of Object.entries(saved.localStorage)) {
-        await session.browser
-          .evaluate(({ k, v }) => localStorage.setItem(k, v), { k: key, v: value })
-          .catch(() => {});
+      // ── Step 2: Restore localStorage — only possible on matching origin ──
+      let storageLoaded = 0;
+      let storageWarning: string | undefined;
+
+      if (originMatched) {
+        // Same origin — restore localStorage in-place (no navigation needed)
+        for (const [key, value] of Object.entries(saved.localStorage)) {
+          await session.browser
+            .evaluate(({ k, v }) => localStorage.setItem(k, v), { k: key, v: value })
+            .catch(() => {});
+        }
+        storageLoaded = Object.keys(saved.localStorage).length;
+      } else {
+        // Different origin — localStorage can't be restored without navigating
+        storageWarning =
+          `Cannot restore localStorage: origin mismatch (current: ${currentOrigin}, session: ${sessionOrigin}). ` +
+          `Cookies loaded (${saved.cookies.length}). To fully restore, call with navigate:true or url="${sessionOrigin}".`;
+      }
+
+      // ── Step 3: Navigate if explicitly requested (default: no navigation) ──
+      let didNavigate = false;
+      const shouldNavigate = input.navigate || !!input.url;
+
+      if (shouldNavigate) {
+        const targetUrl = input.url || sessionOrigin;
+        await session.browser.navigate(targetUrl).catch(() => {});
+        didNavigate = true;
+
+        // After navigation, restore localStorage on the new origin
+        if (!originMatched) {
+          for (const [key, value] of Object.entries(saved.localStorage)) {
+            await session.browser
+              .evaluate(({ k, v }) => localStorage.setItem(k, v), { k: key, v: value })
+              .catch(() => {});
+          }
+          storageLoaded = Object.keys(saved.localStorage).length;
+          storageWarning = undefined;
+        }
       }
 
       return responseBuilder.success(
         {
           cookiesLoaded: saved.cookies.length,
-          storageLoaded: Object.keys(saved.localStorage).length,
+          storageLoaded,
+          originMatched,
+          didNavigate,
+          ...(storageWarning ? { warning: storageWarning } : {}),
+          ...(didNavigate ? { navigatedTo: input.url || sessionOrigin } : {}),
         },
         sessionManager.buildMeta(session),
       );

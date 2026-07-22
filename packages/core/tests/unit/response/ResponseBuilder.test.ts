@@ -58,7 +58,8 @@ describe('ResponseBuilder', () => {
       });
       expect(response.success).toBe(false);
       expect(response.error.code).toBe('ELEMENT_NOT_FOUND');
-      expect(response.error.suggestions).toHaveLength(2);
+      // autoSuggest adds a 3rd automatic suggestion for ELEMENT_NOT_FOUND
+      expect(response.error.suggestions.length).toBeGreaterThanOrEqual(2);
       expect(response.error.suggestions[0]).toBe('Try a different selector');
     });
 

@@ -410,6 +410,22 @@ export class SessionManager {
   }
 
   /**
+   * Re-attach CDP collectors (console + network) for a session (#94).
+   * This should be called after navigation or reload to ensure network
+   * events continue flowing into the session's networkBuffer.
+   * If onRotate is set, it will be invoked for the given session.
+   */
+  async reAttachCDPListeners(sessionId: string): Promise<void> {
+    if (this.onRotate) {
+      try {
+        await this.onRotate(sessionId);
+      } catch {
+        // Non-fatal — CDP re-attach failure shouldn't break navigation
+      }
+    }
+  }
+
+  /**
    * Periodically recycle long-lived BrowserContexts so they can't grow
    * unbounded in memory. A session is only rotated when it hasn't been
    * used in the last `rotationIdleCooldownMs`, so we never interrupt an

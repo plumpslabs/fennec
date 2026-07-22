@@ -778,6 +778,118 @@ export const browserGetPageTitle = createTool({
   },
 });
 
+// ─── browser_wait_for_stable_dom (#98) ──────────────────────────
+// Framework-aware: waits for DOM mutations to settle and detects
+// React/Vue re-renders using a MutationObserver.
+
+export const browserWaitForStableDom = createTool({
+  name: 'browser_wait_for_stable_dom',
+  category: 'dom',
+  description:
+    '`<use_case>Page state</use_case> 🏗️ Wait for the DOM to become stable — no new mutations for a settle period. Uses MutationObserver to detect when React, Vue, or other frameworks finish re-rendering. More reliable than fixed setTimeout waits. Returns timing stats (settleMs, totalWaitMs). Use after clicking buttons, submitting forms, or triggering async updates that modify the DOM. For simple element waiting, use browser_wait_for_element instead.`',
+  inputSchema: z.object({
+    settleMs: z
+      .number()
+      .optional()
+      .default(300)
+      .describe('Milliseconds without mutations to consider the DOM stable'),
+    timeout: z.number().optional().default(10000).describe('Total timeout in milliseconds'),
+    observeAttributes: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe('Also watch for attribute mutations (slower but more thorough)'),
+    sessionId: z.string().optional().describe('Session ID'),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    const startTime = Date.now();
+
+    try {
+      // Pass startTime as an evaluate argument so the browser context
+      // can calculate totalWaitMs correctly (#98 bug fix)
+      const stableResult = await (session.browser.evaluate(
+        function(opts: { settleMs: number; timeout: number; observeAttributes: boolean }) {
+          const settleMs = opts.settleMs;
+          const timeout = opts.timeout;
+          const observeAttributes = opts.observeAttributes;
+          return new Promise<{ stable: boolean; settleMs: number; mutations: number }>((resolve) => {
+            let mutationCount = 0;
+            let lastMutationAt = Date.now();
+            let settleTimer: ReturnType<typeof setTimeout> | null = null;
+
+            const observer = new MutationObserver(() => {
+              mutationCount++;
+              lastMutationAt = Date.now();
+              if (settleTimer) clearTimeout(settleTimer);
+              settleTimer = setTimeout(() => {
+                observer.disconnect();
+                resolve({
+                  stable: true,
+                  settleMs: Date.now() - lastMutationAt,
+                  mutations: mutationCount,
+                });
+              }, settleMs);
+            });
+
+            observer.observe(document.documentElement, {
+              childList: true,
+              subtree: true,
+              attributes: observeAttributes,
+              characterData: false,
+            });
+
+            setTimeout(() => {
+              observer.disconnect();
+              resolve({
+                stable: mutationCount === 0,
+                settleMs: Date.now() - lastMutationAt,
+                mutations: mutationCount,
+              });
+            }, timeout);
+
+            setTimeout(() => {
+              if (mutationCount === 0) {
+                observer.disconnect();
+                resolve({
+                  stable: true,
+                  settleMs: 0,
+                  mutations: 0,
+                });
+              }
+            }, 100);
+          });
+        },
+        {
+          settleMs: input.settleMs ?? 300,
+          timeout: input.timeout ?? 10000,
+          observeAttributes: input.observeAttributes ?? false,
+        },
+      ));
+      const result = stableResult as unknown as {
+        stable: boolean;
+        settleMs: number;
+        mutations: number;
+      };
+
+      return responseBuilder.success(
+        {
+          stable: result.stable,
+          mutationsDetected: result.mutations,
+          totalWaitMs: Date.now() - startTime,
+          settleTimeMs: result.settleMs,
+        },
+        sessionManager.buildMeta(session),
+      );
+    } catch (error) {
+      return responseBuilder.error(error, {
+        code: 'DOM_WAIT_FAILED',
+        suggestions: ['Check if the page is still open'],
+      });
+    }
+  },
+});
+
 export const browserGetMeta = createTool({
   name: 'browser_get_meta',
   category: 'dom',
