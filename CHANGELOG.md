@@ -2,6 +2,18 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.16.6] - 2026-07-22
+
+### Added
+- **`toolCategories` config option** — MCP tool visibility is now configurable via `fennec.config.yaml`:
+  - New `toolCategories` field in `fennec.config.yaml` lets users choose which tool groups are exposed to AI agents
+  - Default expanded to include `db`, `storage`, `debug` alongside existing defaults
+  - Users can uncomment and customize tool groups in their config file — just add/remove categories like `mobile`, `recorder`, `planner`, `scheduler`, etc.
+  - Full commented guidance in `fennec.config.yaml` with all available categories listed
+
+### Changed
+- **MCP `tools/list` now reads from config** — `ListToolsRequestSchema` handler in `server.ts` reads `toolCategories` from `this.config` instead of a hardcoded array. Request-level `categories` param still overrides config.
+
 ## [1.16.5] - 2026-07-22
 
 ### Added
