@@ -458,36 +458,56 @@ export const browserFindElements = createTool({
   category: 'dom',
   description:
     '`<use_case>DOM inspection</use_case> 🔎 Find ALL elements matching a selector, using the SAME unified selector engine as browser_click / browser_type / browser_hover. Supports CSS, `text="Login"`, `:has-text("Login")`, `role=button`, and `xpath=//...`. Returns specified attributes for each element (default: id, class, textContent, tagName). Falls back to vanilla DOM APIs when the unified engine finds nothing. Use when you know the selector and need specific elements. For exploring the whole page structure, use browser_get_dom_snapshot first.`',
-  inputSchema: z.object({
-    selector: z.string().describe('Selector — CSS, text=, :has-text(), role=, or xpath='),
-    returnAttributes: z
-      .array(z.string())
-      .optional()
-      .default(['id', 'class', 'textContent', 'tagName'])
-      .describe('Attributes to return for each element'),
-    includeShadowDom: z
-      .boolean()
-      .optional()
-      .default(true)
-      .describe('Include Shadow DOM elements in search (CSS fallback)'),
-    forceDomFallback: z
-      .boolean()
-      .optional()
-      .default(false)
-      .describe('Skip the unified engine and use vanilla DOM APIs directly'),
-    sessionId: z.string().optional().describe('Session ID'),
-  }),
+  inputSchema: z
+    .object({
+      selector: z
+        .string()
+        .optional()
+        .describe('Selector — CSS, text=, :has-text(), role=, or xpath='),
+      query: z
+        .string()
+        .optional()
+        .describe(
+          'Search by text content instead of CSS selector. Finds all elements whose text contains this string.',
+        ),
+      returnAttributes: z
+        .array(z.string())
+        .optional()
+        .default(['id', 'class', 'textContent', 'tagName'])
+        .describe('Attributes to return for each element'),
+      includeShadowDom: z
+        .boolean()
+        .optional()
+        .default(true)
+        .describe('Include Shadow DOM elements in search (CSS fallback)'),
+      forceDomFallback: z
+        .boolean()
+        .optional()
+        .default(false)
+        .describe('Skip the unified engine and use vanilla DOM APIs directly'),
+      sessionId: z.string().optional().describe('Session ID'),
+    })
+    .refine((data) => data.selector || data.query, {
+      message: 'Either selector or query must be provided',
+    }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
       const attributes = input.returnAttributes!;
       let result: Record<string, string | null>[] = [];
 
-      if (!input.forceDomFallback) {
+      // Determine selector: if query is provided without selector, convert to text= selector
+      let effectiveSelector = input.selector;
+      if (!effectiveSelector && input.query) {
+        // Use :has-text() which is supported by Playwright's unified engine
+        effectiveSelector = `:has-text("${input.query.replace(/["\\]/g, '\\$&')}")`;
+      }
+
+      if (effectiveSelector && !input.forceDomFallback) {
         // Use the unified Playwright locator engine (text=, :has-text(), role=,
         // CSS, xpath=) — consistent with click/type/hover (issue #8).
         const elements = await session.browser
-          .locator(input.selector)
+          .locator(effectiveSelector)
           .evaluateAll(
             (els: Element[], attrs: string[]) =>
               els.map((el) => {
@@ -507,8 +527,8 @@ export const browserFindElements = createTool({
       }
 
       // Vanilla DOM fallback when unified engine returned 0 results or forceDomFallback is set
-      if (result.length === 0) {
-        const domFallbackSelector = vanillaDomFallback(input.selector);
+      if (result.length === 0 && effectiveSelector) {
+        const domFallbackSelector = vanillaDomFallback(effectiveSelector);
 
         const domResult = await session.browser
           .evaluate(
@@ -576,7 +596,7 @@ export const browserFindElements = createTool({
             {
               sel: domFallbackSelector,
               attrs: attributes,
-              origSel: input.selector,
+              origSel: effectiveSelector,
             },
           )
           .catch(() => [] as Record<string, string | null>[]);
