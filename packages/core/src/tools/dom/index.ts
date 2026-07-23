@@ -249,7 +249,7 @@ export const browserGetDomSnapshot = createTool({
 
             if (isInteractable) interactableCount++;
 
-            if (!isInteractable && !includeAll) {
+            if (!isInteractable && !includeAll && currentDepth > 0) {
               for (const child of Array.from(node.children)) {
                 buildTree(child, currentDepth + 1);
               }
