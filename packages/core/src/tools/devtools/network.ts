@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { createTool } from '../_registry.js';
 import type { NetworkEvent, FennecSession } from '../../session/types.js';
+import type { SessionManager } from '../../session/SessionManager.js';
 import type { Route } from '../../browser/types.js';
 
 // ─── Runtime metadata ───────────────────────────────────────────
@@ -589,11 +590,47 @@ export const browserAwaitRequest = createTool({
   },
 });
 
+/**
+ * Extract auth headers from the browser session to auto-inherit auth tokens.
+ * Scans cookies for auth-related names (token, session, auth, jwt, sid, connect)
+ * and returns an Authorization header if a bearer token is found.
+ */
+async function extractAuthHeaders(
+  sessionManager: SessionManager,
+  sessionId?: string,
+): Promise<Record<string, string>> {
+  try {
+    const session = sessionManager.getOrDefault(sessionId);
+    const cookies = await session.browser.contextCookies().catch(() => []);
+    const extraHeaders: Record<string, string> = {};
+
+    // Look for auth cookies that contain token values
+    for (const c of cookies) {
+      if (/token|session|auth|jwt|sid|connect/i.test(c.name)) {
+        // Check if the cookie value looks like a JWT or bearer token
+        const v = c.value;
+        if (
+          v.startsWith('eyJ') || // JWT (base64url-encoded JSON header)
+          v.length > 40 // Long token-like string
+        ) {
+          extraHeaders['Authorization'] = `Bearer ${v}`;
+          break;
+        }
+      }
+    }
+
+    return extraHeaders;
+  } catch {
+    // No session available — return empty headers
+    return {};
+  }
+}
+
 export const networkApiCall = createTool({
   name: 'network_api_call',
   category: 'devtools',
   description:
-    '`<use_case>API Client</use_case> 🌐 Make an ad-hoc HTTP request to any API endpoint. Supports JSON payloads, custom headers, and methods (GET, POST, PUT, DELETE, PATCH). Returns response status, headers, and body (auto-parses JSON). Use when you need to inspect backend API responses, verify API functionality, or check schema/endpoints directly without using the browser UI or spawning curl in shell.`',
+    '`<use_case>API Client</use_case> 🌐 Make an ad-hoc HTTP request to any API endpoint. Supports JSON payloads, custom headers, and methods (GET, POST, PUT, DELETE, PATCH). Auto-inherits auth tokens from the active browser session (Authorization header from auth cookies). Returns response status, headers, and body (auto-parses JSON). Use when you need to inspect backend API responses, verify API functionality, or check schema/endpoints directly without using the browser UI or spawning curl in shell.`',
   inputSchema: z.object({
     url: z.string().url().describe('The URL to make the request to'),
     method: z
@@ -602,17 +639,35 @@ export const networkApiCall = createTool({
       .default('GET')
       .describe('HTTP method'),
     headers: z.record(z.string(), z.string()).optional().describe('Optional request headers'),
-    body: z.string().optional().describe('Optional request body (stringified JSON or text)'),
+    body: z
+      .union([z.string(), z.record(z.unknown())])
+      .optional()
+      .describe(
+        'Optional request body. Accepts a string (raw body) or a JSON object (auto-stringified).',
+      ),
     timeout: z.number().optional().default(10000).describe('Timeout in milliseconds'),
   }),
-  handler: async (input, { responseBuilder }) => {
+  handler: async (input, { responseBuilder, sessionManager }) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), input.timeout ?? 10000);
     try {
+      // Auto-inherit auth headers from the active browser session
+      const authHeaders = await extractAuthHeaders(sessionManager);
+      const mergedHeaders = {
+        ...authHeaders,
+        ...(input.headers ?? {}),
+      };
+
+      // Handle body: stringify if it's a JSON object
+      let bodyStr: string | undefined;
+      if (input.body !== undefined) {
+        bodyStr = typeof input.body === 'string' ? input.body : JSON.stringify(input.body);
+      }
+
       const response = await fetch(input.url, {
         method: input.method ?? 'GET',
-        headers: input.headers,
-        body: ['GET', 'HEAD'].includes(input.method!) ? undefined : input.body,
+        headers: Object.keys(mergedHeaders).length > 0 ? mergedHeaders : undefined,
+        body: ['GET', 'HEAD'].includes(input.method!) ? undefined : bodyStr,
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
@@ -638,6 +693,7 @@ export const networkApiCall = createTool({
         statusText: response.statusText,
         headers,
         body,
+        authInherited: Object.keys(authHeaders).length > 0,
       });
     } catch (err) {
       clearTimeout(timeoutId);
