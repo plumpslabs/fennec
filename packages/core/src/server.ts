@@ -721,24 +721,18 @@ export class FennecServer {
       const params = (request.params ?? {}) as { categories?: string[] };
       const categories = params.categories;
 
-      // Default categories when client doesn't specify: only load essential tool groups
-      // This saves ~1000+ tokens vs loading all 90+ tools
-      // Default categories: essential tool groups for AI agents
-      // Includes process + terminal so agents can check running apps & logs without extra queries
-      const defaultCategories = [
-        'navigation',
-        'interaction',
-        'dom',
-        'smart',
-        'ai',
-        'diagnostic',
-        'process',
-        'terminal',
-        'auth',
-        'tabs',
-        'devtools',
-      ];
-      const selectedCategories = categories?.length ? categories : defaultCategories;
+      // Which tool categories to expose to AI agents.
+      // Clients can pass `categories` in the request to override;
+      // otherwise falls back to `toolCategories` from fennec.config.yaml.
+      // Configure via your .yaml file to add/remove tool groups without
+      // modifying code — handy when you need db, mobile, or debug tools.
+      const cfg = this.config.toolCategories;
+      const selectedCategories = categories?.length
+        ? categories
+        : cfg?.length
+          ? cfg
+          : undefined;
+
       const tools = this.toolRegistry.getByCategories(selectedCategories);
 
       return {

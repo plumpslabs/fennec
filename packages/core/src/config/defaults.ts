@@ -129,6 +129,15 @@ export interface FennecConfig {
     format: 'pretty' | 'json';
     file: string | null;
   };
+  /**
+   * MCP tool categories exposed to AI agents by default.
+   * When an MCP client calls `tools/list` without specifying categories,
+   * only these tool groups are returned — saving context window tokens.
+   * Add extra categories here to make more tools available:
+   *   db, mobile, storage, session, debug, planner, scheduler, recorder
+   * Set to an empty list or omit to use the built-in defaults.
+   */
+  toolCategories?: string[];
   db: {
     strict: boolean;
     allowedHosts: string[];
@@ -228,6 +237,22 @@ export const defaultConfig: FennecConfig = {
     format: 'pretty',
     file: null,
   },
+  toolCategories: [
+    'navigation',
+    'interaction',
+    'dom',
+    'smart',
+    'ai',
+    'diagnostic',
+    'process',
+    'terminal',
+    'auth',
+    'tabs',
+    'devtools',
+    'db',
+    'storage',
+    'debug',
+  ],
   db: {
     strict: true,
     allowedHosts: ['localhost', '127.0.0.1', '::1'],
