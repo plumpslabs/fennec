@@ -2,17 +2,30 @@
 
 All notable changes to Fennec will be documented in this file.
 
-## [1.16.6] - 2026-07-22
+## [1.16.7] - 2026-07-24
+
+### Fixed
+- **`browser_find_elements` Zod schema** — Made `selector` conditionally optional via `refine()`. Added `query` parameter for text-based element search that auto-converts to `:has-text()` for Playwright (#114)
+- **`network_api_call` auto-inherit auth token** — Added `extractAuthHeaders()` helper that reads auth cookies from browser session and auto-injects `Authorization: Bearer` headers. Body schema now accepts both strings and JSON objects (#113)
+- **`browser_get_dom_snapshot` empty structure** — Added `&& currentDepth > 0` guard so root element (`<html>`) is always included in the tree, fixing `structure: []` bug (#111)
+- **MCP connection drops (SSE)** — Removed `this.server.close()` from disconnect handler (root cause). Added keepalive heartbeat (25s), `req.on('error')` handler, and duplicate connection rejection (HTTP 409) (#106)
+- **`devtools_evaluate` TypeScript syntax** — Added `stripTypeScriptSyntax()` helper that auto-strips `as Type` assertions, `: Type` annotations, and function parameter types before `page.evaluate()`. Returns clearer error hints when TS syntax is detected (#112)
+- **`browser_screenshot_annotated` base64 too large** — Changed default `output` from `"base64"` to `"compact"`, saving ~80% token budget. Agents must explicitly request `output:"base64"` for full annotated screenshots (#110)
+- **`browser_click` disabled/hidden elements** — Added `force:true` parameter that bypasses Playwright actionability checks for CSS-responsive elements (`hidden lg:inline`). Falls back to JavaScript `dispatchEvent` click when Playwright force click fails (#107)
 
 ### Added
+- **`auth_load_session` `autoReload` option** — When `true`, reloads the page after restoring session data so SPA frameworks (React, Vue) pick up the auth state. Dispatches synthetic `storage` event before reload for storage event listeners (#115)
+- **`devtools_get_component_state` Redux/React Query support** — Added `includeRedux` and `includeReactQuery` optional params. Detects Redux store via fiber Provider traversal or `window.__REDUX_STORE__`. Detects React Query cache via fiber `QueryClientProvider`, returns cache keys and active queries (#116)
+- **Tool descriptions trimmed** — All 7 diagnostic tool descriptions condensed to 1-2 sentences + key info, saving ~50% token budget per tool. Clearer boundaries between overlapping diagnostic tools (#108, #109)
+
+### Changed
 - **`toolCategories` config option** — MCP tool visibility is now configurable via `fennec.config.yaml`:
   - New `toolCategories` field in `fennec.config.yaml` lets users choose which tool groups are exposed to AI agents
   - Default expanded to include `db`, `storage`, `debug` alongside existing defaults
   - Users can uncomment and customize tool groups in their config file — just add/remove categories like `mobile`, `recorder`, `planner`, `scheduler`, etc.
   - Full commented guidance in `fennec.config.yaml` with all available categories listed
-
-### Changed
 - **MCP `tools/list` now reads from config** — `ListToolsRequestSchema` handler in `server.ts` reads `toolCategories` from `this.config` instead of a hardcoded array. Request-level `categories` param still overrides config.
+- **`browser_click` description updated** — Now mentions `force` mode in tool description
 
 ## [1.16.5] - 2026-07-22
 
