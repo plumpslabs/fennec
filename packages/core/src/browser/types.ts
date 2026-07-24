@@ -168,7 +168,12 @@ export interface WaitForSelectorOptions {
 // ─── Element Locator ─────────────────────────────────────────────
 
 export interface Locator {
-  click(options?: { button?: 'left' | 'right' | 'middle'; clickCount?: number }): Promise<void>;
+  click(options?: {
+    button?: 'left' | 'right' | 'middle';
+    clickCount?: number;
+    /** Skip actionability checks (isVisible, isEnabled, isStable). Use when Playwright reports "element not enabled" for CSS-responsive elements. */
+    force?: boolean;
+  }): Promise<void>;
   fill(text: string): Promise<void>;
   pressSequentially(text: string, options?: { delay?: number }): Promise<void>;
   selectOption(value: string): Promise<string[]>;

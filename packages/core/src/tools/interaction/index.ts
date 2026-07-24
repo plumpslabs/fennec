@@ -15,7 +15,7 @@ export const browserClick = createTool({
   name: 'browser_click',
   category: 'interaction',
   description:
-    '`<use_case>Interaction</use_case> 🖱️ Click on a page element. Supports left/right/middle buttons and clickCount (single/double click). Returns elementFound and click coordinates. Uses smart selector resolution (ARIA label, data-testid, text content, CSS, XPath). Use for clicking buttons, links, checkboxes — the primary way AI agents interact with pages. For keyboard input, use browser_type. For hovering, use browser_hover.`',
+    '`<use_case>Interaction</use_case> 🖱️ Click on a page element. Supports left/right/middle buttons, clickCount (single/double click), and force mode (bypasses Playwright actionability checks for CSS-responsive elements like "hidden lg:inline"). Returns elementFound, usedForce, jsFallback, and click coordinates. Uses smart selector resolution (ARIA label, data-testid, text content, CSS, XPath). Use for clicking buttons, links, checkboxes — the primary way AI agents interact with pages. For keyboard input, use browser_type. For hovering, use browser_hover.`',
   inputSchema: z.object({
     selector: z.string().describe('Element selector (ARIA, testid, text, CSS, or XPath)'),
     index: z
@@ -28,6 +28,15 @@ export const browserClick = createTool({
       ),
     button: z.enum(['left', 'right', 'middle']).optional().default('left').describe('Mouse button'),
     clickCount: z.number().optional().default(1).describe('Number of clicks (1=single, 2=double)'),
+    force: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(
+        'When true, bypass Playwright actionability checks (isVisible, isEnabled, isStable). ' +
+          'Use on CSS-responsive elements like "hidden lg:inline" that Playwright incorrectly considers disabled. ' +
+          'Falls back to JavaScript dispatchEvent click if Playwright click fails.',
+      ),
     sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
@@ -48,16 +57,41 @@ export const browserClick = createTool({
         });
       }
 
-      const box = await session.browser.locator(resolved.selector).boundingBox();
+      const loc = session.browser.locator(resolved.selector);
+      const box = await loc.boundingBox();
 
-      await session.browser.locator(resolved.selector).click({
-        button: input.button,
-        clickCount: input.clickCount,
-      });
+      let usedForce = false;
+      let usedJsFallback = false;
+
+      try {
+        if (input.force) {
+          // Bypass Playwright actionability checks (isVisible, isEnabled)
+          await loc.click({ button: input.button, clickCount: input.clickCount, force: true });
+          usedForce = true;
+        } else {
+          await loc.click({ button: input.button, clickCount: input.clickCount });
+        }
+      } catch (clickError) {
+        // If normal click fails AND force is requested, try JS dispatchEvent fallback
+        if (input.force) {
+          await session.browser.evaluate((sel: string) => {
+            const el = document.querySelector(sel);
+            if (el) {
+              el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            }
+          }, resolved.selector);
+          usedForce = true;
+          usedJsFallback = true;
+        } else {
+          throw clickError;
+        }
+      }
 
       return responseBuilder.success(
         {
           elementFound: true,
+          usedForce: usedForce || undefined,
+          jsFallback: usedJsFallback || undefined,
           coordinates: box ? { x: box.x, y: box.y, width: box.width, height: box.height } : null,
         },
         sessionManager.buildMeta(session),
