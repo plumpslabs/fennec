@@ -693,6 +693,7 @@ export const explain = createTool({
             corsWarnings: 0,
             networkFailures: 0,
             networkSlow: 0,
+            topConsoleErrors: [],
             summary: parts.join(' | '),
           };
           return pulse;
@@ -705,6 +706,7 @@ export const explain = createTool({
             corsWarnings: 0,
             networkFailures: 0,
             networkSlow: 0,
+            topConsoleErrors: [],
             summary: 'pulse unavailable',
           };
           return pulse;

@@ -335,7 +335,7 @@ export const authLoadSession = createTool({
   name: 'auth_load_session',
   category: 'auth',
   description:
-    '`<use_case>Auth</use_case> 🔓 Load a previously saved auth session (from auth_save_session) into the browser. Restores cookies + localStorage WITHOUT navigating by default. Pass navigate:true, url, or autoReload:true to trigger a page reload for SPA state re-sync. Returns cookiesLoaded, storageLoaded, originMatched, and a warning if the current origin differs. Use to quickly restore authenticated state without re-logging in. Pass filePath to load from a specific .json, or name to load from the global store. Get available session names from auth_list_sessions.`',
+    '`<use_case>Auth</use_case> 🔓 Load a previously saved auth session (from auth_save_session) into the browser. Restores cookies + localStorage WITHOUT navigating by default (except on about:blank — auto-navigates to the saved origin). Pass navigate:true, url, or autoReload:true to trigger a page reload for SPA state re-sync. Returns cookiesLoaded, storageLoaded, originMatched, autoNavigated, and a warning if the current origin differs. Use to quickly restore authenticated state without re-logging in. Pass filePath to load from a specific .json, or name to load from the global store. Get available session names from auth_list_sessions.`',
   inputSchema: z.object({
     name: z
       .string()
@@ -351,7 +351,7 @@ export const authLoadSession = createTool({
       .optional()
       .default(false)
       .describe(
-        'When true, navigate to the saved origin (or the url override) after restoring cookies. Default false — restores cookies in-place without navigating.',
+        'When true, navigate to the saved origin (or the url override) after restoring cookies. Default false — restores cookies in-place without navigating (unless current page is about:blank, which auto-navigates to the saved origin).',
       ),
     url: z
       .string()
@@ -459,9 +459,16 @@ export const authLoadSession = createTool({
           `Cookies loaded (${saved.cookies.length}). To fully restore, call with navigate:true or url="${sessionOrigin}".`;
       }
 
-      // ── Step 3: Navigate if explicitly requested (default: no navigation) ──
+      // ── Step 3: Navigate if explicitly requested or on about:blank ──
+      // When the browser is on about:blank (fresh tab), the session origin is
+      // unreachable for localStorage restore. Auto-navigate to the saved origin
+      // so cookies + localStorage are fully restored in one call (#127).
       let didNavigate = false;
-      const shouldNavigate = input.navigate || !!input.url;
+      const isAboutBlank =
+        !currentOrigin ||
+        currentOrigin === 'null' ||
+        session.browser.url() === 'about:blank';
+      const shouldNavigate = input.navigate || !!input.url || isAboutBlank;
 
       if (shouldNavigate) {
         const targetUrl = input.url || sessionOrigin;
@@ -507,6 +514,7 @@ export const authLoadSession = createTool({
           storageLoaded,
           originMatched,
           didNavigate,
+          autoNavigated: isAboutBlank ? true : undefined,
           didAutoReload: didAutoReload || undefined,
           ...(storageWarning ? { warning: storageWarning } : {}),
           ...(didNavigate ? { navigatedTo: input.url || sessionOrigin } : {}),

@@ -26,6 +26,8 @@ export interface Pulse {
   corsWarnings: number;
   networkFailures: number;
   networkSlow: number;
+  /** Top 5 console error messages — lets agents see actual errors without a separate devtools call (#128) */
+  topConsoleErrors: string[];
   summary: string;
 }
 
@@ -53,21 +55,33 @@ async function buildPulse(session: {
     corsWarnings: 0,
     networkFailures: 0,
     networkSlow: 0,
+    topConsoleErrors: [],
     summary: '',
   };
 
   const isCorsNoise = (msg?: string): boolean =>
     !!msg && /cors|cross-origin|access-control|blocked by/i.test(msg);
 
+  // Collect top 5 actual error messages first, then count
+  const realErrors: string[] = [];
+
   // Count console logs by level (fast, in-memory)
   for (const log of session.consoleBuffer) {
     if (log.level === 'error') {
-      if (isCorsNoise(log.message)) pulse.corsWarnings++;
-      else pulse.consoleErrors++;
+      if (isCorsNoise(log.message)) {
+        pulse.corsWarnings++;
+      } else {
+        pulse.consoleErrors++;
+        if (realErrors.length < 5 && log.message) {
+          realErrors.push(log.message.slice(0, 200));
+        }
+      }
     } else if (log.level === 'warn') {
       pulse.consoleWarnings++;
     }
   }
+
+  pulse.topConsoleErrors = realErrors;
 
   // Count network issues (fast, in-memory)
   for (const req of session.networkBuffer) {
