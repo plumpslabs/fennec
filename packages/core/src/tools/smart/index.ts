@@ -764,7 +764,7 @@ export const browserScreenshotAnnotated = createTool({
   name: 'browser_screenshot_annotated',
   category: 'smart',
   description:
-    '`<use_case>Smart</use_case> 📸 Take a screenshot with auto-numbered badges on ALL interactive elements (buttons, links, inputs, selects, etc.). Each element gets a data-ai-index attribute and visual numbered overlay. Returns base64 screenshot + elements[] with index, tag, text, selector, roleSelector, boundingBox. Use when you need the AI to SEE the page layout visually — great for unfamiliar pages. Use roleSelector (e.g. role=button[name="..."]) to target an element with browser_click, or set persistIndices:true to keep data-ai-index attributes in the DOM and click by index: browser_click(selector="[data-ai-index=\'3\']"). Use maxElements to cap output on dense pages. For plain screenshots without annotations, use browser_screenshot.`',
+    '`<use_case>Smart</use_case> 📸 Take a screenshot with auto-numbered badges on ALL interactive elements (buttons, links, inputs, selects, etc.). Each element gets a data-ai-index attribute and visual numbered overlay. DEFAULT output is compact (metadata only, no screenshot — ~80% token savings). Set output:"base64" for full annotated screenshot. Returns elements[] with index, tag, text, selector, roleSelector, boundingBox. Use roleSelector (e.g. role=button[name="..."]) to target an element with browser_click, or set persistIndices:true to keep data-ai-index attributes in the DOM and click by index: browser_click(selector="[data-ai-index=\'3\']"). Use maxElements to cap output on dense pages. For plain screenshots, use browser_screenshot.`',
   inputSchema: z.object({
     format: z.enum(['png', 'jpeg']).optional().default('png').describe('Image format'),
     fullPage: z
@@ -775,9 +775,9 @@ export const browserScreenshotAnnotated = createTool({
     output: z
       .enum(['base64', 'compact'])
       .optional()
-      .default('base64')
+      .default('compact')
       .describe(
-        "'base64' = full annotated screenshot with image (default), 'compact' = element metadata only, no screenshot (~80% token savings)",
+        "'compact' = element metadata only, no screenshot (~80% token savings, DEFAULT). 'base64' = full annotated screenshot with image (large, use only when visual layout is critical).",
       ),
     maxElements: z
       .number()
@@ -812,7 +812,7 @@ export const browserScreenshotAnnotated = createTool({
           ? allElements.slice(0, input.maxElements)
           : allElements;
 
-      const output = input.output ?? 'base64';
+      const output = input.output ?? 'compact';
       const format = input.format ?? 'png';
       const fullPage = input.fullPage ?? false;
 
