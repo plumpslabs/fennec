@@ -929,11 +929,34 @@ export class FennecServer {
             return;
           }
 
-          // Handle client disconnect
-          req.on('close', async () => {
+          // Set up a keepalive heartbeat interval to detect stale connections.
+          // Every 25 seconds we send a comment line (which is ignored by the
+          // SSE parser but keeps the TCP connection alive through proxies).
+          const keepaliveHandle = setInterval(() => {
+            try {
+              res.write(':keepalive\n\n');
+            } catch {
+              clearInterval(keepaliveHandle);
+            }
+          }, 25000);
+
+          // Handle client disconnect: just clean up the transport reference.
+          // DO NOT call this.server.close() — that kills the entire MCP server
+          // and prevents any future reconnection (issue #106). By keeping the
+          // MCP server alive, a new SSE client can reconnect and get a fresh
+          // transport without restarting the process.
+          req.on('close', () => {
             logger.debug('SSE client disconnected');
+            clearInterval(keepaliveHandle);
             if (this.sseTransport === transport) {
-              await this.server.close().catch(() => {});
+              this.sseTransport = null;
+            }
+          });
+
+          // Also handle 'error' on the request so we clean up on abrupt drops
+          req.on('error', () => {
+            clearInterval(keepaliveHandle);
+            if (this.sseTransport === transport) {
               this.sseTransport = null;
             }
           });
