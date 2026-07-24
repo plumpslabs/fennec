@@ -335,7 +335,7 @@ export const authLoadSession = createTool({
   name: 'auth_load_session',
   category: 'auth',
   description:
-    '`<use_case>Auth</use_case> 🔓 Load a previously saved auth session (from auth_save_session) into the browser. Restores cookies + localStorage WITHOUT navigating by default (fixes unexpected cross-origin jumps, #104). Pass navigate:true or url to navigate after restoring. Returns cookiesLoaded, storageLoaded, originMatched, and a warning if the current origin differs. Use to quickly restore authenticated state without re-logging in. Pass filePath to load from a specific .json, or name to load from the global store ~/.fennec/sessions/<origin>/<name>.json (auto-discovered). Get available session names from auth_list_sessions.`',
+    '`<use_case>Auth</use_case> 🔓 Load a previously saved auth session (from auth_save_session) into the browser. Restores cookies + localStorage WITHOUT navigating by default. Pass navigate:true, url, or autoReload:true to trigger a page reload for SPA state re-sync. Returns cookiesLoaded, storageLoaded, originMatched, and a warning if the current origin differs. Use to quickly restore authenticated state without re-logging in. Pass filePath to load from a specific .json, or name to load from the global store. Get available session names from auth_list_sessions.`',
   inputSchema: z.object({
     name: z
       .string()
@@ -358,6 +358,13 @@ export const authLoadSession = createTool({
       .optional()
       .describe(
         'Optional URL to navigate to after restoring the session (overrides the saved origin; implies navigate=true)',
+      ),
+    autoReload: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(
+        'When true, reload the page after restoring session data so SPA frameworks (React, Vue, etc.) pick up the auth state from localStorage/cookies. For SPAs that listen to storage events, dispatches a synthetic event before reload.',
       ),
     createIfMissing: z
       .boolean()
@@ -473,12 +480,34 @@ export const authLoadSession = createTool({
         }
       }
 
+      // ── Step 4: Auto-reload for SPA state re-sync ──
+      // SPAs (React, Vue, etc.) typically read auth state on mount and don't
+      // pick up localStorage changes made while the app is already running.
+      // autoReload triggers a page reload so the SPA re-initializes with the
+      // restored session. Also dispatches a synthetic storage event first so
+      // any storage event listeners also fire before the reload.
+      let didAutoReload = false;
+      if (input.autoReload && !didNavigate) {
+        await session.browser
+          .evaluate(() => {
+            // Dispatch storage event so React/Vue storage listeners fire
+            window.dispatchEvent(new Event('storage'));
+          })
+          .catch(() => {});
+        await session.browser.reload().catch(() => {});
+        didAutoReload = true;
+      } else if (input.autoReload && didNavigate) {
+        // Already navigated — no need for a separate reload
+        didAutoReload = true;
+      }
+
       return responseBuilder.success(
         {
           cookiesLoaded: saved.cookies.length,
           storageLoaded,
           originMatched,
           didNavigate,
+          didAutoReload: didAutoReload || undefined,
           ...(storageWarning ? { warning: storageWarning } : {}),
           ...(didNavigate ? { navigatedTo: input.url || sessionOrigin } : {}),
         },
