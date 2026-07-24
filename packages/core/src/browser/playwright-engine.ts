@@ -53,7 +53,7 @@ function generateSessionId(): string {
 
 function wrapLocator(pwLocator: ReturnType<Page['locator']>): Locator {
   const wrapped: Locator & { _pwLocator?: ReturnType<Page['locator']> } = {
-    click: (opts) => pwLocator.click(opts).then(),
+    click: (opts) => pwLocator.click(opts as { button?: 'left' | 'right' | 'middle'; clickCount?: number; force?: boolean } | undefined).then(),
     fill: (text) => pwLocator.fill(text),
     pressSequentially: (text, opts) => pwLocator.pressSequentially(text, opts).then(),
     selectOption: (value) => pwLocator.selectOption(value),
