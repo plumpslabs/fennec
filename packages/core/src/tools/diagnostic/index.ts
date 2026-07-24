@@ -10,7 +10,7 @@ export const diagnosePage = createTool({
   name: 'diagnose_page',
   category: 'diagnostic',
   description:
-    '`<use_case>Diagnostic</use_case> 🩺 Comprehensive one-shot page health check. Collects: page URL/title/state, console errors, network failures (>=400), and performance metrics. Returns summary with errorCount and failedRequests. Use as your first diagnostic step when something seems wrong. More complete than diagnose_network (network only) or devtools_get_js_errors (console only). For full-stack diagnosis including server processes, use diagnose_fullstack.`',
+    '`<use_case>Diagnostic</use_case> 🩺 One-shot page health check: console errors + network failures + page state + performance. Start here when something seems wrong. For full-stack, use diagnose_fullstack. For network-only, use diagnose_network.`',
   inputSchema: z.object({
     focus: z
       .enum(['errors', 'performance', 'network', 'all'])
@@ -53,7 +53,7 @@ export const diagnoseElement = createTool({
   name: 'diagnose_element',
   category: 'diagnostic',
   description:
-    "`<use_case>Diagnostic</use_case> 🔍 Debug a specific element: checks existence (in DOM), visibility (isVisible), enablement (isEnabled), and overall interactability. Returns reason and actionable suggestions if the element can't be interacted with. Use when browser_click or browser_type fails — this tells you WHY (not visible? disabled? not in DOM?). For full element details including attributes and bounding box, use browser_get_element_info instead.`",
+    "`<use_case>Diagnostic</use_case> 🔍 Check a specific element's existence, visibility, and enablement. Returns interactable status with suggestions. Use when browser_click/type fails. For full attributes/boundingBox, use browser_get_element_info.`",
   inputSchema: z.object({
     selector: z.string().describe('Element selector to diagnose'),
     sessionId: z.string().optional().describe('Session ID'),
@@ -113,7 +113,7 @@ export const diagnoseNetwork = createTool({
   name: 'diagnose_network',
   category: 'diagnostic',
   description:
-    '`<use_case>Diagnostic</use_case> 🌐 Network-only diagnostic: failed requests (>=400), slow requests (>1s), CORS issues, and summary with total/failed/slow/cors counts. More focused than diagnose_page which also checks console and performance. Use for quick network health checks — e.g., after an API call fails. For detailed request inspection, use network_get_logs or network_get_request_detail.`',
+    '`<use_case>Diagnostic</use_case> 🌐 Network health: failed (>=400), slow (>1s), CORS issues. More focused than diagnose_page (which also checks console + perf). For detailed request inspection, use network_get_logs.`',
   inputSchema: z.object({
     since: z.string().optional().describe('ISO timestamp filter'),
     sessionId: z.string().optional().describe('Session ID'),
@@ -153,7 +153,7 @@ export const diagnoseAuth = createTool({
   name: 'diagnose_auth',
   category: 'diagnostic',
   description:
-    "`<use_case>Diagnostic</use_case> 🔐 Check authentication state: analyzes cookies for auth tokens (session, jwt, token, auth, sid, connect). Returns isAuthenticated, tokenFound, cookiesPresent, authCookiesCount, expiryInfo. Use to quickly verify if you're logged in on a site, check token expiry, or diagnose login issues. More detailed than auth_check_logged_in which also checks page elements. For saving/loading auth, use auth_save_session / auth_load_session.`",
+    "`<use_case>Diagnostic</use_case> 🔐 Check auth via cookies: token/session/jwt/sid/connect. Returns isAuthenticated, authCookiesCount, expiryInfo. More detailed than auth_check_logged_in (which also checks page elements). For save/load: auth_save_session / auth_load_session.`",
   inputSchema: z.object({ sessionId: z.string().optional().describe('Session ID') }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
@@ -187,7 +187,7 @@ export const diagnoseFullstack = createTool({
   name: 'diagnose_fullstack',
   category: 'diagnostic',
   description:
-    '`<use_case>Diagnostic</use_case> 🏥 Full-stack diagnostic: correlates browser-side errors (console + network) with server-side process logs. Returns: browser state, server errors (if processId provided), and correlation analysis with rootCause, confidence score, and suggested fix. Use when debugging full-stack apps — provides unified view of frontend + backend issues. Detects patterns: auth tokens, missing env vars, 500 errors + server crashes. Simpler: diagnose_page for just browser side.`',
+    '`<use_case>Diagnostic</use_case> 🏥 Full-stack diagnostic: correlates browser errors + network failures with server process logs. Requires processId. Returns rootCause analysis with confidence score. For browser-only, use diagnose_page.`',
   inputSchema: z.object({
     processId: z.string().optional().describe('Server process ID to correlate with browser state'),
     sessionId: z.string().optional().describe('Session ID'),
@@ -276,7 +276,7 @@ export const diagnoseFennecHealth = createTool({
   name: 'diagnose_fennec_health',
   category: 'diagnostic',
   description:
-    '`<use_case>Diagnostic</use_case> 🩺 Self-diagnose Fennec server health. Returns trend analysis (improving/stable/degrading), recent metrics, memory usage, and uptime. Use when the agent suspects Fennec is running slowly or has degraded performance. Token-efficient: ~50 tokens. Does NOT depend on any browser session.',
+    '`<use_case>Diagnostic</use_case> 🩺 Fennec server health: trend analysis, metrics, memory usage, uptime. No browser session required. ~50 tokens.',
   inputSchema: z.object({}),
   handler: async (_input, { performanceMetrics, sessionManager, responseBuilder }) => {
     const metrics = performanceMetrics.getMetrics();
@@ -314,7 +314,7 @@ export const diagnosePerformance = createTool({
   name: 'diagnose_performance',
   category: 'diagnostic',
   description:
-    "`<use_case>Diagnostic</use_case> ⚡ Performance diagnostic: checks Web Vitals (FCP, LCP, CLS, memory) and returns score (0-100), issues[], and optimization recommendations[]. More actionable than devtools_get_performance_metrics which just returns raw metrics. Use for performance auditing — tells you what's wrong AND how to fix it. Includes memory leak detection (JS heap > 100MB).`",
+    "`<use_case>Diagnostic</use_case> ⚡ Web Vitals + memory audit: FCP, LCP, CLS, JS heap. Returns score (0-100), issues, and recommendations. More actionable than devtools_get_performance_metrics (raw metrics only). Includes memory leak detection (>100MB).`",
   inputSchema: z.object({ sessionId: z.string().optional().describe('Session ID') }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
