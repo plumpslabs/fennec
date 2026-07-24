@@ -390,7 +390,7 @@ export const devtoolsGetComponentState = createTool({
   name: 'devtools_get_component_state',
   category: 'devtools',
   description:
-    '`<use_case>Debugging</use_case> 🔬 Read React component internal state from fiber nodes. Given a CSS selector, walks the React fiber tree to extract props, state, context, and hooks for the matching component. Returns componentName, props, state, hooks summary, and context. Use to inspect React component internals during debugging — e.g., checking form state after input, verifying context values, or debugging re-renders. NOTE: Works only on pages using React; Vue/others return fiberInfo:null. Requires security.allowJSEvaluation to be enabled.`',
+    '`<use_case>Debugging</use_case> 🔬 Read React component internal state from fiber nodes. Given a CSS selector, walks the React fiber tree to extract props, state, context, and hooks for the matching component. Optionally reads Redux store state slices and React Query cache (TanStack Query) by setting includeRedux or includeReactQuery. Returns componentName, props, state, hooks summary, redux, reactQuery. Use to inspect React component internals during debugging. NOTE: Works only on pages using React; Vue/others return fiberInfo:null. Requires security.allowJSEvaluation to be enabled.`',
   inputSchema: z.object({
     selector: z.string().describe('CSS selector of the DOM element rendered by the component'),
     maxDepth: z
@@ -403,6 +403,20 @@ export const devtoolsGetComponentState = createTool({
       .optional()
       .default(false)
       .describe('Include full hook values (can be large for complex components)'),
+    includeRedux: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(
+        'When true, also attempt to read Redux store state slices (getState). Detects store from __REDUX_STORE__ or fiber Provider context.',
+      ),
+    includeReactQuery: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(
+        'When true, also attempt to read React Query (TanStack Query) cache — active queries, stale status, cache keys.',
+      ),
     sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
@@ -410,7 +424,19 @@ export const devtoolsGetComponentState = createTool({
 
     try {
       const result = await session.browser.evaluate(
-        ({ sel, maxDep, inclHooks }: { sel: string; maxDep: number; inclHooks: boolean }) => {
+        ({
+          sel,
+          maxDep,
+          inclHooks,
+          inclRedux,
+          inclRQ,
+        }: {
+          sel: string;
+          maxDep: number;
+          inclHooks: boolean;
+          inclRedux: boolean;
+          inclRQ: boolean;
+        }) => {
           const el = document.querySelector(sel);
           if (!el) return { found: false, error: 'Element not found' };
 
@@ -471,7 +497,11 @@ export const devtoolsGetComponentState = createTool({
             let hookCount = 0;
             while (hook && hookCount < 20) {
               const queue = hook.queue;
-              const hookType = queue ? (queue as Record<string, unknown>).lastRenderedState !== undefined ? 'useState' : 'useReducer' : 'useRef';
+              const hookType = queue
+                ? (queue as Record<string, unknown>).lastRenderedState !== undefined
+                  ? 'useState'
+                  : 'useReducer'
+                : 'useRef';
               const val = hook.memoizedState;
               hooks.push({
                 type: hookType,
@@ -488,6 +518,165 @@ export const devtoolsGetComponentState = createTool({
             const sn = stateNode as Record<string, unknown>;
             if (sn.state && typeof sn.state === 'object') {
               classState = sn.state as Record<string, unknown>;
+            }
+          }
+
+          // ── Redux store detection ──
+          let redux: Record<string, unknown> | null = null;
+          if (inclRedux) {
+            try {
+              // Try window.__REDUX_STORE__ first (most common pattern)
+              const win = window as unknown as Record<string, unknown>;
+              const store = (win.__REDUX_STORE__ ?? win.store) as
+                | Record<string, unknown>
+                | undefined;
+              if (
+                store &&
+                typeof (store as Record<string, unknown>).getState === 'function'
+              ) {
+                const getState = (store as Record<string, unknown>).getState as (
+                  ...args: unknown[]
+                ) => Record<string, unknown>;
+                const state = getState();
+                const slices: Record<string, unknown> = {};
+                for (const key of Object.keys(state)) {
+                  const val = state[key];
+                  if (typeof val === 'object' && val !== null) {
+                    slices[key] = {
+                      keys: Object.keys(val as Record<string, unknown>),
+                      type: 'object',
+                    };
+                  } else {
+                    slices[key] = val;
+                  }
+                }
+                redux = {
+                  detected: true,
+                  source: '__REDUX_STORE__',
+                  slices,
+                };
+              } else {
+                // Try traversing fiber tree for Redux Provider context
+                let ctxCurrent: Record<string, unknown> | null = fiber as Record<string, unknown>;
+                while (ctxCurrent && ctxCurrent.return) {
+                  ctxCurrent = ctxCurrent.return as Record<string, unknown>;
+                  const type = ctxCurrent.type as Record<string, unknown> | undefined;
+                  if (
+                    type &&
+                    (type.name === 'Provider' || type.displayName === 'Provider')
+                  ) {
+                    const pendingProps = ctxCurrent.pendingProps as
+                      | Record<string, unknown>
+                      | undefined;
+                    if (pendingProps && pendingProps.store) {
+                      const providerStore = pendingProps.store as Record<string, unknown>;
+                      if (
+                        providerStore &&
+                        typeof (providerStore as Record<string, unknown>).getState === 'function'
+                      ) {
+                        const getState = (providerStore as Record<string, unknown>).getState as (
+                          ...args: unknown[]
+                        ) => Record<string, unknown>;
+                        const state = getState();
+                        const slices: Record<string, unknown> = {};
+                        for (const key of Object.keys(state)) {
+                          const val = state[key];
+                          if (typeof val === 'object' && val !== null) {
+                            slices[key] = {
+                              keys: Object.keys(val as Record<string, unknown>),
+                              type: 'object',
+                            };
+                          } else {
+                            slices[key] = val;
+                          }
+                        }
+                        redux = {
+                          detected: true,
+                          source: 'fiber:Provider',
+                          slices,
+                        };
+                      }
+                    }
+                    break;
+                  }
+                }
+                if (!redux) {
+                  redux = { detected: false, source: null };
+                }
+              }
+            } catch {
+              redux = { detected: false, source: null, error: 'Failed to read Redux store' };
+            }
+          }
+
+          // ── React Query cache detection ──
+          let reactQuery: Record<string, unknown> | null = null;
+          if (inclRQ) {
+            try {
+              let rqCurrent: Record<string, unknown> | null = fiber as Record<string, unknown>;
+              let queryClient: Record<string, unknown> | null = null;
+
+              while (rqCurrent && rqCurrent.return) {
+                rqCurrent = rqCurrent.return as Record<string, unknown>;
+                const type = rqCurrent.type as Record<string, unknown> | undefined;
+                if (
+                  type &&
+                  (type.name === 'QueryClientProvider' ||
+                    type.displayName === 'QueryClientProvider' ||
+                    type.name === 'ReactQueryClientProvider')
+                ) {
+                  const pendingProps = rqCurrent.pendingProps as
+                    | Record<string, unknown>
+                    | undefined;
+                  if (pendingProps) {
+                    const child = (pendingProps.client ?? pendingProps.queryClient) as
+                      | Record<string, unknown>
+                      | undefined;
+                    if (child) queryClient = child;
+                  }
+                  break;
+                }
+              }
+
+              if (queryClient) {
+                const getQueryCache = (
+                  queryClient as Record<string, unknown>
+                ).getQueryCache as (() => { getAll: () => Array<Record<string, unknown>> }) | undefined;
+                const getMutationCache = (
+                  queryClient as Record<string, unknown>
+                ).getMutationCache as (() => { getAll: () => Array<Record<string, unknown>> }) | undefined;
+
+                const queryCache = getQueryCache?.();
+                const mutationCache = getMutationCache?.();
+                const queries = queryCache?.getAll?.() ?? [];
+                const mutations = mutationCache?.getAll?.() ?? [];
+
+                reactQuery = {
+                  detected: true,
+                  queryCount: queries.length,
+                  mutationCount: mutations.length,
+                  activeQueries: queries
+                    .slice(0, 10)
+                    .map((q: Record<string, unknown>) => ({
+                      queryKey: q.queryKey,
+                      isStale:
+                        typeof q.isStale === 'function'
+                          ? (q.isStale as () => boolean)()
+                          : (q.state as Record<string, unknown>)?.isStale ?? null,
+                      isFetching: q.isFetching ?? false,
+                    })),
+                  cacheKeys: queries
+                    .slice(0, 20)
+                    .map((q: Record<string, unknown>) => q.queryKey),
+                };
+              } else {
+                reactQuery = { detected: false };
+              }
+            } catch {
+              reactQuery = {
+                detected: false,
+                error: 'Failed to read React Query cache',
+              };
             }
           }
 
@@ -508,12 +697,16 @@ export const devtoolsGetComponentState = createTool({
               null,
             state: classState,
             hooks: hooks.length > 0 ? hooks : null,
+            ...(inclRedux ? { redux } : {}),
+            ...(inclRQ ? { reactQuery } : {}),
           };
         },
         {
           sel: input.selector,
           maxDep: Math.min(input.maxDepth ?? 2, 5),
           inclHooks: input.includeHooks ?? false,
+          inclRedux: input.includeRedux ?? false,
+          inclRQ: input.includeReactQuery ?? false,
         },
       );
 
