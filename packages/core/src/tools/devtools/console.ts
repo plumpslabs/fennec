@@ -2,6 +2,42 @@ import { z } from 'zod';
 import { createTool } from '../_registry.js';
 
 /**
+ * Strip common TypeScript syntax from an expression so it can be evaluated
+ * by page.evaluate() which only accepts plain JavaScript.
+ *
+ * Handles:
+ *   - Type assertions:  (expr as Type)  →  (expr)
+ *                       expr as Type    →  expr
+ *   - Variable type annotations:  const x: Type =  →  const x =
+ *                                 let x: Type =    →  let x =
+ *   - Function return types:  ): Type =>  →  ) =>
+ *
+ * This is NOT a full transpiler — it only handles the most common patterns
+ * that AI agents naturally produce.
+ */
+function stripTypeScriptSyntax(expression: string): string {
+  let result = expression;
+
+  // 1. Strip type assertions:  (expr as Type)  →  (expr)
+  //    Also handles:  expr as Type  when followed by operator or end-of-line
+  result = result.replace(/\s+as\s+[A-Za-z_][\w<>[\]|&, ]*[A-Za-z_>\]]/g, '');
+
+  // 2. Strip variable type annotations:
+  //    const x: Type =  →  const x =
+  //    let x: Type =    →  let x =
+  result = result.replace(/(const|let|var)\s+(\w+)\s*:\s*[A-Za-z_][\w<>[\]|&, ]*/g, '$1 $2');
+
+  // 3. Strip parameter/return type annotations in arrow functions:
+  //    (x: Type): ReturnType =>  →  (x) =>
+  result = result.replace(/\(([^)]*)\)\s*:\s*[A-Za-z_][\w<>[\]|&, ]*\s*=>/g, '($1) =>');
+
+  // 4. Strip parameter type annotations inside function parentheses:
+  //    (x: Type, y: Type)  →  (x, y)
+  result = result.replace(/:\s*[A-Za-z_][\w<>[\]|&, ]*(?=[,)\]])/g, '');
+  return result;
+}
+
+/**
  * Build a human-readable summary of console logs grouped by level.
  * This is the token-efficient alternative to dumping all raw logs.
  */
@@ -128,33 +164,54 @@ export const devtoolsEvaluate = createTool({
 
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      const result = await session.browser.evaluate(input.expression);
+      // Auto-strip TypeScript syntax before evaluation
+      const processed = stripTypeScriptSyntax(input.expression);
+
+      const result = await session.browser.evaluate(processed);
       return responseBuilder.success(
         {
           ok: true,
           result,
           type: typeof result,
+          expressionStripped: processed !== input.expression ? true : undefined,
         },
         sessionManager.buildMeta(session),
       );
     } catch (error) {
       const err = error as Error & { name?: string; stack?: string };
-      const isFetchLike = /fetch|\.json\(\)|\.map\(|TypeError|undefined \(reading/.test(
-        err?.message ?? '',
-      );
+      const msg = err?.message ?? String(error);
+      const isFetchLike = /fetch|\.json\(\)|\.map\(|TypeError|undefined \(reading/.test(msg);
+
+      // Detect TypeScript-specific errors
+      const hasTypeAnnotation =
+        /:\s*(string|number|boolean|any|void|null|undefined|never|unknown|Promise|Record|Array|Map|Set|HTML\w+|\w+Type|\w+Element)/.test(
+          input.expression,
+        );
+      const isTypeScriptError =
+        (/Unexpected identifier|Unexpected token/.test(msg) ||
+          msg.includes('as') ||
+          hasTypeAnnotation) &&
+        (input.expression.includes('as ') || hasTypeAnnotation);
+
       return responseBuilder.success(
         {
           ok: false,
           code: 'JS_EVAL_ERROR',
-          error: err?.message ?? String(error),
+          error: msg,
           name: err?.name ?? 'Error',
           stack: err?.stack ?? undefined,
           expression: input.expression,
-          suggestions: isFetchLike
+          suggestions: isTypeScriptError
             ? [
-                'For API calls, prefer devtools_api_fetch — it runs fetch() in the page context, inherits auth/cookies, and returns the raw response text even on HTTP errors (so you see the real API error instead of a chained .map() crash).',
+                'TypeScript syntax detected — use plain JavaScript for page.evaluate(). Strip "as Type" assertions, ": Type" annotations, and type parameters.',
+                'Example: (btn as HTMLElement).click() → btn.click()',
+                'Example: const x: string = value → const x = value',
               ]
-            : undefined,
+            : isFetchLike
+              ? [
+                  'For API calls, prefer devtools_api_fetch — it runs fetch() in the page context, inherits auth/cookies, and returns the raw response text even on HTTP errors (so you see the real API error instead of a chained .map() crash).',
+                ]
+              : undefined,
         },
         sessionManager.buildMeta(session),
       );
