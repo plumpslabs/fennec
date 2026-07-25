@@ -2,6 +2,17 @@
 
 All notable changes to Fennec will be documented in this file.
 
+## [1.16.8] - 2026-07-26
+
+### Fixed
+- **`ProcessManager.kill()` only killed single PID, not process tree** — Changed `proc.child.kill(signal)` to `killTree(proc.pid, signal)` so MCP-triggered kills (`process_run_and_wait` timeout, `process_restart`, `process_cleanup`) terminate the entire process group instead of leaking orphaned children
+- **`fennec stop` post-stop verification checked only top-level PID** — Replaced `isProcessRunning(pid)` with `isProcessGroupAlive(pid)` that uses `process.kill(-pid, 0)` to detect if any descendant (e.g. `nodemon` → `tsx`) survived SIGTERM after being re-parented. Grace period increased from 200ms to 500ms
+- **`fennec db connect` keychain error showed misleading "Connection failed"** — Wrapped macOS Keychain `security add-generic-password` in try/catch with silent fallback to `FileStore`. Separated keychain save error from connection error so users see a warning instead of a failed connection message
+- **`resurrectTracked` dropped `group`, `debugMode`, `healthCheck`, `flapping`** — Added missing properties to the `addTracked()` call in `start.ts` so processes auto-resurrected after server restart retain their group membership and debug configuration
+
+### Added
+- **`isProcessGroupAlive()` utility** — New exported function in both CLI and core `system-process.ts` that checks whether any process still exists in a given process group (PGID), enabling reliable orphan detection after `kill(-pid, signal)`
+
 ## [1.16.7] - 2026-07-24
 
 ### Fixed

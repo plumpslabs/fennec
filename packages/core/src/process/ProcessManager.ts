@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { getLogger } from '../utils/logger.js';
 import { detectLogLevel, type LogLevel } from '../utils/levelDetector.js';
 import { redactLogLine } from './redact.js';
+import { killTree } from '../utils/system-process.js';
 import type { EventBus } from '../correlation/EventBus.js';
 
 export interface ManagedProcess {
@@ -227,7 +228,7 @@ export class ProcessManager {
     }
 
     try {
-      proc.child.kill(signal);
+      killTree(proc.pid, signal);
       proc.running = false;
       return true;
     } catch (err) {

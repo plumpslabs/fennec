@@ -77,21 +77,26 @@ class CliStore implements CredentialStore {
   }
 
   async save(name: string, url: string): Promise<void> {
-    if (this.plat === 'macos') {
-      execSync(
-        `security add-generic-password -s "fennec-db" -a "${name}" -w "${url.replace(/"/g, '\\"')}"`,
-        { stdio: 'ignore' },
-      );
-    } else if (this.plat === 'linux') {
-      execSync(`secret-tool store --label="Fennec DB" service "fennec-db" account "${name}"`, {
-        input: url,
-        stdio: ['pipe', 'ignore', 'ignore'],
-      });
-    } else {
-      execSync(
-        `powershell -Command " CredWrite 'fennec-db-${name}' '${url.replace(/'/g, "''")}' "`,
-        { stdio: 'ignore' },
-      );
+    try {
+      if (this.plat === 'macos') {
+        execSync(
+          `security add-generic-password -s "fennec-db" -a "${name}" -w "${url.replace(/"/g, '\\"')}"`,
+          { stdio: 'ignore' },
+        );
+      } else if (this.plat === 'linux') {
+        execSync(`secret-tool store --label="Fennec DB" service "fennec-db" account "${name}"`, {
+          input: url,
+          stdio: ['pipe', 'ignore', 'ignore'],
+        });
+      } else {
+        execSync(
+          `powershell -Command " CredWrite 'fennec-db-${name}' '${url.replace(/'/g, "''")}' "`,
+          { stdio: 'ignore' },
+        );
+      }
+    } catch {
+      const fallback = new FileStore();
+      await fallback.save(name, url);
     }
   }
 

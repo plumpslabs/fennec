@@ -451,6 +451,26 @@ export function isProcessRunning(pid: number): boolean {
 }
 
 /**
+ * Check if ANY process in the process group (PGID = pid) is still alive.
+ * After `kill(-pid, SIGTERM)`, the group leader may be dead but descendant
+ * processes (e.g. nodemon → tsx) may still be running in the same group.
+ * This detects that case so the caller can escalate to SIGKILL.
+ *
+ * - Returns `true`  → at least one process in the group is alive
+ * - Returns `false` → the group is empty (ESRCH) or invalid
+ */
+export function isProcessGroupAlive(pid: number): boolean {
+  if (pid <= 0) return false;
+  try {
+    process.kill(-pid, 0);
+    return true;
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    return code !== 'ESRCH';
+  }
+}
+
+/**
  * Cheaply read a single process's resident memory (RSS) in KB.
  *
  * Unlike `getProcessByPid` (which enumerates EVERY process), this only

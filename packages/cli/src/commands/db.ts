@@ -196,7 +196,13 @@ async function handleConnect(
     );
 
     if (!noSave) {
-      await credentialStore.save(name, url);
+      try {
+        await credentialStore.save(name, url);
+      } catch {
+        console.error(
+          `  ${pc.yellow('⚠')} ${pc.dim('Connected, but failed to save credentials to keychain')}\n`,
+        );
+      }
       try {
         addConnection({
           name,

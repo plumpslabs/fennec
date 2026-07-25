@@ -5,7 +5,7 @@
  */
 import pc from 'picocolors';
 import { renderError, createSpinner, confirmPrompt } from '../utils/format.js';
-import { killTree as sysKill, isProcessRunning } from '../utils/system-process.js';
+import { killTree as sysKill, isProcessGroupAlive } from '../utils/system-process.js';
 import {
   readTracked,
   isTrackedRunning,
@@ -160,16 +160,16 @@ async function stopSingleProcess(pid: number, name: string): Promise<void> {
   const success = sysKill(pid, 'SIGTERM');
 
   if (success) {
-    await new Promise((r) => setTimeout(r, 200));
-    const stillRunning = isProcessRunning(pid);
+    await new Promise((r) => setTimeout(r, 500));
+    const stillRunning = isProcessGroupAlive(pid);
     if (stillRunning) {
-      spinner.warn(`${displayName} did not respond to SIGTERM`);
+      spinner.warn(`${displayName} process group still has members after SIGTERM (e.g. nodemon children may have been re-parented)`);
       const forceKill = await confirmPrompt(`Send ${pc.red('SIGKILL')} to force stop?`, true);
       if (forceKill) {
         const forceSpinner = createSpinner(`Sending SIGKILL to ${displayName}...`);
         sysKill(pid, 'SIGKILL');
-        await new Promise((r) => setTimeout(r, 300));
-        isProcessRunning(pid)
+        await new Promise((r) => setTimeout(r, 500));
+        isProcessGroupAlive(pid)
           ? forceSpinner.fail(`${displayName} could not be stopped (permission denied?)`)
           : forceSpinner.succeed(`${displayName} force stopped`);
       } else {

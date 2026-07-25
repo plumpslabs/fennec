@@ -360,6 +360,10 @@ export async function resurrectTracked(): Promise<void> {
         autoRestart: proc.autoRestart,
         restartCause: proc.restartCause,
         logMode: proc.logMode,
+        group: proc.group,
+        debugMode: proc.debugMode,
+        healthCheck: proc.healthCheck,
+        flapping: proc.flapping,
       });
 
       resurrected++;

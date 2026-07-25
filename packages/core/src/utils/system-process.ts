@@ -21,6 +21,23 @@ export function isProcessRunning(pid: number): boolean {
   }
 }
 
+/**
+ * Check if ANY process in the process group (PGID = pid) is still alive.
+ * After `kill(-pid, SIGTERM)`, the group leader may be dead but descendant
+ * processes (e.g. nodemon -> tsx) may still be running in the same group.
+ * Returns true if at least one process in the group is alive.
+ */
+export function isProcessGroupAlive(pid: number): boolean {
+  if (pid <= 0) return false;
+  try {
+    process.kill(-pid, 0);
+    return true;
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    return code !== 'ESRCH';
+  }
+}
+
 /** Read /proc/<pid>/cmdline (argv, space-joined). Null when unavailable. */
 export function getProcessCmdline(pid: number): string | null {
   try {
