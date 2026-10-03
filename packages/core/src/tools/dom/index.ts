@@ -486,6 +486,7 @@ export const browserFindElements = createTool({
         .default(false)
         .describe('Skip the unified engine and use vanilla DOM APIs directly'),
       sessionId: z.string().optional().describe('Session ID'),
+      maxResults: z.number().optional().default(50).describe('Max elements to return (cap to protect context)'),
     })
     .refine((data) => data.selector || data.query, {
       message: 'Either selector or query must be provided',
@@ -606,10 +607,23 @@ export const browserFindElements = createTool({
         }
       }
 
+      const cap = Math.min(Math.max(input.maxResults ?? 50, 1), 200);
+      const attrs = input.returnAttributes ?? ['id', 'class', 'textContent', 'tagName'];
+      const cappedAttrs = attrs.slice(0, 10);
+      const truncated = result.length > cap;
       return responseBuilder.success(
         {
-          elements: result,
+          elements: result.slice(0, cap).map((el) => {
+            const out: Record<string, string | null> = {};
+            for (const k of cappedAttrs) {
+              const v = el[k] ?? null;
+              out[k] = typeof v === 'string' ? v.slice(0, 500) : v;
+            }
+            return out;
+          }),
           count: result.length,
+          truncated,
+          ...(truncated ? { hint: 'Result capped — narrow the selector or raise maxResults' } : {}),
         },
         sessionManager.buildMeta(session),
       );

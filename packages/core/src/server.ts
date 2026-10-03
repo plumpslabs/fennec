@@ -110,6 +110,7 @@ import {
   networkIntercept,
   networkRemoveIntercept,
   networkMockResponse,
+  mockApiResponse,
   networkWaitForRequest,
   networkGetRequestDetail,
   browserAwaitRequest,
@@ -144,6 +145,10 @@ import {
   authListSessions,
   authDeleteSession,
   authCheckLoggedIn,
+  authSaveCredentials,
+  authRelogin,
+  authListCredentials,
+  authDeleteCredentials,
 } from './tools/auth/index.js';
 import {
   tabNew,
@@ -170,6 +175,7 @@ import {
   processSpawnTracked,
   processRenameTracked,
   processCleanupTracked,
+  processDoctor,
   processClearLogs,
   processExportTracked,
   processImportTracked,
@@ -263,6 +269,7 @@ import {
   dbPing,
   dbExplain,
   dbStats,
+  dbDisconnectAll,
 } from './tools/db/index.js';
 import {
   recorderStart,
@@ -386,7 +393,7 @@ export class FennecServer {
     this.performanceMetrics.startMemoryMonitoring();
 
     this.server = new Server(
-      { name: 'fennec', version: '1.16.8' },
+      { name: 'fennec', version: '1.16.9' },
       { capabilities: { tools: {}, prompts: {}, resources: {} } },
     );
 
@@ -450,7 +457,8 @@ export class FennecServer {
       networkClearLogs,
       networkIntercept,
       networkRemoveIntercept,
-      networkMockResponse,
+  networkMockResponse,
+  mockApiResponse,
       networkWaitForRequest,
       networkGetRequestDetail,
       browserAwaitRequest,
@@ -479,6 +487,10 @@ export class FennecServer {
       authListSessions,
       authDeleteSession,
       authCheckLoggedIn,
+      authSaveCredentials,
+      authRelogin,
+      authListCredentials,
+      authDeleteCredentials,
       tabNew,
       tabClose,
       tabList,
@@ -501,6 +513,7 @@ export class FennecServer {
       processSpawnTracked,
       processRenameTracked,
       processCleanupTracked,
+      processDoctor,
       processClearLogs,
       processExportTracked,
       processImportTracked,
@@ -622,6 +635,7 @@ export class FennecServer {
       dbPing,
       dbExplain,
       dbStats,
+      dbDisconnectAll,
     ];
 
     for (const tool of tools) {

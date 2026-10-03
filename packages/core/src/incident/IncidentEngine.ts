@@ -166,6 +166,8 @@ export class IncidentEngine {
   private maxUnclassifiedPerType: number;
   /** Auto-decay: reset counter after this many ms of inactivity per type. */
   private unclassifiedDecayMs: number;
+  /** TTL: auto-resolve active incidents older than this (ms). */
+  private incidentTtlMs: number;
 
   constructor(
     eventBus: EventBus,
@@ -176,6 +178,7 @@ export class IncidentEngine {
       unclassifiedCooldownMs?: number;
       maxUnclassifiedPerType?: number;
       unclassifiedDecayMs?: number;
+      incidentTtlMs?: number;
     } = {},
   ) {
     this.eventBus = eventBus;
@@ -186,6 +189,7 @@ export class IncidentEngine {
     this.unclassifiedCooldownMs = options.unclassifiedCooldownMs ?? 3000;
     this.maxUnclassifiedPerType = options.maxUnclassifiedPerType ?? 10;
     this.unclassifiedDecayMs = options.unclassifiedDecayMs ?? 300000; // 5 min
+    this.incidentTtlMs = options.incidentTtlMs ?? 300000; // 5 min auto-resolve
 
     // Auto-subscribe to EventBus for real-time incident detection
     this.subscribeToEvents();
@@ -404,7 +408,21 @@ export class IncidentEngine {
    * Get all active incidents.
    */
   getActiveIncidents(): Incident[] {
+    this.pruneExpired();
     return Array.from(this.incidents.values()).filter((i) => i.status === 'active');
+  }
+
+  /** Auto-resolve active incidents older than TTL. Returns count resolved. */
+  pruneExpired(now = Date.now()): number {
+    let n = 0;
+    for (const inc of this.incidents.values()) {
+      if (inc.status === 'active' && now - inc.updatedAt > this.incidentTtlMs) {
+        inc.status = 'resolved';
+        inc.resolvedAt = now;
+        n++;
+      }
+    }
+    return n;
   }
 
   /**
@@ -483,7 +501,8 @@ export class IncidentEngine {
    * E.g. "2 critical, 3 error(s), 1 warning" or "healthy (5 suppressed)"
    */
   getPulseSummary(): string {
-    const active = this.getActiveIncidents();
+    this.pruneExpired();
+    const active = Array.from(this.incidents.values()).filter((i) => i.status === 'active');
     if (active.length === 0 && this.suppressedCount === 0) return 'healthy';
 
     if (active.length === 0 && this.suppressedCount > 0) {

@@ -381,6 +381,39 @@ export function killProcess(pid: number, signal: NodeJS.Signals = 'SIGTERM'): bo
 }
 
 /**
+ * Collect all descendant PIDs of `pid` via `ps -o pid,ppid`.
+ * Deepest-first order. Empty when unavailable (Windows) or no descendants.
+ */
+export function getDescendantPids(pid: number): number[] {
+  if (pid <= 0) return [];
+  if (process.platform === 'win32') return [];
+  try {
+    const out = execSync('ps -o pid=,ppid= -A', { encoding: 'utf-8', timeout: 3000 });
+    const childrenOf = new Map<number, number[]>();
+    for (const line of out.split('\n')) {
+      const parts = line.trim().split(/\s+/);
+      if (parts.length < 2) continue;
+      const c = parseInt(parts[0]!, 10);
+      const p = parseInt(parts[1]!, 10);
+      if (isNaN(c) || isNaN(p)) continue;
+      const arr = childrenOf.get(p) ?? [];
+      arr.push(c);
+      childrenOf.set(p, arr);
+    }
+    const result: number[] = [];
+    const stack = [...(childrenOf.get(pid) ?? [])];
+    while (stack.length) {
+      const cur = stack.pop()!;
+      result.push(cur);
+      for (const k of childrenOf.get(cur) ?? []) stack.push(k);
+    }
+    return result;
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Kill a process AND its entire descendant tree (cross-platform).
  *
  * Why this matters: apps are spawned `detached`, which makes the direct child a
@@ -389,8 +422,8 @@ export function killProcess(pid: number, signal: NodeJS.Signals = 'SIGTERM'): bo
  * ORPHANS that keep running and leaking CPU/memory/ports ("nyampah").
  *
  * - POSIX (Linux/macOS): signal the whole group via the negative PID
- *   (`process.kill(-pid, signal)`). Falls back to a direct PID kill when the
- *   target was not a group leader (e.g. ESRCH/EPERM paths).
+ *   (`process.kill(-pid, signal)`), then sweep descendants that escaped the
+ *   group (make/sh wrappers, double-forked daemons) via ps-based recursion.
  * - Windows: `process.kill(-pid)` is unsupported, so use `taskkill /T /F`
  *   which kills the process and all descendants natively.
  *
@@ -417,14 +450,33 @@ export function killTree(pid: number, signal: NodeJS.Signals = 'SIGTERM'): boole
     }
   }
 
+  // Snapshot descendants BEFORE signalling — orphans get re-parented to
+  // init (PPID 1) after the group kill and become undiscoverable.
+  const descendants = getDescendantPids(pid);
+  let groupOk = false;
   // POSIX: negative PID targets the entire process group.
   try {
     process.kill(-pid, signal);
-    return true;
+    groupOk = true;
   } catch (e) {
     const code = (e as NodeJS.ErrnoException).code;
-    if (code === 'ESRCH') return false; // already gone
-    // EPERM or other: try a plain single-PID kill as a last resort.
+    if (code !== 'ESRCH') {
+      try {
+        process.kill(pid, signal);
+        groupOk = true;
+      } catch {
+        groupOk = false;
+      }
+    }
+  }
+  for (const dp of descendants) {
+    try {
+      process.kill(dp, signal);
+    } catch {
+      /* already gone */
+    }
+  }
+  if (!groupOk) {
     try {
       process.kill(pid, signal);
       return true;
@@ -432,6 +484,7 @@ export function killTree(pid: number, signal: NodeJS.Signals = 'SIGTERM'): boole
       return false;
     }
   }
+  return true;
 }
 
 /**

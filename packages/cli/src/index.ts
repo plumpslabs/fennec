@@ -33,6 +33,7 @@ import { groupCommand } from './commands/group.js';
 import { debugCommand } from './commands/debug.js';
 import { workflowCommand } from './commands/workflow.js';
 import { dbCommand } from './commands/db.js';
+import { authVaultCommand } from './commands/auth-vault.js';
 
 const [, , command, ...args] = process.argv;
 
@@ -114,6 +115,9 @@ async function main(): Promise<void> {
   } else if (command === 'db') {
     printBanner();
     await dbCommand(args);
+  } else if (command === 'auth') {
+    printBanner();
+    await authVaultCommand(args);
   } else if (command === 'workflow' || command === 'wf') {
     printBanner();
     await workflowCommand(args);

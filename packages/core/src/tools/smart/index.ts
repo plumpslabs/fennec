@@ -2051,6 +2051,11 @@ export const smartNavigate = createTool({
     }
 
     try {
+      // Clear stale console/network state so verify-mode counts only errors
+      // emitted AFTER this navigation (issue #134 P0).
+      session.consoleBuffer = [];
+      session.networkBuffer = [];
+      const actionAt = new Date().toISOString();
       // Navigate directly to target URL (single navigation — no double load)
       await page.navigate(input.url, {
         waitUntil: input.waitUntil,
@@ -2119,6 +2124,10 @@ export const smartNavigate = createTool({
       ]);
 
       const meta = sessionManager.buildMeta(session);
+      const topConsoleErrors = (session.consoleBuffer ?? [])
+        .filter((l) => l.level === 'error')
+        .slice(-3)
+        .map((l) => (l.message ?? '').slice(0, 300));
 
       // ── verify mode: pass/fail only ──
       if (input.mode === 'verify') {
@@ -2136,7 +2145,11 @@ export const smartNavigate = createTool({
               : `${errorCount} console error(s), ${failedRequests} failed request(s) after navigating to ${page.url()}`,
             url: page.url(),
             title,
-            ...(authNote ? { needsAuth: authNote.needsAuth, authPrompt: authNote.prompt, sessionName: authNote.sessionName } : {}),
+            stateAsOf: actionAt,
+            baselineConsole: 0,
+            baselineNetwork: 0,
+            ...(authNote ? { needsAuth: authNote.needsAuth, authPrompt: authNote.prompt, sessionName: authNote.sessionName, ...(authNote.needsAuth ? { needsAuthHint: 'No valid session — log in via auth_fill_login_form or provide credentials' } : {}) } : {}),
+            topConsoleErrors,
           },
           meta,
         );
@@ -2153,6 +2166,7 @@ export const smartNavigate = createTool({
         textPreview: pageText.slice(0, 3000),
         elementCount: domSnapshot.length,
         availableElements: domSnapshot.slice(0, 30),
+        topConsoleErrors,
         tracked: {
           running: runningApps.length,
           total: tracked.length,
@@ -2178,6 +2192,7 @@ export const smartNavigate = createTool({
             errorCount,
             failedRequests,
             topElements: domSnapshot.slice(0, 5),
+            topConsoleErrors,
           },
           meta,
         );

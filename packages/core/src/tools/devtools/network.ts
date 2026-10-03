@@ -505,6 +505,67 @@ export const networkMockResponse = createTool({
   },
 });
 
+// ─── mock_api_response — high-level 1-call wrapper (#129) ──────
+
+export const mockApiResponse = createTool({
+  name: 'mock_api_response',
+  category: 'devtools',
+  description:
+    '`<use_case>Network mocking</use_case> 🎭 Mock an API response in ONE call (wrapper around network_mock_response). Provide urlPattern + body (object or string) + optional method, statusCode, headers. Method-filtered: non-matching methods continue normally. Returns mockId for removal via network_remove_intercept. Use for testing error states or frontend without a backend.`',
+  inputSchema: z.object({
+    urlPattern: z.string().describe('URL pattern to mock (glob or substring)'),
+    method: z.string().optional().describe('HTTP method filter (GET, POST, etc.) — omit for all'),
+    statusCode: z.number().optional().default(200).describe('HTTP status code'),
+    body: z
+      .union([z.string(), z.record(z.unknown()), z.array(z.unknown())])
+      .optional()
+      .default({})
+      .describe('Response body — object/array auto-stringified as JSON, string sent raw'),
+    contentType: z.string().optional().default('application/json').describe('Content-Type header'),
+    headers: z.record(z.string(), z.string()).optional().describe('Additional response headers'),
+    sessionId: z.string().optional().describe('Session ID'),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    try {
+      const mockId = `mock_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const bodyStr =
+        typeof input.body === 'string' ? input.body : JSON.stringify(input.body ?? {});
+      const methodFilter = input.method?.toUpperCase();
+      await session.browser.route(input.urlPattern, async (route) => {
+        if (methodFilter) {
+          const reqMethod = String(
+            (route as unknown as { request?: { method?: string } }).request?.method ?? '',
+          ).toUpperCase();
+          if (reqMethod && reqMethod !== methodFilter) {
+            await route.continue();
+            return;
+          }
+        }
+        await route.fulfill({
+          status: input.statusCode ?? 200,
+          contentType: input.contentType ?? 'application/json',
+          body: bodyStr,
+          headers: input.headers,
+        });
+      });
+      getRuntimeMeta(session).interceptorRefs[mockId] = {
+        urlPattern: input.urlPattern,
+        isMock: true,
+      };
+      return responseBuilder.success(
+        { mockId, active: true, method: methodFilter ?? 'ANY' },
+        sessionManager.buildMeta(session),
+      );
+    } catch (error) {
+      return responseBuilder.error(error, {
+        code: 'NETWORK_INTERCEPT_FAILED',
+        suggestions: ['Check if the page is still open', 'Verify URL pattern syntax'],
+      });
+    }
+  },
+});
+
 // ─── browser_await_request (#95) ─────────────────────────────────
 // Promise-based wait for matching network request.
 // Unlike network_wait_for_request (Playwright-native), this tool

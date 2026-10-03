@@ -34,6 +34,11 @@ export const browserNavigate = createTool({
   }),
   handler: async (input, { sessionManager, responseBuilder, logger }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
+    const topConsoleErrors = () =>
+      (session.consoleBuffer ?? [])
+        .filter((l) => l.level === 'error')
+        .slice(-3)
+        .map((l) => (l.message ?? '').slice(0, 300));
     const startTime = Date.now();
     const maxRetries = Math.max(0, input.maxRetries ?? 0);
 
@@ -131,6 +136,7 @@ export const browserNavigate = createTool({
             statusCode: result.statusCode,
             loadTime: result.loadTimeMs,
             attempts: attempt + 1,
+            topConsoleErrors: topConsoleErrors(),
           },
           { ...sessionManager.buildMeta(session), elapsed: result.loadTimeMs },
         );
@@ -235,8 +241,12 @@ export const browserReload = createTool({
       await session.browser.reload();
       // Re-attach CDP listeners so network events continue flowing after reload (#94)
       await sessionManager.reAttachCDPListeners(session.id).catch(() => {});
+      const topConsoleErrors = (session.consoleBuffer ?? [])
+        .filter((l) => l.level === 'error')
+        .slice(-3)
+        .map((l) => (l.message ?? '').slice(0, 300));
       return responseBuilder.success(
-        { loadTime: Date.now() - startTime },
+        { loadTime: Date.now() - startTime, topConsoleErrors },
         sessionManager.buildMeta(session),
       );
     } catch (error) {

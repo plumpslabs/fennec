@@ -506,23 +506,41 @@ export const processGetTracked = createTool({
     '`<use_case>VIEWING all tracked apps</use_case> Get ALL tracked processes from tracked.json (same as fennec ps). This is the COMPLETE view — unlike process_list which only shows MCP-spawned processes, this includes everything started via CLI (fennec start) AND MCP (process_spawn). Supports an optional `group` filter (only that group) and returns a cross-platform `memMB` (resident RSS) per process and `debugMode` per process. Best entry point for checking what apps are running. Returns: name, pid, status (running/stopped), group, port, command, cwd, debugMode, memMB, uptime, runningCount, summary.`',
   inputSchema: z.object({
     group: z.string().optional().describe('Only return tracked processes in this group'),
+    aliveOnly: z.boolean().optional().default(false).describe('Only return actually-running processes (hide stopped/stale)'),
+    includeStale: z.boolean().optional().default(true).describe('Include stale entries (pid 0 / dead pid) with stale:true flag. Set false to hide them.'),
   }),
   handler: async (input, { responseBuilder }) => {
-    const tracked = readTracked().filter((t) => !input.group || t.group === input.group);
+    let tracked = readTracked().filter((t) => !input.group || t.group === input.group);
     const detector = new PortDetector();
     const processes = tracked.map((t) => {
       const running = isTrackedRunning(t);
       const uptime = running
         ? Math.floor((Date.now() - new Date(t.startedAt).getTime()) / 1000)
         : null;
-      // Auto-detect the listening port when it wasn't captured at spawn time
-      // (e.g. a server that picks its port after startup, or a process
-      // started via the CLI). Only overrides a still-null value.
-      const resolvedPort = t.port ?? (running ? (detector.detectByPid(t.pid)?.port ?? null) : null);
+      // Return the real listening port or omit (null) — never a stale
+      // placeholder (issue #134 P1). Validate stored port against reality.
+      let resolvedPort: number | null = null;
+      if (running) {
+        const real = detector.detectByPid(t.pid)?.port ?? null;
+        if (real !== null) {
+          resolvedPort = real;
+        } else if (t.port !== undefined && t.port !== null) {
+          // Stored port: keep only if this pid actually holds it.
+          try {
+            const holder = detector.detectByPort(t.port);
+            resolvedPort = holder && holder.pid === t.pid ? t.port : null;
+          } catch {
+            resolvedPort = null;
+          }
+        }
+      }
+      const stale = t.pid === 0 || (!running && (t.port !== undefined || t.pid !== 0));
       return {
         name: t.name,
         pid: t.pid,
         status: running ? 'running' : 'stopped',
+        alive: running,
+        stale: t.pid === 0 || !running,
         group: t.group ?? null,
         port: resolvedPort,
         command: t.command,
@@ -539,14 +557,20 @@ export const processGetTracked = createTool({
       };
     });
 
-    const runningCount = processes.filter((p) => p.status === 'running').length;
+    let out = processes;
+    if (input.aliveOnly) out = out.filter((p) => p.alive);
+    else if (input.includeStale === false) out = out.filter((p) => !p.stale);
+    const runningCount = out.filter((p) => p.status === 'running').length;
+    const staleCount = processes.filter((p) => p.stale).length;
 
     return responseBuilder.success({
-      processes,
-      count: processes.length,
+      processes: out,
+      count: out.length,
       runningCount,
+      staleCount,
       summary:
-        `${runningCount}/${processes.length} processes running` +
+        `${runningCount}/${out.length} processes running` +
+        (staleCount ? `, ${staleCount} stale (run process_cleanup_tracked)` : '') +
         (input.group ? ` (group: ${input.group})` : ''),
     });
   },
@@ -976,16 +1000,43 @@ export const processWaitForReady = createTool({
       .default('listening on port|ready|started|compiled')
       .describe('Pattern to match for readiness'),
     timeout: z.number().optional().default(30000).describe('Timeout in milliseconds'),
+    port: z.number().optional().describe('Fallback: ready when this port accepts connections/listener appears'),
   }),
   handler: async (input, { responseBuilder, processManager }) => {
     const startTime = Date.now();
+    // Re-sync: process_restart rewrites tracked.json, so refresh before failing.
+    let trackedEntry = readTracked().find((t) => t.name === input.processId);
     try {
-      processManager.get(input.processId); // Validate exists in MCP manager
+      try {
+        processManager.get(input.processId); // Validate exists in MCP manager
+      } catch {
+        // Fall back to tracked registry (race after restart) instead of failing.
+        if (!trackedEntry || !isTrackedRunning(trackedEntry)) throw new Error(`No process: ${input.processId}`);
+      }
       const patterns = input.pattern!.split('|');
 
       return await new Promise((resolve) => {
         const check = () => {
-          const logs = processManager.getLogs(input.processId, { lines: 100 });
+          // Port fallback (P2): ready as soon as the port has a listener.
+          const wantPort = input.port ?? trackedEntry?.port;
+          if (wantPort) {
+            try {
+              const holder = new PortDetector().detectByPort(wantPort);
+              if (holder) {
+                resolve(responseBuilder.success({ ready: true, elapsed: Date.now() - startTime, matchedLine: `port ${wantPort} listening (pid ${holder.pid})`, via: 'port' }));
+                return;
+              }
+            } catch { /* fall through to log polling */ }
+          }
+          let logs: { line: string }[] = [];
+          try {
+            logs = processManager.getLogs(input.processId, { lines: 100 });
+          } catch {
+            // MCP manager lost the entry (restart race) — re-sync tracked
+            // registry; keep polling until timeout rather than failing.
+            trackedEntry = readTracked().find((t) => t.name === input.processId) ?? trackedEntry;
+            logs = [];
+          }
           for (const log of logs) {
             for (const pattern of patterns) {
               if (new RegExp(pattern, 'i').test(log.line)) {
@@ -1267,5 +1318,50 @@ export const processImportTracked = createTool({
       },
       { elapsed: 0, sessionId: '', timestamp: new Date().toISOString() },
     );
+  },
+});
+
+export const processDoctor = createTool({
+  name: 'process_doctor',
+  category: 'process',
+  description:
+    '`<use_case>DIAGNOSING process health</use_case> 🩺 Detect ghost state: stale tracked entries (pid 0/dead), duplicate fennec servers, orphaned supervisors. Read-only by default; pass fix:true to remove stale pid-0 entries (same as fennec doctor --fix, scoped to tracked registry only — never kills user app processes).`',
+  inputSchema: z.object({
+    fix: z.boolean().optional().default(false).describe('Remove stale pid-0 tracked entries'),
+  }),
+  handler: async (input, { responseBuilder }) => {
+    const tracked = readTracked();
+    const stale = tracked.filter((t) => t.pid === 0 || !isTrackedRunning(t));
+    const pidZero = tracked.filter((t) => t.pid === 0);
+    let duplicateServers: number[] = [];
+    try {
+      const { execSync } = await import('node:child_process');
+      const out = execSync('ps -eo pid,command', { encoding: 'utf-8', timeout: 5000 });
+      duplicateServers = out
+        .split('\n')
+        .map((l) => l.trim().match(/^(\d+)\s+(.*)$/))
+        .filter((m): m is RegExpMatchArray => !!m)
+        .filter((m) => {
+          const pid = Number(m[1]);
+          const cmd = m[2] ?? '';
+          return /fennec/i.test(cmd) && /\b(start|server)\b/i.test(cmd) && !/\bdoctor\b/i.test(cmd) && pid !== process.pid;
+        })
+        .map((m) => Number(m[1]));
+    } catch {}
+    let fixed = 0;
+    if (input.fix && pidZero.length > 0) {
+      const keep = tracked.filter((t) => t.pid !== 0);
+      saveTracked(keep);
+      fixed = pidZero.length;
+    }
+    return responseBuilder.success({
+      trackedTotal: tracked.length,
+      staleCount: stale.length,
+      pidZeroCount: pidZero.length,
+      stale: stale.map((t) => ({ name: t.name, pid: t.pid })),
+      duplicateFennecServers: duplicateServers,
+      ...(duplicateServers.length > 1 ? { suggestion: `Multiple fennec servers (${duplicateServers.join(', ')}) — run fennec doctor --fix in terminal to dedupe` } : {}),
+      ...(input.fix ? { fixed } : { hint: 'Pass fix:true to remove pid-0 entries' }),
+    });
   },
 });

@@ -233,6 +233,10 @@ export const authFillLoginForm = createTool({
 
           sessionSaved = true;
         }
+        // Clear stale console/network buffers so post-login verify checks
+        // only see errors from the authenticated state (issue #134 P0).
+        session.consoleBuffer = [];
+        session.networkBuffer = [];
       }
 
       return responseBuilder.success(
@@ -244,7 +248,7 @@ export const authFillLoginForm = createTool({
           },
           submitted,
           sessionSaved,
-          ...(sessionSaved ? { sessionName } : {}),
+          ...(sessionSaved ? { sessionName } : { sessionSavedReason: 'no auth cookie/storage/DOM indicator found — session not saved' }),
         },
         sessionManager.buildMeta(session),
       );
@@ -373,6 +377,18 @@ export const authLoadSession = createTool({
       .describe(
         'When true and no saved session is found, surface the domain login URL so the agent can navigate there and run auth_fill_login_form instead of failing outright.',
       ),
+    autoRelogin: z
+      .boolean()
+      .optional()
+      .default(true)
+      .describe(
+        'When true and the restored session looks expired (login page / no auth cookie), auto re-login from the encrypted dev vault (auth_save_credentials) or password env var, then re-save the session. Set false to only report needsAuth.',
+      ),
+    account: z
+      .string()
+      .optional()
+      .default('default')
+      .describe('Vault account to use for auto-relogin (multiple accounts per origin).'),
     sessionId: z.string().optional().describe('Browser session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder, sessionStore }) => {
@@ -423,8 +439,45 @@ export const authLoadSession = createTool({
           return null;
         }
       })();
-      const sessionOrigin = saved.origin;
-      const originMatched = currentOrigin === sessionOrigin;
+      // #127: infer origin from session metadata when saved.origin is missing
+      // (legacy files / metadata-only saves). Fall back to metadata.origin,
+      // cookie domain, then explicit url override.
+      const inferOrigin = (): string | undefined => {
+        const s = saved as unknown as Record<string, unknown>;
+        if (typeof s.origin === 'string' && s.origin) return s.origin as string;
+        const md = (s.metadata ?? s.meta) as Record<string, unknown> | undefined;
+        if (md && typeof md.origin === 'string' && md.origin) return md.origin as string;
+        const cookies = (Array.isArray(s.cookies) ? s.cookies : []) as Array<
+          Record<string, unknown>
+        >;
+        const dom = cookies.find((c) => typeof c.domain === 'string' && c.domain)?.domain as
+          | string
+          | undefined;
+        if (dom) {
+          const host = String(dom).replace(/^\./, '');
+          return `https://${host}`;
+        }
+        return undefined;
+      };
+      const sessionOrigin = inferOrigin() ?? input.url;
+      const originMatched = !!sessionOrigin && currentOrigin === sessionOrigin;
+
+      // ── Step 0: #127 — if on about:blank, navigate FIRST then restore ──
+      // Cookies can be set cross-origin, but localStorage needs the origin
+      // active. Navigating first avoids a double-restore and guarantees
+      // both are applied on the right origin in one call.
+      let didNavigate = false;
+      const isAboutBlank =
+        !currentOrigin ||
+        currentOrigin === 'null' ||
+        session.browser.url() === 'about:blank';
+      const shouldNavigate = input.navigate || !!input.url || isAboutBlank;
+
+      if (shouldNavigate && isAboutBlank && sessionOrigin) {
+        const targetUrl = input.url || sessionOrigin;
+        await session.browser.navigate(targetUrl).catch(() => {});
+        didNavigate = true;
+      }
 
       // ── Step 1: Restore cookies (domain-scoped, works cross-origin) ──
       await session.browser.contextAddCookies(
@@ -444,8 +497,8 @@ export const authLoadSession = createTool({
       let storageLoaded = 0;
       let storageWarning: string | undefined;
 
-      if (originMatched) {
-        // Same origin — restore localStorage in-place (no navigation needed)
+      if (originMatched || didNavigate) {
+        // Same origin (or just navigated to it in Step 0) — restore in place
         for (const [key, value] of Object.entries(saved.localStorage)) {
           await session.browser
             .evaluate(({ k, v }) => localStorage.setItem(k, v), { k: key, v: value })
@@ -459,19 +512,10 @@ export const authLoadSession = createTool({
           `Cookies loaded (${saved.cookies.length}). To fully restore, call with navigate:true or url="${sessionOrigin}".`;
       }
 
-      // ── Step 3: Navigate if explicitly requested or on about:blank ──
-      // When the browser is on about:blank (fresh tab), the session origin is
-      // unreachable for localStorage restore. Auto-navigate to the saved origin
-      // so cookies + localStorage are fully restored in one call (#127).
-      let didNavigate = false;
-      const isAboutBlank =
-        !currentOrigin ||
-        currentOrigin === 'null' ||
-        session.browser.url() === 'about:blank';
-      const shouldNavigate = input.navigate || !!input.url || isAboutBlank;
-
-      if (shouldNavigate) {
-        const targetUrl = input.url || sessionOrigin;
+      // ── Step 3: Navigate if explicitly requested (non-blank case) ──
+      // (about:blank case already navigated in Step 0)
+      if (shouldNavigate && !didNavigate && (input.url || sessionOrigin)) {
+        const targetUrl = (input.url || sessionOrigin) as string;
         await session.browser.navigate(targetUrl).catch(() => {});
         didNavigate = true;
 
@@ -508,6 +552,82 @@ export const authLoadSession = createTool({
         didAutoReload = true;
       }
 
+      // ── Step 5: Expiry check + auto-relogin from dev vault ──
+      // If the page shows a login form / no auth cookie after restore, the
+      // saved session is stale. With autoRelogin (default ON) try the vault
+      // once; otherwise report needsAuth with an actionable recipe.
+      let relogin: Record<string, unknown> | undefined;
+      let needsAuth = false;
+      try {
+        const cookies = await session.browser.contextCookies().catch(() => []);
+        const hasAuthCookie = cookies.some((c) => /token|session|auth|jwt|sid|connect/i.test(c.name));
+        const loginLink = await session.browser
+          .$('a[href*="login"],a[href*="sign-in"],button:has-text("Log in"),button:has-text("Sign in")')
+          .catch(() => null);
+        const expired = !hasAuthCookie || !!loginLink;
+        if (expired) {
+          needsAuth = true;
+          if (input.autoRelogin !== false && sessionOrigin) {
+            const { getDevCredential, resolvePassword } = await import('../../auth/dev-vault.js');
+            const cred = getDevCredential(sessionOrigin, input.account ?? 'default');
+            const password = cred ? resolvePassword(cred) : null;
+            if (cred && password) {
+              const loginUrl =
+                cred.loginUrl ?? (cred.loginPath ? `${sessionOrigin}${cred.loginPath}` : `${sessionOrigin}/login`);
+              await session.browser.navigate(loginUrl).catch(() => {});
+              let filled = false;
+              try {
+                const fields = await detectFormFields(session.browser);
+                const u = matchField(fields, 'email') || matchField(fields, 'username') || matchField(fields, 'login') || matchField(fields, 'user');
+                const p = matchField(fields, 'password');
+                if (u && p) {
+                  await fillField(session.browser, u, cred.username);
+                  await fillField(session.browser, p, password);
+                  const btn = await findSubmitButton(session.browser);
+                  if (btn) {
+                    await Promise.all([
+                      session.browser.waitForLoadState?.('networkidle', { timeout: 15000 }).catch(() => {}),
+                      btn.click(),
+                    ]);
+                  }
+                  filled = true;
+                }
+              } catch {
+                filled = false;
+              }
+              if (filled) {
+                try {
+                  const rc = await session.browser.contextCookies().catch(() => []);
+                  const ro = new URL(session.browser.url()).origin;
+                  const rs = await session.browser
+                    .evaluate(() => {
+                      const items: Record<string, string> = {};
+                      for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key) items[key] = localStorage.getItem(key) ?? '';
+                      }
+                      return items;
+                    })
+                    .catch(() => ({}) as Record<string, string>);
+                  sessionStore.save(input.name, { cookies: rc as never, localStorage: rs, sessionStorage: {}, origin: ro });
+                } catch {}
+                relogin = { attempted: true, ok: true, loginUrl, username: cred.username, account: cred.account ?? 'default' };
+                needsAuth = false;
+              } else {
+                relogin = { attempted: true, loginUrl, ok: false, reason: 'login form not found' };
+              }
+            } else if (cred && !password) {
+              relogin = {
+                attempted: false,
+                reason: `vault entry exists but password unavailable (env ${cred.passwordEnv} unset and no literal stored)`,
+              };
+            }
+          }
+        }
+      } catch {
+        /* best-effort — never fail the load on the expiry probe */
+      }
+
       return responseBuilder.success(
         {
           cookiesLoaded: saved.cookies.length,
@@ -516,6 +636,9 @@ export const authLoadSession = createTool({
           didNavigate,
           autoNavigated: isAboutBlank ? true : undefined,
           didAutoReload: didAutoReload || undefined,
+          needsAuth,
+          ...(relogin ? { relogin } : {}),
+          ...(!needsAuth ? {} : { loginHint: 'Session expired — run auth_relogin or log in via auth_fill_login_form' }),
           ...(storageWarning ? { warning: storageWarning } : {}),
           ...(didNavigate ? { navigatedTo: input.url || sessionOrigin } : {}),
         },
@@ -645,5 +768,170 @@ export const authCheckLoggedIn = createTool({
     } catch (error) {
       return responseBuilder.error(error);
     }
+  },
+});
+
+export const authSaveCredentials = createTool({
+  name: 'auth_save_credentials',
+  category: 'auth',
+  description:
+    '`<use_case>Auth</use_case> 🔐 Save DEV-ONLY login credentials to an encrypted local vault (AES-256-GCM, mode 0600, never committed). Preferred: pass passwordEnv (env var name) so no secret touches disk; or a literal password for local dev machines. Requires devOnly:true as an explicit acknowledgment. Use with auth_relogin / auth_load_session(autoRelogin) for automatic re-login when a saved session expires. Passwords are never returned in responses or logs.`',
+  inputSchema: z.object({
+    origin: z.string().describe('Site origin, e.g. https://staging.example.com'),
+    username: z.string().describe('Dev username / email'),
+    password: z.string().optional().describe('Literal dev password (encrypted at rest). Prefer passwordEnv.'),
+    passwordEnv: z.string().optional().describe('Env var holding the password (nothing secret on disk). Checked first.'),
+    loginUrl: z.string().optional().describe('Full login URL'),
+    loginPath: z.string().optional().describe('Login path appended to origin, e.g. /login'),
+    account: z.string().optional().default('default').describe('Account label (multiple accounts per origin)'),
+    devOnly: z.boolean().describe('Must be true — acknowledges these are dev/test credentials only'),
+  }),
+  handler: async (input, { responseBuilder }) => {
+    if (input.devOnly !== true) {
+      return responseBuilder.error(new Error('Refusing to store credentials without devOnly:true (dev/test only, never prod).'), {
+        code: 'NOT_DEV_ONLY',
+      } as never);
+    }
+    if (!input.password && !input.passwordEnv) {
+      return responseBuilder.error(new Error('Provide password or passwordEnv.'), { code: 'NO_SECRET' } as never);
+    }
+    const { saveDevCredential, getVaultPath } = await import('../../auth/dev-vault.js');
+    let origin = input.origin;
+    try {
+      origin = new URL(input.origin).origin;
+    } catch {}
+    saveDevCredential({
+      origin,
+      username: input.username,
+      ...(input.password ? { password: input.password } : {}),
+      ...(input.passwordEnv ? { passwordEnv: input.passwordEnv } : {}),
+      ...(input.loginUrl ? { loginUrl: input.loginUrl } : {}),
+      ...(input.loginPath ? { loginPath: input.loginPath } : {}),
+      account: input.account ?? 'default',
+    });
+    return responseBuilder.success(
+      { saved: true, origin, account: input.account ?? 'default', usesEnv: !!input.passwordEnv, vault: getVaultPath() },
+      { elapsed: 0, sessionId: '', timestamp: new Date().toISOString() },
+    );
+  },
+});
+
+export const authRelogin = createTool({
+  name: 'auth_relogin',
+  category: 'auth',
+  description:
+    '`<use_case>Auth</use_case> 🔄 Re-login using the encrypted dev vault (or password env var) and re-save the session. Provide origin or an existing sessionName to infer the origin. Navigates to the login URL, fills username+password, submits, and saves the session. Never echoes the password.`',
+  inputSchema: z.object({
+    origin: z.string().optional().describe('Site origin (inferred from sessionName when omitted)'),
+    sessionName: z.string().optional().describe('Existing saved session name to refresh'),
+    account: z.string().optional().default('default').describe('Vault account label'),
+    sessionId: z.string().optional().describe('Browser session ID'),
+  }),
+  handler: async (input, { sessionManager, responseBuilder, sessionStore }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    try {
+      const { getDevCredential, resolvePassword } = await import('../../auth/dev-vault.js');
+      let origin = input.origin;
+      if (!origin && input.sessionName) {
+        const saved = sessionStore.load(input.sessionName);
+        const s = saved as unknown as Record<string, unknown> | null;
+        origin = (s?.origin as string) ?? ((s?.metadata as Record<string, unknown> | undefined)?.origin as string) ?? undefined;
+      }
+      if (!origin) {
+        try {
+          origin = new URL(session.browser.url()).origin;
+        } catch {}
+      }
+      if (!origin || origin === 'null') {
+        return responseBuilder.error(new Error('Cannot infer origin — pass origin explicitly.'), { code: 'NO_ORIGIN' } as never);
+      }
+      const cred = getDevCredential(origin, input.account ?? 'default');
+      if (!cred) {
+        return responseBuilder.error(new Error(`No vault credential for ${origin} (account ${input.account ?? 'default'}). Save one with auth_save_credentials(devOnly:true).`), {
+          code: 'NO_CREDENTIAL',
+        } as never);
+      }
+      const password = resolvePassword(cred);
+      if (!password) {
+        return responseBuilder.error(new Error(`Vault entry exists but password unavailable (env ${cred.passwordEnv} unset and no literal stored).`), {
+          code: 'NO_PASSWORD',
+        } as never);
+      }
+      const loginUrl = cred.loginUrl ?? (cred.loginPath ? `${origin}${cred.loginPath}` : `${origin}/login`);
+      await session.browser.navigate(loginUrl).catch(() => {});
+      const fields = await detectFormFields(session.browser);
+      const u = matchField(fields, 'email') || matchField(fields, 'username') || matchField(fields, 'login') || matchField(fields, 'user');
+      const p = matchField(fields, 'password');
+      if (!u || !p) {
+        return responseBuilder.error(new Error('Login form not found at ' + loginUrl), { code: 'NO_FORM' } as never);
+      }
+      await fillField(session.browser, u, cred.username);
+      await fillField(session.browser, p, password);
+      const btn = await findSubmitButton(session.browser);
+      if (btn) {
+        await Promise.all([
+          session.browser.waitForLoadState?.('networkidle', { timeout: 15000 }).catch(() => {}),
+          btn.click(),
+        ]);
+      }
+      if (input.sessionName) {
+        try {
+          const rc2 = await session.browser.contextCookies().catch(() => []);
+          const ro2 = new URL(session.browser.url()).origin;
+          const rs2 = await session.browser
+            .evaluate(() => {
+              const items: Record<string, string> = {};
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key) items[key] = localStorage.getItem(key) ?? '';
+              }
+              return items;
+            })
+            .catch(() => ({}) as Record<string, string>);
+          sessionStore.save(input.sessionName, { cookies: rc2 as never, localStorage: rs2, sessionStorage: {}, origin: ro2 });
+        } catch {}
+      }
+      return responseBuilder.success(
+        { ok: true, origin, account: cred.account ?? 'default', loginUrl, ...(input.sessionName ? { sessionSaved: input.sessionName } : {}) },
+        sessionManager.buildMeta(session),
+      );
+    } catch (error) {
+      return responseBuilder.error(error);
+    }
+  },
+});
+
+export const authListCredentials = createTool({
+  name: 'auth_list_credentials',
+  category: 'auth',
+  description:
+    '`<use_case>Auth</use_case> 📋 List dev vault credential entries (origins, usernames, accounts — never passwords).`',
+  inputSchema: z.object({}),
+  handler: async (input, { responseBuilder }) => {
+    const { listDevCredentials } = await import('../../auth/dev-vault.js');
+    const entries = listDevCredentials();
+    return responseBuilder.success({ entries, count: entries.length });
+  },
+});
+
+export const authDeleteCredentials = createTool({
+  name: 'auth_delete_credentials',
+  category: 'auth',
+  description: '`<use_case>Auth</use_case> 🗑️ Delete a dev vault credential entry by origin + account.`',
+  inputSchema: z.object({
+    origin: z.string().describe('Site origin'),
+    account: z.string().optional().default('default').describe('Account label'),
+  }),
+  handler: async (input, { responseBuilder }) => {
+    const { deleteDevCredential } = await import('../../auth/dev-vault.js');
+    let origin = input.origin;
+    try {
+      origin = new URL(input.origin).origin;
+    } catch {}
+    const deleted = deleteDevCredential(origin, input.account ?? 'default');
+    return responseBuilder.success(
+      { deleted },
+      { elapsed: 0, sessionId: '', timestamp: new Date().toISOString() },
+    );
   },
 });

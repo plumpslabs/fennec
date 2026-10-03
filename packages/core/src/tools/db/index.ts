@@ -256,3 +256,29 @@ export const dbStats = createTool({
     }
   },
 });
+
+export const dbDisconnectAll = createTool({
+  name: 'db_disconnect_all',
+  category: 'db',
+  description: '`<use_case>Database</use_case> 🔌 Disconnect all active database connections (cleanup after E2E).`',
+  inputSchema: z.object({}),
+  handler: async (input, { responseBuilder, logger }) => {
+    try {
+      const mgr = getDbManager();
+      mgr.setLogger(logger);
+      const connections: Array<{ name?: string }> = await mgr.listConnections().catch(() => []);
+      const disconnected: string[] = [];
+      for (const c of connections) {
+        if (!c?.name) continue;
+        try {
+          await mgr.disconnect(c.name);
+          disconnected.push(c.name);
+        } catch {}
+      }
+      mgr.afterRequest();
+      return responseBuilder.success({ disconnected, count: disconnected.length, idle: true });
+    } catch (err: any) {
+      return responseBuilder.error(err, { code: 'DB_DISCONNECT_ALL_ERROR' });
+    }
+  },
+});

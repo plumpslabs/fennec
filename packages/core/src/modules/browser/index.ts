@@ -59,6 +59,7 @@ import {
   networkIntercept,
   networkRemoveIntercept,
   networkMockResponse,
+  mockApiResponse,
   networkWaitForRequest,
   networkGetRequestDetail,
   networkWaitForApiResponse,
@@ -93,6 +94,10 @@ import {
   authListSessions,
   authDeleteSession,
   authCheckLoggedIn,
+  authSaveCredentials,
+  authRelogin,
+  authListCredentials,
+  authDeleteCredentials,
 } from '../../tools/auth/index.js';
 import {
   tabNew,
@@ -177,6 +182,7 @@ export const browserModule: FennecModule = {
     networkIntercept,
     networkRemoveIntercept,
     networkMockResponse,
+    mockApiResponse,
     networkWaitForRequest,
     networkGetRequestDetail,
     networkWaitForApiResponse,
@@ -208,6 +214,10 @@ export const browserModule: FennecModule = {
     authListSessions,
     authDeleteSession,
     authCheckLoggedIn,
+    authSaveCredentials,
+    authRelogin,
+    authListCredentials,
+    authDeleteCredentials,
     // Tabs
     tabNew,
     tabClose,

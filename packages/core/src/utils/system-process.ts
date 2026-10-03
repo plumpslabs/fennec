@@ -59,6 +59,46 @@ export function getProcessCwd(pid: number): string | null {
 }
 
 /**
+ * Collect all descendant PIDs of `pid` via `ps -o pid,ppid`.
+ * Returns deepest-first order so children die before parents.
+ * Empty array when ps is unavailable or there are no descendants.
+ */
+export function getDescendantPids(pid: number): number[] {
+  if (pid <= 0) return [];
+  if (process.platform === 'win32') return [];
+  try {
+    const out = execSync('ps -o pid=,ppid= -A', { encoding: 'utf-8', timeout: 3000 });
+    const childrenOf = new Map<number, number[]>();
+    const allPids = new Set<number>();
+    for (const line of out.split('\n')) {
+      const parts = line.trim().split(/\s+/);
+      if (parts.length < 2) continue;
+      const c = parseInt(parts[0]!, 10);
+      const p = parseInt(parts[1]!, 10);
+      if (isNaN(c) || isNaN(p)) continue;
+      allPids.add(c);
+      const arr = childrenOf.get(p) ?? [];
+      arr.push(c);
+      childrenOf.set(p, arr);
+    }
+    if (!allPids.has(pid)) {
+      // Root already gone — still try direct children lookup in case ps raced.
+    }
+    const result: number[] = [];
+    const stack = [...(childrenOf.get(pid) ?? [])];
+    while (stack.length) {
+      const cur = stack.pop()!;
+      result.push(cur);
+      const kids = childrenOf.get(cur) ?? [];
+      for (const k of kids) stack.push(k);
+    }
+    return result;
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Kill a process AND its entire descendant tree (cross-platform).
  *
  * Apps are spawned `detached`, making the direct child a process-GROUP
@@ -66,7 +106,9 @@ export function getProcessCwd(pid: number): string | null {
  * leaving its children (`node` -> `vite` -> `esbuild`) as ORPHANS that keep
  * running and leaking CPU/memory/ports.
  *
- * - POSIX (Linux/macOS): signal the whole group via negative PID.
+ * - POSIX (Linux/macOS): signal the whole group via negative PID, then sweep
+ *   any descendants that escaped the group (e.g. `make`/shell wrappers that
+ *   re-group or double-fork children) via `ps`-based recursive kill.
  * - Windows: `taskkill /T /F` kills the process and all descendants.
  */
 export function killTree(pid: number, signal: NodeJS.Signals = 'SIGTERM'): boolean {
@@ -86,19 +128,45 @@ export function killTree(pid: number, signal: NodeJS.Signals = 'SIGTERM'): boole
       }
     }
   }
+  // Snapshot descendants BEFORE signalling — group kill may re-parent
+  // orphans to init (PPID 1), making them undiscoverable afterwards.
+  const descendants = getDescendantPids(pid);
+  let groupOk = false;
   try {
     process.kill(-pid, signal);
-    return true;
+    groupOk = true;
   } catch (e) {
     const code = (e as NodeJS.ErrnoException).code;
-    if (code === 'ESRCH') return false;
+    if (code !== 'ESRCH') {
+      try {
+        process.kill(pid, signal);
+        groupOk = true;
+      } catch {
+        groupOk = false;
+      }
+    }
+  }
+  // Fallback sweep: kill descendants that escaped the process group
+  // (make/sh wrappers, double-forked daemons). Deepest-first.
+  let swept = false;
+  for (const dp of descendants) {
+    try {
+      process.kill(dp, signal);
+      swept = true;
+    } catch {
+      /* already gone */
+    }
+  }
+  // Ensure the root itself got the signal when group kill missed it.
+  if (!groupOk) {
     try {
       process.kill(pid, signal);
       return true;
     } catch {
-      return false;
+      return swept;
     }
   }
+  return true;
 }
 
 /**

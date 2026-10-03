@@ -323,12 +323,13 @@ export class ProcessManager {
       return Promise.resolve(doSpawn());
     }
 
-    // Kill and wait for actual exit before re-spawning
+    // Kill and wait for actual exit before re-spawning (tree kill so
+    // make/sh wrappers don't leave orphaned children behind).
     return new Promise<ManagedProcess>((resolve, reject) => {
       const timeout = setTimeout(() => {
         // Force kill after timeout
         try {
-          proc.child.kill('SIGKILL');
+          killTree(proc.pid, 'SIGKILL');
         } catch {
           /* ignore */
         }
@@ -342,7 +343,7 @@ export class ProcessManager {
       });
 
       try {
-        proc.child.kill('SIGTERM');
+        killTree(proc.pid, 'SIGTERM');
       } catch (err) {
         getLogger().warn(
           { processId, error: err },

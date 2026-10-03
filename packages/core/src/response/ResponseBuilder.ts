@@ -53,6 +53,11 @@ export function sanitize<T>(value: T): T {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
       if (typeof v === 'function') continue; // drop functions — not serializable
+      // Never let raw secrets reach the agent context (vault passwords, etc.)
+      if (/^(password|passwd|pwd|secret|client_secret|passwordenv)$/i.test(k) && typeof v === 'string' && v.length > 0) {
+        out[k] = '[REDACTED]';
+        continue;
+      }
       try {
         out[k] = walk(v);
       } catch {
