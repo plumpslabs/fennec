@@ -31,14 +31,14 @@ jobs:
       - name: Publish @plumpslabs/fennec-core
         run: |
           cd packages/core
-          pnpm publish --provenance --access public --no-git-checks
+          npm publish --provenance --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @plumpslabs/fennec-cli
         run: |
           cd packages/cli
-          pnpm publish --provenance --access public --no-git-checks
+          npm publish --provenance --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
