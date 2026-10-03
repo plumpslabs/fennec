@@ -33,13 +33,20 @@ function encrypt(plain: string): { iv: string; tag: string; data: string } {
   const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', vaultKey(), iv);
   const data = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()]);
-  return { iv: iv.toString('base64'), tag: cipher.getAuthTag().toString('base64'), data: data.toString('base64') };
+  return {
+    iv: iv.toString('base64'),
+    tag: cipher.getAuthTag().toString('base64'),
+    data: data.toString('base64'),
+  };
 }
 
 function decrypt(enc: { iv: string; tag: string; data: string }): string {
   const decipher = createDecipheriv('aes-256-gcm', vaultKey(), Buffer.from(enc.iv, 'base64'));
   decipher.setAuthTag(Buffer.from(enc.tag, 'base64'));
-  return Buffer.concat([decipher.update(Buffer.from(enc.data, 'base64')), decipher.final()]).toString('utf8');
+  return Buffer.concat([
+    decipher.update(Buffer.from(enc.data, 'base64')),
+    decipher.final(),
+  ]).toString('utf8');
 }
 
 function readAll(): Record<string, DevCredential> {
@@ -82,7 +89,10 @@ export function vaultKeyFor(origin: string, account = 'default'): string {
 
 export function saveDevCredential(cred: Omit<DevCredential, 'updatedAt'>): void {
   const all = readAll();
-  all[vaultKeyFor(cred.origin, cred.account ?? 'default')] = { ...cred, updatedAt: new Date().toISOString() };
+  all[vaultKeyFor(cred.origin, cred.account ?? 'default')] = {
+    ...cred,
+    updatedAt: new Date().toISOString(),
+  };
   writeAll(all);
 }
 
@@ -90,7 +100,9 @@ export function getDevCredential(origin: string, account = 'default'): DevCreden
   return readAll()[vaultKeyFor(origin, account)] ?? null;
 }
 
-export function listDevCredentials(): Array<Omit<DevCredential, 'password'> & { account: string; hasPassword: boolean; usesEnv: boolean }> {
+export function listDevCredentials(): Array<
+  Omit<DevCredential, 'password'> & { account: string; hasPassword: boolean; usesEnv: boolean }
+> {
   return Object.entries(readAll()).map(([k, v]) => ({
     origin: v.origin,
     username: v.username,

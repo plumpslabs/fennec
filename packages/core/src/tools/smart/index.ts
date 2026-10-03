@@ -2148,7 +2148,19 @@ export const smartNavigate = createTool({
             stateAsOf: actionAt,
             baselineConsole: 0,
             baselineNetwork: 0,
-            ...(authNote ? { needsAuth: authNote.needsAuth, authPrompt: authNote.prompt, sessionName: authNote.sessionName, ...(authNote.needsAuth ? { needsAuthHint: 'No valid session — log in via auth_fill_login_form or provide credentials' } : {}) } : {}),
+            ...(authNote
+              ? {
+                  needsAuth: authNote.needsAuth,
+                  authPrompt: authNote.prompt,
+                  sessionName: authNote.sessionName,
+                  ...(authNote.needsAuth
+                    ? {
+                        needsAuthHint:
+                          'No valid session — log in via auth_fill_login_form or provide credentials',
+                      }
+                    : {}),
+                }
+              : {}),
             topConsoleErrors,
           },
           meta,
@@ -2158,7 +2170,8 @@ export const smartNavigate = createTool({
       // Include tracked process info so the agent knows what's running
       const tracked = readTracked();
       const runningApps = tracked.filter((t) => isTrackedRunning(t));
-      const sessionNote = authNote && !authNote.needsAuth ? { sessionLoaded: authNote.sessionName } : {};
+      const sessionNote =
+        authNote && !authNote.needsAuth ? { sessionLoaded: authNote.sessionName } : {};
 
       const result: Record<string, unknown> = {
         url: page.url(),
@@ -2715,7 +2728,8 @@ export const fennecFlow = createTool({
                 total: session.networkBuffer.length,
                 failed: session.networkBuffer.filter(
                   (r: { status: number; url: string }) =>
-                    r.status >= 400 && !isExpectedNetworkFailure(r.status, (r as { url: string }).url),
+                    r.status >= 400 &&
+                    !isExpectedNetworkFailure(r.status, (r as { url: string }).url),
                 ).length,
                 slow: session.networkBuffer.filter((r: { duration: number }) => r.duration > 1000)
                   .length,
@@ -2723,7 +2737,8 @@ export const fennecFlow = createTool({
                   .reverse()
                   .find(
                     (r: { status: number; url: string }) =>
-                      r.status >= 400 && !isExpectedNetworkFailure(r.status, (r as { url: string }).url),
+                      r.status >= 400 &&
+                      !isExpectedNetworkFailure(r.status, (r as { url: string }).url),
                   )?.url,
               }
             : null,

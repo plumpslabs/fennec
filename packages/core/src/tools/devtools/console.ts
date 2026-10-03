@@ -442,8 +442,7 @@ export const devtoolsGetComponentState = createTool({
 
           // Try React fiber
           const fiberKey = Object.keys(el).find(
-            (k) =>
-              k.startsWith('__reactFiber$') || k.startsWith('__reactInternalInstance$'),
+            (k) => k.startsWith('__reactFiber$') || k.startsWith('__reactInternalInstance$'),
           );
           if (!fiberKey) {
             return { found: true, framework: 'unknown', fiberInfo: null };
@@ -467,9 +466,7 @@ export const devtoolsGetComponentState = createTool({
                 typeof type === 'function'
                   ? (type as () => void).name || (typeObj.displayName as string) || 'Anonymous'
                   : typeof type === 'object'
-                    ? (typeObj.name as string) ||
-                      (typeObj.displayName as string) ||
-                      null
+                    ? (typeObj.name as string) || (typeObj.displayName as string) || null
                     : null;
               if (name && name !== 'Anonymous') {
                 componentName = name as string;
@@ -528,12 +525,8 @@ export const devtoolsGetComponentState = createTool({
               // Try window.__REDUX_STORE__ first (most common pattern)
               const win = window as unknown as Record<string, unknown>;
               const store = (win.__REDUX_STORE__ ?? win.store) as
-                | Record<string, unknown>
-                | undefined;
-              if (
-                store &&
-                typeof (store as Record<string, unknown>).getState === 'function'
-              ) {
+                Record<string, unknown> | undefined;
+              if (store && typeof (store as Record<string, unknown>).getState === 'function') {
                 const getState = (store as Record<string, unknown>).getState as (
                   ...args: unknown[]
                 ) => Record<string, unknown>;
@@ -561,13 +554,9 @@ export const devtoolsGetComponentState = createTool({
                 while (ctxCurrent && ctxCurrent.return) {
                   ctxCurrent = ctxCurrent.return as Record<string, unknown>;
                   const type = ctxCurrent.type as Record<string, unknown> | undefined;
-                  if (
-                    type &&
-                    (type.name === 'Provider' || type.displayName === 'Provider')
-                  ) {
+                  if (type && (type.name === 'Provider' || type.displayName === 'Provider')) {
                     const pendingProps = ctxCurrent.pendingProps as
-                      | Record<string, unknown>
-                      | undefined;
+                      Record<string, unknown> | undefined;
                     if (pendingProps && pendingProps.store) {
                       const providerStore = pendingProps.store as Record<string, unknown>;
                       if (
@@ -626,12 +615,10 @@ export const devtoolsGetComponentState = createTool({
                     type.name === 'ReactQueryClientProvider')
                 ) {
                   const pendingProps = rqCurrent.pendingProps as
-                    | Record<string, unknown>
-                    | undefined;
+                    Record<string, unknown> | undefined;
                   if (pendingProps) {
                     const child = (pendingProps.client ?? pendingProps.queryClient) as
-                      | Record<string, unknown>
-                      | undefined;
+                      Record<string, unknown> | undefined;
                     if (child) queryClient = child;
                   }
                   break;
@@ -639,12 +626,11 @@ export const devtoolsGetComponentState = createTool({
               }
 
               if (queryClient) {
-                const getQueryCache = (
-                  queryClient as Record<string, unknown>
-                ).getQueryCache as (() => { getAll: () => Array<Record<string, unknown>> }) | undefined;
-                const getMutationCache = (
-                  queryClient as Record<string, unknown>
-                ).getMutationCache as (() => { getAll: () => Array<Record<string, unknown>> }) | undefined;
+                const getQueryCache = (queryClient as Record<string, unknown>).getQueryCache as
+                  (() => { getAll: () => Array<Record<string, unknown>> }) | undefined;
+                const getMutationCache = (queryClient as Record<string, unknown>)
+                  .getMutationCache as
+                  (() => { getAll: () => Array<Record<string, unknown>> }) | undefined;
 
                 const queryCache = getQueryCache?.();
                 const mutationCache = getMutationCache?.();
@@ -655,19 +641,15 @@ export const devtoolsGetComponentState = createTool({
                   detected: true,
                   queryCount: queries.length,
                   mutationCount: mutations.length,
-                  activeQueries: queries
-                    .slice(0, 10)
-                    .map((q: Record<string, unknown>) => ({
-                      queryKey: q.queryKey,
-                      isStale:
-                        typeof q.isStale === 'function'
-                          ? (q.isStale as () => boolean)()
-                          : (q.state as Record<string, unknown>)?.isStale ?? null,
-                      isFetching: q.isFetching ?? false,
-                    })),
-                  cacheKeys: queries
-                    .slice(0, 20)
-                    .map((q: Record<string, unknown>) => q.queryKey),
+                  activeQueries: queries.slice(0, 10).map((q: Record<string, unknown>) => ({
+                    queryKey: q.queryKey,
+                    isStale:
+                      typeof q.isStale === 'function'
+                        ? (q.isStale as () => boolean)()
+                        : ((q.state as Record<string, unknown>)?.isStale ?? null),
+                    isFetching: q.isFetching ?? false,
+                  })),
+                  cacheKeys: queries.slice(0, 20).map((q: Record<string, unknown>) => q.queryKey),
                 };
               } else {
                 reactQuery = { detected: false };
@@ -689,10 +671,11 @@ export const devtoolsGetComponentState = createTool({
               flags: _flags,
               elementType:
                 typeof _elementType === 'function'
-                  ? ((_elementType as () => void).name || 'Anonymous')
+                  ? (_elementType as () => void).name || 'Anonymous'
                   : String(_elementType ?? null),
             },
-            props: (pendingProps as Record<string, unknown>) ??
+            props:
+              (pendingProps as Record<string, unknown>) ??
               (memoizedProps as Record<string, unknown>) ??
               null,
             state: classState,

@@ -153,7 +153,7 @@ export const diagnoseAuth = createTool({
   name: 'diagnose_auth',
   category: 'diagnostic',
   description:
-    "`<use_case>Diagnostic</use_case> 🔐 Check auth via cookies: token/session/jwt/sid/connect. Returns isAuthenticated, authCookiesCount, expiryInfo. More detailed than auth_check_logged_in (which also checks page elements). For save/load: auth_save_session / auth_load_session.`",
+    '`<use_case>Diagnostic</use_case> 🔐 Check auth via cookies: token/session/jwt/sid/connect. Returns isAuthenticated, authCookiesCount, expiryInfo. More detailed than auth_check_logged_in (which also checks page elements). For save/load: auth_save_session / auth_load_session.`',
   inputSchema: z.object({ sessionId: z.string().optional().describe('Session ID') }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
@@ -201,7 +201,9 @@ export const diagnoseFullstack = createTool({
         page.title().catch(() => ''),
         Promise.resolve(sessionManager.getConsoleBuffer(session.id, { level: 'error', limit: 10 })),
         Promise.resolve(
-          session.networkBuffer.filter((r) => r.status >= 400 && !isExpectedNetworkFailure(r.status, r.url)).slice(-10),
+          session.networkBuffer
+            .filter((r) => r.status >= 400 && !isExpectedNetworkFailure(r.status, r.url))
+            .slice(-10),
         ),
       ]);
 
@@ -314,7 +316,7 @@ export const diagnosePerformance = createTool({
   name: 'diagnose_performance',
   category: 'diagnostic',
   description:
-    "`<use_case>Diagnostic</use_case> ⚡ Web Vitals + memory audit: FCP, LCP, CLS, JS heap. Returns score (0-100), issues, and recommendations. More actionable than devtools_get_performance_metrics (raw metrics only). Includes memory leak detection (>100MB).`",
+    '`<use_case>Diagnostic</use_case> ⚡ Web Vitals + memory audit: FCP, LCP, CLS, JS heap. Returns score (0-100), issues, and recommendations. More actionable than devtools_get_performance_metrics (raw metrics only). Includes memory leak detection (>100MB).`',
   inputSchema: z.object({ sessionId: z.string().optional().describe('Session ID') }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);

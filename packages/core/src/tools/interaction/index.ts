@@ -221,9 +221,7 @@ export const browserSelect = createTool({
           .evaluate((selectEl: Element, label: string) => {
             const select = selectEl as HTMLSelectElement;
             const options = Array.from(select.options);
-            const match = options.find(
-              (o) => o.label === label || o.textContent?.trim() === label,
-            );
+            const match = options.find((o) => o.label === label || o.textContent?.trim() === label);
             if (match) {
               select.value = match.value;
               select.dispatchEvent(new Event('change', { bubbles: true }));

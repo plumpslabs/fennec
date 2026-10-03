@@ -260,7 +260,8 @@ export const dbStats = createTool({
 export const dbDisconnectAll = createTool({
   name: 'db_disconnect_all',
   category: 'db',
-  description: '`<use_case>Database</use_case> 🔌 Disconnect all active database connections (cleanup after E2E).`',
+  description:
+    '`<use_case>Database</use_case> 🔌 Disconnect all active database connections (cleanup after E2E).`',
   inputSchema: z.object({}),
   handler: async (input, { responseBuilder, logger }) => {
     try {

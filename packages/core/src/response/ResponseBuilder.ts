@@ -54,7 +54,11 @@ export function sanitize<T>(value: T): T {
     for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
       if (typeof v === 'function') continue; // drop functions — not serializable
       // Never let raw secrets reach the agent context (vault passwords, etc.)
-      if (/^(password|passwd|pwd|secret|client_secret|passwordenv)$/i.test(k) && typeof v === 'string' && v.length > 0) {
+      if (
+        /^(password|passwd|pwd|secret|client_secret|passwordenv)$/i.test(k) &&
+        typeof v === 'string' &&
+        v.length > 0
+      ) {
         out[k] = '[REDACTED]';
         continue;
       }
@@ -104,25 +108,51 @@ export class ResponseBuilder {
     // Auto-generated suggestions (#99) — heuristic-driven next steps
     const autoSuggestions: string[] = [];
     if (options?.autoSuggest !== false) {
-      if (code === 'ELEMENT_NOT_FOUND' || message.includes('not found') || message.includes('No element')) {
+      if (
+        code === 'ELEMENT_NOT_FOUND' ||
+        message.includes('not found') ||
+        message.includes('No element')
+      ) {
         autoSuggestions.push('Use browser_get_dom_snapshot to see available elements on the page');
       }
-      if (code === 'ELEMENT_NOT_INTERACTABLE' || message.includes('interactable') || message.includes('visible')) {
+      if (
+        code === 'ELEMENT_NOT_INTERACTABLE' ||
+        message.includes('interactable') ||
+        message.includes('visible')
+      ) {
         autoSuggestions.push('Try browser_scroll to bring the element into view first');
-        autoSuggestions.push('Use browser_get_element_info to check element state (visible, enabled)');
+        autoSuggestions.push(
+          'Use browser_get_element_info to check element state (visible, enabled)',
+        );
       }
-      if (code === 'REQUEST_TIMEOUT' || code === 'RESPONSE_TIMEOUT' || message.includes('timeout')) {
-        autoSuggestions.push('Check if the page is loading correctly — use diagnose_page or observe()');
-        autoSuggestions.push('Increase the timeout parameter if the operation legitimately takes longer');
+      if (
+        code === 'REQUEST_TIMEOUT' ||
+        code === 'RESPONSE_TIMEOUT' ||
+        message.includes('timeout')
+      ) {
+        autoSuggestions.push(
+          'Check if the page is loading correctly — use diagnose_page or observe()',
+        );
+        autoSuggestions.push(
+          'Increase the timeout parameter if the operation legitimately takes longer',
+        );
       }
-      if (code === 'NETWORK_INTERCEPT_FAILED' || message.includes('network') || message.includes('fetch')) {
+      if (
+        code === 'NETWORK_INTERCEPT_FAILED' ||
+        message.includes('network') ||
+        message.includes('fetch')
+      ) {
         autoSuggestions.push('Use network_get_logs to check recent network activity');
       }
       if (code === 'CDP_ERROR' || message.includes('CDP') || message.includes('target')) {
-        autoSuggestions.push('The browser page may have crashed or been closed — try browser_navigate to a URL');
+        autoSuggestions.push(
+          'The browser page may have crashed or been closed — try browser_navigate to a URL',
+        );
       }
       if (message.includes('strict mode violation') || message.includes('resolved to')) {
-        autoSuggestions.push('Use the index parameter to target a specific element when multiple match');
+        autoSuggestions.push(
+          'Use the index parameter to target a specific element when multiple match',
+        );
       }
       if (code === 'FORM_FILL_FAILED' || message.includes('form')) {
         autoSuggestions.push('Use browser_get_dom_snapshot to inspect the form structure');

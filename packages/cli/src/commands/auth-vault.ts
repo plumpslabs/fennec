@@ -34,8 +34,18 @@ export async function authVaultCommand(args: string[]): Promise<void> {
       );
       process.exit(1);
     }
-    saveDevCredential({ origin, username, ...(password ? { password } : {}), ...(passwordEnv ? { passwordEnv } : {}), ...(loginUrl ? { loginUrl } : {}), ...(loginPath ? { loginPath } : {}), account });
-    console.error(`${pc.green('✓')} Saved dev credential for ${origin} (account ${account}). Vault: ${getVaultPath()}`);
+    saveDevCredential({
+      origin,
+      username,
+      ...(password ? { password } : {}),
+      ...(passwordEnv ? { passwordEnv } : {}),
+      ...(loginUrl ? { loginUrl } : {}),
+      ...(loginPath ? { loginPath } : {}),
+      account,
+    });
+    console.error(
+      `${pc.green('✓')} Saved dev credential for ${origin} (account ${account}). Vault: ${getVaultPath()}`,
+    );
     return;
   }
   if (sub === 'ls' || sub === 'list') {
@@ -44,7 +54,10 @@ export async function authVaultCommand(args: string[]): Promise<void> {
       console.error('No dev credentials saved.');
       return;
     }
-    for (const e of entries) console.error(`- ${e.origin} [${e.account}] ${e.username} ${e.usesEnv ? '(env:' + 'passwordEnv' + ')' : '(encrypted literal)'}`);
+    for (const e of entries)
+      console.error(
+        `- ${e.origin} [${e.account}] ${e.username} ${e.usesEnv ? '(env:' + 'passwordEnv' + ')' : '(encrypted literal)'}`,
+      );
     return;
   }
   if (sub === 'rm') {

@@ -248,7 +248,12 @@ export const authFillLoginForm = createTool({
           },
           submitted,
           sessionSaved,
-          ...(sessionSaved ? { sessionName } : { sessionSavedReason: 'no auth cookie/storage/DOM indicator found — session not saved' }),
+          ...(sessionSaved
+            ? { sessionName }
+            : {
+                sessionSavedReason:
+                  'no auth cookie/storage/DOM indicator found — session not saved',
+              }),
         },
         sessionManager.buildMeta(session),
       );
@@ -451,8 +456,7 @@ export const authLoadSession = createTool({
           Record<string, unknown>
         >;
         const dom = cookies.find((c) => typeof c.domain === 'string' && c.domain)?.domain as
-          | string
-          | undefined;
+          string | undefined;
         if (dom) {
           const host = String(dom).replace(/^\./, '');
           return `https://${host}`;
@@ -468,9 +472,7 @@ export const authLoadSession = createTool({
       // both are applied on the right origin in one call.
       let didNavigate = false;
       const isAboutBlank =
-        !currentOrigin ||
-        currentOrigin === 'null' ||
-        session.browser.url() === 'about:blank';
+        !currentOrigin || currentOrigin === 'null' || session.browser.url() === 'about:blank';
       const shouldNavigate = input.navigate || !!input.url || isAboutBlank;
 
       if (shouldNavigate && isAboutBlank && sessionOrigin) {
@@ -560,9 +562,13 @@ export const authLoadSession = createTool({
       let needsAuth = false;
       try {
         const cookies = await session.browser.contextCookies().catch(() => []);
-        const hasAuthCookie = cookies.some((c) => /token|session|auth|jwt|sid|connect/i.test(c.name));
+        const hasAuthCookie = cookies.some((c) =>
+          /token|session|auth|jwt|sid|connect/i.test(c.name),
+        );
         const loginLink = await session.browser
-          .$('a[href*="login"],a[href*="sign-in"],button:has-text("Log in"),button:has-text("Sign in")')
+          .$(
+            'a[href*="login"],a[href*="sign-in"],button:has-text("Log in"),button:has-text("Sign in")',
+          )
           .catch(() => null);
         const expired = !hasAuthCookie || !!loginLink;
         if (expired) {
@@ -573,12 +579,17 @@ export const authLoadSession = createTool({
             const password = cred ? resolvePassword(cred) : null;
             if (cred && password) {
               const loginUrl =
-                cred.loginUrl ?? (cred.loginPath ? `${sessionOrigin}${cred.loginPath}` : `${sessionOrigin}/login`);
+                cred.loginUrl ??
+                (cred.loginPath ? `${sessionOrigin}${cred.loginPath}` : `${sessionOrigin}/login`);
               await session.browser.navigate(loginUrl).catch(() => {});
               let filled = false;
               try {
                 const fields = await detectFormFields(session.browser);
-                const u = matchField(fields, 'email') || matchField(fields, 'username') || matchField(fields, 'login') || matchField(fields, 'user');
+                const u =
+                  matchField(fields, 'email') ||
+                  matchField(fields, 'username') ||
+                  matchField(fields, 'login') ||
+                  matchField(fields, 'user');
                 const p = matchField(fields, 'password');
                 if (u && p) {
                   await fillField(session.browser, u, cred.username);
@@ -586,7 +597,9 @@ export const authLoadSession = createTool({
                   const btn = await findSubmitButton(session.browser);
                   if (btn) {
                     await Promise.all([
-                      session.browser.waitForLoadState?.('networkidle', { timeout: 15000 }).catch(() => {}),
+                      session.browser
+                        .waitForLoadState?.('networkidle', { timeout: 15000 })
+                        .catch(() => {}),
                       btn.click(),
                     ]);
                   }
@@ -609,9 +622,20 @@ export const authLoadSession = createTool({
                       return items;
                     })
                     .catch(() => ({}) as Record<string, string>);
-                  sessionStore.save(input.name, { cookies: rc as never, localStorage: rs, sessionStorage: {}, origin: ro });
+                  sessionStore.save(input.name, {
+                    cookies: rc as never,
+                    localStorage: rs,
+                    sessionStorage: {},
+                    origin: ro,
+                  });
                 } catch {}
-                relogin = { attempted: true, ok: true, loginUrl, username: cred.username, account: cred.account ?? 'default' };
+                relogin = {
+                  attempted: true,
+                  ok: true,
+                  loginUrl,
+                  username: cred.username,
+                  account: cred.account ?? 'default',
+                };
                 needsAuth = false;
               } else {
                 relogin = { attempted: true, loginUrl, ok: false, reason: 'login form not found' };
@@ -638,7 +662,11 @@ export const authLoadSession = createTool({
           didAutoReload: didAutoReload || undefined,
           needsAuth,
           ...(relogin ? { relogin } : {}),
-          ...(!needsAuth ? {} : { loginHint: 'Session expired — run auth_relogin or log in via auth_fill_login_form' }),
+          ...(!needsAuth
+            ? {}
+            : {
+                loginHint: 'Session expired — run auth_relogin or log in via auth_fill_login_form',
+              }),
           ...(storageWarning ? { warning: storageWarning } : {}),
           ...(didNavigate ? { navigatedTo: input.url || sessionOrigin } : {}),
         },
@@ -779,21 +807,40 @@ export const authSaveCredentials = createTool({
   inputSchema: z.object({
     origin: z.string().describe('Site origin, e.g. https://staging.example.com'),
     username: z.string().describe('Dev username / email'),
-    password: z.string().optional().describe('Literal dev password (encrypted at rest). Prefer passwordEnv.'),
-    passwordEnv: z.string().optional().describe('Env var holding the password (nothing secret on disk). Checked first.'),
+    password: z
+      .string()
+      .optional()
+      .describe('Literal dev password (encrypted at rest). Prefer passwordEnv.'),
+    passwordEnv: z
+      .string()
+      .optional()
+      .describe('Env var holding the password (nothing secret on disk). Checked first.'),
     loginUrl: z.string().optional().describe('Full login URL'),
     loginPath: z.string().optional().describe('Login path appended to origin, e.g. /login'),
-    account: z.string().optional().default('default').describe('Account label (multiple accounts per origin)'),
-    devOnly: z.boolean().describe('Must be true — acknowledges these are dev/test credentials only'),
+    account: z
+      .string()
+      .optional()
+      .default('default')
+      .describe('Account label (multiple accounts per origin)'),
+    devOnly: z
+      .boolean()
+      .describe('Must be true — acknowledges these are dev/test credentials only'),
   }),
   handler: async (input, { responseBuilder }) => {
     if (input.devOnly !== true) {
-      return responseBuilder.error(new Error('Refusing to store credentials without devOnly:true (dev/test only, never prod).'), {
-        code: 'NOT_DEV_ONLY',
-      } as never);
+      return responseBuilder.error(
+        new Error(
+          'Refusing to store credentials without devOnly:true (dev/test only, never prod).',
+        ),
+        {
+          code: 'NOT_DEV_ONLY',
+        } as never,
+      );
     }
     if (!input.password && !input.passwordEnv) {
-      return responseBuilder.error(new Error('Provide password or passwordEnv.'), { code: 'NO_SECRET' } as never);
+      return responseBuilder.error(new Error('Provide password or passwordEnv.'), {
+        code: 'NO_SECRET',
+      } as never);
     }
     const { saveDevCredential, getVaultPath } = await import('../../auth/dev-vault.js');
     let origin = input.origin;
@@ -810,7 +857,13 @@ export const authSaveCredentials = createTool({
       account: input.account ?? 'default',
     });
     return responseBuilder.success(
-      { saved: true, origin, account: input.account ?? 'default', usesEnv: !!input.passwordEnv, vault: getVaultPath() },
+      {
+        saved: true,
+        origin,
+        account: input.account ?? 'default',
+        usesEnv: !!input.passwordEnv,
+        vault: getVaultPath(),
+      },
       { elapsed: 0, sessionId: '', timestamp: new Date().toISOString() },
     );
   },
@@ -835,7 +888,10 @@ export const authRelogin = createTool({
       if (!origin && input.sessionName) {
         const saved = sessionStore.load(input.sessionName);
         const s = saved as unknown as Record<string, unknown> | null;
-        origin = (s?.origin as string) ?? ((s?.metadata as Record<string, unknown> | undefined)?.origin as string) ?? undefined;
+        origin =
+          (s?.origin as string) ??
+          ((s?.metadata as Record<string, unknown> | undefined)?.origin as string) ??
+          undefined;
       }
       if (!origin) {
         try {
@@ -843,27 +899,46 @@ export const authRelogin = createTool({
         } catch {}
       }
       if (!origin || origin === 'null') {
-        return responseBuilder.error(new Error('Cannot infer origin — pass origin explicitly.'), { code: 'NO_ORIGIN' } as never);
+        return responseBuilder.error(new Error('Cannot infer origin — pass origin explicitly.'), {
+          code: 'NO_ORIGIN',
+        } as never);
       }
       const cred = getDevCredential(origin, input.account ?? 'default');
       if (!cred) {
-        return responseBuilder.error(new Error(`No vault credential for ${origin} (account ${input.account ?? 'default'}). Save one with auth_save_credentials(devOnly:true).`), {
-          code: 'NO_CREDENTIAL',
-        } as never);
+        return responseBuilder.error(
+          new Error(
+            `No vault credential for ${origin} (account ${input.account ?? 'default'}). Save one with auth_save_credentials(devOnly:true).`,
+          ),
+          {
+            code: 'NO_CREDENTIAL',
+          } as never,
+        );
       }
       const password = resolvePassword(cred);
       if (!password) {
-        return responseBuilder.error(new Error(`Vault entry exists but password unavailable (env ${cred.passwordEnv} unset and no literal stored).`), {
-          code: 'NO_PASSWORD',
-        } as never);
+        return responseBuilder.error(
+          new Error(
+            `Vault entry exists but password unavailable (env ${cred.passwordEnv} unset and no literal stored).`,
+          ),
+          {
+            code: 'NO_PASSWORD',
+          } as never,
+        );
       }
-      const loginUrl = cred.loginUrl ?? (cred.loginPath ? `${origin}${cred.loginPath}` : `${origin}/login`);
+      const loginUrl =
+        cred.loginUrl ?? (cred.loginPath ? `${origin}${cred.loginPath}` : `${origin}/login`);
       await session.browser.navigate(loginUrl).catch(() => {});
       const fields = await detectFormFields(session.browser);
-      const u = matchField(fields, 'email') || matchField(fields, 'username') || matchField(fields, 'login') || matchField(fields, 'user');
+      const u =
+        matchField(fields, 'email') ||
+        matchField(fields, 'username') ||
+        matchField(fields, 'login') ||
+        matchField(fields, 'user');
       const p = matchField(fields, 'password');
       if (!u || !p) {
-        return responseBuilder.error(new Error('Login form not found at ' + loginUrl), { code: 'NO_FORM' } as never);
+        return responseBuilder.error(new Error('Login form not found at ' + loginUrl), {
+          code: 'NO_FORM',
+        } as never);
       }
       await fillField(session.browser, u, cred.username);
       await fillField(session.browser, p, password);
@@ -888,11 +963,22 @@ export const authRelogin = createTool({
               return items;
             })
             .catch(() => ({}) as Record<string, string>);
-          sessionStore.save(input.sessionName, { cookies: rc2 as never, localStorage: rs2, sessionStorage: {}, origin: ro2 });
+          sessionStore.save(input.sessionName, {
+            cookies: rc2 as never,
+            localStorage: rs2,
+            sessionStorage: {},
+            origin: ro2,
+          });
         } catch {}
       }
       return responseBuilder.success(
-        { ok: true, origin, account: cred.account ?? 'default', loginUrl, ...(input.sessionName ? { sessionSaved: input.sessionName } : {}) },
+        {
+          ok: true,
+          origin,
+          account: cred.account ?? 'default',
+          loginUrl,
+          ...(input.sessionName ? { sessionSaved: input.sessionName } : {}),
+        },
         sessionManager.buildMeta(session),
       );
     } catch (error) {
@@ -917,7 +1003,8 @@ export const authListCredentials = createTool({
 export const authDeleteCredentials = createTool({
   name: 'auth_delete_credentials',
   category: 'auth',
-  description: '`<use_case>Auth</use_case> 🗑️ Delete a dev vault credential entry by origin + account.`',
+  description:
+    '`<use_case>Auth</use_case> 🗑️ Delete a dev vault credential entry by origin + account.`',
   inputSchema: z.object({
     origin: z.string().describe('Site origin'),
     account: z.string().optional().default('default').describe('Account label'),

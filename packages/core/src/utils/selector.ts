@@ -121,11 +121,15 @@ export async function findElement(session: BrowserSession, input: string): Promi
         }
       }
       const el = await withTimeout(
-        loc.nth(targetIndex).elementHandle().catch(() => null),
+        loc
+          .nth(targetIndex)
+          .elementHandle()
+          .catch(() => null),
         STRATEGY_TIMEOUT,
       );
       if (el) {
-        const finalSelector = targetIndex > 0 ? `${textSelector} >> nth=${targetIndex}` : textSelector;
+        const finalSelector =
+          targetIndex > 0 ? `${textSelector} >> nth=${targetIndex}` : textSelector;
         return cacheResult(session.id, input, {
           selector: finalSelector,
           strategy: 'text',

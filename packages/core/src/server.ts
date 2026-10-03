@@ -457,8 +457,8 @@ export class FennecServer {
       networkClearLogs,
       networkIntercept,
       networkRemoveIntercept,
-  networkMockResponse,
-  mockApiResponse,
+      networkMockResponse,
+      mockApiResponse,
       networkWaitForRequest,
       networkGetRequestDetail,
       browserAwaitRequest,
@@ -741,11 +741,7 @@ export class FennecServer {
       // Configure via your .yaml file to add/remove tool groups without
       // modifying code — handy when you need db, mobile, or debug tools.
       const cfg = this.config.toolCategories;
-      const selectedCategories = categories?.length
-        ? categories
-        : cfg?.length
-          ? cfg
-          : undefined;
+      const selectedCategories = categories?.length ? categories : cfg?.length ? cfg : undefined;
 
       const tools = this.toolRegistry.getByCategories(selectedCategories);
 

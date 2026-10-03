@@ -506,8 +506,18 @@ export const processGetTracked = createTool({
     '`<use_case>VIEWING all tracked apps</use_case> Get ALL tracked processes from tracked.json (same as fennec ps). This is the COMPLETE view — unlike process_list which only shows MCP-spawned processes, this includes everything started via CLI (fennec start) AND MCP (process_spawn). Supports an optional `group` filter (only that group) and returns a cross-platform `memMB` (resident RSS) per process and `debugMode` per process. Best entry point for checking what apps are running. Returns: name, pid, status (running/stopped), group, port, command, cwd, debugMode, memMB, uptime, runningCount, summary.`',
   inputSchema: z.object({
     group: z.string().optional().describe('Only return tracked processes in this group'),
-    aliveOnly: z.boolean().optional().default(false).describe('Only return actually-running processes (hide stopped/stale)'),
-    includeStale: z.boolean().optional().default(true).describe('Include stale entries (pid 0 / dead pid) with stale:true flag. Set false to hide them.'),
+    aliveOnly: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe('Only return actually-running processes (hide stopped/stale)'),
+    includeStale: z
+      .boolean()
+      .optional()
+      .default(true)
+      .describe(
+        'Include stale entries (pid 0 / dead pid) with stale:true flag. Set false to hide them.',
+      ),
   }),
   handler: async (input, { responseBuilder }) => {
     let tracked = readTracked().filter((t) => !input.group || t.group === input.group);
@@ -1000,7 +1010,10 @@ export const processWaitForReady = createTool({
       .default('listening on port|ready|started|compiled')
       .describe('Pattern to match for readiness'),
     timeout: z.number().optional().default(30000).describe('Timeout in milliseconds'),
-    port: z.number().optional().describe('Fallback: ready when this port accepts connections/listener appears'),
+    port: z
+      .number()
+      .optional()
+      .describe('Fallback: ready when this port accepts connections/listener appears'),
   }),
   handler: async (input, { responseBuilder, processManager }) => {
     const startTime = Date.now();
@@ -1011,7 +1024,8 @@ export const processWaitForReady = createTool({
         processManager.get(input.processId); // Validate exists in MCP manager
       } catch {
         // Fall back to tracked registry (race after restart) instead of failing.
-        if (!trackedEntry || !isTrackedRunning(trackedEntry)) throw new Error(`No process: ${input.processId}`);
+        if (!trackedEntry || !isTrackedRunning(trackedEntry))
+          throw new Error(`No process: ${input.processId}`);
       }
       const patterns = input.pattern!.split('|');
 
@@ -1023,10 +1037,19 @@ export const processWaitForReady = createTool({
             try {
               const holder = new PortDetector().detectByPort(wantPort);
               if (holder) {
-                resolve(responseBuilder.success({ ready: true, elapsed: Date.now() - startTime, matchedLine: `port ${wantPort} listening (pid ${holder.pid})`, via: 'port' }));
+                resolve(
+                  responseBuilder.success({
+                    ready: true,
+                    elapsed: Date.now() - startTime,
+                    matchedLine: `port ${wantPort} listening (pid ${holder.pid})`,
+                    via: 'port',
+                  }),
+                );
                 return;
               }
-            } catch { /* fall through to log polling */ }
+            } catch {
+              /* fall through to log polling */
+            }
           }
           let logs: { line: string }[] = [];
           try {
@@ -1344,7 +1367,12 @@ export const processDoctor = createTool({
         .filter((m) => {
           const pid = Number(m[1]);
           const cmd = m[2] ?? '';
-          return /fennec/i.test(cmd) && /\b(start|server)\b/i.test(cmd) && !/\bdoctor\b/i.test(cmd) && pid !== process.pid;
+          return (
+            /fennec/i.test(cmd) &&
+            /\b(start|server)\b/i.test(cmd) &&
+            !/\bdoctor\b/i.test(cmd) &&
+            pid !== process.pid
+          );
         })
         .map((m) => Number(m[1]));
     } catch {}
@@ -1360,7 +1388,11 @@ export const processDoctor = createTool({
       pidZeroCount: pidZero.length,
       stale: stale.map((t) => ({ name: t.name, pid: t.pid })),
       duplicateFennecServers: duplicateServers,
-      ...(duplicateServers.length > 1 ? { suggestion: `Multiple fennec servers (${duplicateServers.join(', ')}) — run fennec doctor --fix in terminal to dedupe` } : {}),
+      ...(duplicateServers.length > 1
+        ? {
+            suggestion: `Multiple fennec servers (${duplicateServers.join(', ')}) — run fennec doctor --fix in terminal to dedupe`,
+          }
+        : {}),
       ...(input.fix ? { fixed } : { hint: 'Pass fix:true to remove pid-0 entries' }),
     });
   },

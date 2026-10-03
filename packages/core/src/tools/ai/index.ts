@@ -133,9 +133,7 @@ function getNetworkSummary(
   );
   // Exclude static assets (JS/CSS chunks, sourcemaps) from slow-request warnings
   // to avoid false-positives during dev-server page reloads (#102)
-  const slow = networkBuffer.filter(
-    (r) => r.duration > 1000 && !isStaticAsset(r.url),
-  );
+  const slow = networkBuffer.filter((r) => r.duration > 1000 && !isStaticAsset(r.url));
 
   if (failed.length === 0 && slow.length === 0) return 'Network healthy';
 

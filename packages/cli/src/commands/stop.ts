@@ -163,7 +163,9 @@ async function stopSingleProcess(pid: number, name: string): Promise<void> {
     await new Promise((r) => setTimeout(r, 500));
     const stillRunning = isProcessGroupAlive(pid);
     if (stillRunning) {
-      spinner.warn(`${displayName} process group still has members after SIGTERM (e.g. nodemon children may have been re-parented)`);
+      spinner.warn(
+        `${displayName} process group still has members after SIGTERM (e.g. nodemon children may have been re-parented)`,
+      );
       const forceKill = await confirmPrompt(`Send ${pc.red('SIGKILL')} to force stop?`, true);
       if (forceKill) {
         const forceSpinner = createSpinner(`Sending SIGKILL to ${displayName}...`);

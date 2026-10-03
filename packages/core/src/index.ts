@@ -18,7 +18,13 @@ export { ProcessManager } from './process/ProcessManager.js';
 export { LogWatcher } from './process/LogWatcher.js';
 export { PipeWatcher } from './process/PipeWatcher.js';
 export { PortDetector } from './process/PortDetector.js';
-export { saveDevCredential, getDevCredential, listDevCredentials, deleteDevCredential, getVaultPath } from './auth/dev-vault.js';
+export {
+  saveDevCredential,
+  getDevCredential,
+  listDevCredentials,
+  deleteDevCredential,
+  getVaultPath,
+} from './auth/dev-vault.js';
 export { ConsoleCollector } from './cdp/ConsoleCollector.js';
 export { NetworkCollector } from './cdp/NetworkCollector.js';
 export { PerformanceCollector } from './cdp/PerformanceCollector.js';

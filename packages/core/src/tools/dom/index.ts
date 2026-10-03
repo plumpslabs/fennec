@@ -486,7 +486,11 @@ export const browserFindElements = createTool({
         .default(false)
         .describe('Skip the unified engine and use vanilla DOM APIs directly'),
       sessionId: z.string().optional().describe('Session ID'),
-      maxResults: z.number().optional().default(50).describe('Max elements to return (cap to protect context)'),
+      maxResults: z
+        .number()
+        .optional()
+        .default(50)
+        .describe('Max elements to return (cap to protect context)'),
     })
     .refine((data) => data.selector || data.query, {
       message: 'Either selector or query must be provided',
@@ -842,64 +846,66 @@ export const browserWaitForStableDom = createTool({
     try {
       // Pass startTime as an evaluate argument so the browser context
       // can calculate totalWaitMs correctly (#98 bug fix)
-      const stableResult = await (session.browser.evaluate(
-        function(opts: { settleMs: number; timeout: number; observeAttributes: boolean }) {
+      const stableResult = await session.browser.evaluate(
+        function (opts: { settleMs: number; timeout: number; observeAttributes: boolean }) {
           const settleMs = opts.settleMs;
           const timeout = opts.timeout;
           const observeAttributes = opts.observeAttributes;
-          return new Promise<{ stable: boolean; settleMs: number; mutations: number }>((resolve) => {
-            let mutationCount = 0;
-            let lastMutationAt = Date.now();
-            let settleTimer: ReturnType<typeof setTimeout> | null = null;
+          return new Promise<{ stable: boolean; settleMs: number; mutations: number }>(
+            (resolve) => {
+              let mutationCount = 0;
+              let lastMutationAt = Date.now();
+              let settleTimer: ReturnType<typeof setTimeout> | null = null;
 
-            const observer = new MutationObserver(() => {
-              mutationCount++;
-              lastMutationAt = Date.now();
-              if (settleTimer) clearTimeout(settleTimer);
-              settleTimer = setTimeout(() => {
+              const observer = new MutationObserver(() => {
+                mutationCount++;
+                lastMutationAt = Date.now();
+                if (settleTimer) clearTimeout(settleTimer);
+                settleTimer = setTimeout(() => {
+                  observer.disconnect();
+                  resolve({
+                    stable: true,
+                    settleMs: Date.now() - lastMutationAt,
+                    mutations: mutationCount,
+                  });
+                }, settleMs);
+              });
+
+              observer.observe(document.documentElement, {
+                childList: true,
+                subtree: true,
+                attributes: observeAttributes,
+                characterData: false,
+              });
+
+              setTimeout(() => {
                 observer.disconnect();
                 resolve({
-                  stable: true,
+                  stable: mutationCount === 0,
                   settleMs: Date.now() - lastMutationAt,
                   mutations: mutationCount,
                 });
-              }, settleMs);
-            });
+              }, timeout);
 
-            observer.observe(document.documentElement, {
-              childList: true,
-              subtree: true,
-              attributes: observeAttributes,
-              characterData: false,
-            });
-
-            setTimeout(() => {
-              observer.disconnect();
-              resolve({
-                stable: mutationCount === 0,
-                settleMs: Date.now() - lastMutationAt,
-                mutations: mutationCount,
-              });
-            }, timeout);
-
-            setTimeout(() => {
-              if (mutationCount === 0) {
-                observer.disconnect();
-                resolve({
-                  stable: true,
-                  settleMs: 0,
-                  mutations: 0,
-                });
-              }
-            }, 100);
-          });
+              setTimeout(() => {
+                if (mutationCount === 0) {
+                  observer.disconnect();
+                  resolve({
+                    stable: true,
+                    settleMs: 0,
+                    mutations: 0,
+                  });
+                }
+              }, 100);
+            },
+          );
         },
         {
           settleMs: input.settleMs ?? 300,
           timeout: input.timeout ?? 10000,
           observeAttributes: input.observeAttributes ?? false,
         },
-      ));
+      );
       const result = stableResult as unknown as {
         stable: boolean;
         settleMs: number;
