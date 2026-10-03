@@ -30,7 +30,7 @@ const TARGETS = [
     // Matches `vX.Y.Z` in HTML for version badge + hero badge.
     file: 'docs/index.html',
     type: 'banner',
-    re: /(v)\d+\.\d+\.\d+/g,
+    re: /(v)\d+\.\d+\.\d+()/g,
   },
   {
     // Matches `[X.Y.Z]` in CHANGELOG.md header for the top-most entry.
