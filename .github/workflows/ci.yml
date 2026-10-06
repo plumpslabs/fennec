@@ -57,13 +57,12 @@ jobs:
         run: pnpm --filter @plumpslabs/fennec-core exec playwright install chromium
       - run: pnpm build
       # Split per package with a streaming reporter (#152): `pnpm -r` as a
-      # single step swallows which package dies — on Windows the worker can
-      # crash with zero output, so each package gets its own step, basic
-      # (line-buffered) reporter, and a bounded worker pool.
+      # single step swallows which package dies, so each package gets its
+      # own step with the line-buffered basic reporter.
       - name: Test core
-        run: pnpm --filter @plumpslabs/fennec-core test -- --reporter=basic --no-color --silent=false --pool=forks --maxWorkers=2
+        run: pnpm --filter @plumpslabs/fennec-core test -- --reporter=basic --no-color
       - name: Test cli
-        run: pnpm --filter @plumpslabs/fennec-cli test -- --reporter=basic --no-color --silent=false --pool=forks --maxWorkers=2
+        run: pnpm --filter @plumpslabs/fennec-cli test -- --reporter=basic --no-color
       - name: Upload coverage
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == 20
         uses: codecov/codecov-action@v4
