@@ -2833,37 +2833,32 @@ export const fennecFlow = createTool({
 // Runs per repo manifest (package.json scripts) with bounded excerpts; full
 // logs go to files, never context.
 
-function runCmd(
+function runCmdAsync(
   cmd: string,
   args: string[],
   cwd: string,
   timeoutMs: number,
-): { ok: boolean; durationMs: number; tail: string } {
-  // Lazy-require so browser-only bundles never pay for child_process.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { spawnSync } = require('node:child_process') as typeof import('node:child_process');
-  const start = Date.now();
-  try {
-    const r = spawnSync(cmd, args, {
-      cwd,
-      timeout: timeoutMs,
-      encoding: 'utf-8',
-      maxBuffer: 2 * 1024 * 1024,
-    });
-    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
-    const lines = out.split('\n').filter(Boolean);
-    return {
-      ok: r.status === 0,
-      durationMs: Date.now() - start,
-      tail: lines.slice(-25).join('\n').slice(0, 4000),
-    };
-  } catch (e) {
-    return {
-      ok: false,
-      durationMs: Date.now() - start,
-      tail: e instanceof Error ? e.message.slice(0, 1000) : String(e).slice(0, 1000),
-    };
-  }
+): Promise<{ ok: boolean; durationMs: number; tail: string }> {
+  return new Promise((resolve) => {
+    // Async child_process: never blocks the MCP server event loop (#147).
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { execFile } = require('node:child_process') as typeof import('node:child_process');
+    const start = Date.now();
+    execFile(
+      cmd,
+      args,
+      { cwd, timeout: timeoutMs, encoding: 'utf-8', maxBuffer: 2 * 1024 * 1024 },
+      (err: Error | null, stdout: string, stderr: string) => {
+        const out = `${stdout ?? ''}${stderr ?? ''}${err && !stdout && !stderr ? err.message : ''}`;
+        const lines = out.split('\n').filter(Boolean);
+        resolve({
+          ok: !err,
+          durationMs: Date.now() - start,
+          tail: lines.slice(-25).join('\n').slice(0, 4000),
+        });
+      },
+    );
+  });
 }
 
 export const smartVerify = createTool({
@@ -2876,7 +2871,7 @@ export const smartVerify = createTool({
     full: z.boolean().optional().default(false).describe('Run the full test suite (opt-in; slow)'),
     cwd: z.string().optional().describe('Repo root (default: process.cwd())'),
   }),
-  handler: async (input, { responseBuilder }) => {
+  handler: async (input, { responseBuilder, progressReporter }) => {
     const cwd = input.cwd ?? process.cwd();
     const checks: Array<{ check: string; pass: boolean; durationMs: number; excerpt?: string }> = [];
     const timeoutEach = 55_000;
@@ -2891,20 +2886,24 @@ export const smartVerify = createTool({
     } catch {
       /* default */
     }
-    const run = (args: string[]) => runCmd(pm[0]!, args.slice(1), cwd, timeoutEach);
+    const run = (rest: string[]) => runCmdAsync(pm[0]!, [...pm.slice(1), ...rest], cwd, timeoutEach);
+    const progress = async (done: number, total: number, message: string) => {
+      await progressReporter?.report({ progress: done, total, message }).catch(() => {});
+    };
 
-    const tc = run([...pm.slice(1), 'typecheck'].filter(Boolean));
-    checks.push({ check: 'typecheck', pass: tc.ok, durationMs: tc.durationMs, ...(tc.ok ? {} : { excerpt: tc.tail }) });
-
-    const testArgs = input.full
-      ? [...pm.slice(1), 'test']
+    const testRest = input.full
+      ? ['test']
       : input.scope
-        ? [...pm.slice(1), 'test', '--', input.scope]
-        : [...pm.slice(1), 'test'];
-    const tt = run(testArgs.filter(Boolean));
-    checks.push({ check: input.full ? 'test:full' : 'test:affected', pass: tt.ok, durationMs: tt.durationMs, ...(tt.ok ? {} : { excerpt: tt.tail }) });
+        ? ['test', '--', input.scope]
+        : ['test'];
+    const lintRest = ['lint', ...(input.scope ? ['--', input.scope] : [])];
 
-    const lt = run([...pm.slice(1), 'lint', ...(input.scope ? ['--', input.scope] : [])].filter(Boolean));
+    // Parallel: wall-clock ≈ slowest check, not the sum (#147).
+    await progress(0, 3, 'starting typecheck + tests + lint');
+    const [tc, tt, lt] = await Promise.all([run(['typecheck']), run(testRest), run(lintRest)]);
+    await progress(3, 3, 'all checks finished');
+    checks.push({ check: 'typecheck', pass: tc.ok, durationMs: tc.durationMs, ...(tc.ok ? {} : { excerpt: tc.tail }) });
+    checks.push({ check: input.full ? 'test:full' : 'test:affected', pass: tt.ok, durationMs: tt.durationMs, ...(tt.ok ? {} : { excerpt: tt.tail }) });
     checks.push({ check: 'lint', pass: lt.ok, durationMs: lt.durationMs, ...(lt.ok ? {} : { excerpt: lt.tail }) });
 
     const pass = checks.every((c) => c.pass);
@@ -2915,7 +2914,7 @@ export const smartVerify = createTool({
       ...(pass
         ? {}
         : {
-            nextAction: `Fix ${failing.map((f) => f.check).join(', ')} — see excerpt file:line above, reproduce with: ${pm[0]} ${testArgs.slice(1).join(' ')}`,
+            nextAction: `Fix ${failing.map((f) => f.check).join(', ')} — see excerpt file:line above, reproduce with: ${[pm[0]!, ...pm.slice(1), ...testRest].join(' ')}`,
           }),
     });
   },
@@ -2935,15 +2934,17 @@ export const ciWatch = createTool({
     timeoutMs: z.number().optional().default(600_000).describe('Max wait in ms (default 10min)'),
     cwd: z.string().optional().describe('Repo root (default: process.cwd())'),
   }),
-  handler: async (input, { responseBuilder }) => {
+  handler: async (input, { responseBuilder, progressReporter }) => {
     const cwd = input.cwd ?? process.cwd();
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { spawnSync } = require('node:child_process') as typeof import('node:child_process');
-    const gh = (args: string[]) => {
-      const r = spawnSync('gh', args, { cwd, timeout: 30_000, encoding: 'utf-8', maxBuffer: 2 * 1024 * 1024 });
-      if (r.status !== 0) throw new Error(`gh ${args.join(' ')} failed: ${(r.stderr ?? '').slice(0, 500)}`);
-      return (r.stdout ?? '') as string;
-    };
+    const { execFile } = require('node:child_process') as typeof import('node:child_process');
+    const gh = (args: string[]): Promise<string> =>
+      new Promise((resolve, reject) => {
+        execFile('gh', args, { cwd, timeout: 30_000, encoding: 'utf-8', maxBuffer: 2 * 1024 * 1024 }, (err: Error | null, stdout: string, stderr: string) => {
+          if (err) reject(new Error(`gh ${args.join(' ')} failed: ${(stderr ?? '').slice(0, 500)}`));
+          else resolve((stdout ?? '') as string);
+        });
+      });
     const deadline = Date.now() + (input.timeoutMs ?? 600_000);
     let delay = 10_000;
     try {
@@ -2951,7 +2952,7 @@ export const ciWatch = createTool({
         const refArgs = input.ref ? ['--ref', input.ref] : [];
         let runs: Array<{ name: string; status: string; conclusion?: string; databaseId?: number }> = [];
         try {
-          const raw = gh(['run', 'list', ...refArgs, '--limit', '10', '--json', 'name,status,conclusion,databaseId']);
+          const raw = await gh(['run', 'list', ...refArgs, '--limit', '10', '--json', 'name,status,conclusion,databaseId']);
           runs = JSON.parse(raw || '[]');
         } catch (e) {
           return responseBuilder.error(e, {
@@ -2972,7 +2973,7 @@ export const ciWatch = createTool({
           const first = failed[0]!;
           let excerpt = '';
           try {
-            const log = gh(['run', 'view', String(first.databaseId ?? ''), '--log-failed']);
+            const log = await gh(['run', 'view', String(first.databaseId ?? ''), '--log-failed']);
             const { redactLogLine } = await import('../../process/redact.js');
             excerpt = log.split('\n').filter(Boolean).slice(-30).map((l: string) => redactLogLine(l).slice(0, 300)).join('\n');
           } catch {
@@ -2992,6 +2993,13 @@ export const ciWatch = createTool({
             summary: `Still pending after ${input.timeoutMs}ms — re-run ci_watch to keep waiting`,
           });
         }
+        await progressReporter
+          ?.report({
+            progress: Math.round(((input.timeoutMs! - (deadline - Date.now())) / input.timeoutMs!) * 100),
+            total: 100,
+            message: `waiting on ${pending.length} check(s): ${pending.map((r) => r.name).join(', ').slice(0, 120)}`,
+          })
+          .catch(() => {});
         await new Promise((res) => setTimeout(res, delay));
         delay = Math.min(delay * 1.5, 60_000);
       }

@@ -179,11 +179,38 @@ export const observe = createTool({
       .describe(
         'Opt-in: embed full process env blocks (default false — env is summarized to allowlisted keys only, #137)',
       ),
+    model: z
+      .string()
+      .optional()
+      .describe('Model name for token estimation (e.g. claude, gpt-4o). Tunes budget accounting (#146).'),
+    since: z
+      .string()
+      .optional()
+      .describe(
+        'ISO timestamp cursor: only console/network events after this time are considered (#150 diff-not-snapshot). Repeat calls with the last timestamp to get deltas, not re-dumps.',
+      ),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
     const sources = input.sources ?? ['browser', 'console', 'network'];
     const result: Record<string, unknown> = {};
+    // Cursor filter (#150): deltas instead of re-dumps.
+    const sinceMs = input.since ? Date.parse(input.since) : NaN;
+    const afterSince = (ts: string) =>
+      Number.isNaN(sinceMs) ? true : Date.parse(ts) > sinceMs;
+    const consoleBuf = Number.isNaN(sinceMs)
+      ? session.consoleBuffer
+      : session.consoleBuffer.filter((l) => afterSince(l.timestamp));
+    const networkBuf = Number.isNaN(sinceMs)
+      ? session.networkBuffer
+      : session.networkBuffer.filter((r) => afterSince(r.timestamp));
+    if (!Number.isNaN(sinceMs)) {
+      result.cursor = {
+        since: input.since,
+        consoleEvents: consoleBuf.length,
+        networkEvents: networkBuf.length,
+      };
+    }
 
     // Browser observation
     if (sources.includes('browser') && session.browser) {
@@ -211,11 +238,11 @@ export const observe = createTool({
 
     // Console observation
     if (sources.includes('console')) {
-      const summary = getConsoleSummary(session.consoleBuffer);
+      const summary = getConsoleSummary(consoleBuf);
       result.console = { summary };
 
       if (input.detail === 'full') {
-        const errors = session.consoleBuffer.filter((l) => l.level === 'error').slice(-5);
+        const errors = consoleBuf.filter((l) => l.level === 'error').slice(-5);
         (result.console as Record<string, unknown>).errors = errors.map((e) => ({
           message: e.message.slice(0, 200),
           source: e.source,
@@ -225,11 +252,11 @@ export const observe = createTool({
 
     // Network observation
     if (sources.includes('network')) {
-      const summary = getNetworkSummary(session.networkBuffer);
+      const summary = getNetworkSummary(networkBuf);
       result.network = { summary };
 
       if (input.detail === 'full') {
-        const failed = session.networkBuffer
+        const failed = networkBuf
           .filter((r) => r.status >= 400 && !isExpectedNetworkFailure(r.status, r.url))
           .slice(-5);
         (result.network as Record<string, unknown>).failedRequests = failed.map((r) => ({
@@ -286,8 +313,8 @@ export const observe = createTool({
 
     // Count incidents
     try {
-      const recentErrors = session.consoleBuffer.filter((l) => l.level === 'error').length;
-      const recentFailures = session.networkBuffer.filter(
+      const recentErrors = consoleBuf.filter((l) => l.level === 'error').length;
+      const recentFailures = networkBuf.filter(
         (r) => r.status >= 400 && !isExpectedNetworkFailure(r.status, r.url),
       ).length;
 
@@ -322,13 +349,14 @@ export const observe = createTool({
     }
     result._summary = parts.join(' | ');
 
-    // Budget accounting (#139 phase 4): per-source token estimates (~4
-    // chars/token) so agents and humans can see observation cost.
+    // Budget accounting (#139 phase 4, #146): per-source token estimates
+    // via the model-aware estimator so agents and humans see real cost.
     try {
-      const est = (v: unknown) => Math.ceil(JSON.stringify(v ?? '').length / 4);
+      const { estimateValueTokens } = await import('../../utils/tokens.js');
+      const model = (input as { model?: string }).model;
       const perSource: Record<string, number> = {};
-      for (const k of ['page', 'domSummary', 'console', 'network', 'process', 'incidents']) {
-        if (result[k] !== undefined) perSource[k] = est(result[k]);
+      for (const k of ['page', 'domSummary', 'console', 'network', 'process', 'incidents', 'cursor']) {
+        if (result[k] !== undefined) perSource[k] = estimateValueTokens(result[k], model);
       }
       const tokensEstimated = Object.values(perSource).reduce((a, b) => a + b, 0);
       result.budget = { detail: input.detail, tokensEstimated, perSource };

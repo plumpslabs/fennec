@@ -259,7 +259,7 @@ import {
   investigate,
   predict,
 } from './tools/ai/index.js';
-import { toolsHelp } from './tools/help/index.js';
+import { toolsHelp, metricsSummary } from './tools/help/index.js';
 import { budgetCheckPage, budgetGetSummary } from './tools/budget/index.js';
 import {
   dbConnect,
@@ -395,7 +395,7 @@ export class FennecServer {
     this.performanceMetrics.startMemoryMonitoring();
 
     this.server = new Server(
-      { name: 'fennec', version: '1.16.10' },
+      { name: 'fennec', version: '1.16.11' },
       { capabilities: { tools: {}, prompts: {}, resources: {} } },
     );
 
@@ -569,6 +569,7 @@ export class FennecServer {
       investigate,
       predict,
       toolsHelp,
+      metricsSummary,
       // Session
       sessionList,
       sessionGetActive,
@@ -642,7 +643,38 @@ export class FennecServer {
       dbDisconnectAll,
     ];
 
-    for (const tool of tools) {
+    // Workflow-only surface (#145): opt-in via FENNEC_WORKFLOW_ONLY=1.
+    // Default OFF — zero impact unless explicitly enabled. Exposes the 16
+    // workflow tools covering 90% of flows; full surface stays one env
+    // unset away. tools_help + golden test guard the routing contract.
+    const WORKFLOW_TOOLS = new Set([
+      'observe',
+      'ai_diagnose',
+      'correlate',
+      'summarize',
+      'explain',
+      'investigate',
+      'predict',
+      'tools_help',
+      'metrics_summary',
+      'fennec_flow',
+      'smart_navigate',
+      'smart_fill_form',
+      'smart_validate_form',
+      'smart_wait',
+      'smart_verify',
+      'ci_watch',
+    ]);
+    const workflowOnly = process.env.FENNEC_WORKFLOW_ONLY === '1';
+    const visible = workflowOnly ? tools.filter((t) => WORKFLOW_TOOLS.has(t.name)) : tools;
+    if (workflowOnly) {
+      getLogger().info(
+        { exposed: visible.length, total: tools.length },
+        'FENNEC_WORKFLOW_ONLY=1: exposing workflow tools only',
+      );
+    }
+
+    for (const tool of visible) {
       this.toolRegistry.register(tool);
     }
   }
@@ -803,7 +835,37 @@ export class FennecServer {
         } catch {
           // best-effort — the tool call itself will surface any real error
         }
+        const callStart = Date.now();
         const result = await this.pipeline.execute(tool, parsed, context);
+
+        // Self-metrics (#149): append-only, PII-free (name + ms + ok only —
+        // never args or results). Powers metrics_summary. Rotated at ~2MB
+        // (keeps the last 20k lines) so the file can't grow forever.
+        try {
+          const { appendFileSync, mkdirSync, existsSync, statSync, readFileSync, writeFileSync } =
+            await import('node:fs');
+          const { getFennecDir } = await import('./config/paths.js');
+          const dir = getFennecDir();
+          if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+          const r = result as { success?: boolean };
+          const metricsPath = `${dir}/metrics.jsonl`;
+          appendFileSync(
+            metricsPath,
+            JSON.stringify({
+              t: new Date().toISOString(),
+              tool: name,
+              ms: Date.now() - callStart,
+              ok: r.success !== false,
+            }) + '\n',
+            'utf-8',
+          );
+          if (statSync(metricsPath).size > 2 * 1024 * 1024) {
+            const tail = readFileSync(metricsPath, 'utf-8').split('\n').filter(Boolean).slice(-20_000);
+            writeFileSync(metricsPath, tail.join('\n') + '\n', 'utf-8');
+          }
+        } catch {
+          /* metrics must never break tool calls */
+        }
 
         const resultObj = result as ToolResult;
         const isError = resultObj.success === false;

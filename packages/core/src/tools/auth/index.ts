@@ -263,6 +263,37 @@ export const authFillLoginForm = createTool({
   },
 });
 
+/**
+ * Derive the earliest credential expiry (#148) from cookie max-age
+ * (seconds-since-epoch) and JWT `exp` claims in storage. Returns ISO
+ * string or undefined when nothing carries expiry.
+ */
+export function deriveExpiresAt(
+  cookies: Array<{ expires?: number }>,
+  storage: Record<string, string>,
+): string | undefined {
+  const times: number[] = [];
+  for (const c of cookies) {
+    if (typeof c.expires === 'number' && c.expires > 0) times.push(c.expires * 1000);
+  }
+  const jwtRe = /eyJ[A-Za-z0-9_-]+\.([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]*/g;
+  for (const v of Object.values(storage)) {
+    if (typeof v !== 'string') continue;
+    for (const m of v.matchAll(jwtRe)) {
+      try {
+        const payload = JSON.parse(Buffer.from(m[1]!, 'base64url').toString('utf-8')) as {
+          exp?: unknown;
+        };
+        if (typeof payload.exp === 'number' && payload.exp > 0) times.push(payload.exp * 1000);
+      } catch {
+        /* not a parseable JWT */
+      }
+    }
+  }
+  if (times.length === 0) return undefined;
+  return new Date(Math.min(...times)).toISOString();
+}
+
 export const authSaveSession = createTool({
   name: 'auth_save_session',
   category: 'auth',
@@ -275,6 +306,12 @@ export const authSaveSession = createTool({
       .optional()
       .describe(
         'Free-form context to remember with this session: user, role, workspace, notes, etc. Shown by auth_list_sessions.',
+      ),
+    refreshEndpoint: z
+      .string()
+      .optional()
+      .describe(
+        'Provider refresh endpoint (origin-relative path, e.g. /api/auth/refresh). Stored for deterministic proactive refresh on load (#148).',
       ),
     filePath: z
       .string()
@@ -301,6 +338,9 @@ export const authSaveSession = createTool({
         })
         .catch(() => ({}) as Record<string, string>);
 
+      // #148: earliest credential expiry from cookie max-age + JWT exp.
+      const expiresAt = deriveExpiresAt(cookies as Array<{ expires?: number }>, storage);
+
       const payload = {
         cookies: cookies.map((c) => ({
           name: c.name,
@@ -310,11 +350,18 @@ export const authSaveSession = createTool({
           httpOnly: c.httpOnly,
           secure: c.secure,
           sameSite: c.sameSite,
+          // #148: keep expiry so expiresAt can be derived (additive field).
+          ...(typeof (c as { expires?: unknown }).expires === 'number'
+            ? { expires: (c as { expires: number }).expires }
+            : {}),
         })),
         localStorage: storage,
         sessionStorage: {},
         origin,
         metadata: input.metadata,
+        // #148: deterministic expiry from data already in hand.
+        ...(expiresAt ? { expiresAt } : {}),
+        ...(input.refreshEndpoint ? { refreshEndpoint: input.refreshEndpoint } : {}),
       };
 
       let filePath: string;
@@ -463,8 +510,11 @@ export const authLoadSession = createTool({
       const expiredCookies = savedCookies.filter(
         (c) => typeof c.expires === 'number' && c.expires > 0 && c.expires < nowSec,
       ).length;
+      // #148: deterministic expiry when save captured expiresAt.
+      const expiresAt = (saved as { expiresAt?: string }).expiresAt;
+      const expiresAtPast = typeof expiresAt === 'string' && Date.parse(expiresAt) <= Date.now();
       const sessionStale = sessionAgeHours >= 0 && sessionAgeHours > 48;
-      const expiryLikely = sessionStale || expiredCookies > 0;
+      const expiryLikely = sessionStale || expiredCookies > 0 || expiresAtPast;
 
       // ── Proactive refresh (#140) ─────────────────────────────
       // Where the provider supports refresh-token rotation, refresh AHEAD of
@@ -484,7 +534,15 @@ export const authLoadSession = createTool({
             ((saved as { origin?: string }).origin as string)) ||
           undefined;
         if (rtKey && rtVal && refreshOrigin) {
-          const endpoints = ['/api/auth/refresh', '/auth/refresh', '/api/token/refresh', '/api/refresh'];
+          // #148: saved refreshEndpoint first (deterministic), then roulette.
+          const savedEp = (saved as { refreshEndpoint?: string }).refreshEndpoint;
+          const endpoints = [
+            ...(typeof savedEp === 'string' && savedEp ? [savedEp] : []),
+            '/api/auth/refresh',
+            '/auth/refresh',
+            '/api/token/refresh',
+            '/api/refresh',
+          ].filter((e, i, a) => a.indexOf(e) === i);
           for (const ep of endpoints) {
             try {
               const ctl = new AbortController();
@@ -801,6 +859,7 @@ export const authLoadSession = createTool({
           sessionStale,
           expiryLikely,
           expiredCookies,
+          ...(expiresAt ? { expiresAt } : {}),
           ...(refreshed ? { refreshed } : {}),
           ...(healthy !== undefined ? { healthy } : {}),
           ...(expiryLikely && !needsAuth

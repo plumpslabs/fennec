@@ -7,6 +7,7 @@ import {
   authListSessions,
   authDeleteSession,
   authCheckLoggedIn,
+  deriveExpiresAt,
 } from '../../../src/tools/auth/index.js';
 
 describe('auth_fill_login_form tool', () => {
@@ -409,5 +410,36 @@ describe('auth_check_logged_in tool', () => {
 
   it('should have inputSchema property', () => {
     expect(authCheckLoggedIn.inputSchema).toBeInstanceOf(z.ZodType);
+  });
+});
+
+describe('deriveExpiresAt (#148)', () => {
+  const jwt = (exp: number) => {
+    const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url');
+    return `${b64({ alg: 'none' })}.${b64({ exp })}.${b64('sig')}`;
+  };
+
+  it('returns undefined when nothing carries expiry', () => {
+    expect(deriveExpiresAt([{ expires: -1 }], { theme: 'dark' })).toBeUndefined();
+    expect(deriveExpiresAt([], {})).toBeUndefined();
+  });
+
+  it('uses the earliest cookie expiry', () => {
+    const out = deriveExpiresAt([{ expires: 2_000_000_000 }, { expires: 1_700_000_000 }], {});
+    expect(out).toBe(new Date(1_700_000_000 * 1000).toISOString());
+  });
+
+  it('reads JWT exp claims from storage', () => {
+    const out = deriveExpiresAt([], { access_token: jwt(1_800_000_000) });
+    expect(out).toBe(new Date(1_800_000_000 * 1000).toISOString());
+  });
+
+  it('prefers the earlier of cookie vs JWT', () => {
+    const out = deriveExpiresAt([{ expires: 2_000_000_000 }], { t: jwt(1_700_000_000) });
+    expect(out).toBe(new Date(1_700_000_000 * 1000).toISOString());
+  });
+
+  it('ignores unparseable JWT-shaped strings', () => {
+    expect(deriveExpiresAt([], { t: 'eyJub3Bl.inval!d.sig' })).toBeUndefined();
   });
 });

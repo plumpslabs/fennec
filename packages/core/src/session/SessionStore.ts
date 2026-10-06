@@ -18,6 +18,16 @@ export interface SavedSession {
   origin: string;
   /** Free-form metadata captured at save time (user, role, workspace, notes, etc.). */
   metadata?: Record<string, unknown>;
+  /**
+   * Earliest known credential expiry (ISO). Derived at save time from
+   * cookie `expires` + JWT `exp` claims (#148). Absent on legacy files.
+   */
+  expiresAt?: string;
+  /**
+   * Provider refresh endpoint (origin-relative path) when known — explicit
+   * `refreshEndpoint` input at save time, else undefined (#148).
+   */
+  refreshEndpoint?: string;
 }
 
 /** Recursively collect every *.json path under `dir` (origin subdirs included). */
