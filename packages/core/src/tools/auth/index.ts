@@ -394,6 +394,19 @@ export const authLoadSession = createTool({
       .optional()
       .default('default')
       .describe('Vault account to use for auto-relogin (multiple accounts per origin).'),
+    accountFallback: z
+      .array(z.string())
+      .optional()
+      .describe(
+        'Fallback vault accounts to try in order when the primary account has no usable credential (#140 multi-account pools)',
+      ),
+    healthCheck: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(
+        'When true, probe auth indicators after restore (and relogin) and report healthy:true/false instead of assuming success (#140)',
+      ),
     sessionId: z.string().optional().describe('Browser session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder, sessionStore }) => {
@@ -434,6 +447,78 @@ export const authLoadSession = createTool({
           context: loginUrl ? { loginUrl } : undefined,
           suggestions,
         });
+      }
+
+      // ── Staleness / expiry-likelihood signal (#138) ──────
+      // Computed BEFORE restore so agents see it even when the load itself
+      // "succeeds" (cookies restored but already expired → surprise 401s).
+      const savedAtMs = Date.parse((saved as { savedAt?: string }).savedAt ?? '');
+      const sessionAgeHours = Number.isFinite(savedAtMs)
+        ? Math.max(0, Math.round((Date.now() - savedAtMs) / 3_600_000))
+        : -1;
+      const savedCookies = (Array.isArray((saved as { cookies?: unknown[] }).cookies)
+        ? (saved as { cookies: Array<{ expires?: number }> }).cookies
+        : []) as Array<{ expires?: number }>;
+      const nowSec = Date.now() / 1000;
+      const expiredCookies = savedCookies.filter(
+        (c) => typeof c.expires === 'number' && c.expires > 0 && c.expires < nowSec,
+      ).length;
+      const sessionStale = sessionAgeHours >= 0 && sessionAgeHours > 48;
+      const expiryLikely = sessionStale || expiredCookies > 0;
+
+      // ── Proactive refresh (#140) ─────────────────────────────
+      // Where the provider supports refresh-token rotation, refresh AHEAD of
+      // expiry instead of after failure. Best-effort and provider-agnostic:
+      // look for a refresh-token-like value in saved storage, try common
+      // rotation endpoints, and adopt an obvious access token on success.
+      let refreshed: Record<string, unknown> | undefined;
+      const savedLS = ((saved as { localStorage?: Record<string, string> }).localStorage ?? {}) as Record<string, string>;
+      const savedSS = ((saved as { sessionStorage?: Record<string, string> }).sessionStorage ?? {}) as Record<string, string>;
+      if (expiryLikely) {
+        const pool = { ...savedSS, ...savedLS };
+        const rtKey = Object.keys(pool).find((k) => /refresh/i.test(k));
+        const rtVal = rtKey ? pool[rtKey] : undefined;
+        // Origin for the refresh attempt (sessionOrigin is computed later).
+        const refreshOrigin =
+          (typeof (saved as { origin?: unknown }).origin === 'string' &&
+            ((saved as { origin?: string }).origin as string)) ||
+          undefined;
+        if (rtKey && rtVal && refreshOrigin) {
+          const endpoints = ['/api/auth/refresh', '/auth/refresh', '/api/token/refresh', '/api/refresh'];
+          for (const ep of endpoints) {
+            try {
+              const ctl = new AbortController();
+              const t = setTimeout(() => ctl.abort(), 8000);
+              const res = await fetch(`${refreshOrigin}${ep}`, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ refresh_token: rtVal, refreshToken: rtVal }),
+                signal: ctl.signal,
+              }).finally(() => clearTimeout(t));
+              if (res.ok) {
+                const body = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+                const at =
+                  body && typeof body === 'object'
+                    ? (body.access_token ?? body.accessToken ?? body.token ?? null)
+                    : null;
+                if (typeof at === 'string' && at.length > 10) {
+                  // Adopt the rotated token into the access-token-shaped slots.
+                  const target = Object.keys(savedLS).find(
+                    (k) => /access|auth|jwt|id[_-]?token/i.test(k) && !/refresh/i.test(k),
+                  );
+                  if (target) savedLS[target] = at;
+                  refreshed = { attempted: true, ok: true, endpoint: ep };
+                } else {
+                  refreshed = { attempted: true, ok: false, endpoint: ep, reason: 'no access token in response' };
+                }
+                break;
+              }
+            } catch {
+              /* try next endpoint */
+            }
+          }
+          if (!refreshed) refreshed = { attempted: true, ok: false, reason: 'refresh endpoints unreachable' };
+        }
       }
 
       // ── Check current origin vs session origin ──────────────
@@ -575,8 +660,31 @@ export const authLoadSession = createTool({
           needsAuth = true;
           if (input.autoRelogin !== false && sessionOrigin) {
             const { getDevCredential, resolvePassword } = await import('../../auth/dev-vault.js');
-            const cred = getDevCredential(sessionOrigin, input.account ?? 'default');
-            const password = cred ? resolvePassword(cred) : null;
+            // Multi-account pool (#140): primary first, then fallbacks in
+            // order. First account with a resolvable password wins.
+            const candidates = [input.account ?? 'default', ...(input.accountFallback ?? [])];
+            let cred: ReturnType<typeof getDevCredential> = null;
+            let password: string | null = null;
+            const triedAccounts: string[] = [];
+            for (const acct of candidates) {
+              const c = getDevCredential(sessionOrigin, acct);
+              if (!c) continue;
+              triedAccounts.push(acct);
+              const pw = resolvePassword(c);
+              if (pw) {
+                cred = c;
+                password = pw;
+                break;
+              }
+            }
+            if (!cred && candidates.length > 0 && triedAccounts.length === 0) {
+              // No vault entry for any candidate — keep the original hint path.
+              const c0 = getDevCredential(sessionOrigin, candidates[0]!);
+              if (c0) {
+                triedAccounts.push(candidates[0]!);
+                cred = c0;
+              }
+            }
             if (cred && password) {
               const loginUrl =
                 cred.loginUrl ??
@@ -635,6 +743,7 @@ export const authLoadSession = createTool({
                   loginUrl,
                   username: cred.username,
                   account: cred.account ?? 'default',
+                  ...(triedAccounts.length > 1 ? { triedAccounts } : {}),
                 };
                 needsAuth = false;
               } else {
@@ -645,11 +754,38 @@ export const authLoadSession = createTool({
                 attempted: false,
                 reason: `vault entry exists but password unavailable (env ${cred.passwordEnv} unset and no literal stored)`,
               };
+            } else if (triedAccounts.length === 0) {
+              relogin = {
+                attempted: false,
+                reason: `no vault credential for origin (tried accounts: ${candidates.join(', ')}) — save one with auth_save_credentials first`,
+              };
             }
           }
         }
       } catch {
         /* best-effort — never fail the load on the expiry probe */
+      }
+
+      // ── Health check on load (#140) ──────────────────────────
+      // Optional lightweight probe AFTER restore (+relogin): re-read auth
+      // indicators so the response reports healthy instead of assuming it.
+      let healthy: boolean | undefined;
+      if (input.healthCheck) {
+        try {
+          const cookies = await session.browser.contextCookies().catch(() => []);
+          const hasAuthCookie = cookies.some((c) =>
+            /token|session|auth|jwt|sid|connect/i.test(c.name),
+          );
+          const loginLink = await session.browser
+            .$(
+              'a[href*="login"],a[href*="sign-in"],button:has-text("Log in"),button:has-text("Sign in")',
+            )
+            .catch(() => null);
+          healthy = hasAuthCookie && !loginLink;
+          if (!healthy) needsAuth = true;
+        } catch {
+          healthy = undefined;
+        }
       }
 
       return responseBuilder.success(
@@ -661,6 +797,18 @@ export const authLoadSession = createTool({
           autoNavigated: isAboutBlank ? true : undefined,
           didAutoReload: didAutoReload || undefined,
           needsAuth,
+          sessionAgeHours,
+          sessionStale,
+          expiryLikely,
+          expiredCookies,
+          ...(refreshed ? { refreshed } : {}),
+          ...(healthy !== undefined ? { healthy } : {}),
+          ...(expiryLikely && !needsAuth
+            ? {
+                warning:
+                  'Session looks stale/expired (age or cookie max-age past) — verify with auth_check_logged_in before task requests',
+              }
+            : {}),
           ...(relogin ? { relogin } : {}),
           ...(!needsAuth
             ? {}
@@ -683,7 +831,13 @@ export const authListSessions = createTool({
   category: 'auth',
   description:
     '`<use_case>Auth</use_case> 📋 List all saved auth sessions with their names, origins, save dates, and filePath. Also auto-discovers sessions in the cwd ./.fennec/sessions directory. Returns sessions[] and count. Use to discover available sessions before loading one with auth_load_session or deleting with auth_delete_session. Sessions are persisted on disk, so they survive browser restarts.`',
-  inputSchema: z.object({}),
+  inputSchema: z.object({
+    staleAfterHours: z
+      .number()
+      .optional()
+      .default(48)
+      .describe('Sessions older than this are flagged stale:true (default 48h, #138)'),
+  }),
   handler: async (input, { responseBuilder, sessionStore }) => {
     const byName = new Map<
       string,
@@ -712,7 +866,31 @@ export const authListSessions = createTool({
     for (const s of sessionStore.listFromDir(join(process.cwd(), '.fennec', 'sessions'))) {
       add(s, sessionStore.pathFor(s.name, s.origin));
     }
-    const sessions = Array.from(byName.values());
+    // Staleness signal (#138): age + stale hint past a configurable TTL so
+    // agents go straight to credential login instead of a doomed load + 401.
+    // Multi-account pool visibility (#140): vault accounts per origin.
+    const ttlH = input.staleAfterHours ?? 48;
+    const now = Date.now();
+    let vaultAccounts: Array<{ origin: string; account: string }> = [];
+    try {
+      const { listDevCredentials } = await import('../../auth/dev-vault.js');
+      vaultAccounts = listDevCredentials().map((c) => ({ origin: c.origin, account: c.account }));
+    } catch {
+      /* best-effort */
+    }
+    const sessions = Array.from(byName.values()).map((s) => {
+      const ageMs = now - Date.parse(s.savedAt);
+      const ageHours = Number.isFinite(ageMs) ? Math.max(0, Math.round(ageMs / 3_600_000)) : -1;
+      const stale = ageHours >= 0 && ageHours > ttlH;
+      const accounts = vaultAccounts.filter((v) => v.origin === s.origin).map((v) => v.account);
+      return {
+        ...s,
+        ageHours,
+        stale,
+        ...(stale ? { staleHint: 'Likely expired — prefer credential login over auth_load_session' } : {}),
+        ...(accounts.length > 0 ? { accounts } : {}),
+      };
+    });
     return responseBuilder.success({
       sessions,
       count: sessions.length,

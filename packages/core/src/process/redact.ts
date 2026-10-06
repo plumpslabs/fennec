@@ -68,6 +68,31 @@ export interface ReadLogOptions {
 export const HARD_LOG_CAP = 500;
 
 /**
+ * Env allowlist for process observation (#137, EPIC #139 phase 1).
+ * Only these keys are ever echoed into AI context by default; everything
+ * else is replaced by a count. Secrets-adjacent values are never verbatim.
+ */
+export const SAFE_ENV_KEYS = new Set(['NODE_ENV', 'PORT', 'FENNEC_APP_NAME']);
+
+const SECRET_ENV_RE = /token|secret|password|passwd|key|csrf|auth|session|cookie|credential|private/i;
+
+/** Compact a tracked process env for AI context: allowlisted keys only. */
+export function summarizeEnv(
+  env?: Record<string, string>,
+): { count: number; safe: Record<string, string> } {
+  if (!env) return { count: 0, safe: {} };
+  const keys = Object.keys(env);
+  const safe: Record<string, string> = {};
+  for (const k of keys) {
+    if (SAFE_ENV_KEYS.has(k) && !SECRET_ENV_RE.test(k)) {
+      const v = env[k]!;
+      safe[k] = v.length > 80 ? `${v.slice(0, 80)}…[TRUNCATED]` : v;
+    }
+  }
+  return { count: keys.length, safe };
+}
+
+/**
  * Clamp a requested line count to a safe maximum, optionally tightening it
  * further when the AI context has a token budget. Keeps tool output bounded
  * and predictable so an agent never blows its context window by accident.

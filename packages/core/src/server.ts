@@ -240,6 +240,8 @@ import {
   browserScreenshotAnnotated,
   browserScreenshotExport,
   browserScreenshotDiff,
+  smartVerify,
+  ciWatch,
 } from './tools/smart/index.js';
 import {
   plannerExecuteGoal,
@@ -393,7 +395,7 @@ export class FennecServer {
     this.performanceMetrics.startMemoryMonitoring();
 
     this.server = new Server(
-      { name: 'fennec', version: '1.16.9' },
+      { name: 'fennec', version: '1.16.10' },
       { capabilities: { tools: {}, prompts: {}, resources: {} } },
     );
 
@@ -551,6 +553,8 @@ export class FennecServer {
       browserScreenshotAnnotated,
       browserScreenshotExport,
       browserScreenshotDiff,
+      smartVerify,
+      ciWatch,
       plannerExecuteGoal,
       plannerCreatePlan,
       plannerListPlans,

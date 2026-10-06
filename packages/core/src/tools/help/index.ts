@@ -52,6 +52,14 @@ export const toolsHelp = createTool({
       categories: input.category ? categories.slice(0, 1) : categories,
       count: categories.length,
       hint: 'Load only the categories you need via tools/list ?categories=[...] to save tokens.',
+      // Selection audit trail (#141): content-free receipt so misroutes
+      // are debuggable without dumping schemas.
+      receipt: {
+        candidates: total,
+        categories: categories.length,
+        selected: input.category ?? null,
+        policy: 'progressive-discovery',
+      },
     });
   },
 });

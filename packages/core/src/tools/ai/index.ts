@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { createTool } from '../_registry.js';
 import { getLogger } from '../../utils/logger.js';
 import { readTracked, isTrackedRunning } from '../../process/tracking.js';
+import { summarizeEnv } from '../../process/redact.js';
 import { isProcessRunning } from '../../utils/system-process.js';
 import { isExpectedNetworkFailure, isStaticAsset } from '../../utils/network.js';
 import type { BrowserSession } from '../../browser/types.js';
@@ -171,6 +172,13 @@ export const observe = createTool({
       .default(['browser', 'console', 'network', 'process'])
       .describe('Which sensors to observe'),
     sessionId: z.string().optional().describe('Session ID'),
+    includeEnv: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe(
+        'Opt-in: embed full process env blocks (default false — env is summarized to allowlisted keys only, #137)',
+      ),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
@@ -232,14 +240,34 @@ export const observe = createTool({
       }
     }
 
-    // Process observation — read tracked.json directly
+    // Process observation — read tracked.json directly.
+    // Env is summarized by default (allowlisted keys only, #137); full env
+    // only with explicit includeEnv:true (EPIC #139 opt-in escape hatch).
+    // Adaptive tiers (#139 phase 2): pulse = counts only, summary = compact
+    // rows (max 10), full = compact rows (max 20); overflow uses pointers.
     if (sources.includes('process')) {
       const tracked = readTracked();
       if (tracked.length > 0) {
         const running = tracked.filter((t) => isTrackedRunning(t));
         const stopped = tracked.filter((t) => !isTrackedRunning(t));
+        const maxRows = input.detail === 'full' ? 20 : input.detail === 'summary' ? 10 : 0;
+        const compact = tracked.slice(0, maxRows).map((t) => {
+          const { env, ...rest } = t;
+          if (input.includeEnv) return t;
+          const { count, safe } = summarizeEnv(env);
+          return { ...rest, envSummary: { count, safe } };
+        });
+        const overflow = tracked.length - compact.length;
         result.process = {
-          tracked,
+          ...(maxRows > 0
+            ? { tracked: compact }
+            : { trackedNames: tracked.map((t) => t.name) }),
+          ...(overflow > 0
+            ? {
+                truncated: overflow,
+                overflowHint: `+${overflow} more — narrow with sources:['process'] + process_get_tracked, or inspect <name>`,
+              }
+            : {}),
           runningCount: running.length,
           stoppedCount: stopped.length,
           totalCount: tracked.length,
@@ -293,6 +321,20 @@ export const observe = createTool({
       parts.push(`Tracked: ${p.summary ?? 'none'}`);
     }
     result._summary = parts.join(' | ');
+
+    // Budget accounting (#139 phase 4): per-source token estimates (~4
+    // chars/token) so agents and humans can see observation cost.
+    try {
+      const est = (v: unknown) => Math.ceil(JSON.stringify(v ?? '').length / 4);
+      const perSource: Record<string, number> = {};
+      for (const k of ['page', 'domSummary', 'console', 'network', 'process', 'incidents']) {
+        if (result[k] !== undefined) perSource[k] = est(result[k]);
+      }
+      const tokensEstimated = Object.values(perSource).reduce((a, b) => a + b, 0);
+      result.budget = { detail: input.detail, tokensEstimated, perSource };
+    } catch {
+      /* best-effort */
+    }
 
     return responseBuilder.success(result, sessionManager.buildMeta(session));
   },

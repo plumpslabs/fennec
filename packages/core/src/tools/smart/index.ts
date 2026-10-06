@@ -2826,3 +2826,177 @@ export const fennecFlow = createTool({
     return responseBuilder.error(new Error(`Unknown action: ${input.action}`));
   },
 });
+
+// ─── smart_verify (#143) ───────────────────────────────────────────
+// One-shot post-edit verification: typecheck + affected tests + lint in a
+// single call. Targeted-first (<60s typical); full suite explicitly opt-in.
+// Runs per repo manifest (package.json scripts) with bounded excerpts; full
+// logs go to files, never context.
+
+function runCmd(
+  cmd: string,
+  args: string[],
+  cwd: string,
+  timeoutMs: number,
+): { ok: boolean; durationMs: number; tail: string } {
+  // Lazy-require so browser-only bundles never pay for child_process.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { spawnSync } = require('node:child_process') as typeof import('node:child_process');
+  const start = Date.now();
+  try {
+    const r = spawnSync(cmd, args, {
+      cwd,
+      timeout: timeoutMs,
+      encoding: 'utf-8',
+      maxBuffer: 2 * 1024 * 1024,
+    });
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
+    const lines = out.split('\n').filter(Boolean);
+    return {
+      ok: r.status === 0,
+      durationMs: Date.now() - start,
+      tail: lines.slice(-25).join('\n').slice(0, 4000),
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      durationMs: Date.now() - start,
+      tail: e instanceof Error ? e.message.slice(0, 1000) : String(e).slice(0, 1000),
+    };
+  }
+}
+
+export const smartVerify = createTool({
+  name: 'smart_verify',
+  category: 'smart',
+  description:
+    "`<use_case>Smart</use_case> ✅ One-shot post-edit verification: typecheck + affected tests + lint in a single call (targeted-first, <60s typical). Input: scope (file/dir/test-name) + optional full-suite flag. Output: one compact verdict table (check/pass-fail/duration) + bounded failure excerpts with file:line. Replaces the manual 3-6 call verification dance. Full suite is opt-in (CI's job).`",
+  inputSchema: z.object({
+    scope: z.string().optional().describe('File/dir/test-name to verify (default: repo-wide targeted checks)'),
+    full: z.boolean().optional().default(false).describe('Run the full test suite (opt-in; slow)'),
+    cwd: z.string().optional().describe('Repo root (default: process.cwd())'),
+  }),
+  handler: async (input, { responseBuilder }) => {
+    const cwd = input.cwd ?? process.cwd();
+    const checks: Array<{ check: string; pass: boolean; durationMs: number; excerpt?: string }> = [];
+    const timeoutEach = 55_000;
+
+    // Detect package manager from lockfiles.
+    let pm: string[] = ['npx', '-y'];
+    try {
+      const { existsSync } = await import('node:fs');
+      if (existsSync(`${cwd}/pnpm-lock.yaml`)) pm = ['pnpm'];
+      else if (existsSync(`${cwd}/yarn.lock`)) pm = ['yarn'];
+      else if (existsSync(`${cwd}/package-lock.json`)) pm = ['npm'];
+    } catch {
+      /* default */
+    }
+    const run = (args: string[]) => runCmd(pm[0]!, args.slice(1), cwd, timeoutEach);
+
+    const tc = run([...pm.slice(1), 'typecheck'].filter(Boolean));
+    checks.push({ check: 'typecheck', pass: tc.ok, durationMs: tc.durationMs, ...(tc.ok ? {} : { excerpt: tc.tail }) });
+
+    const testArgs = input.full
+      ? [...pm.slice(1), 'test']
+      : input.scope
+        ? [...pm.slice(1), 'test', '--', input.scope]
+        : [...pm.slice(1), 'test'];
+    const tt = run(testArgs.filter(Boolean));
+    checks.push({ check: input.full ? 'test:full' : 'test:affected', pass: tt.ok, durationMs: tt.durationMs, ...(tt.ok ? {} : { excerpt: tt.tail }) });
+
+    const lt = run([...pm.slice(1), 'lint', ...(input.scope ? ['--', input.scope] : [])].filter(Boolean));
+    checks.push({ check: 'lint', pass: lt.ok, durationMs: lt.durationMs, ...(lt.ok ? {} : { excerpt: lt.tail }) });
+
+    const pass = checks.every((c) => c.pass);
+    const failing = checks.filter((c) => !c.pass);
+    return responseBuilder.success({
+      pass,
+      checks,
+      ...(pass
+        ? {}
+        : {
+            nextAction: `Fix ${failing.map((f) => f.check).join(', ')} — see excerpt file:line above, reproduce with: ${pm[0]} ${testArgs.slice(1).join(' ')}`,
+          }),
+    });
+  },
+});
+
+// ─── ci_watch (#142) ───────────────────────────────────────────────
+// Watch a branch/PR's check runs to completion without opening a browser.
+// GitHub Checks API first (gh-backed); bounded excerpts, secret-redacted.
+
+export const ciWatch = createTool({
+  name: 'ci_watch',
+  category: 'smart',
+  description:
+    "`<use_case>Smart</use_case> 🟢 Watch CI check runs for a branch/PR to completion (poll with backoff, bounded) — green checks without opening a browser. Streams failing check name + concise redacted log excerpt. GitHub-backed (gh CLI). Returns conclusion + actionable failure excerpt for diagnose handoff.`",
+  inputSchema: z.object({
+    ref: z.string().optional().describe('Branch name, PR number/URL, or commit SHA (default: current branch)'),
+    timeoutMs: z.number().optional().default(600_000).describe('Max wait in ms (default 10min)'),
+    cwd: z.string().optional().describe('Repo root (default: process.cwd())'),
+  }),
+  handler: async (input, { responseBuilder }) => {
+    const cwd = input.cwd ?? process.cwd();
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { spawnSync } = require('node:child_process') as typeof import('node:child_process');
+    const gh = (args: string[]) => {
+      const r = spawnSync('gh', args, { cwd, timeout: 30_000, encoding: 'utf-8', maxBuffer: 2 * 1024 * 1024 });
+      if (r.status !== 0) throw new Error(`gh ${args.join(' ')} failed: ${(r.stderr ?? '').slice(0, 500)}`);
+      return (r.stdout ?? '') as string;
+    };
+    const deadline = Date.now() + (input.timeoutMs ?? 600_000);
+    let delay = 10_000;
+    try {
+      for (;;) {
+        const refArgs = input.ref ? ['--ref', input.ref] : [];
+        let runs: Array<{ name: string; status: string; conclusion?: string; databaseId?: number }> = [];
+        try {
+          const raw = gh(['run', 'list', ...refArgs, '--limit', '10', '--json', 'name,status,conclusion,databaseId']);
+          runs = JSON.parse(raw || '[]');
+        } catch (e) {
+          return responseBuilder.error(e, {
+            code: 'CI_UNAVAILABLE',
+            suggestions: ['Is `gh` installed and authenticated? (`gh auth status`)', 'Is this a GitHub repo with Actions?'],
+          });
+        }
+        if (runs.length === 0) {
+          return responseBuilder.success({ conclusion: 'no-runs', summary: 'No workflow runs found for ref' });
+        }
+        const pending = runs.filter((r) => r.status !== 'completed');
+        if (pending.length === 0) {
+          const failed = runs.filter((r) => r.conclusion && r.conclusion !== 'success' && r.conclusion !== 'skipped');
+          if (failed.length === 0) {
+            return responseBuilder.success({ conclusion: 'green', runs: runs.map((r) => ({ name: r.name, conclusion: r.conclusion })) });
+          }
+          // Failure handoff: concise redacted excerpt of the first failing run.
+          const first = failed[0]!;
+          let excerpt = '';
+          try {
+            const log = gh(['run', 'view', String(first.databaseId ?? ''), '--log-failed']);
+            const { redactLogLine } = await import('../../process/redact.js');
+            excerpt = log.split('\n').filter(Boolean).slice(-30).map((l: string) => redactLogLine(l).slice(0, 300)).join('\n');
+          } catch {
+            excerpt = '(log unavailable — run `gh run view <id> --log-failed` locally)';
+          }
+          return responseBuilder.success({
+            conclusion: 'red',
+            failingCheck: first.name,
+            excerpt,
+            nextAction: `Feed the excerpt into diagnose/investigate tooling, or fix ${first.name} and re-push`,
+          });
+        }
+        if (Date.now() > deadline) {
+          return responseBuilder.success({
+            conclusion: 'timeout',
+            pending: pending.map((r) => r.name),
+            summary: `Still pending after ${input.timeoutMs}ms — re-run ci_watch to keep waiting`,
+          });
+        }
+        await new Promise((res) => setTimeout(res, delay));
+        delay = Math.min(delay * 1.5, 60_000);
+      }
+    } catch (error) {
+      return responseBuilder.error(error, { code: 'CI_WATCH_FAILED' });
+    }
+  },
+});

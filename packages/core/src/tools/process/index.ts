@@ -34,13 +34,16 @@ import {
   clampLineCount,
   HARD_LOG_CAP,
 } from '../../process/redact.js';
+import { resolveProcess, readUnifiedLogs } from '../../process/resolve.js';
 
 /** Resolve an app name for log-file lookup (works for CLI-started apps too). */
 function resolveLogName(processId: string): string | undefined {
-  // Tracked.json is keyed by name; try a direct name match first.
+  // Name-level resolution doesn't need the live manager: tracked registry
+  // or an on-disk log file is enough (see process/resolve.ts for the full
+  // live+tracked+file unification used by the handlers below).
   const tracked = readTracked();
-  const byName = tracked.find((t) => t.name === processId);
-  if (byName) return byName.name;
+  if (tracked.some((t) => t.name === processId)) return processId;
+  if (existsSync(logPathFor(processId))) return processId;
   return undefined;
 }
 
@@ -310,9 +313,8 @@ export const processGetLogs = createTool({
   }),
   handler: async (input, { responseBuilder, processManager, tokenBudget }) => {
     try {
-      // Resolve the app name (MCP-managed or CLI-tracked) so we can read the
-      // on-disk log file. This makes logs work for BOTH MCP-spawned and
-      // CLI-started processes (e.g. `fennec start`) consistently.
+      // Single source of truth: live buffer + on-disk file, unified
+      // (process/resolve.ts). Throws only for genuinely unknown names.
       const name = resolveLogName(input.processId) ?? input.processId;
       // HARD-CAPPED line count (token-safe; tightened by the AI token budget).
       const cap = clampLineCount(input.lines, 50, HARD_LOG_CAP, tokenBudget);
@@ -335,27 +337,11 @@ export const processGetLogs = createTool({
           redacted: true,
         });
       }
-      const logs = processManager.getLogs(input.processId, {
+      const logs = readUnifiedLogs(processManager, input.processId, {
         lines: cap,
         level: input.level,
         since: input.since,
       });
-      // Fallback to the file when the in-memory buffer is empty (CLI-started
-      // processes aren't in the MCP process manager's buffer).
-      if (logs.length === 0 && existsSync(logPathFor(name))) {
-        const fileLines = readLogLines(logPathFor(name), { tail: cap });
-        const mapped = fileLines.map((line) => ({
-          line,
-          level: detectLogLevel(line),
-          timestamp: new Date().toISOString(),
-        }));
-        return responseBuilder.success({
-          logs: mapped,
-          count: mapped.length,
-          errorCount: mapped.filter((l) => l.level === 'error').length,
-          redacted: true,
-        });
-      }
       return responseBuilder.success({
         logs,
         count: logs.length,
@@ -365,7 +351,10 @@ export const processGetLogs = createTool({
     } catch (error) {
       return responseBuilder.error(error, {
         code: 'PROCESS_NOT_FOUND',
-        suggestions: suggestionsWithAvailable(),
+        suggestions: [
+          ...suggestionsWithAvailable(),
+          'Tip: CLI-started apps work too — logs are read from the on-disk file. Use `inspect` for full tracked-app state.',
+        ],
       });
     }
   },
@@ -379,14 +368,35 @@ export const processGetStatus = createTool({
   inputSchema: z.object({ processId: z.string().describe('Process ID') }),
   handler: async (input, { responseBuilder, processManager }) => {
     try {
-      const status = processManager.getStatus(input.processId);
-      const memKb = status.running ? getProcessMemRss(status.pid) : null;
+      // Unified resolution: live MCP status when available, tracked
+      // registry (pid + startedAt) otherwise — no more blind spots for
+      // CLI-started apps.
+      const r = resolveProcess(processManager, input.processId);
+      if (r.kind === 'missing') throw new Error(`Process not found: ${input.processId}`);
+      if (r.live) {
+        const status = processManager.getStatus(r.live.processId);
+        const memKb = status.running ? getProcessMemRss(status.pid) : null;
+        return responseBuilder.success({
+          running: status.running,
+          pid: status.pid,
+          uptime: status.uptime,
+          memoryMB: memKb ? Math.round(memKb / 1024) : null,
+          cpuPercent: null as number | null,
+        });
+      }
+      const entry = r.entry!;
+      const running = r.running;
+      const uptime = entry?.startedAt
+        ? Math.max(0, Math.floor((Date.now() - Date.parse(entry.startedAt)) / 1000))
+        : 0;
+      const memKb = running ? getProcessMemRss(entry.pid) : null;
       return responseBuilder.success({
-        running: status.running,
-        pid: status.pid,
-        uptime: status.uptime,
+        running,
+        pid: entry.pid,
+        uptime: running ? uptime : 0,
         memoryMB: memKb ? Math.round(memKb / 1024) : null,
         cpuPercent: null as number | null,
+        via: 'tracked',
       });
     } catch (error) {
       return responseBuilder.error(error, {
@@ -1017,22 +1027,18 @@ export const processWaitForReady = createTool({
   }),
   handler: async (input, { responseBuilder, processManager }) => {
     const startTime = Date.now();
-    // Re-sync: process_restart rewrites tracked.json, so refresh before failing.
-    let trackedEntry = readTracked().find((t) => t.name === input.processId);
+    // ONE source of truth (process/resolve.ts): live, tracked, or file.
+    const resolved = resolveProcess(processManager, input.processId);
     try {
-      try {
-        processManager.get(input.processId); // Validate exists in MCP manager
-      } catch {
-        // Fall back to tracked registry (race after restart) instead of failing.
-        if (!trackedEntry || !isTrackedRunning(trackedEntry))
-          throw new Error(`No process: ${input.processId}`);
-      }
+      if (resolved.kind === 'missing') throw new Error(`No process: ${input.processId}`);
       const patterns = input.pattern!.split('|');
 
       return await new Promise((resolve) => {
         const check = () => {
+          // Re-resolve each tick: process_restart rewrites tracked.json.
+          const current = resolveProcess(processManager, input.processId);
           // Port fallback (P2): ready as soon as the port has a listener.
-          const wantPort = input.port ?? trackedEntry?.port;
+          const wantPort = input.port ?? current.entry?.port;
           if (wantPort) {
             try {
               const holder = new PortDetector().detectByPort(wantPort);
@@ -1051,13 +1057,11 @@ export const processWaitForReady = createTool({
               /* fall through to log polling */
             }
           }
+          // Unified logs: live buffer + on-disk file, deduped (#136).
           let logs: { line: string }[] = [];
           try {
-            logs = processManager.getLogs(input.processId, { lines: 100 });
+            logs = readUnifiedLogs(processManager, input.processId, { lines: 100 });
           } catch {
-            // MCP manager lost the entry (restart race) — re-sync tracked
-            // registry; keep polling until timeout rather than failing.
-            trackedEntry = readTracked().find((t) => t.name === input.processId) ?? trackedEntry;
             logs = [];
           }
           for (const log of logs) {
@@ -1075,12 +1079,21 @@ export const processWaitForReady = createTool({
             }
           }
           if (Date.now() - startTime > input.timeout!) {
+            // Structured partial result (#136): hand the agent the last
+            // lines seen so it can diagnose instead of blind-polling.
+            const lastLines = logs.slice(-10).map((l) => l.line.slice(0, 300));
             resolve(
               responseBuilder.error(
                 new Error(`Process did not become ready within ${input.timeout}ms`),
                 {
                   code: 'TIMEOUT',
                   suggestions: ['Increase timeout', 'Check process status'],
+                  context: {
+                    ready: false,
+                    elapsed: Date.now() - startTime,
+                    linesSeen: logs.length,
+                    lastLines,
+                  },
                 },
               ),
             );
