@@ -2867,13 +2867,17 @@ export const smartVerify = createTool({
   description:
     "`<use_case>Smart</use_case> ✅ One-shot post-edit verification: typecheck + affected tests + lint in a single call (targeted-first, <60s typical). Input: scope (file/dir/test-name) + optional full-suite flag. Output: one compact verdict table (check/pass-fail/duration) + bounded failure excerpts with file:line. Replaces the manual 3-6 call verification dance. Full suite is opt-in (CI's job).`",
   inputSchema: z.object({
-    scope: z.string().optional().describe('File/dir/test-name to verify (default: repo-wide targeted checks)'),
+    scope: z
+      .string()
+      .optional()
+      .describe('File/dir/test-name to verify (default: repo-wide targeted checks)'),
     full: z.boolean().optional().default(false).describe('Run the full test suite (opt-in; slow)'),
     cwd: z.string().optional().describe('Repo root (default: process.cwd())'),
   }),
   handler: async (input, { responseBuilder, progressReporter }) => {
     const cwd = input.cwd ?? process.cwd();
-    const checks: Array<{ check: string; pass: boolean; durationMs: number; excerpt?: string }> = [];
+    const checks: Array<{ check: string; pass: boolean; durationMs: number; excerpt?: string }> =
+      [];
     const timeoutEach = 55_000;
 
     // Detect package manager from lockfiles.
@@ -2886,25 +2890,37 @@ export const smartVerify = createTool({
     } catch {
       /* default */
     }
-    const run = (rest: string[]) => runCmdAsync(pm[0]!, [...pm.slice(1), ...rest], cwd, timeoutEach);
+    const run = (rest: string[]) =>
+      runCmdAsync(pm[0]!, [...pm.slice(1), ...rest], cwd, timeoutEach);
     const progress = async (done: number, total: number, message: string) => {
       await progressReporter?.report({ progress: done, total, message }).catch(() => {});
     };
 
-    const testRest = input.full
-      ? ['test']
-      : input.scope
-        ? ['test', '--', input.scope]
-        : ['test'];
+    const testRest = input.full ? ['test'] : input.scope ? ['test', '--', input.scope] : ['test'];
     const lintRest = ['lint', ...(input.scope ? ['--', input.scope] : [])];
 
     // Parallel: wall-clock ≈ slowest check, not the sum (#147).
     await progress(0, 3, 'starting typecheck + tests + lint');
     const [tc, tt, lt] = await Promise.all([run(['typecheck']), run(testRest), run(lintRest)]);
     await progress(3, 3, 'all checks finished');
-    checks.push({ check: 'typecheck', pass: tc.ok, durationMs: tc.durationMs, ...(tc.ok ? {} : { excerpt: tc.tail }) });
-    checks.push({ check: input.full ? 'test:full' : 'test:affected', pass: tt.ok, durationMs: tt.durationMs, ...(tt.ok ? {} : { excerpt: tt.tail }) });
-    checks.push({ check: 'lint', pass: lt.ok, durationMs: lt.durationMs, ...(lt.ok ? {} : { excerpt: lt.tail }) });
+    checks.push({
+      check: 'typecheck',
+      pass: tc.ok,
+      durationMs: tc.durationMs,
+      ...(tc.ok ? {} : { excerpt: tc.tail }),
+    });
+    checks.push({
+      check: input.full ? 'test:full' : 'test:affected',
+      pass: tt.ok,
+      durationMs: tt.durationMs,
+      ...(tt.ok ? {} : { excerpt: tt.tail }),
+    });
+    checks.push({
+      check: 'lint',
+      pass: lt.ok,
+      durationMs: lt.durationMs,
+      ...(lt.ok ? {} : { excerpt: lt.tail }),
+    });
 
     const pass = checks.every((c) => c.pass);
     const failing = checks.filter((c) => !c.pass);
@@ -2928,9 +2944,12 @@ export const ciWatch = createTool({
   name: 'ci_watch',
   category: 'smart',
   description:
-    "`<use_case>Smart</use_case> 🟢 Watch CI check runs for a branch/PR to completion (poll with backoff, bounded) — green checks without opening a browser. Streams failing check name + concise redacted log excerpt. GitHub-backed (gh CLI). Returns conclusion + actionable failure excerpt for diagnose handoff.`",
+    '`<use_case>Smart</use_case> 🟢 Watch CI check runs for a branch/PR to completion (poll with backoff, bounded) — green checks without opening a browser. Streams failing check name + concise redacted log excerpt. GitHub-backed (gh CLI). Returns conclusion + actionable failure excerpt for diagnose handoff.`',
   inputSchema: z.object({
-    ref: z.string().optional().describe('Branch name, PR number/URL, or commit SHA (default: current branch)'),
+    ref: z
+      .string()
+      .optional()
+      .describe('Branch name, PR number/URL, or commit SHA (default: current branch)'),
     timeoutMs: z.number().optional().default(600_000).describe('Max wait in ms (default 10min)'),
     cwd: z.string().optional().describe('Repo root (default: process.cwd())'),
   }),
@@ -2940,34 +2959,64 @@ export const ciWatch = createTool({
     const { execFile } = require('node:child_process') as typeof import('node:child_process');
     const gh = (args: string[]): Promise<string> =>
       new Promise((resolve, reject) => {
-        execFile('gh', args, { cwd, timeout: 30_000, encoding: 'utf-8', maxBuffer: 2 * 1024 * 1024 }, (err: Error | null, stdout: string, stderr: string) => {
-          if (err) reject(new Error(`gh ${args.join(' ')} failed: ${(stderr ?? '').slice(0, 500)}`));
-          else resolve((stdout ?? '') as string);
-        });
+        execFile(
+          'gh',
+          args,
+          { cwd, timeout: 30_000, encoding: 'utf-8', maxBuffer: 2 * 1024 * 1024 },
+          (err: Error | null, stdout: string, stderr: string) => {
+            if (err)
+              reject(new Error(`gh ${args.join(' ')} failed: ${(stderr ?? '').slice(0, 500)}`));
+            else resolve((stdout ?? '') as string);
+          },
+        );
       });
     const deadline = Date.now() + (input.timeoutMs ?? 600_000);
     let delay = 10_000;
     try {
       for (;;) {
         const refArgs = input.ref ? ['--ref', input.ref] : [];
-        let runs: Array<{ name: string; status: string; conclusion?: string; databaseId?: number }> = [];
+        let runs: Array<{
+          name: string;
+          status: string;
+          conclusion?: string;
+          databaseId?: number;
+        }> = [];
         try {
-          const raw = await gh(['run', 'list', ...refArgs, '--limit', '10', '--json', 'name,status,conclusion,databaseId']);
+          const raw = await gh([
+            'run',
+            'list',
+            ...refArgs,
+            '--limit',
+            '10',
+            '--json',
+            'name,status,conclusion,databaseId',
+          ]);
           runs = JSON.parse(raw || '[]');
         } catch (e) {
           return responseBuilder.error(e, {
             code: 'CI_UNAVAILABLE',
-            suggestions: ['Is `gh` installed and authenticated? (`gh auth status`)', 'Is this a GitHub repo with Actions?'],
+            suggestions: [
+              'Is `gh` installed and authenticated? (`gh auth status`)',
+              'Is this a GitHub repo with Actions?',
+            ],
           });
         }
         if (runs.length === 0) {
-          return responseBuilder.success({ conclusion: 'no-runs', summary: 'No workflow runs found for ref' });
+          return responseBuilder.success({
+            conclusion: 'no-runs',
+            summary: 'No workflow runs found for ref',
+          });
         }
         const pending = runs.filter((r) => r.status !== 'completed');
         if (pending.length === 0) {
-          const failed = runs.filter((r) => r.conclusion && r.conclusion !== 'success' && r.conclusion !== 'skipped');
+          const failed = runs.filter(
+            (r) => r.conclusion && r.conclusion !== 'success' && r.conclusion !== 'skipped',
+          );
           if (failed.length === 0) {
-            return responseBuilder.success({ conclusion: 'green', runs: runs.map((r) => ({ name: r.name, conclusion: r.conclusion })) });
+            return responseBuilder.success({
+              conclusion: 'green',
+              runs: runs.map((r) => ({ name: r.name, conclusion: r.conclusion })),
+            });
           }
           // Failure handoff: concise redacted excerpt of the first failing run.
           const first = failed[0]!;
@@ -2975,7 +3024,12 @@ export const ciWatch = createTool({
           try {
             const log = await gh(['run', 'view', String(first.databaseId ?? ''), '--log-failed']);
             const { redactLogLine } = await import('../../process/redact.js');
-            excerpt = log.split('\n').filter(Boolean).slice(-30).map((l: string) => redactLogLine(l).slice(0, 300)).join('\n');
+            excerpt = log
+              .split('\n')
+              .filter(Boolean)
+              .slice(-30)
+              .map((l: string) => redactLogLine(l).slice(0, 300))
+              .join('\n');
           } catch {
             excerpt = '(log unavailable — run `gh run view <id> --log-failed` locally)';
           }
@@ -2995,9 +3049,14 @@ export const ciWatch = createTool({
         }
         await progressReporter
           ?.report({
-            progress: Math.round(((input.timeoutMs! - (deadline - Date.now())) / input.timeoutMs!) * 100),
+            progress: Math.round(
+              ((input.timeoutMs! - (deadline - Date.now())) / input.timeoutMs!) * 100,
+            ),
             total: 100,
-            message: `waiting on ${pending.length} check(s): ${pending.map((r) => r.name).join(', ').slice(0, 120)}`,
+            message: `waiting on ${pending.length} check(s): ${pending
+              .map((r) => r.name)
+              .join(', ')
+              .slice(0, 120)}`,
           })
           .catch(() => {});
         await new Promise((res) => setTimeout(res, delay));

@@ -860,7 +860,10 @@ export class FennecServer {
             'utf-8',
           );
           if (statSync(metricsPath).size > 2 * 1024 * 1024) {
-            const tail = readFileSync(metricsPath, 'utf-8').split('\n').filter(Boolean).slice(-20_000);
+            const tail = readFileSync(metricsPath, 'utf-8')
+              .split('\n')
+              .filter(Boolean)
+              .slice(-20_000);
             writeFileSync(metricsPath, tail.join('\n') + '\n', 'utf-8');
           }
         } catch {

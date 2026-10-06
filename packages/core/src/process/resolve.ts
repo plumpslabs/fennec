@@ -9,12 +9,7 @@
  */
 import { existsSync } from 'node:fs';
 import type { ProcessManager, ManagedProcess } from './ProcessManager.js';
-import {
-  readTracked,
-  logPathFor,
-  isTrackedRunning,
-  type TrackedEntry,
-} from './tracking.js';
+import { readTracked, logPathFor, isTrackedRunning, type TrackedEntry } from './tracking.js';
 import { readLogLines, redactLogLine } from './redact.js';
 import { detectLogLevel, type LogLevel } from '../utils/levelDetector.js';
 import { extractTimestamp } from './redact.js';
@@ -61,7 +56,14 @@ export function resolveProcess(pm: ProcessManager, id: string): ResolvedProcess 
     };
   }
   if (entry) {
-    return { kind: 'tracked', name: entry.name, entry, live: null, logPath, running: isTrackedRunning(entry) };
+    return {
+      kind: 'tracked',
+      name: entry.name,
+      entry,
+      live: null,
+      logPath,
+      running: isTrackedRunning(entry),
+    };
   }
   if (existsSync(logPath)) {
     return { kind: 'file', name: id, entry: null, live: null, logPath, running: false };

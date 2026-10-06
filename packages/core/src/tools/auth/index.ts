@@ -503,9 +503,11 @@ export const authLoadSession = createTool({
       const sessionAgeHours = Number.isFinite(savedAtMs)
         ? Math.max(0, Math.round((Date.now() - savedAtMs) / 3_600_000))
         : -1;
-      const savedCookies = (Array.isArray((saved as { cookies?: unknown[] }).cookies)
-        ? (saved as { cookies: Array<{ expires?: number }> }).cookies
-        : []) as Array<{ expires?: number }>;
+      const savedCookies = (
+        Array.isArray((saved as { cookies?: unknown[] }).cookies)
+          ? (saved as { cookies: Array<{ expires?: number }> }).cookies
+          : []
+      ) as Array<{ expires?: number }>;
       const nowSec = Date.now() / 1000;
       const expiredCookies = savedCookies.filter(
         (c) => typeof c.expires === 'number' && c.expires > 0 && c.expires < nowSec,
@@ -522,8 +524,10 @@ export const authLoadSession = createTool({
       // look for a refresh-token-like value in saved storage, try common
       // rotation endpoints, and adopt an obvious access token on success.
       let refreshed: Record<string, unknown> | undefined;
-      const savedLS = ((saved as { localStorage?: Record<string, string> }).localStorage ?? {}) as Record<string, string>;
-      const savedSS = ((saved as { sessionStorage?: Record<string, string> }).sessionStorage ?? {}) as Record<string, string>;
+      const savedLS = ((saved as { localStorage?: Record<string, string> }).localStorage ??
+        {}) as Record<string, string>;
+      const savedSS = ((saved as { sessionStorage?: Record<string, string> }).sessionStorage ??
+        {}) as Record<string, string>;
       if (expiryLikely) {
         const pool = { ...savedSS, ...savedLS };
         const rtKey = Object.keys(pool).find((k) => /refresh/i.test(k));
@@ -567,7 +571,12 @@ export const authLoadSession = createTool({
                   if (target) savedLS[target] = at;
                   refreshed = { attempted: true, ok: true, endpoint: ep };
                 } else {
-                  refreshed = { attempted: true, ok: false, endpoint: ep, reason: 'no access token in response' };
+                  refreshed = {
+                    attempted: true,
+                    ok: false,
+                    endpoint: ep,
+                    reason: 'no access token in response',
+                  };
                 }
                 break;
               }
@@ -575,7 +584,8 @@ export const authLoadSession = createTool({
               /* try next endpoint */
             }
           }
-          if (!refreshed) refreshed = { attempted: true, ok: false, reason: 'refresh endpoints unreachable' };
+          if (!refreshed)
+            refreshed = { attempted: true, ok: false, reason: 'refresh endpoints unreachable' };
         }
       }
 
@@ -946,7 +956,9 @@ export const authListSessions = createTool({
         ...s,
         ageHours,
         stale,
-        ...(stale ? { staleHint: 'Likely expired — prefer credential login over auth_load_session' } : {}),
+        ...(stale
+          ? { staleHint: 'Likely expired — prefer credential login over auth_load_session' }
+          : {}),
         ...(accounts.length > 0 ? { accounts } : {}),
       };
     });

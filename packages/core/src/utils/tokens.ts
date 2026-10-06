@@ -53,9 +53,7 @@ export function estimateTokens(text: string, model?: string): number {
       /* fall through to heuristic */
     }
   }
-  const div = model
-    ? (DIVISORS.find((d) => d.re.test(model))?.div ?? 4.0)
-    : 4.0;
+  const div = model ? (DIVISORS.find((d) => d.re.test(model))?.div ?? 4.0) : 4.0;
   // Code/logs tokenize denser than prose: mild upward correction when the
   // payload looks like symbols/JSON rather than words.
   const symbolRatio = (text.match(/[{}\[\]<>="':;()]/g) ?? []).length / Math.max(1, text.length);

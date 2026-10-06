@@ -74,12 +74,14 @@ export const HARD_LOG_CAP = 500;
  */
 export const SAFE_ENV_KEYS = new Set(['NODE_ENV', 'PORT', 'FENNEC_APP_NAME']);
 
-const SECRET_ENV_RE = /token|secret|password|passwd|key|csrf|auth|session|cookie|credential|private/i;
+const SECRET_ENV_RE =
+  /token|secret|password|passwd|key|csrf|auth|session|cookie|credential|private/i;
 
 /** Compact a tracked process env for AI context: allowlisted keys only. */
-export function summarizeEnv(
-  env?: Record<string, string>,
-): { count: number; safe: Record<string, string> } {
+export function summarizeEnv(env?: Record<string, string>): {
+  count: number;
+  safe: Record<string, string>;
+} {
   if (!env) return { count: 0, safe: {} };
   const keys = Object.keys(env);
   const safe: Record<string, string> = {};

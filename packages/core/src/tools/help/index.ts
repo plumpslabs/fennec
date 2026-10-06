@@ -75,7 +75,11 @@ export const metricsSummary = createTool({
   description:
     '`<use_case>Discoverability</use_case> 📊 Usage metrics: which tools get called, error rates, avg latency (PII-free: name + ms + ok only). Use to find looping agents, failing tools, and compaction candidates.`',
   inputSchema: z.object({
-    lines: z.number().optional().default(1000).describe('Last N metric lines to aggregate (max 5000)'),
+    lines: z
+      .number()
+      .optional()
+      .default(1000)
+      .describe('Last N metric lines to aggregate (max 5000)'),
   }),
   handler: async (input, { responseBuilder }) => {
     try {

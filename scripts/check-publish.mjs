@@ -16,9 +16,7 @@ const LOCAL_RE = /^(workspace:|link:|file:)/;
 // Only packages that get published to a registry.
 const PUBLISHED = ['packages/core/package.json', 'packages/cli/package.json'];
 
-const pkgs = new Map(
-  PUBLISHED.map((f) => [f, JSON.parse(readFileSync(join(root, f), 'utf8'))]),
-);
+const pkgs = new Map(PUBLISHED.map((f) => [f, JSON.parse(readFileSync(join(root, f), 'utf8'))]));
 
 // All workspace versions must move in lockstep — the pin step stamps the
 // *dependent's own* version, so a skew would publish a core version that
@@ -39,7 +37,9 @@ for (const [f, pkg] of pkgs) {
       // @plumpslabs/* workspace deps are pinned to the release version by
       // pin-workspace-deps.mjs — resolvable. Anything else would leak.
       if (!name.startsWith('@plumpslabs/')) {
-        console.error(`BLOCKED ${f}: ${section}.${name} = "${spec}" — unresolvable from a registry`);
+        console.error(
+          `BLOCKED ${f}: ${section}.${name} = "${spec}" — unresolvable from a registry`,
+        );
         failed = true;
       }
     }

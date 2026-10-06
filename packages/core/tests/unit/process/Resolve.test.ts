@@ -67,6 +67,8 @@ describe('ProcessResolver (#144)', () => {
   it('throws a single canonical error for unknown names', () => {
     const pm = fakePm([]);
     expect(resolveMod.resolveProcess(pm as never, 'nope').kind).toBe('missing');
-    expect(() => resolveMod.readUnifiedLogs(pm as never, 'nope')).toThrow(/Process not found: nope/);
+    expect(() => resolveMod.readUnifiedLogs(pm as never, 'nope')).toThrow(
+      /Process not found: nope/,
+    );
   });
 });

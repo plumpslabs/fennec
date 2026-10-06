@@ -182,7 +182,9 @@ export const observe = createTool({
     model: z
       .string()
       .optional()
-      .describe('Model name for token estimation (e.g. claude, gpt-4o). Tunes budget accounting (#146).'),
+      .describe(
+        'Model name for token estimation (e.g. claude, gpt-4o). Tunes budget accounting (#146).',
+      ),
     since: z
       .string()
       .optional()
@@ -196,8 +198,7 @@ export const observe = createTool({
     const result: Record<string, unknown> = {};
     // Cursor filter (#150): deltas instead of re-dumps.
     const sinceMs = input.since ? Date.parse(input.since) : NaN;
-    const afterSince = (ts: string) =>
-      Number.isNaN(sinceMs) ? true : Date.parse(ts) > sinceMs;
+    const afterSince = (ts: string) => (Number.isNaN(sinceMs) ? true : Date.parse(ts) > sinceMs);
     const consoleBuf = Number.isNaN(sinceMs)
       ? session.consoleBuffer
       : session.consoleBuffer.filter((l) => afterSince(l.timestamp));
@@ -286,9 +287,7 @@ export const observe = createTool({
         });
         const overflow = tracked.length - compact.length;
         result.process = {
-          ...(maxRows > 0
-            ? { tracked: compact }
-            : { trackedNames: tracked.map((t) => t.name) }),
+          ...(maxRows > 0 ? { tracked: compact } : { trackedNames: tracked.map((t) => t.name) }),
           ...(overflow > 0
             ? {
                 truncated: overflow,
@@ -355,7 +354,15 @@ export const observe = createTool({
       const { estimateValueTokens } = await import('../../utils/tokens.js');
       const model = (input as { model?: string }).model;
       const perSource: Record<string, number> = {};
-      for (const k of ['page', 'domSummary', 'console', 'network', 'process', 'incidents', 'cursor']) {
+      for (const k of [
+        'page',
+        'domSummary',
+        'console',
+        'network',
+        'process',
+        'incidents',
+        'cursor',
+      ]) {
         if (result[k] !== undefined) perSource[k] = estimateValueTokens(result[k], model);
       }
       const tokensEstimated = Object.values(perSource).reduce((a, b) => a + b, 0);

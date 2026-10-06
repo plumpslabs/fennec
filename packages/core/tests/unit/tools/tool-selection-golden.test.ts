@@ -22,15 +22,31 @@ const GOLDEN: Array<{
   { prompt: 'fill this 10-field form', expectTool: 'smart_fill_form', expectCategory: 'smart' },
   { prompt: 'is this button clickable?', expectTool: 'fennec_flow', expectCategory: 'smart' },
   { prompt: 'page health check', expectTool: 'fennec_flow', expectCategory: 'smart' },
-  { prompt: 'verify my edit (typecheck+tests+lint)', expectTool: 'smart_verify', expectCategory: 'smart' },
+  {
+    prompt: 'verify my edit (typecheck+tests+lint)',
+    expectTool: 'smart_verify',
+    expectCategory: 'smart',
+  },
   { prompt: 'is CI green on my PR?', expectTool: 'ci_watch', expectCategory: 'smart' },
   { prompt: 'tail the server logs', expectTool: 'process_get_logs', expectCategory: 'process' },
-  { prompt: 'wait until the dev server is up', expectTool: 'process_wait_for_ready', expectCategory: 'process' },
-  { prompt: 'what processes are running?', expectTool: 'process_get_tracked', expectCategory: 'process' },
+  {
+    prompt: 'wait until the dev server is up',
+    expectTool: 'process_wait_for_ready',
+    expectCategory: 'process',
+  },
+  {
+    prompt: 'what processes are running?',
+    expectTool: 'process_get_tracked',
+    expectCategory: 'process',
+  },
   { prompt: 'restore my login session', expectTool: 'auth_load_session', expectCategory: 'auth' },
   { prompt: 'list saved logins', expectTool: 'auth_list_sessions', expectCategory: 'auth' },
   { prompt: 'what tools exist for networking?', expectTool: 'tools_help', expectCategory: 'ai' },
-  { prompt: 'screenshot the page', expectTool: 'browser_screenshot_annotated', expectCategory: 'smart' },
+  {
+    prompt: 'screenshot the page',
+    expectTool: 'browser_screenshot_annotated',
+    expectCategory: 'smart',
+  },
   { prompt: 'which API calls failed?', expectTool: 'network_get_logs', expectCategory: 'devtools' },
 ];
 
@@ -65,7 +81,9 @@ describe('tool-selection golden set (#141)', () => {
     expect(new Set(names).size).toBe(names.length);
     for (const t of all) {
       expect(t.category, `${t.name} missing category`).toBeTruthy();
-      expect(t.description, `${t.name} missing <use_case> block`).toMatch(/<use_case>.*<\/use_case>/);
+      expect(t.description, `${t.name} missing <use_case> block`).toMatch(
+        /<use_case>.*<\/use_case>/,
+      );
     }
     // Golden tools must exist in the registry surface.
     for (const g of GOLDEN) {
