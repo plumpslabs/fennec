@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { join } from 'node:path';
+
+// Platform-aware fixture: the source builds paths with path.join, so the
+// mock + assertion must too (hardcoded POSIX paths fail on Windows, #152).
+const TEST_DIR = join('/tmp', 'fennec-test-fennec-dir');
 
 vi.mock('../../../src/config/paths.js', () => ({
-  getFennecDir: () => '/tmp/fennec-test-fennec-dir',
+  getFennecDir: () => TEST_DIR,
 }));
 
 const mockFs = {
@@ -33,7 +38,7 @@ describe('credentials module', () => {
 
       await credentialStore.save('testdb', 'postgres://localhost/mydb');
       expect(mockFs.writeFileSync).toHaveBeenCalledWith(
-        '/tmp/fennec-test-fennec-dir/.credentials.json',
+        join(TEST_DIR, '.credentials.json'),
         expect.stringContaining('testdb'),
         expect.any(Object),
       );

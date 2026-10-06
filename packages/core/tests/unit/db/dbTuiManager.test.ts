@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { join } from 'node:path';
 import { EventEmitter } from 'node:events';
 
 vi.mock('../../../src/config/paths.js', () => ({
@@ -92,7 +93,9 @@ describe('DbTuiManager', () => {
   describe('getBinaryPath', () => {
     it('should return path under fennec bin dir', () => {
       const mgr = new DbTuiManager();
-      expect(mgr.getBinaryPath()).toContain('/tmp/fennec-test-dir/bin/dbTui');
+      // Platform-aware: getBinaryPath() uses path.join (+ .exe on win32),
+      // so assert on a join-built fragment, not a hardcoded POSIX path (#152).
+      expect(mgr.getBinaryPath()).toContain(join('fennec-test-dir', 'bin', 'dbTui'));
     });
   });
 
