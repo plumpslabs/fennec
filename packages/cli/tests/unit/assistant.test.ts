@@ -7,6 +7,7 @@ import {
   assistantConfigPath,
   assistantServersKey,
   assistantServerEntry,
+  assistantSkillPath,
   mergeMcpConfig,
   setupAssistant,
   skillPath,
@@ -70,12 +71,32 @@ describe('assistant setup', () => {
     expect(dup.merged).toBeNull();
   });
 
+  it('skill paths use each assistant’s native skill root', () => {
+    expect(assistantSkillPath('opencode')).toBe(join('.opencode', 'skills', 'fennec', 'SKILL.md'));
+    expect(assistantSkillPath('claude-code')).toBe(join('.claude', 'skills', 'fennec', 'SKILL.md'));
+    expect(assistantSkillPath('cursor')).toBe(join('.cursor', 'skills', 'fennec', 'SKILL.md'));
+    expect(assistantSkillPath('vscode')).toBe(join('.github', 'skills', 'fennec', 'SKILL.md'));
+    for (const id of ['antigravity', 'gemini', 'qoder'] as const) {
+      expect(assistantSkillPath(id)).toBe(skillPath());
+    }
+  });
+
+  it('writes the opencode skill into .opencode/skills', () => {
+    const dir = freshDir();
+    const r = setupAssistant('opencode', dir);
+    expect(r.skillPath).toBe(join(dir, '.opencode', 'skills', 'fennec', 'SKILL.md'));
+    expect(existsSync(r.skillPath)).toBe(true);
+    // No duplicate under .agents/ — opencode scans both roots.
+    expect(existsSync(join(dir, skillPath()))).toBe(false);
+  });
+
   it('writes config + skill files, idempotent on re-run', () => {
     const dir = freshDir();
     const first = setupAssistant('cursor', dir);
     expect(first.configWritten).toBe(true);
     expect(existsSync(join(dir, '.cursor', 'mcp.json'))).toBe(true);
-    expect(existsSync(join(dir, skillPath()))).toBe(true);
+    expect(first.skillPath).toBe(join(dir, '.cursor', 'skills', 'fennec', 'SKILL.md'));
+    expect(existsSync(first.skillPath)).toBe(true);
 
     const cfg = JSON.parse(readFileSync(join(dir, '.cursor', 'mcp.json'), 'utf-8'));
     expect(cfg.mcpServers.fennec.command).toBe('fennec');

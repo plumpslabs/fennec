@@ -85,6 +85,35 @@ export function skillPath(): string {
   return join('.agents', 'skills', 'fennec', 'SKILL.md');
 }
 
+/**
+ * Native skill path per assistant (verified against vendor docs, Oct 2026):
+ * - opencode reads `.opencode/skills/` natively (also `.agents/`, `.claude/`)
+ * - claude-code reads `.claude/skills/`
+ * - cursor reads `.cursor/skills/` (also `.agents/`, `.claude/`, `.codex/`)
+ * - vscode reads `.github/skills/` (also `.agents/`, `.claude/`)
+ * - antigravity reads `.agents/skills/`
+ * - gemini/qoder: no verified project skill path → shared `.agents/` fallback
+ *
+ * Written to exactly ONE location to avoid double-loading in assistants
+ * that scan multiple roots.
+ */
+export function assistantSkillPath(id: AssistantId): string {
+  switch (id) {
+    case 'opencode':
+      return join('.opencode', 'skills', 'fennec', 'SKILL.md');
+    case 'claude-code':
+      return join('.claude', 'skills', 'fennec', 'SKILL.md');
+    case 'cursor':
+      return join('.cursor', 'skills', 'fennec', 'SKILL.md');
+    case 'vscode':
+      return join('.github', 'skills', 'fennec', 'SKILL.md');
+    case 'antigravity':
+    case 'gemini':
+    case 'qoder':
+      return skillPath();
+  }
+}
+
 function readJsonFile(abs: string): Record<string, any> | null {
   try {
     if (!existsSync(abs)) return null;
@@ -180,7 +209,7 @@ export function setupAssistant(id: AssistantId, cwd: string): AssistantSetupResu
     writeProjectFile(cwd, rel, JSON.stringify(merged, null, 2) + '\n');
     configWritten = true;
   }
-  const skillAbs = writeProjectFile(cwd, skillPath(), skillTemplate());
+  const skillAbs = writeProjectFile(cwd, assistantSkillPath(id), skillTemplate());
   return { assistant: id, configPath: abs, configWritten, alreadyConfigured, skillPath: skillAbs };
 }
 
