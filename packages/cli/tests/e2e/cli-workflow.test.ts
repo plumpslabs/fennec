@@ -45,7 +45,16 @@ function run(args: string[], extra: Record<string, string> = {}): RunResult {
   const res = spawnSync('node', [CLI, ...args], {
     encoding: 'utf-8',
     timeout: 30000,
-    env: { ...process.env, FENNEC_DATA_DIR: DATA_DIR, HOME: DATA_DIR, ...extra },
+    // Same hermetic-output rationale as unit/store.test.ts: neutralize the
+    // runner's FORCE_COLOR so assertions see plain strings.
+    env: {
+      ...process.env,
+      FENNEC_DATA_DIR: DATA_DIR,
+      HOME: DATA_DIR,
+      FORCE_COLOR: '0',
+      NO_COLOR: '1',
+      ...extra,
+    },
   });
   const stdout = res.stdout ?? '';
   const stderr = res.stderr ?? '';

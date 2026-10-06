@@ -27,7 +27,16 @@ function run(args: string[], stdin = ''): RunResult {
     encoding: 'utf-8',
     timeout: 10000,
     input: stdin,
-    env: { ...process.env, FENNEC_DATA_DIR: DATA_DIR, FENNEC_HOME: DATA_DIR },
+    // Hermetic output: CI runners (e.g. GitHub Actions) set FORCE_COLOR,
+    // which makes picocolors emit ANSI codes and breaks plain-string
+    // assertions. Force colors off for the child under test.
+    env: {
+      ...process.env,
+      FENNEC_DATA_DIR: DATA_DIR,
+      FENNEC_HOME: DATA_DIR,
+      FORCE_COLOR: '0',
+      NO_COLOR: '1',
+    },
   });
   const stdout = res.stdout ?? '';
   const stderr = res.stderr ?? '';
