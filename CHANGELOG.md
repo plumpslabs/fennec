@@ -2,7 +2,7 @@
 
 All notable changes to Fennec will be documented in this file.
 
-## [1.17.0] - 2026-07-26
+## [1.17.1] - 2026-07-26
 
 ### Fixed
 - **`ProcessManager.kill()` only killed single PID, not process tree** — Changed `proc.child.kill(signal)` to `killTree(proc.pid, signal)` so MCP-triggered kills (`process_run_and_wait` timeout, `process_restart`, `process_cleanup`) terminate the entire process group instead of leaking orphaned children
