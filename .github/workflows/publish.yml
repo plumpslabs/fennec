@@ -28,6 +28,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
 
+      - name: Pin workspace deps for npm publish (#151)
+        run: node scripts/pin-workspace-deps.mjs
+
+      - name: Publish gate — no workspace:/link: leaks (#151)
+        run: node scripts/check-publish.mjs
+
       - name: Publish @plumpslabs/fennec-core
         run: |
           cd packages/core
@@ -84,3 +90,19 @@ jobs:
           pnpm publish --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ─── Smoke test: fresh global install of `latest` (#151) ───
+  smoke-test-install:
+    needs: [publish-npm]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install latest CLI globally from the registry
+        run: npm install -g @plumpslabs/fennec-cli@latest
+
+      - name: Verify the binary runs
+        run: fennec --version
