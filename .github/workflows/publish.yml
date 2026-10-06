@@ -101,6 +101,25 @@ jobs:
           node-version: 22
           registry-url: 'https://registry.npmjs.org'
 
+      # The registry needs time to propagate new metadata after publish
+      # (v1.16.13's smoke test failed 6s after publish by resolving the
+      # stale `latest`). Poll until the just-published version is visible.
+      - name: Wait for registry propagation
+        run: |
+          WANT="${{ github.ref_name }}"
+          WANT="${WANT#v}"
+          for i in $(seq 1 30); do
+            SEEN=$(npm view @plumpslabs/fennec-cli version 2>/dev/null || true)
+            if [ "$SEEN" = "$WANT" ]; then
+              echo "Registry shows $SEEN — proceeding."
+              exit 0
+            fi
+            echo "Attempt $i: registry shows '${SEEN:-<none>}' (want $WANT) — waiting 20s…"
+            sleep 20
+          done
+          echo "Timed out waiting for $WANT on the registry."
+          exit 1
+
       - name: Install latest CLI globally from the registry
         run: npm install -g @plumpslabs/fennec-cli@latest
 
