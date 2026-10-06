@@ -359,9 +359,9 @@ export const COMMANDS: Record<string, CommandDoc> = {
   init: {
     name: 'init',
     usage: 'init',
-    summary: 'Generate a fennec.config.yaml in the current directory',
+    summary: 'Generate fennec.config.yaml + wire up your AI assistant',
     description:
-      'Creates a starter fennec.config.yaml with commented-out defaults. Edit this file to define your dev stack (apps, ports, groups, dependencies) and then boot everything at once with `fennec dev up`.',
+      'Creates a starter fennec.config.yaml with commented-out defaults, then offers to set up an AI assistant (Claude Code, Cursor, OpenCode): writes its MCP config file and a shared SKILL.md teaching the Fennec observe → diagnose → verify workflow.',
     examples: ['init'],
   },
   setup: {

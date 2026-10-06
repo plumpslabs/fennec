@@ -12,6 +12,7 @@ import {
   createSpinner,
   confirmPrompt,
 } from '../utils/format.js';
+import { assistantSetupStep } from './assistant.js';
 
 export async function installBrowsersCommand(): Promise<void> {
   console.error(`\n  ${pc.bold('Installing Browser Engines')}\n`);
@@ -149,4 +150,7 @@ logging:
   writeFileSync(configFile, config, 'utf-8');
   spinner.succeed(`Configuration written to ${pc.bold(configFile)}`);
   console.error(`\n  ${pc.dim('Edit the file to customize Fennec behavior.')}\n`);
+
+  // Wire Fennec into the user's AI coding assistant (MCP config + SKILL.md).
+  await assistantSetupStep(process.cwd());
 }
