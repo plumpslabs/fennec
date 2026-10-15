@@ -340,9 +340,10 @@ export const devtoolsEmulateDevice = createTool({
       );
     } catch (error) {
       return responseBuilder.error(error, {
-        suggestions:
-          ['CDP device emulation may not be available in all browser contexts',
-          'If emulation fails, try with reduced options'],
+        suggestions: [
+          'CDP device emulation may not be available in all browser contexts',
+          'If emulation fails, try with reduced options',
+        ],
       });
     }
   },

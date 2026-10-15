@@ -78,7 +78,8 @@ export function normalizeForEvaluate(expression: string): {
   const looksLikeBlock =
     /^(const|let|var|import|export|for|while|do|if|switch|try|class)\b/.test(t) ||
     /\breturn\b/.test(t) ||
-    (t.includes(';') && !/for\s*\([^;]*;[^;]*;[^)]*\)/.test(t.replace(/for\s*\([^)]*\)/g, 'for()')));
+    (t.includes(';') &&
+      !/for\s*\([^;]*;[^;]*;[^)]*\)/.test(t.replace(/for\s*\([^)]*\)/g, 'for()')));
   if (looksLikeBlock) {
     const asyncBody = /\bawait\b/.test(t);
     const body = asyncBody ? `(async () => { ${t} })()` : `(() => { ${t} })()`;
