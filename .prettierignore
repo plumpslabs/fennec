@@ -12,3 +12,6 @@ CHANGELOG.md
 # Generated docs (not hand-maintained, intentionally untracked)
 docs/db-observation-prd.md
 
+
+# Agent directives (custom XML blocks break prettier markdown)
+AGENTS.md

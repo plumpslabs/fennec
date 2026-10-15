@@ -343,6 +343,63 @@ export async function selectPrompt<T extends string>(
   return selected.value;
 }
 
+/**
+ * Multi-select variant: comma-separated numbers (`1,3,5`), ranges (`1-3`),
+ * or `all`. Returns the chosen values in menu order, deduplicated.
+ * `0`/empty cancels (returns null). Invalid tokens are reported and ignored;
+ * when nothing valid remains, returns null.
+ */
+export async function multiSelectPrompt<T extends string>(
+  message: string,
+  options: { value: T; label: string; description?: string }[],
+): Promise<T[] | null> {
+  console.log(`\n  ${pc.bold(message)}\n`);
+  options.forEach((opt, i) => {
+    const num = pc.cyan(`  ${i + 1}`);
+    console.log(`${num}  ${opt.label}`);
+    if (opt.description) {
+      console.log(`     ${pc.dim(opt.description)}`);
+    }
+  });
+  console.log(`  ${pc.dim('0)  Cancel')}\n`);
+
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const answer = await new Promise<string>((resolve) => {
+    rl.question(
+      `  ${pc.bold('Enter numbers')} ${pc.dim('(e.g. 1,3,5 · 1-3 · all · 0-' + options.length + ')')}: `,
+      (ans) => {
+        rl.close();
+        resolve(ans.trim().toLowerCase());
+      },
+    );
+  });
+
+  if (!answer || answer === '0' || answer === 'cancel') return null;
+  const picked = new Set<number>();
+  const tokens = answer === 'all' ? [answer] : answer.split(/[,\s]+/).filter(Boolean);
+  for (const tok of tokens) {
+    if (tok === 'all') {
+      options.forEach((_, i) => picked.add(i));
+      continue;
+    }
+    const range = tok.match(/^(\d+)-(\d+)$/);
+    if (range) {
+      const lo = Math.min(Number(range[1]), Number(range[2]));
+      const hi = Math.max(Number(range[1]), Number(range[2]));
+      for (let n = lo; n <= hi; n++) picked.add(n - 1);
+      continue;
+    }
+    const n = parseInt(tok, 10);
+    if (!isNaN(n)) picked.add(n - 1);
+  }
+  const valid = [...picked].filter((i) => i >= 0 && i < options.length).sort((a, b) => a - b);
+  if (valid.length === 0) {
+    console.log(`  ${pc.red('Invalid selection.')}`);
+    return null;
+  }
+  return valid.map((i) => options[i]!.value);
+}
+
 export async function confirmPrompt(message: string, defaultValue = false): Promise<boolean> {
   const hint = defaultValue ? pc.bold('Y') + pc.dim('/n') : pc.dim('y/') + pc.bold('N');
   const rl = createInterface({ input: process.stdin, output: process.stdout });

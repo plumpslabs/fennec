@@ -14,7 +14,8 @@
  *   the different root key; `type` omitted per Microsoft's own example).
  * - OpenCode: `opencode.json` (`{mcp.<name>.type: "local"}`).
  * - Antigravity: `.agents/mcp_config.json` (`{mcpServers}`).
- * - Gemini CLI: `.muse/settings.json` (`{mcpServers}`).
+ * - Antigravity: `.agents/mcp_config.json` (`{mcpServers}`). Gemini CLI was
+ *   retired by Google on 2026-06-18 (replaced by Antigravity CLI) — removed.
  * - Windsurf is global-only (`~/.codeium/windsurf/mcp_config.json`, no
  *   per-project file) and Codex CLI is global TOML — both get printed
  *   instructions instead of a project file.
@@ -22,10 +23,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import pc from 'picocolors';
-import { renderCommand, renderSuccess, selectPrompt } from '../utils/format.js';
+import { renderCommand, renderSuccess, multiSelectPrompt } from '../utils/format.js';
 
 export type AssistantId =
-  'claude-code' | 'qoder' | 'cursor' | 'vscode' | 'opencode' | 'antigravity' | 'gemini';
+  'claude-code' | 'qoder' | 'cursor' | 'vscode' | 'opencode' | 'antigravity';
 
 export const ASSISTANTS: { value: AssistantId; label: string; description: string }[] = [
   { value: 'claude-code', label: 'Claude Code', description: 'Project .mcp.json' },
@@ -34,7 +35,6 @@ export const ASSISTANTS: { value: AssistantId; label: string; description: strin
   { value: 'vscode', label: 'VS Code / Copilot', description: '.vscode/mcp.json' },
   { value: 'opencode', label: 'OpenCode', description: 'opencode.json' },
   { value: 'antigravity', label: 'Antigravity', description: '.agents/mcp_config.json' },
-  { value: 'gemini', label: 'Gemini CLI', description: '.muse/settings.json' },
 ];
 
 /** MCP server entry for stdio-based assistants. */
@@ -56,8 +56,6 @@ export function assistantConfigPath(id: AssistantId): string {
       return 'opencode.json';
     case 'antigravity':
       return join('.agents', 'mcp_config.json');
-    case 'gemini':
-      return join('.muse', 'settings.json');
   }
 }
 
@@ -77,6 +75,11 @@ export function assistantServerEntry(id: AssistantId): Record<string, unknown> {
   if (id === 'opencode') {
     return { type: 'local', command: ['fennec', 'start'], enabled: true };
   }
+  // VS Code native format requires an explicit transport type (docs:
+  // code.visualstudio.com/docs/agents/reference/mcp-configuration).
+  if (id === 'vscode') {
+    return { type: 'stdio', command: 'fennec', args: ['start'] };
+  }
   return stdioServerEntry();
 }
 
@@ -86,13 +89,13 @@ export function skillPath(): string {
 }
 
 /**
- * Native skill path per assistant (verified against vendor docs, Oct 2026):
+ * Native skill path per assistant (verified against vendor docs):
  * - opencode reads `.opencode/skills/` natively (also `.agents/`, `.claude/`)
  * - claude-code reads `.claude/skills/`
  * - cursor reads `.cursor/skills/` (also `.agents/`, `.claude/`, `.codex/`)
  * - vscode reads `.github/skills/` (also `.agents/`, `.claude/`)
+ * - qoder reads `.qoder/skills/` (project-level, per Qoder docs)
  * - antigravity reads `.agents/skills/`
- * - gemini/qoder: no verified project skill path → shared `.agents/` fallback
  *
  * Written to exactly ONE location to avoid double-loading in assistants
  * that scan multiple roots.
@@ -107,9 +110,9 @@ export function assistantSkillPath(id: AssistantId): string {
       return join('.cursor', 'skills', 'fennec', 'SKILL.md');
     case 'vscode':
       return join('.github', 'skills', 'fennec', 'SKILL.md');
-    case 'antigravity':
-    case 'gemini':
     case 'qoder':
+      return join('.qoder', 'skills', 'fennec', 'SKILL.md');
+    case 'antigravity':
       return skillPath();
   }
 }
@@ -127,12 +130,35 @@ function readJsonFile(abs: string): Record<string, any> | null {
  * Merge the Fennec MCP server into an existing config object.
  * Returns the merged object, or null when the key is already present
  * (caller reports "already configured" instead of rewriting).
+ *
+ * OpenCode v2 nests servers under `mcp.servers.<name>` while v1 uses
+ * `mcp.<name>` directly — detect the existing shape and follow it so a
+ * re-run never creates a duplicate in the other location.
  */
 export function mergeMcpConfig(
   id: AssistantId,
   existing: Record<string, any> | null,
 ): { merged: Record<string, any> | null; alreadyConfigured: boolean } {
   const base = existing ?? {};
+  if (id === 'opencode') {
+    const mcp = { ...(base.mcp ?? {}) };
+    if (mcp.fennec || (mcp.servers as Record<string, unknown> | undefined)?.fennec) {
+      return { merged: null, alreadyConfigured: true };
+    }
+    if (mcp.servers && typeof mcp.servers === 'object') {
+      return {
+        merged: {
+          ...base,
+          mcp: { ...mcp, servers: { ...mcp.servers, fennec: assistantServerEntry(id) } },
+        },
+        alreadyConfigured: false,
+      };
+    }
+    return {
+      merged: { ...base, mcp: { ...mcp, fennec: assistantServerEntry(id) } },
+      alreadyConfigured: false,
+    };
+  }
   const key = assistantServersKey(id);
   const servers = { ...(base[key] ?? {}) };
   if (servers.fennec) return { merged: null, alreadyConfigured: true };
@@ -204,6 +230,52 @@ export interface AssistantSetupResult {
   configWritten: boolean;
   alreadyConfigured: boolean;
   skillPath: string;
+  agentsMdPath: string;
+  agentsMdUpdated: boolean;
+}
+
+/**
+ * Fennec section appended to the target project's AGENTS.md so every agent
+ * (not just the one picked above) learns the observe → diagnose → verify
+ * workflow. Idempotent: skipped when a `fennec` heading already exists.
+ */
+export function agentsMdSnippet(): string {
+  return `## 🦊 Fennec — observe → diagnose → verify
+
+- **Observe first:** \`observe(detail="summary")\` — browser URL/title,
+  console error counts, network failures, tracked processes. Never dump raw
+  logs when a summary answers the question.
+- **Diagnose before fixing:** \`diagnose_page()\` (browser-only) or
+  \`diagnose_fullstack(processId)\` (browser + server). Trust the root-cause
+  hypothesis over hunches.
+- **Processes:** run dev servers via \`process_spawn\` (adopt-by-port), read
+  logs with \`process_get_logs\`/\`inspect --watch\` — never bare \`bash\`/\`cat\`.
+- **Tokens:** prefer \`observe\`, \`summarize\`, \`inspect(tail)\`; watch mode
+  (\`sinceOffset\`) over re-reading buffers; \`FENNEC_WORKFLOW_ONLY=1\` in
+  large sessions.
+- **Auth:** \`auth_fill_login_form\` (keep \`saveAfterLogin\` ON) or
+  \`auth_save_session\` after manual login; restore via \`auth_load_session\`.
+- **Verify after edits:** reload + \`diagnose_page()\`, or \`smart_verify\`
+  for async flows. Re-run the failing check, don't assume.
+`;
+}
+
+export function ensureAgentsSection(cwd: string): { path: string; updated: boolean } {
+  const rel = 'AGENTS.md';
+  const abs = join(cwd, rel);
+  const snippet = agentsMdSnippet();
+  try {
+    if (existsSync(abs)) {
+      const cur = readFileSync(abs, 'utf-8');
+      if (/^#{1,3}\s.*fennec/im.test(cur)) return { path: abs, updated: false };
+      writeFileSync(abs, (cur.endsWith('\n') ? cur : cur + '\n') + '\n' + snippet);
+      return { path: abs, updated: true };
+    }
+  } catch {
+    // fall through to create
+  }
+  writeProjectFile(cwd, rel, `# Agent Directives\n\n${snippet}`);
+  return { path: abs, updated: true };
 }
 
 /** Write MCP config + shared skill for one assistant. Idempotent. */
@@ -217,35 +289,54 @@ export function setupAssistant(id: AssistantId, cwd: string): AssistantSetupResu
     configWritten = true;
   }
   const skillAbs = writeProjectFile(cwd, assistantSkillPath(id), skillTemplate());
-  return { assistant: id, configPath: abs, configWritten, alreadyConfigured, skillPath: skillAbs };
+  const agents = ensureAgentsSection(cwd);
+  return {
+    assistant: id,
+    configPath: abs,
+    configWritten,
+    alreadyConfigured,
+    skillPath: skillAbs,
+    agentsMdPath: agents.path,
+    agentsMdUpdated: agents.updated,
+  };
 }
 
 const GLOBAL_ONLY_NOTE = `  ${pc.dim('Windsurf and Codex CLI use global-only MCP config (no per-project file):')}
   ${pc.dim('• Windsurf: add fennec to ~/.codeium/windsurf/mcp_config.json, then Refresh in Cascade')}
   ${pc.dim('• Codex CLI: add [mcp_servers.fennec] to ~/.codex/config.toml')}`;
 
-/** Interactive step run at the end of `fennec init`. */
+/** Interactive step run at the end of `fennec init`. Multi-select allowed. */
 export async function assistantSetupStep(cwd: string): Promise<void> {
-  const choice = await selectPrompt<AssistantId | 'skip'>('Set up an AI assistant?', [
+  const choices = await multiSelectPrompt<AssistantId | 'skip'>('Set up AI assistants?', [
     ...ASSISTANTS,
     { value: 'skip', label: 'Skip', description: 'Config + skill only' },
   ]);
-  if (!choice || choice === 'skip') {
+  if (!choices || choices.includes('skip')) {
     console.error(`  ${pc.dim('Assistant setup skipped.')}\n`);
     console.error(`${GLOBAL_ONLY_NOTE}\n`);
     return;
   }
-  const r = setupAssistant(choice, cwd);
-  if (r.alreadyConfigured) {
-    console.error(`  ${pc.yellow('→')} Fennec already configured in ${pc.bold(r.configPath)}\n`);
-  } else {
-    console.error(
-      `  ${renderSuccess('MCP config written:')} ${pc.bold(r.configPath)} ${pc.dim('(re-run init for more assistants)')}\n`,
-    );
+  const ids = choices.filter((c): c is AssistantId => c !== 'skip');
+  let agentsReported = false;
+  for (const choice of ids) {
+    const r = setupAssistant(choice, cwd);
+    if (r.alreadyConfigured) {
+      console.error(`  ${pc.yellow('→')} Fennec already configured in ${pc.bold(r.configPath)}\n`);
+    } else {
+      console.error(`  ${renderSuccess('MCP config written:')} ${pc.bold(r.configPath)}\n`);
+    }
+    console.error(`  ${renderSuccess('Skill written:')} ${pc.bold(r.skillPath)}\n`);
+    if (!agentsReported) {
+      console.error(
+        r.agentsMdUpdated
+          ? `  ${renderSuccess('AGENTS.md updated:')} ${pc.bold(r.agentsMdPath)}\n`
+          : `  ${pc.dim('AGENTS.md already mentions Fennec — left untouched.')}\n`,
+      );
+      agentsReported = true;
+    }
   }
-  console.error(`  ${renderSuccess('Skill written:')} ${pc.bold(r.skillPath)}\n`);
   console.error(
-    `  ${pc.dim('Restart the assistant so it picks up the MCP server, then run')} ${renderCommand('fennec start')}\n`,
+    `  ${pc.dim('Restart the assistant(s) so they pick up the MCP server, then run')} ${renderCommand('fennec start')}\n`,
   );
   console.error(`${GLOBAL_ONLY_NOTE}\n`);
 }

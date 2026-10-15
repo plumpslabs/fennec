@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   type AssistantId,
@@ -8,6 +8,7 @@ import {
   assistantServersKey,
   assistantServerEntry,
   assistantSkillPath,
+  ensureAgentsSection,
   mergeMcpConfig,
   setupAssistant,
   skillPath,
@@ -31,13 +32,12 @@ describe('assistant setup', () => {
     expect(assistantConfigPath('vscode')).toBe(join('.vscode', 'mcp.json'));
     expect(assistantConfigPath('opencode')).toBe('opencode.json');
     expect(assistantConfigPath('antigravity')).toBe(join('.agents', 'mcp_config.json'));
-    expect(assistantConfigPath('gemini')).toBe(join('.muse', 'settings.json'));
   });
 
   it('server root keys match vendor formats', () => {
     expect(assistantServersKey('vscode')).toBe('servers');
     expect(assistantServersKey('opencode')).toBe('mcp');
-    const stdio: AssistantId[] = ['claude-code', 'qoder', 'cursor', 'antigravity', 'gemini'];
+    const stdio: AssistantId[] = ['claude-code', 'qoder', 'cursor', 'antigravity'];
     for (const id of stdio) expect(assistantServersKey(id)).toBe('mcpServers');
   });
 
@@ -57,8 +57,19 @@ describe('assistant setup', () => {
 
   it('uses the servers key for VS Code', () => {
     const { merged } = mergeMcpConfig('vscode', null);
-    expect(merged?.servers?.fennec).toEqual({ command: 'fennec', args: ['start'] });
+    expect(merged?.servers?.fennec).toEqual({ type: 'stdio', command: 'fennec', args: ['start'] });
     expect(merged?.mcpServers).toBeUndefined();
+  });
+
+  it('follows opencode v2 mcp.servers nesting when present', () => {
+    const v1 = mergeMcpConfig('opencode', null);
+    expect(v1.merged?.mcp?.fennec?.type).toBe('local');
+    const v2 = mergeMcpConfig('opencode', { mcp: { servers: { other: {} } } });
+    expect(v2.merged?.mcp?.servers?.fennec?.type).toBe('local');
+    expect(v2.merged?.mcp?.fennec).toBeUndefined();
+    expect(mergeMcpConfig('opencode', { mcp: { servers: { fennec: {} } } }).alreadyConfigured).toBe(
+      true,
+    );
   });
 
   it('preserves existing keys and detects duplicates', () => {
@@ -76,7 +87,8 @@ describe('assistant setup', () => {
     expect(assistantSkillPath('claude-code')).toBe(join('.claude', 'skills', 'fennec', 'SKILL.md'));
     expect(assistantSkillPath('cursor')).toBe(join('.cursor', 'skills', 'fennec', 'SKILL.md'));
     expect(assistantSkillPath('vscode')).toBe(join('.github', 'skills', 'fennec', 'SKILL.md'));
-    for (const id of ['antigravity', 'gemini', 'qoder'] as const) {
+    expect(assistantSkillPath('qoder')).toBe(join('.qoder', 'skills', 'fennec', 'SKILL.md'));
+    for (const id of ['antigravity'] as const) {
       expect(assistantSkillPath(id)).toBe(skillPath());
     }
   });
@@ -139,5 +151,60 @@ describe('assistant setup', () => {
     expect(s).toContain('diagnose_page');
     expect(s).toContain('process_spawn');
     expect(s).toContain('FENNEC_WORKFLOW_ONLY');
+  });
+
+  it('creates AGENTS.md with the fennec section when missing', () => {
+    const dir = freshDir();
+    const r = setupAssistant('cursor', dir);
+    expect(r.agentsMdUpdated).toBe(true);
+    const md = readFileSync(join(dir, 'AGENTS.md'), 'utf-8');
+    expect(md).toContain('observe(');
+    expect(md).toContain('diagnose_page');
+  });
+
+  it('appends to existing AGENTS.md without duplicating', () => {
+    const dir = freshDir();
+    writeFileSync(join(dir, 'AGENTS.md'), '# My project\n');
+    const first = ensureAgentsSection(dir);
+    expect(first.updated).toBe(true);
+    expect(readFileSync(join(dir, 'AGENTS.md'), 'utf-8')).toContain('# My project');
+    const second = ensureAgentsSection(dir);
+    expect(second.updated).toBe(false);
+  });
+
+  it('matrix: all 6 assistants write valid config + skill + AGENTS.md, idempotent', () => {
+    const ids: AssistantId[] = [
+      'claude-code',
+      'qoder',
+      'cursor',
+      'vscode',
+      'opencode',
+      'antigravity',
+    ];
+    for (const id of ids) {
+      const dir = freshDir();
+      // Seed a pre-existing config to prove merge never clobbers.
+      const cfgRel = assistantConfigPath(id);
+      const cfgAbs = join(dir, cfgRel);
+      mkdirSync(dirname(cfgAbs), { recursive: true });
+      writeFileSync(cfgAbs, JSON.stringify({ keepMe: true }));
+      const first = setupAssistant(id, dir);
+      expect(first.configWritten).toBe(true);
+      expect(first.agentsMdUpdated).toBe(true);
+      const cfg = JSON.parse(readFileSync(cfgAbs, 'utf-8'));
+      expect(cfg.keepMe).toBe(true);
+      expect(existsSync(first.skillPath)).toBe(true);
+      expect(readFileSync(first.skillPath, 'utf-8')).toContain('name: fennec');
+      expect(readFileSync(join(dir, 'AGENTS.md'), 'utf-8')).toContain('observe(');
+      // Re-run: fully idempotent, no duplicates.
+      const skillBefore = readFileSync(first.skillPath, 'utf-8');
+      const agentsBefore = readFileSync(join(dir, 'AGENTS.md'), 'utf-8');
+      const second = setupAssistant(id, dir);
+      expect(second.alreadyConfigured).toBe(true);
+      expect(second.configWritten).toBe(false);
+      expect(second.agentsMdUpdated).toBe(false);
+      expect(readFileSync(second.skillPath, 'utf-8')).toBe(skillBefore);
+      expect(readFileSync(join(dir, 'AGENTS.md'), 'utf-8')).toBe(agentsBefore);
+    }
   });
 });
