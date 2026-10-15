@@ -334,6 +334,11 @@ export function matchField(fields: DetectedField[], query: string): DetectedFiel
   );
   if (typeMatch) return typeMatch;
 
+  // Fallback for minimal forms: match by tag name when no other identifiers exist.
+  // This handles <input type="text"> with no label/name/id/placeholder/data-testid.
+  const tagMatch = fields.find((f) => f.type === q || (q === 'text' && f.type === 'text'));
+  if (tagMatch) return tagMatch;
+
   for (const f of fields) {
     if (
       f.label.toLowerCase().includes(q) ||

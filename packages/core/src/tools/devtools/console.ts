@@ -38,9 +38,54 @@ function stripTypeScriptSyntax(expression: string): string {
 }
 
 /**
- * Build a human-readable summary of console logs grouped by level.
- * This is the token-efficient alternative to dumping all raw logs.
+ * Normalize a user-supplied snippet into a single evaluatable expression.
+ *
+ * page.evaluate(string) evaluates the string as ONE expression, not a
+ * statement block — so bare `function foo(){...}` declarations and
+ * multi-statement scripts throw SyntaxError ("Unexpected identifier" etc).
+ * Agents naturally produce those forms, so:
+ *  - a lone function declaration `function f(){...}` → invoked `(f)()`
+ *  - statement blocks (`const x = ...; ...`, loops, `return`) → IIFE,
+ *    async IIFE when the body contains top-level `await`
+ *  - pure expressions pass through untouched
+ *
+ * Returns the normalized source plus whether it was wrapped.
  */
+export function normalizeForEvaluate(expression: string): {
+  source: string;
+  wrapped: boolean;
+} {
+  const t = expression.trim();
+  if (!t) return { source: t, wrapped: false };
+
+  // Already an invoked/wrapped form — leave alone.
+  if (/\(\s*\)\s*;?\s*$/.test(t) && /^\(/.test(t)) {
+    return { source: expression, wrapped: false };
+  }
+  if (/^\(\s*(async\s*)?\(\s*\)\s*=>/.test(t) || /^\(\s*function/.test(t)) {
+    return { source: expression, wrapped: false };
+  }
+
+  // Lone function declaration (no invocation): wrap + invoke with no args.
+  if (/^(async\s+)?function(\s+[\w$]+)?\s*\(/.test(t)) {
+    const alreadyInvoked = /}\s*\([^)]*\)\s*;?\s*$/.test(t);
+    if (!alreadyInvoked) return { source: `(${t})()`, wrapped: true };
+    return { source: expression, wrapped: false };
+  }
+
+  // Statement-block heuristics: declarations, control flow, return, or
+  // multiple semicolon-separated statements → IIFE.
+  const looksLikeBlock =
+    /^(const|let|var|import|export|for|while|do|if|switch|try|class)\b/.test(t) ||
+    /\breturn\b/.test(t) ||
+    (t.includes(';') && !/for\s*\([^;]*;[^;]*;[^)]*\)/.test(t.replace(/for\s*\([^)]*\)/g, 'for()')));
+  if (looksLikeBlock) {
+    const asyncBody = /\bawait\b/.test(t);
+    const body = asyncBody ? `(async () => { ${t} })()` : `(() => { ${t} })()`;
+    return { source: body, wrapped: true };
+  }
+  return { source: expression, wrapped: false };
+}
 function buildLogSummary(
   errorCount: number,
   warnCount: number,
@@ -164,8 +209,11 @@ export const devtoolsEvaluate = createTool({
 
     const session = sessionManager.getOrDefault(input.sessionId);
     try {
-      // Auto-strip TypeScript syntax before evaluation
-      const processed = stripTypeScriptSyntax(input.expression);
+      // Auto-strip TypeScript syntax, then normalize statement forms
+      // (bare function declarations, multi-statement scripts) into an
+      // evaluatable expression before evaluation.
+      const stripped = stripTypeScriptSyntax(input.expression);
+      const { source: processed, wrapped } = normalizeForEvaluate(stripped);
 
       const result = await session.browser.evaluate(processed);
       return responseBuilder.success(
@@ -173,7 +221,8 @@ export const devtoolsEvaluate = createTool({
           ok: true,
           result,
           type: typeof result,
-          expressionStripped: processed !== input.expression ? true : undefined,
+          expressionStripped: stripped !== input.expression ? true : undefined,
+          expressionWrapped: wrapped ? true : undefined,
         },
         sessionManager.buildMeta(session),
       );
@@ -182,16 +231,21 @@ export const devtoolsEvaluate = createTool({
       const msg = err?.message ?? String(error);
       const isFetchLike = /fetch|\.json\(\)|\.map\(|TypeError|undefined \(reading/.test(msg);
 
-      // Detect TypeScript-specific errors
-      const hasTypeAnnotation =
-        /:\s*(string|number|boolean|any|void|null|undefined|never|unknown|Promise|Record|Array|Map|Set|HTML\w+|\w+Type|\w+Element)/.test(
+      // Detect TypeScript-specific errors — but only when there is real
+      // evidence: the stripper actually changed the input, or the raw input
+      // contains TS-only syntax. A bare `msg.includes('as')` matched any
+      // English word containing "as" (e.g. "has", "case") and blamed
+      // TypeScript for plain-JS syntax errors.
+      const strippedForCheck = stripTypeScriptSyntax(input.expression);
+      const stripChanged = strippedForCheck !== input.expression;
+      const hasTsOnlySyntax =
+        /\bas\s+[A-Za-z_][\w$]*\s*[;,)=}\]]/.test(input.expression) ||
+        /(const|let|var)\s+[\w$]+\s*:\s*[A-Za-z_][\w$<>\[\]]/.test(input.expression) ||
+        /:\s*(string|number|boolean|any|void|null|undefined|never|unknown)\b/.test(
           input.expression,
         );
-      const isTypeScriptError =
-        (/Unexpected identifier|Unexpected token/.test(msg) ||
-          msg.includes('as') ||
-          hasTypeAnnotation) &&
-        (input.expression.includes('as ') || hasTypeAnnotation);
+      const isSyntaxError = /Unexpected (identifier|token)|Unexpected end of input/.test(msg);
+      const isTypeScriptError = isSyntaxError && (stripChanged || hasTsOnlySyntax);
 
       return responseBuilder.success(
         {

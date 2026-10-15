@@ -153,6 +153,13 @@ export function skillTemplate(): string {
   return `---
 name: fennec
 description: Fennec MCP — browser observability, process supervision, and smart debugging for AI coding agents
+license: MIT
+compatibility: opencode
+metadata:
+  audience: maintainers
+  workflow: github
+  opencode/slash: "true"
+  opencode/autoinvoke: "false"
 ---
 
 Fennec exposes browser automation, app-process supervision, and debugging

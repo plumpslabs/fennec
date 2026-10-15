@@ -265,3 +265,85 @@ export const devtoolsSimulateNetwork = createTool({
     }
   },
 });
+
+export const devtoolsEmulateDevice = createTool({
+  name: 'devtools_emulate_device',
+  category: 'devtools',
+  description:
+    '`<use_case>Performance</use_case> 📱 Emulate mobile device viewport and touch input. Options: sets viewport dimensions, device scale factor, and touch input mode. Use for testing responsive designs, mobile-first layouts, and touch interaction patterns. Call reset to restore default viewport.`',
+  inputSchema: z.object({
+    width: z.number().int().optional().describe('Viewport width in pixels'),
+    height: z.number().int().optional().describe('Viewport height in pixels'),
+    deviceScaleFactor: z
+      .number()
+      .int()
+      .optional()
+      .describe('Pixel ratio / device scale factor (default: 1)'),
+    mobile: z.boolean().optional().describe('Enable touch input mode'),
+    userAgent: z.string().optional().describe('Custom user agent string'),
+    sessionId: z.string().optional().describe('Session ID'),
+  }),
+  handler: async (input, { sessionManager, responseBuilder }) => {
+    const session = sessionManager.getOrDefault(input.sessionId);
+    try {
+      const cdpSession = session.browser.cdp();
+
+      // Build emulation params from provided inputs
+      const emulateParams: Record<string, unknown> = {};
+
+      if (input.width !== undefined || input.height !== undefined) {
+        emulateParams.viewport = {
+          width: input.width ?? 0,
+          height: input.height ?? 0,
+        };
+      }
+
+      if (input.deviceScaleFactor !== undefined) {
+        emulateParams.deviceScaleFactor = input.deviceScaleFactor;
+      }
+
+      if (input.mobile !== undefined) {
+        emulateParams.mobile = input.mobile;
+      }
+
+      if (input.userAgent !== undefined) {
+        emulateParams.userAgent = input.userAgent;
+      }
+
+      // Reset first to clear any prior emulation
+      const resetParams = {
+        offline: false,
+        latency: 0,
+        downloadThroughput: 0,
+        uploadThroughput: 0,
+        // Reset device metrics too
+        width: 0,
+        height: 0,
+        deviceScaleFactor: 1,
+        mobile: false,
+      } satisfies Record<string, unknown>;
+
+      await cdpSession.send('Network.emulateNetworkConditions', resetParams);
+      await cdpSession.send('Emulation.setDeviceMetricsOverride', emulateParams);
+
+      return responseBuilder.success(
+        {
+          applied: {
+            width: input.width,
+            height: input.height,
+            deviceScaleFactor: input.deviceScaleFactor,
+            mobile: input.mobile,
+            userAgent: input.userAgent,
+          },
+        },
+        sessionManager.buildMeta(session),
+      );
+    } catch (error) {
+      return responseBuilder.error(error, {
+        suggestions:
+          ['CDP device emulation may not be available in all browser contexts',
+          'If emulation fails, try with reduced options'],
+      });
+    }
+  },
+});
