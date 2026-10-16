@@ -41,8 +41,11 @@ export const browserClick = createTool({
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
     const session = sessionManager.getOrDefault(input.sessionId);
+    // Hoisted so the strict-violation path in catch can enumerate matches.
+    let resolvedSelector: string | null = null;
     try {
       const resolved = await resolveIndexedSelector(session.browser, input.selector, input.index);
+      resolvedSelector = resolved.selector;
       if (!resolved.found) {
         const currentUrl = session.browser.url();
         return responseBuilder.error(new Error(`Element not found: ${input.selector}`), {
@@ -102,12 +105,29 @@ export const browserClick = createTool({
         'Try scrolling to the element first',
         'Use browser_get_element_info to check element state',
       ];
-      if (isStrictModeViolation(error)) {
+      // Strict-mode violation: enumerate the matches so the agent can pick
+      // an index instead of guessing (e.g. 5x "Tugaskan" buttons in a table).
+      let candidates: Array<{ index: number; text: string }> | undefined;
+      if (isStrictModeViolation(error) && resolvedSelector) {
         suggestions.push(
-          'Use the index parameter to target a specific element when multiple match',
+          'Use the index parameter to target a specific element — candidates are listed in the candidates field',
         );
+        try {
+          const all = await session.browser.locator(resolvedSelector).all();
+          candidates = [];
+          for (let i = 0; i < Math.min(all.length, 10); i++) {
+            const text = ((await all[i]!.textContent()) ?? '').trim().slice(0, 80);
+            candidates.push({ index: i, text });
+          }
+        } catch {
+          // enumeration is best-effort; fall through without candidates
+        }
       }
-      return responseBuilder.error(error, { code: 'ELEMENT_NOT_INTERACTABLE', suggestions });
+      return responseBuilder.error(error, {
+        code: 'ELEMENT_NOT_INTERACTABLE',
+        suggestions,
+        ...(candidates ? { context: { candidates } } : {}),
+      });
     }
   },
 });

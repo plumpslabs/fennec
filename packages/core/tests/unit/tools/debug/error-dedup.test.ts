@@ -84,6 +84,12 @@ describe('ErrorDedup', () => {
       dedup.add('Failed to fetch /api/users');
       expect(dedup.uniqueCount).toBe(1);
     });
+
+    it('should ignore Ably 401/token-refresh noise (non-blocking realtime)', () => {
+      dedup.add('Ably error 401 Unauthorized: token expired, retrying');
+      dedup.add('Token refresh failed for https://rest.ably.io, will retry');
+      expect(dedup.uniqueCount).toBe(0);
+    });
   });
 
   describe('getSummary', () => {

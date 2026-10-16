@@ -41,6 +41,11 @@ const DEFAULT_IGNORE_PATTERNS: RegExp[] = [
   /^\[\w+\].*preflight.*CORS/i,
   /chunk load error/i,
   /loading chunk \d+ failed/i,
+  // Non-blocking realtime/auth noise: Ably token 401s and token-refresh
+  // failures are retried by the SDK and must not page auto-debug.
+  /ably.*(401|unauthori[sz]ed|token.*(expired|invalid|refresh))/i,
+  /(401|unauthori[sz]ed).*ably/i,
+  /token.*refresh.*fail/i,
 ];
 
 /**

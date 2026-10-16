@@ -990,12 +990,18 @@ export const authCheckLoggedIn = createTool({
   name: 'auth_check_logged_in',
   category: 'auth',
   description:
-    '`<use_case>Auth</use_case> ✅ Check login state by detecting auth indicators: auth cookies (token/session/jwt/sid/connect), logout/profile links, and login links. Returns loggedIn, confidence (0-1), detectedIndicators[]. Supports custom CSS selectors for site-specific indicators. Use to verify login succeeded, check auth state before performing actions, or detect unexpected logouts. More comprehensive than diagnose_auth which only checks cookies.`',
+    '`<use_case>Auth</use_case> ✅ Check login state by detecting auth indicators: auth cookies (token/session/jwt/sid/connect), localStorage tokens (access_token and friends — critical for SPAs that keep JWT out of cookies), logout/profile links, and login links. Returns loggedIn, confidence (0-1), detectedIndicators[]. Supports custom CSS selectors (indicators) and custom localStorage key patterns (storageKeys) for site-specific auth. Use to verify login succeeded, check auth state before performing actions, or detect unexpected logouts. More comprehensive than diagnose_auth which only checks cookies.`',
   inputSchema: z.object({
     indicators: z
       .array(z.string())
       .optional()
       .describe('Custom CSS selectors to check for login state'),
+    storageKeys: z
+      .array(z.string())
+      .optional()
+      .describe(
+        'Custom localStorage/sessionStorage key patterns (case-insensitive substring) proving login, e.g. ["access_token", "myapp_session"]. Defaults cover token/auth/jwt/session/user/login.',
+      ),
     sessionId: z.string().optional().describe('Session ID'),
   }),
   handler: async (input, { sessionManager, responseBuilder }) => {
@@ -1029,14 +1035,47 @@ export const authCheckLoggedIn = createTool({
       const cookies = await session.browser.contextCookies();
       const hasAuthCookie = cookies.some((c) => /token|session|auth|jwt|sid|connect/i.test(c.name));
 
+      // SPA auth often lives only in web storage (no httpOnly cookie, no
+      // logout link in DOM). A non-empty match on a token-like key counts
+      // as a login signal — this fixes false-negative loggedIn:false on
+      // apps like dashboards that render post-login with JWT in storage.
+      const keyPatterns = input.storageKeys ?? ['token', 'auth', 'jwt', 'session', 'user', 'login'];
+      const matchedStorageKeys: string[] = await session.browser
+        .evaluate((patterns: string[]) => {
+          const hits: string[] = [];
+          const stores = [window.localStorage, window.sessionStorage];
+          for (const store of stores) {
+            try {
+              for (let i = 0; i < store.length; i++) {
+                const key = store.key(i);
+                if (!key) continue;
+                const lower = key.toLowerCase();
+                if (!patterns.some((p) => lower.includes(p.toLowerCase()))) continue;
+                try {
+                  if ((store.getItem(key) ?? '').length > 0) hits.push(key);
+                } catch {
+                  /* unreadable value — skip */
+                }
+              }
+            } catch {
+              /* storage blocked (e.g. opaque origin) — skip store */
+            }
+          }
+          return [...new Set(hits)];
+        }, keyPatterns)
+        .catch(() => [] as string[]);
+      const hasAuthStorage = matchedStorageKeys.length > 0;
+
       const detectedIndicators: string[] = [];
       if (hasLoggedInLink) detectedIndicators.push('Logout/profile link found');
       if (hasAuthCookie) detectedIndicators.push('Auth cookie found');
+      if (hasAuthStorage)
+        detectedIndicators.push(`Auth storage keys found: ${matchedStorageKeys.join(', ')}`);
       if (hasLoggedOutLink) detectedIndicators.push('Login link found (not logged in)');
 
-      const loggedIn = (hasLoggedInLink || hasAuthCookie) && !hasLoggedOutLink;
-      const confidence =
-        hasLoggedInLink && hasAuthCookie ? 0.95 : hasLoggedInLink || hasAuthCookie ? 0.7 : 0.3;
+      const signals = [hasLoggedInLink, hasAuthCookie, hasAuthStorage].filter(Boolean).length;
+      const loggedIn = signals > 0 && !hasLoggedOutLink;
+      const confidence = signals >= 2 ? 0.95 : signals === 1 ? 0.7 : 0.3;
 
       return responseBuilder.success(
         { loggedIn, confidence, detectedIndicators },

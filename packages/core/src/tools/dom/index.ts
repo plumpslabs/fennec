@@ -148,7 +148,7 @@ export const browserGetDomSnapshot = createTool({
   name: 'browser_get_dom_snapshot',
   category: 'dom',
   description:
-    "`<use_case>DOM inspection</use_case> 🌳 Get a summarized DOM tree — interactable elements, forms, buttons, links, headings, inputs with their attributes. Much lighter than dumping full HTML (~1-5KB / ~50-200 tokens typical). Returns elementCount, interactableCount, depth, structure[] (tree), tagBreakdown, truncated flag when depth limit is hit. Use as your FIRST step on any new page to understand what's there. For full raw HTML, use devtools_evaluate with document.documentElement.outerHTML. For finding specific elements by CSS, use browser_find_elements.`",
+    "`<use_case>DOM inspection</use_case> 🌳 Get a summarized DOM tree — interactable elements, forms, buttons, links, headings, inputs with their attributes (including data-testid and aria-label, so portal/menu items stay distinguishable). Much lighter than dumping full HTML (~1-5KB / ~50-200 tokens typical). Returns elementCount, interactableCount, depth, structure[] (tree), tagBreakdown, truncated flag when depth limit is hit. Use as your FIRST step on any new page to understand what's there. For full raw HTML, use devtools_evaluate with document.documentElement.outerHTML. For finding specific elements by CSS, use browser_find_elements.`",
   inputSchema: z.object({
     selector: z.string().optional().describe('Optional selector to scope the summary'),
     includeAllElements: z
@@ -268,6 +268,12 @@ export const browserGetDomSnapshot = createTool({
               tag,
               text,
               id: node.id || undefined,
+              testid:
+                node.getAttribute('data-testid') ||
+                node.getAttribute('data-test-id') ||
+                node.getAttribute('data-fennec-id') ||
+                undefined,
+              ariaLabel: node.getAttribute('aria-label') || undefined,
               class: String(node.className).slice(0, 100) || undefined,
               role: role || undefined,
               type: (node as HTMLInputElement).type || undefined,

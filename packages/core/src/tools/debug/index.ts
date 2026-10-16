@@ -1530,7 +1530,15 @@ export const debugAutoStats = createTool({
   inputSchema: z.object({}),
   handler: async (_input, { config, responseBuilder }) => {
     if (!isDebugAllowed(config)) {
-      return responseBuilder.error(new Error('Debug disabled'), { code: 'DEBUG_DISABLED' });
+      return responseBuilder.error(
+        new Error(
+          'Debug tools are disabled (config debug.allowDebug is not true). ' +
+            'Set "debug: { allowDebug: true }" in fennec.config.yaml, then restart the server. ' +
+            'Note: a pulse/diagnose "error" does NOT mean auto-debug is running — ' +
+            'those are separate layers. Non-critical noise (401 on /ably/, token refresh, CORS preflights) is already muted in failure counts.',
+        ),
+        { code: 'DEBUG_DISABLED' },
+      );
     }
 
     const mgr = getSnapshotManager();
