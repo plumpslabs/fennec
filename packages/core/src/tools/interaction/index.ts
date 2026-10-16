@@ -113,7 +113,9 @@ export const browserClick = createTool({
           'Use the index parameter to target a specific element — candidates are listed in the candidates field',
         );
         try {
-          const all = await session.browser.locator(resolvedSelector).all();
+          // matcha: enumerasi pakai base selector tanpa nth agar daftar semua kandidat.
+          const baseSelector = resolvedSelector.replace(/\s*>>\s*nth=\d+\s*$/, "");
+          const all = await session.browser.locator(baseSelector).all();
           candidates = [];
           for (let i = 0; i < Math.min(all.length, 10); i++) {
             const text = ((await all[i]!.textContent()) ?? '').trim().slice(0, 80);
